@@ -166,7 +166,7 @@ A bench can have tiers. Its menu shows its tier and, if it can go higher, an Upg
 | --- | --- | --- | --- |
 | Workbench | Spawn portal | 1 dirt | The other benches, and a portal (1 stone, 100 crystals). Tier 2 costs 5 stone, tier 3 costs 5 iron ingots |
 | Woodwork bench | Workbench | 1 wood | Chest (1 wood) |
-| Tool bench | Workbench | 1 stone, 1 flint | Wooden pickaxe, wooden shovel (1 wood, 1 stick each); flint axe, flint shovel (2 flint, 1 stick each). Tier 2, for 5 stone: stone pickaxe, stone shovel (5 stone, 1 stick each) |
+| Tool bench | Workbench | 1 stone, 1 flint | Tools, a tier at a time (see Tools) |
 | Craft bench | Workbench | 1 dirt | Basket (10 sticks) |
 | Kiln | Workbench tier 2 | 10 dirt, 1 stick | Charcoal (1 stick) |
 | Furnace | Workbench tier 2 | 5 stone, 1 stick | One ingot from one ore: copper and tin. Tier 2, for 5 iron ore: iron and gold. Tier 3, for 5 titanium ore: platinum and titanium |
@@ -208,11 +208,20 @@ Every block that can be mined belongs to one kind of tool, and a tool of that ki
 | Pickaxe | Stone, coal, all ores, kiln, furnace |
 | Axe | Tree trunks and leaves, wood, chest, workbench, woodwork bench, tool bench, craft bench |
 
-| Tool | Speed |
-| --- | --- |
-| Wooden pickaxe, wooden shovel | 1.5× |
-| Flint axe, flint shovel | 2× |
-| Stone pickaxe, stone shovel | 3× |
+Every tool also takes 1 stick.
+
+| Tool bench tier | Costs | Tools | From | Speed |
+| --- | --- | --- | --- | --- |
+| 1 | | Wooden pickaxe, wooden shovel | 1 wood | 1.5× |
+| 1 | | Flint axe, flint shovel | 2 flint | 2× |
+| 2 | 5 stone | Stone pickaxe, stone shovel | 5 stone | 3× |
+| 3 | 5 bronze ingots | Bronze pickaxe, bronze axe | 5 bronze ingots | 4× |
+| 3 | | Tin spade (a shovel) | 3 tin ingots | 4× |
+| 4 | 5 iron ingots | Iron pickaxe, iron axe | 5 iron ingots | 5.5× |
+| 4 | | Gold shovel | 3 gold ingots | 5.5× |
+| 5 | 5 titanium ingots | Titanium pickaxe, titanium axe | 5 titanium ingots | 8× |
+
+Bronze ingots are made at the metalwork bench, tier 1, from 1 copper ingot and 2 tin ingots.
 
 Without the right tool a block takes its ordinary time. Tools do not stack and do not wear out.
 

@@ -47,6 +47,18 @@
     {"name": "trade_portal", "label": "Trade portal", "places": "trade_portal", "texture": "items/trade_portal.png", "category": "blocks"},
     {"name": "copper_coin", "label": "Copper coin", "texture": "items/copper_coin.png"},
     {"name": "gold_coin", "label": "Gold coin", "texture": "items/gold_coin.png"},
-    {"name": "platinum_coin", "label": "Platinum coin", "texture": "items/platinum_coin.png"}
+    {"name": "platinum_coin", "label": "Platinum coin", "texture": "items/platinum_coin.png"},
+    {"name": "bronze_ingot", "label": "Bronze ingot", "texture": "items/bronze_ingot.png", "category": "materials"},
+    {"name": "bronze_pickaxe", "label": "Bronze pickaxe", "max_stack": 1, "texture": "items/bronze_pickaxe.png", "category": "tools", "tool": {"class": "pickaxe", "speed": 4.0}},
+    {"name": "bronze_axe", "label": "Bronze axe", "max_stack": 1, "texture": "items/bronze_axe.png", "category": "tools", "tool": {"class": "axe", "speed": 4.0}},
+    {"name": "tin_spade", "label": "Tin spade", "max_stack": 1, "texture": "items/tin_spade.png", "category": "tools", "tool": {"class": "shovel", "speed": 4.0}},
+    {"name": "iron_pickaxe", "label": "Iron pickaxe", "max_stack": 1, "texture": "items/iron_pickaxe.png", "category": "tools", "tool": {"class": "pickaxe", "speed": 5.5}},
+    {"name": "iron_axe", "label": "Iron axe", "max_stack": 1, "texture": "items/iron_axe.png", "category": "tools", "tool": {"class": "axe", "speed": 5.5}},
+    {"name": "gold_shovel", "label": "Gold shovel", "max_stack": 1, "texture": "items/gold_shovel.png", "category": "tools", "tool": {"class": "shovel", "speed": 5.5}},
+    {"name": "titanium_pickaxe", "label": "Titanium pickaxe", "max_stack": 1, "texture": "items/titanium_pickaxe.png", "category": "tools", "tool": {"class": "pickaxe", "speed": 8.0}},
+    {"name": "titanium_axe", "label": "Titanium axe", "max_stack": 1, "texture": "items/titanium_axe.png", "category": "tools", "tool": {"class": "axe", "speed": 8.0}},
+    {"name": "tool_bench_3", "label": "Tool bench III", "places": "tool_bench_3", "texture": "items/tool_bench_3.png", "category": "benches"},
+    {"name": "tool_bench_4", "label": "Tool bench IV", "places": "tool_bench_4", "texture": "items/tool_bench_4.png", "category": "benches"},
+    {"name": "tool_bench_5", "label": "Tool bench V", "places": "tool_bench_5", "texture": "items/tool_bench_5.png", "category": "benches"}
   ]
 }

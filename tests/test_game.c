@@ -997,7 +997,7 @@ static void test_work_benches(void)
     /* Tool bench: wooden and flint tools at tier 1, stone tools at tier 2 (5 stone). */
     CHECK(place_and_open(&g, "tool_bench", x + 4));
     const Recipe *list[16];
-    CHECK(bench_recipes(tool1, list, 16) == 6);
+    CHECK(bench_recipes(tool1, list, 16) == 14);
     CHECK(costs(find_recipe(tool1, "wooden_pickaxe"), "wood", 1, "stick", 1));
     CHECK(costs(find_recipe(tool1, "wooden_shovel"), "wood", 1, "stick", 1));
     CHECK(costs(find_recipe(tool1, "flint_axe"), "flint", 2, "stick", 1));
@@ -1912,6 +1912,79 @@ static void test_trade(void)
     game_free(&g);
 }
 
+static void test_metal_tools(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 30, WORLD_FLAT);
+    Inventory *inv = &g.inventory;
+    int s = g.world.surface_y, x = g.world.spawn_x + 4;
+    TileType tb = tile_id("tool_bench"), mw = tile_id("metalwork_bench");
+
+    /* Bronze: 1 copper and 2 tin ingots at the metalwork bench. */
+    const Recipe *bronze = find_recipe(mw, "bronze_ingot");
+    CHECK(costs(bronze, "copper_ingot", 1, "tin_ingot", 2) && bronze->level == 1);
+
+    /* The tool bench climbs a tier for 5 ingots of each metal in turn. */
+    static const char *tier_cost[] = { "stone", "bronze_ingot", "iron_ingot", "titanium_ingot" };
+    TileType tier = tb;
+    for (int i = 0; i < 4; i++) {
+        const TileDef *def = tile_def(tier);
+        CHECK(def->bench_level == i + 1 && def->upgrade_to != TILE_AIR && def->upgrade_cost_count == 1);
+        CHECK(def->upgrade_cost[0].id == item_id(tier_cost[i]) && def->upgrade_cost[0].count == 5);
+        tier = def->upgrade_to;
+    }
+    CHECK(tile_def(tier)->bench_level == 5 && tile_def(tier)->upgrade_to == TILE_AIR);
+
+    /* Each metal's pickaxe and axe take 5 ingots and a stick, at its tier. */
+    static const char *metals[] = { "bronze", "iron", "titanium" };
+    float last = item_def(item_id("stone_pickaxe"))->tool_speed;
+    for (int i = 0; i < 3; i++) {
+        const char *ingot = TextName("%s_ingot", metals[i]);
+        const Recipe *pick = find_recipe(tb, TextName2("%s_pickaxe", metals[i]));
+        CHECK(costs(pick, ingot, 5, "stick", 1) && pick->level == i + 3);
+        const Recipe *axe = find_recipe(tb, TextName2("%s_axe", metals[i]));
+        CHECK(costs(axe, ingot, 5, "stick", 1) && axe->level == i + 3);
+        /* And each is faster than the one before. */
+        const ItemDef *p = item_def(pick->output.id), *a = item_def(axe->output.id);
+        CHECK(p->tool_class == tool_class_id("pickaxe") && a->tool_class == tool_class_id("axe"));
+        CHECK(p->tool_speed > last && a->tool_speed == p->tool_speed && p->max_stack == 1);
+        last = p->tool_speed;
+    }
+    /* A tin spade with the bronze tools, a gold shovel with the iron ones. */
+    CHECK(costs(find_recipe(tb, "tin_spade"), "tin_ingot", 3, "stick", 1) && find_recipe(tb, "tin_spade")->level == 3);
+    CHECK(costs(find_recipe(tb, "gold_shovel"), "gold_ingot", 3, "stick", 1) && find_recipe(tb, "gold_shovel")->level == 4);
+    CHECK(item_def(item_id("tin_spade"))->tool_class == tool_class_id("shovel"));
+    CHECK(item_def(item_id("gold_shovel"))->tool_class == tool_class_id("shovel"));
+    CHECK(item_def(item_id("tin_spade"))->tool_speed > item_def(item_id("stone_shovel"))->tool_speed);
+    CHECK(item_def(item_id("gold_shovel"))->tool_speed > item_def(item_id("tin_spade"))->tool_speed);
+
+    /* Played through: smelt bronze, raise the bench to tier 3, make the pickaxe. */
+    CHECK(place_and_open(&g, "metalwork_bench", x));
+    inventory_add(inv, item_id("copper_ingot"), 10);
+    inventory_add(inv, item_id("tin_ingot"), 20);
+    CHECK(game_craft(&g, bronze, 10));
+    run(&g, 1.5f);
+    CHECK(count_item(&g, item_id("bronze_ingot")) == 10 && count_item(&g, item_id("tin_ingot")) == 0);
+    int bronze_slot = -1;
+    for (int i = 0; i < INVENTORY_SLOTS; i++)
+        if (inv->slots[i].id == item_id("bronze_ingot")) bronze_slot = i;
+    ItemStack kept = inv->slots[bronze_slot];
+
+    CHECK(place_and_open(&g, "tool_bench_2", x + 2));
+    inv->slots[1] = kept;
+    inventory_add(inv, ITEM_STICK, 1);
+    const Recipe *pick = find_recipe(tb, "bronze_pickaxe");
+    CHECK(!game_craft(&g, pick, 1));
+    CHECK(game_upgrade_bench(&g) && world_get_at(&g.world, BG, x + 2, s - 1) == tile_id("tool_bench_3"));
+    CHECK(count_item(&g, item_id("bronze_ingot")) == 5);
+    CHECK(game_craft(&g, pick, 1) && !game_craft(&g, find_recipe(tb, "iron_pickaxe"), 1));
+    run(&g, 0.3f);
+    CHECK(count_item(&g, item_id("bronze_pickaxe")) == 1 && count_item(&g, item_id("bronze_ingot")) == 0);
+    CHECK(about(game_mine_time(&g, TILE_STONE),
+                tile_def(TILE_STONE)->mine_time / item_def(item_id("bronze_pickaxe"))->tool_speed));
+    game_free(&g);
+}
+
 static void test_tools(void)
 {
     Game g;
@@ -2215,6 +2288,7 @@ int main(void)
     test_bench();
     test_work_benches();
     test_tools();
+    test_metal_tools();
     test_crystals_and_coins();
     test_trade();
     test_wrap();
