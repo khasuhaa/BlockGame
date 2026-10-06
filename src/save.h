@@ -12,6 +12,20 @@ bool save_game(const Game *g, const char *path);
  * left empty. Actions that were queued when the game was saved are not kept. */
 bool load_game(Game *g, const char *path);
 
+#define PREVIEW_RADIUS 10
+#define PREVIEW_SIZE (2 * PREVIEW_RADIUS + 1)
+
+/* The blocks around a saved world's spawn point, every layer, row by row. */
+typedef struct {
+    uint8_t tiles[LAYER_COUNT][PREVIEW_SIZE * PREVIEW_SIZE];
+    uint64_t tick;
+} WorldPreview;
+
+/* Reads only the spawn area out of a save: PREVIEW_RADIUS tiles each way,
+ * with whatever has been built or dug there. Much cheaper than loading the
+ * world. Returns false if the file is not a save this game can read. */
+bool save_read_preview(const char *path, WorldPreview *out);
+
 /* What belongs to the player rather than to any one world: their crystals,
  * and what is in the shared chest. It is kept in a small file of its own. A
  * missing file is a new player, who starts with what the data gives them. */

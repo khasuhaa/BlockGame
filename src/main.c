@@ -578,6 +578,7 @@ int main(void)
                     session_save(&session);
                     game_free(&session.game);
                     playing = false;
+                    menu.listed = false; /* show the world as it was left */
                 }
             }
         }

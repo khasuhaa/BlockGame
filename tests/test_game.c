@@ -1487,6 +1487,34 @@ static void test_save(void)
     CHECK(is_idle(&loaded) && loaded.player.feet.x == world_wrap_x(&loaded.world, start.x + 5));
     game_free(&loaded);
 
+    /* The menu's preview reads just the spawn area out of the file: every
+     * layer, with what has been built and dug there. */
+    WorldPreview pv;
+    world_set(&g.world, g.world.spawn_x + 2, g.world.spawn_y, TILE_STONE);
+    world_set_at(&g.world, BG, g.world.spawn_x - 3, g.world.spawn_y, tile_id("torch"));
+    world_set(&g.world, g.world.spawn_x + 6, g.world.spawn_y + 2, TILE_AIR);
+    CHECK(save_game(&g, path) && save_read_preview(path, &pv) && pv.tick == g.tick);
+    int wrong = 0;
+    for (int dy = 0; dy < PREVIEW_SIZE; dy++) {
+        for (int dx = 0; dx < PREVIEW_SIZE; dx++) {
+            int wx = g.world.spawn_x - PREVIEW_RADIUS + dx, wy = g.world.spawn_y - 1 - PREVIEW_RADIUS + dy;
+            for (int layer = 0; layer < LAYER_COUNT; layer++)
+                if (pv.tiles[layer][dy * PREVIEW_SIZE + dx] != world_get_at(&g.world, layer, wx, wy)) wrong++;
+        }
+    }
+    CHECK(wrong == 0);
+    CHECK(pv.tiles[0][(PREVIEW_RADIUS + 1) * PREVIEW_SIZE + PREVIEW_RADIUS + 2] == TILE_STONE);
+    CHECK(pv.tiles[BG][(PREVIEW_RADIUS + 1) * PREVIEW_SIZE + PREVIEW_RADIUS - 3] == tile_id("torch"));
+    CHECK(pv.tiles[LAYER_WALL][(PREVIEW_RADIUS + 3) * PREVIEW_SIZE + PREVIEW_RADIUS + 6] == TILE_DIRT);
+    /* A spawn beside the seam shows the far side of the world next to it. */
+    int old_x = g.world.spawn_x;
+    g.world.spawn_x = 2;
+    world_set(&g.world, 62, g.world.spawn_y, TILE_STONE);
+    CHECK(save_game(&g, path) && save_read_preview(path, &pv));
+    CHECK(pv.tiles[0][(PREVIEW_RADIUS + 1) * PREVIEW_SIZE + PREVIEW_RADIUS - 4] == TILE_STONE);
+    g.world.spawn_x = old_x;
+    CHECK(!save_read_preview("build/no_such_file.world", &pv) && !save_read_preview("Makefile", &pv));
+
     CHECK(!load_game(&loaded, "build/no_such_file.world"));
     CHECK(!load_game(&loaded, "Makefile"));
     game_free(&g);

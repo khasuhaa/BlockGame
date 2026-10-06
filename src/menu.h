@@ -2,9 +2,11 @@
 #define MENU_H
 
 #include "game.h"
+#include "save.h"
 
 #define SAVE_DIR "saves"
 #define WORLD_NAME_MAX 24
+#define MAX_LISTED_WORLDS 64
 
 /* ---- key bindings ------------------------------------------------------ */
 
@@ -35,12 +37,27 @@ typedef enum {
     MAIN_MENU_QUIT
 } MainMenuResult;
 
+/* A saved world as the menu shows it. */
+typedef struct {
+    char name[WORLD_NAME_MAX + 1];
+    char path[256];
+    bool has_preview;
+    WorldPreview preview;
+} ListedWorld;
+
 typedef struct {
     bool creating; /* on the "new world" screen */
     char name[WORLD_NAME_MAX + 1];
     char error[96];
-    float scroll;
     char path[256];
+
+    /* The saved worlds, side by side: one is in the middle, and the row
+     * slides left and right to bring another there. */
+    bool listed;    /* the list below is up to date; clear it to have the saves read again */
+    ListedWorld worlds[MAX_LISTED_WORLDS];
+    int world_count;
+    int selected;
+    float slide;    /* where the row has slid to, in worlds; eases toward `selected` */
 } MainMenu;
 
 /* Runs and draws one frame of the main menu. Call between BeginDrawing and

@@ -34,7 +34,7 @@ The loader can read a second directory on top of the first, adding new definitio
 
 ## Menus and saves
 
-The game opens on a main menu listing the saved worlds. Pick one to join it, or choose "New world", give it a name, and a fresh world is generated from a random seed.
+The game opens on a main menu with the saved worlds side by side. Each is shown as a picture of its spawn area - the ten blocks around the spawn portal, with whatever has been built or dug there - fading out toward the edges. The arrow keys, the mouse wheel, the arrow buttons or a click on a world to the side slide the row along; Play, Enter or a click on the world in the middle joins it. "New world" asks for a name and generates a fresh world from a random seed.
 
 Worlds are saved in `saves/<name>.world`, next to where the game is run from. A save records its blocks and items by name, so it still loads after the data files change; anything that no longer exists is removed from it. Saves made by earlier versions of the game still load. A world is saved when it is created, every two minutes while playing, on "Save and quit to menu", and when the window is closed. Actions still queued at that moment are not kept.
 

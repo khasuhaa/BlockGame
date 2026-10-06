@@ -1,6 +1,7 @@
 #include "save.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
@@ -265,6 +266,58 @@ bool load_game(Game *g, const char *path)
     }
     fclose(f);
     if (!ok) memset(g, 0, sizeof *g);
+    return ok;
+}
+
+bool save_read_preview(const char *path, WorldPreview *out)
+{
+    memset(out, 0, sizeof *out);
+    FILE *f = fopen(path, "rb");
+    if (!f) return false;
+
+    SaveHeader h;
+    uint8_t tiles[256], items[256];
+    bool ok = fread(&h, sizeof h, 1, f) == 1 && h.magic == SAVE_MAGIC && h.version >= 1 &&
+              h.version <= SAVE_VERSION && h.width > 0 && h.height > 0 && h.width <= 1 << 16 &&
+              h.height <= 1 << 12;
+    if (ok && h.version == 1)
+        legacy_names(tiles, legacy_tiles, (int)(sizeof legacy_tiles / sizeof legacy_tiles[0]),
+                     tile_id_or_alias);
+    else if (ok)
+        ok = read_names(f, tiles, tile_id_or_alias) && read_names(f, items, item_id);
+
+    /* The layers follow, one after another, each a row at a time. */
+    long layers_at = ok ? ftell(f) : -1;
+    int saved_layers = h.version < 5 ? BLOCK_LAYERS : LAYER_COUNT;
+    uint8_t *row = ok ? malloc((size_t)h.width) : NULL;
+    ok = ok && row && layers_at >= 0;
+    for (int layer = 0; layer < saved_layers && ok; layer++) {
+        for (int dy = 0; dy < PREVIEW_SIZE && ok; dy++) {
+            int y = h.spawn_y - 1 - PREVIEW_RADIUS + dy;
+            if (y < 0 || y >= h.height) continue;
+            long at = layers_at + ((long)layer * h.height + y) * h.width;
+            ok = fseek(f, at, SEEK_SET) == 0 && fread(row, 1, (size_t)h.width, f) == (size_t)h.width;
+            for (int dx = 0; dx < PREVIEW_SIZE && ok; dx++) {
+                int x = ((h.spawn_x - PREVIEW_RADIUS + dx) % h.width + h.width) % h.width;
+                out->tiles[layer][dy * PREVIEW_SIZE + dx] = tiles[row[x]];
+            }
+        }
+    }
+    /* As on loading: old worlds had trees in front, and no backwalls. */
+    for (int i = 0; ok && i < PREVIEW_SIZE * PREVIEW_SIZE; i++) {
+        TileType front = out->tiles[LAYER_FOREGROUND][i];
+        const TileDef *def = tile_def(front);
+        int kind = def->log_of >= 0 ? def->log_of : def->leaves_of;
+        if (h.version == 1 && kind >= 0 && content.trees[kind].layer != LAYER_FOREGROUND) {
+            out->tiles[content.trees[kind].layer][i] = (uint8_t)front;
+            out->tiles[LAYER_FOREGROUND][i] = TILE_AIR;
+        } else if (h.version < 5 && def->wall) {
+            out->tiles[LAYER_WALL][i] = (uint8_t)front;
+        }
+    }
+    out->tick = h.tick;
+    free(row);
+    fclose(f);
     return ok;
 }
 
