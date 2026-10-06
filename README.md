@@ -23,7 +23,7 @@ Everything the game contains is defined in `data/`, not in the code, so it can b
 | `items.json` | Items: label, stack size, how many slots they hold inside them and whether those open from the bar, what block they place, what tree they plant, and their texture |
 | `recipes.json` | What each kind of bench makes, from what, and at what bench level |
 | `trees.json` | Tree kinds: their blocks, fruit, full height, the shape of the crown row by row, which layer they grow in, and what they can be planted on |
-| `worldgen.json` | World size, the plains, the mountains and valleys (any number of kinds), soil layers, the spawn and its portal, and how trees are scattered |
+| `worldgen.json` | World size, the plains, the mountains and valleys (any number of kinds), soil layers, veins (what, in what, how big, how deep, how common, what shape), the spawn and its portal, and how trees are scattered |
 | `rules.json` | Tick rate, day and night length, player step timings, starting items, and how drops behave |
 | `textures/` | PNG images, 32 pixels to the block. A block can list several to vary between; one larger than a block overhangs it |
 
@@ -84,6 +84,19 @@ The land is plains broken up by mountains and valleys, always with a stretch of 
 - **Mountains** rise 10 to 60 blocks above the plains in ledges of up to 3 blocks.
 - **Steep valleys** drop 10 to 60 blocks down sheer walls to a flat floor.
 - **Smooth valleys** drop 10 to 60 blocks along a long, gentle slope.
+
+Veins of other blocks run through the ground:
+
+| Vein | Found in | Size | How common |
+| --- | --- | --- | --- |
+| Flint | Dirt, never touching open air | 4–10 | Fairly common |
+| Copper, tin | Stone, down to about 90 below the surface | 2–6 | Common |
+| Copper, tin | Dirt | 2–6 | Fairly common |
+| Copper, tin "scratches" | Stone: one long thin line on a shallow slant | 10–30 | Rare |
+| Iron, gold | Stone, deeper | 2–8 | Rarer |
+| Platinum, titanium | Stone, deepest | 2–3 | Rarest |
+
+Veins of the same material never touch, so each stays within its size. Mining flint gives flint and mining any ore gives that ore; the harder ores take longer to mine.
 
 Columns are grass over dirt over stone. The dirt is 4 or 5 blocks deep on the plains and thins out gradually up a mountain or down a valley, so peaks and valley floors are bare stone. Stone takes twice as long to mine as dirt. Grass drops dirt.
 

@@ -1,19 +1,21 @@
 {
   "items": [
-    { "name": "basket", "label": "Basket", "max_stack": 1,
-      "container": { "slots": 4, "open_in_inventory": true },
-      "texture": "items/basket.png" },
-    { "name": "dirt", "label": "Dirt", "places": "dirt", "texture": "items/dirt.png" },
-    { "name": "workbench", "label": "Workbench", "places": "workbench",
-      "texture": "items/workbench.png" },
-    { "name": "stone", "label": "Stone", "places": "stone", "texture": "items/stone.png" },
-    { "name": "stick", "label": "Stick", "texture": "items/stick.png" },
-    { "name": "wood", "label": "Wood", "places": "wood", "texture": "items/wood.png" },
-    { "name": "acorn", "label": "Acorn", "plants": "oak", "texture": "items/acorn.png" },
-    { "name": "cherry", "label": "Cherry", "plants": "cherry", "texture": "items/cherry.png" },
-    { "name": "workbench_2", "label": "Workbench II", "places": "workbench_2",
-      "texture": "items/workbench_2.png" },
-    { "name": "chest", "label": "Chest", "places": "chest", "container": { "slots": 16 },
-      "texture": "items/chest.png" }
+    {"name": "basket", "label": "Basket", "max_stack": 1, "container": {"slots": 4, "open_in_inventory": true}, "texture": "items/basket.png"},
+    {"name": "dirt", "label": "Dirt", "places": "dirt", "texture": "items/dirt.png"},
+    {"name": "workbench", "label": "Workbench", "places": "workbench", "texture": "items/workbench.png"},
+    {"name": "stone", "label": "Stone", "places": "stone", "texture": "items/stone.png"},
+    {"name": "stick", "label": "Stick", "texture": "items/stick.png"},
+    {"name": "wood", "label": "Wood", "places": "wood", "texture": "items/wood.png"},
+    {"name": "acorn", "label": "Acorn", "plants": "oak", "texture": "items/acorn.png"},
+    {"name": "cherry", "label": "Cherry", "plants": "cherry", "texture": "items/cherry.png"},
+    {"name": "workbench_2", "label": "Workbench II", "places": "workbench_2", "texture": "items/workbench_2.png"},
+    {"name": "chest", "label": "Chest", "places": "chest", "container": {"slots": 16}, "texture": "items/chest.png"},
+    {"name": "flint", "label": "Flint", "texture": "items/flint.png"},
+    {"name": "copper_ore", "label": "Copper ore", "texture": "items/copper_ore.png"},
+    {"name": "tin_ore", "label": "Tin ore", "texture": "items/tin_ore.png"},
+    {"name": "iron_ore", "label": "Iron ore", "texture": "items/iron_ore.png"},
+    {"name": "gold_ore", "label": "Gold ore", "texture": "items/gold_ore.png"},
+    {"name": "platinum_ore", "label": "Platinum ore", "texture": "items/platinum_ore.png"},
+    {"name": "titanium_ore", "label": "Titanium ore", "texture": "items/titanium_ore.png"}
   ]
 }

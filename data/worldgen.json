@@ -30,5 +30,33 @@
     "portal": { "base": "portal_base", "body": "spawn_portal", "top": "spawn_portal_top", "height": 3 }
   },
 
+  "veins": [
+    { "name": "flint", "tile": "flint", "in": ["dirt"], "size": [4, 10],
+      "per_100_columns": 14, "depth": [1, 6], "buried": true },
+
+    { "name": "copper", "tile": "copper_ore", "in": ["stone"], "size": [2, 6],
+      "per_100_columns": 30, "depth": [1, 90] },
+    { "name": "tin", "tile": "tin_ore", "in": ["stone"], "size": [2, 6],
+      "per_100_columns": 30, "depth": [1, 90] },
+    { "name": "copper_in_dirt", "tile": "copper_dirt", "in": ["dirt"], "size": [2, 6],
+      "per_100_columns": 5, "depth": [1, 6] },
+    { "name": "tin_in_dirt", "tile": "tin_dirt", "in": ["dirt"], "size": [2, 6],
+      "per_100_columns": 5, "depth": [1, 6] },
+    { "name": "copper_mega", "tile": "copper_ore", "in": ["stone"], "size": [10, 30],
+      "shape": "streak", "per_100_columns": 1.2, "depth": [4, 110] },
+    { "name": "tin_mega", "tile": "tin_ore", "in": ["stone"], "size": [10, 30],
+      "shape": "streak", "per_100_columns": 1.2, "depth": [4, 110] },
+
+    { "name": "iron", "tile": "iron_ore", "in": ["stone"], "size": [2, 8],
+      "per_100_columns": 12, "depth": [8, 150] },
+    { "name": "gold", "tile": "gold_ore", "in": ["stone"], "size": [2, 8],
+      "per_100_columns": 9, "depth": [20, 170] },
+
+    { "name": "platinum", "tile": "platinum_ore", "in": ["stone"], "size": [2, 3],
+      "per_100_columns": 3, "depth": [50, 195] },
+    { "name": "titanium", "tile": "titanium_ore", "in": ["stone"], "size": [2, 3],
+      "per_100_columns": 3, "depth": [60, 195] }
+  ],
+
   "tree_placement": { "one_in": 10, "spacing": 7, "spawn_clearance": 8, "grown_chance": 0.5, "max_young_steps": 20 }
 }

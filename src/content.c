@@ -395,6 +395,39 @@ static bool read_worldgen(Reader *r, const cJSON *root)
             if (strcmp(profile, profiles[i]) == 0) f->profile = (FeatureProfile)i;
     }
 
+    cJSON_ArrayForEach(e, field(root, "veins")) {
+        const char *name = str(e, "name");
+        if (!name) return fail(r, "a vein has no \"name\"");
+        int id = -1;
+        for (int i = 0; i < content.vein_count; i++)
+            if (strcmp(content.veins[i].name, name) == 0) id = i;
+        if (id < 0) {
+            if (content.vein_count >= MAX_VEINS) return fail(r, "too many veins");
+            id = content.vein_count++;
+        }
+        VeinDef *v = &content.veins[id];
+        memset(v, 0, sizeof *v);
+        copy_name(v->name, sizeof v->name, name);
+        if (!tile_ref(r, e, "tile", &v->tile)) return false;
+        if (v->tile == TILE_AIR) return fail(r, "vein \"%s\" needs a \"tile\"", name);
+        const cJSON *host;
+        cJSON_ArrayForEach(host, field(e, "in")) {
+            TileType t = cJSON_IsString(host) ? tile_id(host->valuestring) : -1;
+            if (t < 0) return fail(r, "vein \"%s\": \"in\" names a tile that does not exist", name);
+            if (v->host_count < MAX_VEIN_HOSTS) v->hosts[v->host_count++] = t;
+        }
+        if (v->host_count == 0) return fail(r, "vein \"%s\" needs \"in\": the blocks it forms in", name);
+        v->min_size = v->max_size = 4;
+        pair(e, "size", &v->min_size, &v->max_size);
+        if (v->min_size < 1 || v->max_size < v->min_size || v->max_size > MAX_VEIN_SIZE)
+            return fail(r, "vein \"%s\": \"size\" must be within 1 to %d", name, MAX_VEIN_SIZE);
+        v->max_depth = 1000;
+        pair(e, "depth", &v->min_depth, &v->max_depth);
+        v->per_100_columns = (float)num(e, "per_100_columns", 1.0);
+        v->buried = flag(e, "buried", false);
+        v->shape = str(e, "shape") && strcmp(str(e, "shape"), "streak") == 0 ? VEIN_STREAK : VEIN_BLOB;
+    }
+
     const cJSON *layers = field(root, "layers");
     if (layers) {
         if (!tile_ref(r, layers, "surface", &g->surface) || !tile_ref(r, layers, "soil", &g->soil) ||

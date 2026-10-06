@@ -116,6 +116,86 @@ static void limit_steps(World *w, int *level, int center, int half, int max_step
     }
 }
 
+/* ---- veins ------------------------------------------------------------- */
+
+typedef struct {
+    int x, y;
+} Cell;
+
+static bool vein_can_take(const World *w, const VeinDef *v, int x, int y)
+{
+    static const int dirs[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
+    TileType t = world_get(w, x, y);
+    bool host = false;
+    for (int i = 0; i < v->host_count; i++) host = host || v->hosts[i] == t;
+    if (!host || !world_in_bounds(w, x, y)) return false;
+    /* A buried vein keeps a solid block between itself and the open air. */
+    for (int i = 0; v->buried && i < 4; i++)
+        if (!world_is_solid(w, x + dirs[i][0], y + dirs[i][1])) return false;
+    /* Veins of one material keep clear of each other, corners included, so
+     * two never join into one that is bigger than it should be. */
+    for (int dy = -1; dy <= 1; dy++)
+        for (int dx = -1; dx <= 1; dx++)
+            if (world_get(w, x + dx, y + dy) == v->tile) return false;
+    return true;
+}
+
+static bool vein_add(const World *w, const VeinDef *v, Cell *cells, int *count, int x, int y)
+{
+    x = world_wrap_x(w, x);
+    for (int i = 0; i < *count; i++)
+        if (cells[i].x == x && cells[i].y == y) return false;
+    if (!vein_can_take(w, v, x, y)) return false;
+    cells[(*count)++] = (Cell){ x, y };
+    return true;
+}
+
+/* Grows one vein from a starting block and writes it into the world, unless
+ * it could not reach its smallest size, in which case nothing changes. */
+static void place_vein(World *w, const VeinDef *v, uint32_t *rng, int x, int y)
+{
+    static const int dirs[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
+    Cell cells[MAX_VEIN_SIZE];
+    int count = 0, target = rng_range(rng, v->min_size, v->max_size);
+    if (!vein_add(w, v, cells, &count, x, y)) return;
+
+    if (v->shape == VEIN_STREAK) {
+        /* A scratch: it runs sideways on a shallow slant, wandering a little. */
+        float fy = (float)y, slope = rng_unit(rng) * 1.2f - 0.6f;
+        int dir = rng_range(rng, 0, 1) ? 1 : -1;
+        for (int step = 1; count < target; step++) {
+            fy += slope + (rng_unit(rng) - 0.5f) * 0.6f;
+            /* It ends where it runs out of rock to cut through. */
+            if (!vein_add(w, v, cells, &count, x + dir * step, (int)floorf(fy + 0.5f))) break;
+        }
+    } else {
+        /* A clump: each new block is put beside one already in it. */
+        for (int tries = target * 24; tries > 0 && count < target; tries--) {
+            Cell from = cells[rng_range(rng, 0, count - 1)];
+            const int *d = dirs[rng_range(rng, 0, 3)];
+            vein_add(w, v, cells, &count, from.x + d[0], from.y + d[1]);
+        }
+    }
+
+    if (count < v->min_size) return;
+    for (int i = 0; i < count; i++) world_set(w, cells[i].x, cells[i].y, v->tile);
+}
+
+/* Scatters every kind of vein through the columns. `level` is each column's feet level. */
+static void place_veins(World *w, const int *level, uint32_t *rng)
+{
+    for (int k = 0; k < content.vein_count; k++) {
+        const VeinDef *v = &content.veins[k];
+        float wanted = v->per_100_columns * (float)w->width / 100.0f;
+        int attempts = (int)wanted + (rng_unit(rng) < wanted - floorf(wanted) ? 1 : 0);
+        for (int i = 0; i < attempts; i++) {
+            int x = rng_range(rng, 0, w->width - 1);
+            int top = world_y_to_row(w, level[x] - 1);
+            place_vein(w, v, rng, x, top + rng_range(rng, v->min_depth, v->max_depth));
+        }
+    }
+}
+
 static int pick_tree(uint32_t *rng)
 {
     int total = 0;
@@ -205,6 +285,8 @@ static bool generate_terrain(World *w)
             world_set(w, x, y, below >= soil ? gen->rock : below == 0 ? gen->surface : gen->soil);
         }
     }
+
+    place_veins(w, level, &rng);
 
     /* Trees stand on the plains' surface, at every stage of growth from a
      * lone trunk block to full size. */

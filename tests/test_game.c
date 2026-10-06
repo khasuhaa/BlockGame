@@ -637,6 +637,27 @@ static int column_level(const World *w, int x)
     return world_row_to_y(w, row) + 1;
 }
 
+/* Soil is dirt and whatever veins form in dirt; rock likewise for stone. */
+static bool vein_in(TileType t, TileType host)
+{
+    for (int i = 0; i < content.vein_count; i++) {
+        const VeinDef *v = &content.veins[i];
+        for (int h = 0; h < v->host_count; h++)
+            if (v->tile == t && v->hosts[h] == host) return true;
+    }
+    return false;
+}
+
+static bool in_soil(TileType t)
+{
+    return t == TILE_DIRT || vein_in(t, TILE_DIRT);
+}
+
+static bool in_rock(TileType t)
+{
+    return t == TILE_STONE || vein_in(t, TILE_STONE);
+}
+
 static void test_terrain(void)
 {
     bool saw_mountain = false, saw_valley = false, saw_oak = false, saw_cherry = false;
@@ -661,12 +682,13 @@ static void test_terrain(void)
             if (level > hi) hi = level;
             if (step > max_step) max_step = step;
 
-            /* Top to bottom: at most one grass, then dirt, then stone all the way. */
+            /* Top to bottom: at most one grass, then soil, then rock all the
+             * way, each with its own veins in it. */
             int dirt = 0, y = top;
             if (world_get(&w, x, y) == TILE_GRASS || world_get(&w, x, y) == TILE_PORTAL_BASE) y++, dirt++;
-            while (world_get(&w, x, y) == TILE_DIRT) y++, dirt++;
+            while (in_soil(world_get(&w, x, y))) y++, dirt++;
             for (; y < w.height; y++)
-                if (world_get(&w, x, y) != TILE_STONE) bad++;
+                if (!in_rock(world_get(&w, x, y))) bad++;
             if (dirt > 6) bad++;
             /* High peaks and deep floors are bare stone; the plains are not. */
             if ((level > 45 || level < -25) && dirt != 0) bad++;
@@ -1050,6 +1072,119 @@ static void test_planting(void)
     game_free(&g);
 }
 
+/* Sizes of the connected groups of one tile in a world. */
+typedef struct {
+    int blocks, groups, smallest, largest, widest;
+    int over; /* groups bigger than `limit` */
+} VeinStats;
+
+static VeinStats vein_stats(const World *w, TileType tile, int limit)
+{
+    VeinStats st = { 0, 0, 1 << 30, 0, 0, 0 };
+    size_t cells = (size_t)w->width * w->height;
+    uint8_t *seen = calloc(cells, 1);
+    int *stack = malloc(sizeof(int) * cells);
+    for (int start = 0; start < (int)cells; start++) {
+        if (seen[start] || w->layers[0][start] != tile) continue;
+        int n = 0, top = 0, min_x = w->width, max_x = -1;
+        stack[top++] = start;
+        seen[start] = 1;
+        while (top > 0) {
+            int c = stack[--top], x = c % w->width, y = c / w->width;
+            n++;
+            if (x < min_x) min_x = x;
+            if (x > max_x) max_x = x;
+            /* Blocks touching at a corner count as joined: a scratch runs diagonally. */
+            for (int d = 0; d < 9; d++) {
+                int nx = world_wrap_x(w, x + d % 3 - 1), ny = y + d / 3 - 1;
+                if (ny < 0 || ny >= w->height) continue;
+                int next = ny * w->width + nx;
+                if (seen[next] || w->layers[0][next] != tile) continue;
+                seen[next] = 1;
+                stack[top++] = next;
+            }
+        }
+        st.blocks += n;
+        st.groups++;
+        if (n < st.smallest) st.smallest = n;
+        if (n > st.largest) st.largest = n;
+        if (max_x - min_x + 1 > st.widest && max_x - min_x < w->width / 2) st.widest = max_x - min_x + 1;
+        if (n > limit) st.over++;
+    }
+    free(seen);
+    free(stack);
+    return st;
+}
+
+static void test_veins(void)
+{
+    static const char *ores[] = { "copper_ore", "tin_ore", "iron_ore", "gold_ore", "platinum_ore",
+                                  "titanium_ore" };
+    int total[6] = { 0 }, flint_total = 0, dirt_copper = 0, dirt_tin = 0, mega = 0;
+
+    for (uint32_t seed = 1; seed <= 6; seed++) {
+        World w;
+        CHECK(world_init(&w, 2048, 401, seed, WORLD_TERRAIN));
+        TileType flint = tile_id("flint");
+
+        /* Flint: veins of 4 to 10 in the dirt, never touching the open air. */
+        VeinStats fs = vein_stats(&w, flint, 10);
+        CHECK(fs.groups > 20 && fs.smallest >= 4 && fs.largest <= 10 && fs.over == 0);
+        flint_total += fs.blocks;
+        int exposed = 0, misplaced = 0;
+        for (int y = 1; y < w.height - 1; y++) {
+            for (int x = 0; x < w.width; x++) {
+                TileType t = world_get(&w, x, y);
+                if (t == flint) {
+                    if (!world_is_solid(&w, x, y - 1) || !world_is_solid(&w, x + 1, y) ||
+                        !world_is_solid(&w, x - 1, y) || !world_is_solid(&w, x, y + 1))
+                        exposed++;
+                }
+                /* Nothing is left hanging in the air or sitting on the grass. */
+                if (vein_in(t, TILE_STONE) && !vein_in(t, TILE_DIRT) && world_get(&w, x, y + 1) == TILE_AIR)
+                    misplaced++;
+            }
+        }
+        CHECK(exposed == 0 && misplaced == 0);
+
+        /* Ores: every kind is somewhere in every world, in veins of its size. */
+        for (int i = 0; i < 6; i++) {
+            int limit = i < 2 ? 30 : i < 4 ? 8 : 3;
+            VeinStats st = vein_stats(&w, tile_id(ores[i]), limit);
+            CHECK(st.groups > 0 && st.smallest >= 2 && st.over == 0);
+            total[i] += st.blocks;
+            /* Copper and tin also come in long scratches of 10 to 30 blocks. */
+            if (i < 2) {
+                CHECK(st.largest >= 10 && st.widest >= 8);
+                /* Every vein is either an ordinary one or a scratch, and the
+                 * scratches are much the rarer. */
+                VeinStats small = vein_stats(&w, tile_id(ores[i]), 6);
+                VeinStats gap = vein_stats(&w, tile_id(ores[i]), 9);
+                CHECK(small.over == gap.over && small.over > 0 && small.over * 8 < small.groups);
+                mega += small.over;
+            }
+        }
+        dirt_copper += vein_stats(&w, tile_id("copper_dirt"), 6).blocks;
+        dirt_tin += vein_stats(&w, tile_id("tin_dirt"), 6).blocks;
+        world_free(&w);
+    }
+
+    /* Copper and tin are the common ones, iron and gold rarer, platinum and
+     * titanium rarest. */
+    int common = total[0] < total[1] ? total[0] : total[1];
+    int middle_hi = total[2] > total[3] ? total[2] : total[3];
+    int middle_lo = total[2] < total[3] ? total[2] : total[3];
+    int rare = total[4] > total[5] ? total[4] : total[5];
+    CHECK(common > middle_hi * 2 && middle_lo > rare * 2 && rare > 0);
+    CHECK(flint_total > 0 && dirt_copper > 0 && dirt_tin > 0 && mega > 0);
+
+    /* Mining gives the material, and the dirt kinds give ore too. */
+    CHECK(tile_def(tile_id("flint"))->drop == item_id("flint"));
+    CHECK(tile_def(tile_id("copper_dirt"))->drop == item_id("copper_ore"));
+    CHECK(tile_def(tile_id("titanium_ore"))->drop == item_id("titanium_ore"));
+    CHECK(tile_def(tile_id("titanium_ore"))->mine_time > tile_def(TILE_STONE)->mine_time);
+}
+
 static ItemStack *chest_slot(Game *g, int i)
 {
     return inventory_slot(&g->inventory, (SlotRef){ SLOT_CONTAINER, game_open_storage(g), i });
@@ -1266,6 +1401,7 @@ int main(void)
     test_bench();
     test_wrap();
     test_terrain();
+    test_veins();
     test_trees();
     test_ticks();
     test_save();

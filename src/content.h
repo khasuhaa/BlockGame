@@ -17,6 +17,9 @@
 #define MAX_RECIPES 256
 #define MAX_TREES 32
 #define MAX_FEATURES 16
+#define MAX_VEINS 48
+#define MAX_VEIN_HOSTS 4
+#define MAX_VEIN_SIZE 64
 #define MAX_TILE_TEXTURES 4
 #define MAX_TREE_ROWS 12
 #define MAX_SWELLS 4
@@ -146,6 +149,24 @@ typedef struct {
     float jitter;    /* random roughness on the slopes, in blocks */
 } FeatureDef;
 
+typedef enum {
+    VEIN_BLOB,  /* a clump */
+    VEIN_STREAK /* a long thin line, like a scratch */
+} VeinShape;
+
+/* A deposit of one block inside others: flint in soil, ore in rock. */
+typedef struct {
+    char name[CONTENT_NAME_LEN];
+    TileType tile;
+    TileType hosts[MAX_VEIN_HOSTS]; /* blocks it may replace */
+    int host_count;
+    int min_size, max_size;   /* blocks in one vein */
+    float per_100_columns;    /* how many veins to try for every 100 columns of world */
+    int min_depth, max_depth; /* blocks below the surface a vein may start */
+    bool buried;              /* never touches open air */
+    VeinShape shape;
+} VeinDef;
+
 typedef struct {
     float amplitude;
     int wavelength;
@@ -205,6 +226,8 @@ typedef struct {
     int tree_count;
     FeatureDef features[MAX_FEATURES];
     int feature_count;
+    VeinDef veins[MAX_VEINS];
+    int vein_count;
     WorldGenDef worldgen;
     RulesDef rules;
 } Content;
