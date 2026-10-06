@@ -247,6 +247,16 @@ bool load_game(Game *g, const char *path)
         for (size_t i = 0; ok && h.version < 5 && i < cells; i++)
             if (tile_def(w->layers[LAYER_FOREGROUND][i])->wall)
                 w->layers[LAYER_WALL][i] = w->layers[LAYER_FOREGROUND][i];
+        /* A world from when the spawn portal stood taller: trim it to the
+         * height it has now. */
+        const WorldGenDef *gen = &content.worldgen;
+        for (int i = gen->portal_height; ok && i < gen->portal_height + 4; i++) {
+            const TileDef *above = tile_def(world_get(w, h.spawn_x, h.spawn_y - i));
+            if (!above->bench || above->removable ||
+                strcmp(above->bench_kind, tile_def(gen->portal_body)->bench_kind) != 0)
+                break;
+            world_set(w, h.spawn_x, h.spawn_y - i, TILE_AIR);
+        }
         /* The shared container belongs to the player, not this world. */
         memset(&g->inventory.containers[SHARED_CONTAINER], 0, sizeof(Container));
 

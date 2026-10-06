@@ -813,8 +813,8 @@ static void test_bench(void)
 
     CHECK(world_get(&g.world, px, s - 1) == TILE_SPAWN_PORTAL);
     CHECK(world_get(&g.world, px, s - 2) == TILE_SPAWN_PORTAL);
-    CHECK(world_get(&g.world, px, s - 3) == TILE_SPAWN_PORTAL);
-    CHECK(world_get(&g.world, px, s - 4) == TILE_AIR);
+    /* One base block, set in the ground, and two portal blocks on it. */
+    CHECK(world_get(&g.world, px, s - 3) == TILE_AIR);
     CHECK(world_get(&g.world, px, s) == TILE_PORTAL_BASE);
     CHECK(!game_queue_action(&g, ACTION_MINE, px, s));
     CHECK(tile_def(TILE_SPAWN_PORTAL)->bench && !tile_def(TILE_SPAWN_PORTAL)->removable);
@@ -1194,9 +1194,9 @@ static void test_terrain(void)
         /* Spawn at Y 0, standing on the portal's base inside a 3-tall portal. */
         CHECK(world_row_to_y(&w, w.spawn_y) == 0);
         CHECK(world_get(&w, w.spawn_x, w.spawn_y + 1) == TILE_PORTAL_BASE);
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 2; i++)
             CHECK(world_get(&w, w.spawn_x, w.spawn_y - i) == TILE_SPAWN_PORTAL);
-        CHECK(world_get(&w, w.spawn_x, w.spawn_y - 3) == TILE_AIR);
+        CHECK(world_get(&w, w.spawn_x, w.spawn_y - 2) == TILE_AIR);
 
         int lo = 1000, hi = -1000, max_step = 0, bad = 0, carved = 0;
         for (int x = 0; x < w.width; x++) {
@@ -2353,6 +2353,14 @@ static void test_portal_tiers(void)
     game_free(&g);
 }
 
+/* Which part of a column a tile is: 0 body, 1 top, 2 base. (The same rule
+ * the drawing code uses, which cannot be linked into a headless test.) */
+static int assets_part(TileType t, TileType above, TileType below)
+{
+    if (above != t) return 1;
+    return below != t ? 2 : 0;
+}
+
 /* Portals stand three blocks tall and are one thing. */
 static void test_tall_portals(void)
 {
@@ -2364,7 +2372,12 @@ static void test_tall_portals(void)
     int s = w->surface_y, px = w->spawn_x, x = px + 4;
     TileType portal = tile_id("portal"), trade = tile_id("trade_portal");
 
-    CHECK(tile_def(portal)->height == 3 && tile_def(trade)->height == 3 && tile_def(TILE_SPAWN_PORTAL)->height == 3);
+    /* A made portal is three blocks: a base and two of portal. The spawn
+     * portal is two of portal on a base block of its own, set in the ground. */
+    CHECK(tile_def(portal)->height == 3 && tile_def(trade)->height == 3 && tile_def(TILE_SPAWN_PORTAL)->height == 2);
+    CHECK(tile_def(portal)->texture_base[0] && tile_def(trade)->texture_base[0] && tile_def(portal)->texture_top[0]);
+    CHECK(assets_part(portal, portal, TILE_AIR) == 2 && assets_part(portal, portal, portal) == 0 &&
+          assets_part(portal, TILE_AIR, portal) == 1);
     CHECK(tile_def(TILE_DIRT)->height == 1 && tile_def(TILE_WORKBENCH)->height == 1);
 
     /* Placing one puts up all three blocks; it needs the room for them. */
@@ -2423,7 +2436,7 @@ static void test_tall_portals(void)
 
     TileType tier = TILE_SPAWN_PORTAL;
     g.player.feet = g.player.step_to = (TilePos){ px, s - 1 };
-    CHECK(game_queue_action(&g, ACTION_USE, px, s - 3));
+    CHECK(game_queue_action(&g, ACTION_USE, px, s - 2));
     run(&g, 1.0f);
     CHECK(g.bench_open);
     for (int i = 0; i < 5; i++) {
@@ -2433,7 +2446,8 @@ static void test_tall_portals(void)
         inventory_add(inv, item_id(gems[i]), 1);
         CHECK(game_upgrade_bench(&g));
         tier = def->upgrade_to;
-        for (int k = 0; k < 3; k++) CHECK(world_get(w, px, s - 1 - k) == tier);
+        for (int k = 0; k < 2; k++) CHECK(world_get(w, px, s - 1 - k) == tier);
+        CHECK(world_get(w, px, s - 3) == TILE_AIR);
     }
     CHECK(tile_def(tier)->bench_level == 6 && tile_def(tier)->upgrade_to == TILE_AIR && !tile_def(tier)->removable);
     CHECK(world_get(w, px, s) == TILE_PORTAL_BASE && g.bench_open);
@@ -2444,6 +2458,17 @@ static void test_tall_portals(void)
      * name, loads as part of the portal. */
     CHECK(tile_id("spawn_portal_top") == -1 && tile_id_or_alias("spawn_portal_top") == TILE_SPAWN_PORTAL);
     CHECK(tile_id_or_alias("no_such_block") == -1);
+
+    /* A world saved when the spawn portal stood three blocks tall is trimmed
+     * to two when it is loaded. */
+    world_set(w, px, s - 3, tier);
+    CHECK(save_game(&g, "build/test_tall.world"));
+    Game old;
+    CHECK(load_game(&old, "build/test_tall.world"));
+    CHECK(world_get(&old.world, px, s - 3) == TILE_AIR && world_get(&old.world, px, s - 2) == tier);
+    CHECK(world_get(&old.world, px, s - 1) == tier && world_get(&old.world, px, s) == TILE_PORTAL_BASE);
+    game_free(&old);
+    remove("build/test_tall.world");
     game_free(&g);
 }
 

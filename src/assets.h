@@ -14,8 +14,17 @@ void assets_unload(void);
 
 /* Draws a tile with its top-left corner at (px, py). `x` and `y` are its
  * position in the world, which picks its texture and shade. `dim` darkens it,
- * 0..1. `top` asks for the texture a block has for the top of a column of it. */
-void assets_draw_tile(TileType t, int x, int y, float px, float py, float tile_size, float dim, bool top);
+ * 0..1. `part` says where the tile is in a column of its own kind, for blocks
+ * that look different at the top or the bottom of one. */
+typedef enum {
+    TILE_PART_BODY,
+    TILE_PART_TOP,
+    TILE_PART_BASE
+} TilePart;
+void assets_draw_tile(TileType t, int x, int y, float px, float py, float tile_size, float dim, TilePart part);
+/* Which part a tile is, from the tiles of its layer above and below it. A
+ * block that stands alone counts as a top. */
+TilePart assets_tile_part(TileType t, TileType above, TileType below);
 void assets_draw_item(ItemId id, Rectangle r);
 /* Draws any other image under `<dir>/textures`, loading it on first use. */
 void assets_draw_image(const char *file, Rectangle r);

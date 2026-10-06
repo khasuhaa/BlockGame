@@ -206,15 +206,16 @@ static void draw_world(const World *w, Vector2 origin)
             float px = origin.x + (float)(x * TILE_SIZE), py = origin.y + (float)(y * TILE_SIZE);
             if (!tile_def(t)->solid) {
                 assets_draw_tile(world_get_at(w, LAYER_WALL, x, y), wx, y, px, py, TILE_SIZE, WALL_DIM,
-                                 false);
+                                 TILE_PART_BODY);
                 if (!tile_def(behind)->front)
-                    assets_draw_tile(behind, wx, y, px, py, TILE_SIZE, BACKGROUND_DIM, false);
+                    assets_draw_tile(behind, wx, y, px, py, TILE_SIZE, BACKGROUND_DIM, TILE_PART_BODY);
             }
-            if (!tile_def(t)->front) assets_draw_tile(t, wx, y, px, py, TILE_SIZE, 0.0f, false);
+            if (!tile_def(t)->front) assets_draw_tile(t, wx, y, px, py, TILE_SIZE, 0.0f, TILE_PART_BODY);
         }
     }
     /* Tiles marked "front" go on last: their textures overhang their
-     * neighbours. The top tile of a column of one has a texture of its own. */
+     * neighbours. The top and bottom tiles of a column of one can have textures
+     * of their own. */
     for (int y = y0; y <= y1 + 1; y++) {
         for (int x = x0 - 1; x <= x1 + 1; x++) {
             float px = origin.x + (float)(x * TILE_SIZE), py = origin.y + (float)(y * TILE_SIZE);
@@ -224,7 +225,8 @@ static void draw_world(const World *w, Vector2 origin)
                 if (layer == LAYER_BACKGROUND && tile_def(world_get(w, x, y))->solid) continue;
                 assets_draw_tile(t, world_wrap_x(w, x), y, px, py, TILE_SIZE,
                                  layer == LAYER_BACKGROUND ? BACKGROUND_DIM : 0.0f,
-                                 world_get_at(w, layer, x, y - 1) != t);
+                                 assets_tile_part(t, world_get_at(w, layer, x, y - 1),
+                                                  world_get_at(w, layer, x, y + 1)));
             }
         }
     }

@@ -102,7 +102,9 @@ typedef struct {
      * tile, centred and resting on the tile's bottom edge. */
     char textures[MAX_TILE_TEXTURES][CONTENT_PATH_LEN]; /* one is picked per position */
     int texture_count;
-    char texture_top[CONTENT_PATH_LEN]; /* used instead on the topmost tile of a column of it */
+    /* Used instead on the top and the bottom tile of a column of it. */
+    char texture_top[CONTENT_PATH_LEN];
+    char texture_base[CONTENT_PATH_LEN];
     int shade;   /* how much brightness varies from tile to tile, 0..255 */
     bool front;  /* drawn after the other tiles, so its overhang shows */
     float pulse; /* how strongly its brightness breathes, 0..1 */

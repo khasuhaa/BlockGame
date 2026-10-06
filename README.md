@@ -19,7 +19,7 @@ Everything the game contains is defined in `data/`, not in the code, so it can b
 
 | File | Defines |
 | --- | --- |
-| `tiles.json` | Blocks: whether they are solid, climbable or minable, which layer they are placed in, how many blocks tall they stand, names they used to have, how long they take to mine and with what kind of tool, what they drop, their textures, for benches their kind, tier, upgrade and how much fuel they hold, and for storage blocks their grid of slots |
+| `tiles.json` | Blocks: whether they are solid, climbable or minable, which layer they are placed in, how many blocks tall they stand and how the top and bottom of one look, names they used to have, how long they take to mine and with what kind of tool, what they drop, their textures, for benches their kind, tier, upgrade and how much fuel they hold, and for storage blocks their grid of slots |
 | `items.json` | Items: label, stack size, how many slots they hold inside them and whether those open from the bar, what block they place, what tree they plant, how long they burn as fuel, what kind of tool they are and how fast, their trade category and price, and their texture |
 | `recipes.json` | What each kind of bench makes, from what, for how many crystals, and at what bench tier |
 | `trees.json` | Tree kinds: their blocks, fruit, full height, the shape of the crown row by row, which layer they grow in, and what they can be planted on |
@@ -160,7 +160,7 @@ The player can mine, place, plant, open and pick up within the ten tiles around 
 
 With a block selected (dirt or a workbench), clicking an air tile that touches a block queues placing it there, marked with a green outline and a faded copy of the block. Other air tiles still queue a move. Select a slot that is not a block to walk onto tiles next to the ground.
 
-The spawn portal stands where the player spawns, three blocks tall on a base block set into the ground. It is a workbench that cannot be removed, so clicking it opens it straight away. Clicking a placed workbench shows "Open bench" and "Remove bench". Opening is a queued action: the player walks up to the bench first.
+The spawn portal stands where the player spawns: two portal blocks on a base block set into the ground. It is a workbench that cannot be removed, so clicking it opens it straight away. Clicking a placed workbench shows "Open bench" and "Remove bench". Opening is a queued action: the player walks up to the bench first.
 
 An open bench shows a menu beside it in the world:
 
@@ -185,7 +185,7 @@ A bench can have tiers. Its menu shows its tier and, if it can go higher, an Upg
 
 ### Portals
 
-The portal made at the workbench and the spawn portal are the same kind of bench: they offer the same recipes and climb the same tiers. A made portal and a trade portal stand three blocks tall, like the spawn portal. Each is one thing: placing it needs room for all three blocks, any of its blocks opens it, upgrading changes all of it, and removing any block takes the whole portal down and gives one item back. The spawn portal cannot be removed.
+The portal made at the workbench and the spawn portal are the same kind of bench: they offer the same recipes and climb the same tiers. Every portal is one base block with two portal blocks on it. The spawn portal's base is set into the ground, so two blocks of it stand above the surface; a made portal or a trade portal stands on the ground, base and all, three blocks tall. Each is one thing: placing it needs room for all three blocks, any of its blocks opens it, upgrading changes all of it, and removing any block takes the whole portal down and gives one item back. The spawn portal cannot be removed.
 
 A portal makes a workbench (1 dirt) and a trade portal (1 portal and 1 gold coin), and has six tiers, each bought with one gem and each unlocking that gem's pickaxe (3 of the gem and 1 stick):
 

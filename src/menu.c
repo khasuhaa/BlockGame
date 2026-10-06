@@ -234,10 +234,11 @@ static void draw_preview(const ListedWorld *w, Rectangle r, Color background, fl
                     TileType block = t[layer][i];
                     if ((tile_def(block)->front ? 1 : 0) != pass) continue;
                     if (layer != LAYER_FOREGROUND && hidden) continue;
-                    bool top = y == 0 || t[layer][i - PREVIEW_SIZE] != block;
+                    TileType above = y > 0 ? t[layer][i - PREVIEW_SIZE] : TILE_AIR;
+                    TileType below = y < PREVIEW_SIZE - 1 ? t[layer][i + PREVIEW_SIZE] : block;
                     assets_draw_tile(block, x, y, px, py, tile,
                                      layer == LAYER_WALL ? 0.5f : layer == LAYER_BACKGROUND ? 0.18f : 0.0f,
-                                     top);
+                                     assets_tile_part(block, above, below));
                 }
             }
         }

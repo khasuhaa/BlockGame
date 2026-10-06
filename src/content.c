@@ -223,6 +223,7 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->height = (int)num(e, "height", 1);
         if (t->height < 1 || t->height > 8) return fail(r, "tile \"%s\": height must be 1 to 8", t->name);
         copy_name(t->texture_top, sizeof t->texture_top, str(e, "texture_top"));
+        copy_name(t->texture_base, sizeof t->texture_base, str(e, "texture_base"));
         const cJSON *alias;
         t->alias_count = 0;
         cJSON_ArrayForEach(alias, field(e, "aliases")) {
@@ -735,8 +736,8 @@ static bool validate(Reader *r)
         return fail(r, "worldgen needs a sensible \"width\" and \"height\"");
     if (g->soil == TILE_AIR || g->rock == TILE_AIR || g->surface == TILE_AIR)
         return fail(r, "worldgen needs \"layers\" with a surface, soil and rock tile");
-    if (g->portal_body == TILE_AIR || g->portal_base == TILE_AIR || g->portal_height < 2)
-        return fail(r, "worldgen needs a spawn \"portal\" at least 2 tall");
+    if (g->portal_body == TILE_AIR || g->portal_base == TILE_AIR || g->portal_height < 1)
+        return fail(r, "worldgen needs a spawn \"portal\" with a base and a body");
     if (g->portal_top == TILE_AIR) content.worldgen.portal_top = g->portal_body;
     if (g->gap_min < 1 || g->gap_max < g->gap_min || g->spawn_max < g->spawn_min)
         return fail(r, "worldgen has a bad \"gap\" or spawn \"column\" range");
