@@ -1,0 +1,30 @@
+#ifndef HUD_H
+#define HUD_H
+
+#include "inventory.h"
+#include "raylib.h"
+
+/* On-screen inventory: a head button followed by the bar of slots along the
+ * bottom of the window. The head button and each basket in the bar can extend
+ * a column of slots upward. */
+typedef struct {
+    bool armor_open;
+    bool basket_open[INVENTORY_SLOTS];
+
+    /* Mouse press that started on the inventory. */
+    bool pressed, dragging;
+    bool press_head;
+    SlotRef press_slot;
+    Vector2 press_mouse;
+} Hud;
+
+/* Handles taps and drags on the inventory. Returns true while the mouse
+ * belongs to the inventory, so the world should ignore it. */
+bool hud_handle_input(Hud *hud, Inventory *inv);
+/* Collapses the armor column and every basket. */
+void hud_close_all(Hud *hud);
+bool hud_mouse_over(const Hud *hud, const Inventory *inv);
+void hud_draw(const Hud *hud, const Inventory *inv);
+void hud_draw_item_icon(ItemId id, Rectangle r);
+
+#endif

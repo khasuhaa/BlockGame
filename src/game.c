@@ -297,6 +297,44 @@ bool game_click_tile(Game *g, int tx, int ty)
 
 /* ---- simulation -------------------------------------------------------- */
 
+/* Leaves an item lying in a tile. With no room for another drop it goes
+ * straight to the inventory instead. */
+static void spawn_drop(Game *g, ItemId item, TilePos at)
+{
+    if (item == ITEM_NONE) return;
+    for (int i = 0; i < MAX_DROPS; i++) {
+        if (g->drops[i].active) continue;
+        g->drops[i] = (Drop){ true, (uint8_t)item, at.x, (float)at.y, 0.0f, 0.0f };
+        return;
+    }
+    inventory_add(&g->inventory, item, 1);
+}
+
+static void update_drops(Game *g, float dt)
+{
+    TilePos feet = g->player.feet;
+    for (int i = 0; i < MAX_DROPS; i++) {
+        Drop *d = &g->drops[i];
+        if (!d->active) continue;
+        if (d->collect > 0.0f) {
+            d->collect += dt / DROP_COLLECT_TIME;
+            if (d->collect >= 1.0f) d->active = false;
+            continue;
+        }
+        d->age += dt;
+
+        int rest = (int)d->y;
+        while (!world_is_solid(&g->world, d->x, rest + 1)) rest++;
+        d->y += DROP_FALL_SPEED * dt;
+        if (d->y > (float)rest) d->y = (float)rest;
+
+        /* Collected from the tiles the player occupies or touches. */
+        int dx = d->x - feet.x, dy = (int)(d->y + 0.5f) - feet.y;
+        if (d->age < DROP_PICKUP_DELAY || dx < -1 || dx > 1 || dy < -2 || dy > 1) continue;
+        if (inventory_add(&g->inventory, (ItemId)d->item, 1) == 0) d->collect = 0.001f;
+    }
+}
+
 static void begin_step(Game *g, Step s)
 {
     Player *p = &g->player;
@@ -319,7 +357,9 @@ static void finish_activity(Game *g)
         p->feet = p->step_to;
         p->climbing = p->step.climb;
     } else if (p->activity == ACTIVITY_MINING) {
-        world_set(&g->world, g->current.target.x, g->current.target.y, TILE_AIR);
+        TilePos t = g->current.target;
+        spawn_drop(g, item_for_tile(world_get(&g->world, t.x, t.y)), t);
+        world_set(&g->world, t.x, t.y, TILE_AIR);
         g->has_current = false;
     }
     p->activity = ACTIVITY_IDLE;
@@ -406,6 +446,7 @@ void game_update(Game *g, float dt)
         }
         if (!start_next_activity(g)) break;
     }
+    update_drops(g, dt);
 }
 
 void game_set_move_input(Game *g, int dx, int dy)
@@ -462,6 +503,7 @@ bool game_init(Game *g, int width, int height, uint32_t seed)
 
     g->player.feet = pose_rest(&g->world, (Pose){ { g->world.spawn_x, 1 }, false }).feet;
     g->player.facing = 1;
+    inventory_init(&g->inventory);
     g->player.step_to = g->player.feet;
     return true;
 }

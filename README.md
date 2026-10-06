@@ -24,6 +24,7 @@ On an Apple Silicon Mac, if the shell is running under Rosetta the compiler may 
 | Click a ground tile | Queue walking next to that tile and mining it |
 | Drag | Pan the map |
 | `Space` | Make the camera follow the player again |
+| `1`–`8` | Select an inventory slot |
 
 Clicks queue up and run in order. A click that cannot be carried out is refused with a red cross on the tile. Pressing a movement key cancels the queue.
 
@@ -38,9 +39,24 @@ Holding a direction, or a queued click, takes the player:
 - from one wall to a facing wall up to two columns away with a hop, so a pit two or three blocks wide is crossed near the top without going to the bottom;
 - up any wall, pulling onto the top.
 
+## Inventory
+
+The bar along the bottom has a head button followed by 8 slots. Stacks hold up to 99. The player starts with one basket (item ID 1).
+
+- Tap a slot to select it. Tapping a basket also opens or closes its 4 slots, which extend upward from it.
+- Tap an item inside a basket to select it; the closed basket then shows that item. Tapping an empty basket slot selects the basket.
+- Tap the head button to open the 4 armor slots (head, chest, legs, boots) and every basket at once.
+- Drag an item onto another slot to move it: equal stacks merge, anything else swaps.
+- A basket can be put inside another basket and keeps its contents, but only baskets sitting in the bar can be opened.
+- Clicking or dragging the world, or pressing a movement key, closes everything.
+
+A mined block drops as an item where it was. It is collected when the player is on or next to its tile, a moment after it drops, as long as there is room in the bar or in a basket in the bar.
+
 ## Layout
 
 - `src/world.c` — tile grid and world generation
-- `src/game.c` — player, movement rules, path planning, action queue
+- `src/inventory.c` — items, stacks, baskets and the rules for moving them
+- `src/game.c` — player, movement rules, path planning, action queue, item drops
+- `src/hud.c` — the on-screen inventory bar
 - `src/main.c` — window, input, camera and rendering
 - `tests/test_game.c` — tests for the rules, with no window

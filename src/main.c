@@ -1,4 +1,5 @@
 #include "game.h"
+#include "hud.h"
 #include "raylib.h"
 
 #include <math.h>
@@ -46,17 +47,25 @@ static Vector2 player_center(const Game *g)
     return (Vector2){ (x + 0.5f) * TILE_SIZE, y * TILE_SIZE };
 }
 
-static void handle_input(Game *g, MapCamera *cam)
+static void handle_input(Game *g, MapCamera *cam, Hud *hud)
 {
-    if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_A) || IsKeyPressed(KEY_S) || IsKeyPressed(KEY_D))
+    if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_A) || IsKeyPressed(KEY_S) || IsKeyPressed(KEY_D)) {
         game_cancel_actions(g);
+        hud_close_all(hud);
+    }
+    for (int i = 0; i < INVENTORY_SLOTS; i++)
+        if (IsKeyPressed(KEY_ONE + i)) inventory_select(&g->inventory, i, -1);
     game_set_move_input(g, (int)IsKeyDown(KEY_D) - (int)IsKeyDown(KEY_A),
                         (int)IsKeyDown(KEY_S) - (int)IsKeyDown(KEY_W));
 
     if (IsKeyPressed(KEY_SPACE)) cam->follow = true;
 
+    /* A press that starts on the inventory never reaches the world. */
+    if (hud_handle_input(hud, &g->inventory)) return;
+
     Vector2 mouse = GetMousePosition();
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        hud_close_all(hud);
         cam->pressed = true;
         cam->dragging = false;
         cam->press_mouse = mouse;
@@ -150,6 +159,23 @@ static void draw_actions(const Game *g, Vector2 origin)
     }
 }
 
+static void draw_drops(const Game *g, Vector2 origin)
+{
+    const float size = TILE_SIZE * 0.5f;
+    Vector2 player = player_center(g);
+    for (int i = 0; i < MAX_DROPS; i++) {
+        const Drop *d = &g->drops[i];
+        if (!d->active) continue;
+        /* Lying drops bob a little; collected ones fly into the player. */
+        float bob = sinf(d->age * 4.0f + (float)d->x) * 2.0f;
+        Vector2 p = { (d->x + 0.5f) * TILE_SIZE, (d->y + 1.0f) * TILE_SIZE - size / 2 - 3 + bob };
+        p.x += (player.x - p.x) * d->collect;
+        p.y += (player.y - p.y) * d->collect;
+        hud_draw_item_icon((ItemId)d->item, (Rectangle){ origin.x + p.x - size / 2,
+                                                         origin.y + p.y - size / 2, size, size });
+    }
+}
+
 static void draw_player(const Game *g, Vector2 origin)
 {
     float x, y;
@@ -174,11 +200,14 @@ static void draw_player(const Game *g, Vector2 origin)
 static void draw_hud(const Game *g, const MapCamera *cam)
 {
     DrawRectangle(0, 0, GetScreenWidth(), 52, Fade(BLACK, 0.45f));
-    DrawText("A/D: move   W/S: jump, climb   Click air: move there   Click dirt: mine it   "
-             "Drag: pan map   Space: follow player",
+    DrawText("A/D: move   W/S: jump, climb   Click air: move   Click dirt: mine   Drag: pan   "
+             "Space: follow   1-8: select   Drag items to rearrange",
              10, 8, 16, RAYWHITE);
-    DrawText(TextFormat("seed %u   player %d,%d   queued %d%s", g->world.seed, g->player.feet.x,
-                        g->player.feet.y, g->queue_count + (g->has_current ? 1 : 0),
+    const ItemStack *held = inventory_selected(&g->inventory);
+    DrawText(TextFormat("seed %u   player %d,%d   queued %d   selected: %s%s", g->world.seed,
+                        g->player.feet.x, g->player.feet.y,
+                        g->queue_count + (g->has_current ? 1 : 0),
+                        held->count > 0 ? item_def((ItemId)held->id)->name : "nothing",
                         cam->follow ? "" : "   (camera detached)"),
              10, 30, 16, LIGHTGRAY);
 }
@@ -197,12 +226,13 @@ int main(int argc, char **argv)
     InitWindow(1280, 720, "BlockGame");
     SetTargetFPS(60);
 
+    Hud hud = { 0 };
     MapCamera cam = { .center = player_center(&game), .follow = true };
 
     while (!WindowShouldClose()) {
         float dt = fminf(GetFrameTime(), 0.1f);
 
-        handle_input(&game, &cam);
+        handle_input(&game, &cam, &hud);
         game_update(&game, dt);
         update_camera(&game, &cam, dt);
 
@@ -211,11 +241,13 @@ int main(int argc, char **argv)
         ClearBackground((Color){ 20, 22, 28, 255 });
         draw_world(&game.world, origin);
         draw_actions(&game, origin);
+        draw_drops(&game, origin);
         draw_player(&game, origin);
-        if (!cam.dragging && IsCursorOnScreen())
+        if (!cam.dragging && IsCursorOnScreen() && !hud_mouse_over(&hud, &game.inventory))
             DrawRectangleLinesEx(tile_rect(origin, tile_at_screen(&cam, GetMousePosition())), 1.0f,
                                  Fade(WHITE, 0.5f));
         draw_hud(&game, &cam);
+        hud_draw(&hud, &game.inventory);
         EndDrawing();
     }
 

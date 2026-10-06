@@ -309,6 +309,107 @@ static void test_step_down(void)
     game_free(&g);
 }
 
+static int count_item(Game *g, ItemId id)
+{
+    int total = 0;
+    for (int i = 0; i < INVENTORY_SLOTS; i++) {
+        if (g->inventory.slots[i].id == id) total += g->inventory.slots[i].count;
+        for (int j = 0; j < BASKET_SLOTS; j++) {
+            ItemStack *s = inventory_slot(&g->inventory, (SlotRef){ SLOT_BASKET, i, j });
+            if (s && s->id == id) total += s->count;
+        }
+    }
+    return total;
+}
+
+static void test_inventory(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 9);
+    Inventory *inv = &g.inventory;
+    SlotRef bar0 = { SLOT_BAR, 0, 0 }, bar1 = { SLOT_BAR, 1, 0 }, bar2 = { SLOT_BAR, 2, 0 };
+
+    /* Starts with a basket, item 1, and nothing else. */
+    CHECK(ITEM_BASKET == 1);
+    CHECK(inv->slots[0].id == ITEM_BASKET && inv->slots[0].count == 1);
+    CHECK(count_item(&g, ITEM_DIRT) == 0);
+    CHECK(inventory_selected(inv)->id == ITEM_BASKET);
+
+    /* Stacks stop at 99 and spill into the next slot. */
+    CHECK(inventory_add(inv, ITEM_DIRT, 100) == 0);
+    CHECK(inv->slots[1].count == 99 && inv->slots[2].count == 1);
+
+    /* Once the bar is full, the basket in it takes the overflow. */
+    CHECK(inventory_add(inv, ITEM_DIRT, 98 + 99 * 5) == 0);
+    CHECK(inv->slots[7].count == 99);
+    CHECK(inventory_add(inv, ITEM_DIRT, 99 * 4 + 5) == 5);
+    CHECK(count_item(&g, ITEM_DIRT) == 99 * 11);
+
+    /* Selecting inside a basket shows that item; an emptied slot shows the basket. */
+    inventory_select(inv, 0, 2);
+    CHECK(inventory_selection_inside(inv, 0) && inventory_selected(inv)->id == ITEM_DIRT);
+    *inventory_slot(inv, (SlotRef){ SLOT_BASKET, 0, 2 }) = (ItemStack){ 0 };
+    CHECK(!inventory_selection_inside(inv, 0) && inventory_selected(inv)->id == ITEM_BASKET);
+
+    /* Moving: swap, merge, and no armor slot for dirt. */
+    inv->slots[2].count = 40;
+    inv->slots[1].count = 90;
+    CHECK(inventory_move(inv, bar2, bar1));
+    CHECK(inv->slots[1].count == 99 && inv->slots[2].count == 31);
+    CHECK(!inventory_move(inv, bar1, (SlotRef){ SLOT_ARMOR, 0, 0 }));
+    CHECK(inventory_move(inv, bar0, bar2));
+    CHECK(inv->slots[2].id == ITEM_BASKET && inv->slots[0].count == 31);
+    CHECK(inventory_slot(inv, (SlotRef){ SLOT_BASKET, 2, 0 })->count == 99);
+    CHECK(inventory_slot(inv, (SlotRef){ SLOT_BASKET, 0, 0 }) == NULL);
+
+    /* A basket cannot go into itself, but can go into another basket, where
+     * its contents come along but are out of reach. */
+    CHECK(!inventory_move(inv, bar2, (SlotRef){ SLOT_BASKET, 2, 2 }));
+    inv->slots[0] = (ItemStack){ 0 };
+    inv->slots[1] = (ItemStack){ 0 };
+    CHECK(inventory_add(inv, ITEM_BASKET, 1) == 0);
+    CHECK(inv->slots[0].id == ITEM_BASKET && inv->slots[0].container != inv->slots[2].container);
+    CHECK(inventory_move(inv, bar2, (SlotRef){ SLOT_BASKET, 0, 1 }));
+    CHECK(inv->slots[2].count == 0);
+    CHECK(inventory_slot(inv, (SlotRef){ SLOT_BASKET, 2, 0 }) == NULL);
+    CHECK(!inventory_move(inv, (SlotRef){ SLOT_BASKET, 0, 1 }, bar0));
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BASKET, 0, 1 }, bar1));
+    CHECK(inventory_slot(inv, (SlotRef){ SLOT_BASKET, 1, 0 })->count == 99);
+    game_free(&g);
+}
+
+static void test_drops(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 10);
+    TilePos start = g.player.feet;
+    int s = g.world.surface_y;
+
+    /* A mined block lies in the world first, then is collected. */
+    CHECK(game_click_tile(&g, start.x + 1, s));
+    run(&g, MINE_TIME + 0.05f);
+    CHECK(world_get(&g.world, start.x + 1, s) == TILE_AIR);
+    CHECK(g.drops[0].active && g.drops[0].item == ITEM_DIRT && count_item(&g, ITEM_DIRT) == 0);
+    run(&g, 1.0f);
+    CHECK(!g.drops[0].active && count_item(&g, ITEM_DIRT) == 1);
+
+    /* Out of reach it stays put until the player walks up to it. */
+    g.drops[0] = (Drop){ true, ITEM_DIRT, start.x + 6, (float)(s - 5), 0.0f, 0.0f };
+    run(&g, 2.0f);
+    CHECK(g.drops[0].active && g.drops[0].y == (float)(s - 1));
+    CHECK(game_click_tile(&g, start.x + 5, start.y));
+    run(&g, 2.0f);
+    CHECK(!g.drops[0].active && count_item(&g, ITEM_DIRT) == 2);
+
+    /* With no room, it is left on the ground. */
+    inventory_add(&g.inventory, ITEM_DIRT, 99 * 12);
+    int before = count_item(&g, ITEM_DIRT);
+    g.drops[0] = (Drop){ true, ITEM_DIRT, g.player.feet.x, (float)g.player.feet.y, 0.0f, 0.0f };
+    run(&g, 2.0f);
+    CHECK(g.drops[0].active && count_item(&g, ITEM_DIRT) == before);
+    game_free(&g);
+}
+
 int main(void)
 {
     test_world();
@@ -321,6 +422,8 @@ int main(void)
     test_climb_drop();
     test_wall_hop();
     test_step_down();
+    test_inventory();
+    test_drops();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;

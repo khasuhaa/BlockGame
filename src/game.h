@@ -1,12 +1,14 @@
 #ifndef GAME_H
 #define GAME_H
 
+#include "inventory.h"
 #include "world.h"
 
 #define MAX_QUEUED_ACTIONS 32
 #define MAX_DENIALS 8
 #define MAX_WALL_HOP 2 /* columns a wall-to-wall hop can cover */
 #define MAX_MOVES 8
+#define MAX_DROPS 256
 
 #define WALK_TIME 0.12f
 #define FALL_TIME 0.07f
@@ -15,6 +17,9 @@
 #define HOP_HEIGHT 0.35f /* peak of a hop's arc, in tiles */
 #define MINE_TIME 0.35f
 #define DENIAL_TIME 0.6f
+#define DROP_FALL_SPEED 12.0f   /* tiles per second */
+#define DROP_PICKUP_DELAY 0.45f /* how long a fresh drop lies before it can be collected */
+#define DROP_COLLECT_TIME 0.15f /* flight into the player once collected */
 
 typedef struct {
     int x, y;
@@ -71,9 +76,21 @@ typedef struct {
     float ttl;
 } Denial;
 
+/* An item lying in the world, waiting to be walked up to. */
+typedef struct {
+    bool active;
+    uint8_t item;
+    int x;         /* tile column */
+    float y;       /* tile row; fractional while falling */
+    float age;
+    float collect; /* 0 while lying; otherwise 0..1 progress flying to the player */
+} Drop;
+
 typedef struct {
     World world;
     Player player;
+    Inventory inventory;
+    Drop drops[MAX_DROPS];
 
     /* Action being carried out: walk `steps`, then mine if it is a mine. */
     bool has_current;

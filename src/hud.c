@@ -1,0 +1,258 @@
+#include "hud.h"
+
+#include <stddef.h>
+
+#define SLOT_SIZE 52.0f
+#define SLOT_GAP 4.0f
+#define BAR_MARGIN 14.0f
+#define COLUMN_ROWS 4
+#define HUD_DRAG_THRESHOLD 6.0f
+
+/* Cell in the inventory grid. Column 0 is the head button and columns 1..8
+ * the bar; row 0 is the bar itself and rows 1..4 extend upward from it. */
+static Rectangle cell_rect(int col, int row)
+{
+    float pitch = SLOT_SIZE + SLOT_GAP;
+    float width = (INVENTORY_SLOTS + 1) * pitch - SLOT_GAP;
+    float x0 = (float)(int)((GetScreenWidth() - width) / 2.0f);
+    float y0 = GetScreenHeight() - BAR_MARGIN - SLOT_SIZE;
+    return (Rectangle){ x0 + col * pitch, y0 - row * pitch, SLOT_SIZE, SLOT_SIZE };
+}
+
+static bool is_basket(const Inventory *inv, int slot)
+{
+    const ItemStack *s = &inv->slots[slot];
+    return s->count > 0 && item_def(s->id)->container;
+}
+
+static bool basket_shown(const Hud *hud, const Inventory *inv, int slot)
+{
+    return hud->basket_open[slot] && is_basket(inv, slot);
+}
+
+/* What is under a point: the head button, a slot, or neither. */
+static bool hit_test(const Hud *hud, const Inventory *inv, Vector2 p, bool *head, SlotRef *slot)
+{
+    *head = false;
+    *slot = (SlotRef){ SLOT_NONE, 0, 0 };
+    for (int col = 0; col <= INVENTORY_SLOTS; col++) {
+        for (int row = 0; row <= COLUMN_ROWS; row++) {
+            if (!CheckCollisionPointRec(p, cell_rect(col, row))) continue;
+            if (row == 0) {
+                if (col == 0) *head = true;
+                else *slot = (SlotRef){ SLOT_BAR, col - 1, 0 };
+                return true;
+            }
+            if (col == 0 && hud->armor_open) {
+                *slot = (SlotRef){ SLOT_ARMOR, COLUMN_ROWS - row, 0 };
+                return true;
+            }
+            if (col > 0 && basket_shown(hud, inv, col - 1)) {
+                *slot = (SlotRef){ SLOT_BASKET, col - 1, row - 1 };
+                return true;
+            }
+            return false;
+        }
+    }
+    return false;
+}
+
+void hud_close_all(Hud *hud)
+{
+    hud->armor_open = false;
+    for (int i = 0; i < INVENTORY_SLOTS; i++) hud->basket_open[i] = false;
+}
+
+bool hud_mouse_over(const Hud *hud, const Inventory *inv)
+{
+    bool head;
+    SlotRef slot;
+    return hud->pressed || hit_test(hud, inv, GetMousePosition(), &head, &slot);
+}
+
+static void handle_tap(Hud *hud, Inventory *inv)
+{
+    SlotRef s = hud->press_slot;
+    if (hud->press_head) {
+        /* The head button opens the armor column and every basket at once. */
+        bool open = !hud->armor_open;
+        hud_close_all(hud);
+        hud->armor_open = open;
+        for (int i = 0; i < INVENTORY_SLOTS; i++) hud->basket_open[i] = open;
+    } else if (s.kind == SLOT_BAR) {
+        inventory_select(inv, s.index, -1);
+        if (is_basket(inv, s.index)) hud->basket_open[s.index] = !hud->basket_open[s.index];
+    } else if (s.kind == SLOT_BASKET) {
+        /* An empty slot in a basket selects the basket itself. */
+        const ItemStack *inner = inventory_slot(inv, s);
+        inventory_select(inv, s.index, inner && inner->count > 0 ? s.inner : -1);
+    }
+}
+
+bool hud_handle_input(Hud *hud, Inventory *inv)
+{
+    Vector2 mouse = GetMousePosition();
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        hud->pressed = hit_test(hud, inv, mouse, &hud->press_head, &hud->press_slot);
+        hud->dragging = false;
+        hud->press_mouse = mouse;
+    }
+    if (!hud->pressed) return false;
+
+    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && !hud->dragging) {
+        float dx = mouse.x - hud->press_mouse.x, dy = mouse.y - hud->press_mouse.y;
+        const ItemStack *held = inventory_slot(inv, hud->press_slot);
+        if (held && held->count > 0 && dx * dx + dy * dy > HUD_DRAG_THRESHOLD * HUD_DRAG_THRESHOLD)
+            hud->dragging = true;
+    }
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+        if (hud->dragging) {
+            bool head;
+            SlotRef target;
+            if (hit_test(hud, inv, mouse, &head, &target) && !head)
+                inventory_move(inv, hud->press_slot, target);
+        } else {
+            handle_tap(hud, inv);
+        }
+        hud->pressed = false;
+        hud->dragging = false;
+    }
+    return true;
+}
+
+/* ---- drawing ----------------------------------------------------------- */
+
+static Rectangle sub_rect(Rectangle r, float x, float y, float w, float h)
+{
+    return (Rectangle){ r.x + r.width * x, r.y + r.height * y, r.width * w, r.height * h };
+}
+
+static void draw_head_icon(Rectangle r)
+{
+    DrawRectangleRec(sub_rect(r, 0.2f, 0.2f, 0.6f, 0.6f), (Color){ 240, 200, 160, 255 });
+    DrawRectangleRec(sub_rect(r, 0.2f, 0.2f, 0.6f, 0.18f), (Color){ 90, 60, 40, 255 });
+    DrawRectangleRec(sub_rect(r, 0.32f, 0.47f, 0.1f, 0.1f), (Color){ 40, 40, 60, 255 });
+    DrawRectangleRec(sub_rect(r, 0.58f, 0.47f, 0.1f, 0.1f), (Color){ 40, 40, 60, 255 });
+}
+
+void hud_draw_item_icon(ItemId id, Rectangle r)
+{
+    if (id == ITEM_DIRT) {
+        Color dark = { 96, 66, 44, 255 };
+        DrawRectangleRec(sub_rect(r, 0.18f, 0.18f, 0.64f, 0.64f), dark);
+        DrawRectangleRec(sub_rect(r, 0.18f, 0.18f, 0.6f, 0.6f), (Color){ 134, 96, 67, 255 });
+        DrawRectangleRec(sub_rect(r, 0.3f, 0.32f, 0.1f, 0.1f), dark);
+        DrawRectangleRec(sub_rect(r, 0.56f, 0.5f, 0.1f, 0.1f), dark);
+        DrawRectangleRec(sub_rect(r, 0.36f, 0.6f, 0.08f, 0.08f), dark);
+    } else if (id == ITEM_BASKET) {
+        Color cane = { 150, 108, 54, 255 };
+        DrawRectangleLinesEx(sub_rect(r, 0.28f, 0.14f, 0.44f, 0.4f), r.width * 0.07f, cane);
+        DrawRectangleRec(sub_rect(r, 0.16f, 0.46f, 0.68f, 0.4f), (Color){ 200, 158, 92, 255 });
+        for (int i = 0; i < 2; i++)
+            DrawRectangleRec(sub_rect(r, 0.16f, 0.58f + 0.13f * i, 0.68f, 0.04f), cane);
+        for (int i = 0; i < 3; i++)
+            DrawRectangleRec(sub_rect(r, 0.3f + 0.18f * i, 0.46f, 0.04f, 0.4f), cane);
+        DrawRectangleRec(sub_rect(r, 0.12f, 0.42f, 0.76f, 0.09f), cane);
+    }
+}
+
+/* Faint outline of what belongs in an empty armor slot. */
+static void draw_armor_hint(int equip, Rectangle r)
+{
+    Color c = Fade(WHITE, 0.16f);
+    switch (equip) {
+    case EQUIP_HEAD:
+        DrawRectangleRec(sub_rect(r, 0.25f, 0.28f, 0.5f, 0.24f), c);
+        DrawRectangleRec(sub_rect(r, 0.25f, 0.52f, 0.14f, 0.2f), c);
+        DrawRectangleRec(sub_rect(r, 0.61f, 0.52f, 0.14f, 0.2f), c);
+        break;
+    case EQUIP_CHEST:
+        DrawRectangleRec(sub_rect(r, 0.18f, 0.24f, 0.64f, 0.2f), c);
+        DrawRectangleRec(sub_rect(r, 0.32f, 0.44f, 0.36f, 0.34f), c);
+        break;
+    case EQUIP_LEGS:
+        DrawRectangleRec(sub_rect(r, 0.28f, 0.22f, 0.44f, 0.16f), c);
+        DrawRectangleRec(sub_rect(r, 0.28f, 0.38f, 0.17f, 0.4f), c);
+        DrawRectangleRec(sub_rect(r, 0.55f, 0.38f, 0.17f, 0.4f), c);
+        break;
+    default:
+        DrawRectangleRec(sub_rect(r, 0.24f, 0.3f, 0.16f, 0.44f), c);
+        DrawRectangleRec(sub_rect(r, 0.6f, 0.3f, 0.16f, 0.44f), c);
+        DrawRectangleRec(sub_rect(r, 0.16f, 0.6f, 0.24f, 0.14f), c);
+        DrawRectangleRec(sub_rect(r, 0.6f, 0.6f, 0.24f, 0.14f), c);
+        break;
+    }
+}
+
+static void draw_box(Rectangle r, bool selected)
+{
+    DrawRectangleRec(r, (Color){ 34, 36, 44, 225 });
+    if (selected) DrawRectangleLinesEx(r, 3.0f, RAYWHITE);
+    else DrawRectangleLinesEx(r, 2.0f, (Color){ 120, 122, 134, 255 });
+}
+
+static void draw_stack(const ItemStack *s, Rectangle r, float alpha_dim)
+{
+    if (!s || s->count == 0) return;
+    hud_draw_item_icon((ItemId)s->id, r);
+    if (s->count > 1) {
+        const char *text = TextFormat("%d", s->count);
+        int size = 18;
+        int x = (int)(r.x + r.width) - MeasureText(text, size) - 5;
+        int y = (int)(r.y + r.height) - size - 3;
+        DrawText(text, x + 1, y + 1, size, BLACK);
+        DrawText(text, x, y, size, RAYWHITE);
+    }
+    if (alpha_dim > 0.0f) DrawRectangleRec(r, Fade((Color){ 34, 36, 44, 255 }, alpha_dim));
+}
+
+void hud_draw(const Hud *hud, const Inventory *inv)
+{
+    /* Slots are looked up through the same accessor the game logic uses. */
+    Inventory *lookup = (Inventory *)inv;
+    const ItemStack *dragged = hud->dragging ? inventory_slot(lookup, hud->press_slot) : NULL;
+
+    draw_box(cell_rect(0, 0), hud->armor_open);
+    draw_head_icon(cell_rect(0, 0));
+    if (hud->armor_open) {
+        for (int i = 0; i < ARMOR_SLOTS; i++) {
+            Rectangle r = cell_rect(0, COLUMN_ROWS - i);
+            draw_box(r, false);
+            if (inv->armor[i].count == 0) draw_armor_hint(i, r);
+            draw_stack(&inv->armor[i], r, &inv->armor[i] == dragged ? 0.7f : 0.0f);
+        }
+    }
+
+    for (int i = 0; i < INVENTORY_SLOTS; i++) {
+        Rectangle r = cell_rect(i + 1, 0);
+        const ItemStack *s = &inv->slots[i];
+        bool open = basket_shown(hud, inv, i);
+        bool inside = inventory_selection_inside(inv, i);
+        draw_box(r, inv->sel_slot == i && !(open && inside));
+
+        if (!open && inside) {
+            /* A closed basket shows the item selected inside it, with a small
+             * basket in the corner as a reminder of where it lives. */
+            SlotRef ref = { SLOT_BASKET, i, inv->sel_inner };
+            draw_stack(inventory_slot(lookup, ref), r, 0.0f);
+            hud_draw_item_icon((ItemId)s->id, sub_rect(r, 0.04f, 0.04f, 0.42f, 0.42f));
+        } else {
+            draw_stack(s, r, s == dragged ? 0.7f : 0.0f);
+        }
+
+        if (!open) continue;
+        for (int j = 0; j < BASKET_SLOTS; j++) {
+            Rectangle cell = cell_rect(i + 1, j + 1);
+            const ItemStack *inner = inventory_slot(lookup, (SlotRef){ SLOT_BASKET, i, j });
+            draw_box(cell, inside && inv->sel_inner == j);
+            draw_stack(inner, cell, inner == dragged ? 0.7f : 0.0f);
+        }
+    }
+
+    if (dragged && dragged->count > 0) {
+        Vector2 m = GetMousePosition();
+        Rectangle r = { m.x - SLOT_SIZE / 2, m.y - SLOT_SIZE / 2, SLOT_SIZE, SLOT_SIZE };
+        draw_stack(dragged, r, 0.0f);
+    }
+}
