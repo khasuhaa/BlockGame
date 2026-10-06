@@ -1100,10 +1100,25 @@ static void update_drops(Game *g, float dt)
             continue;
         }
 
-        int rest = (int)d->y;
-        while (!world_is_solid(&g->world, d->x, rest + 1)) rest++;
-        d->y += DROP_FALL_SPEED * dt;
-        if (d->y > (float)rest) d->y = (float)rest;
+        const World *w = &g->world;
+        float lift = content.rules.drop_float_speed;
+        int row = (int)d->y;
+        if (lift > 0.0f && world_is_water(w, d->x, row)) {
+            /* In water it floats: up to the top of the water it is in, and there it stays. */
+            int top = row;
+            while (top > 0 && world_is_water(w, d->x, top - 1)) top--;
+            if (d->y > (float)top) {
+                d->y -= lift * dt;
+                if (d->y < (float)top) d->y = (float)top;
+            }
+        } else {
+            /* Otherwise it falls, until something holds it up - ground, or water to float on. */
+            int rest = row;
+            while (!world_is_solid(w, d->x, rest + 1) && !(lift > 0.0f && world_is_water(w, d->x, rest + 1))) rest++;
+            if (!world_is_solid(w, d->x, rest + 1)) rest++; /* into the top of the water */
+            d->y += DROP_FALL_SPEED * dt;
+            if (d->y > (float)rest) d->y = (float)rest;
+        }
 
         /* Something put down on purpose stays down until everybody has been away from it. */
         bool in_reach = false;

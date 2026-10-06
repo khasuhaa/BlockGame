@@ -4119,6 +4119,42 @@ static void test_water(void)
     run(&g, 4.0f);
     CHECK(g.player.feet.x == px + 6 && g.player.feet.y == s - 9 && !game_player_swimming(&g));
 
+    /* Things dropped in water float. One let go at the bottom comes up to the
+     * top of the water; one dropped from above lands on it and goes no lower. */
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    g.player.feet = g.player.step_to = (TilePos){ px + 6, s - 9 }; /* out on the side, dry */
+    g.player.climbing = false;
+    CHECK(content.rules.drop_float_speed > 0.0f);
+    game_drop_item(&g, ITEM_STICK, px - 2, s - 1);  /* on the bottom */
+    game_drop_item(&g, ITEM_STONE, px + 2, s - 14); /* in the air over the water */
+    game_drop_item(&g, ITEM_WOOD, px - 9, s - 14);  /* over dry land */
+    run(&g, 0.2f);
+    int surface = s - 8; /* the top square of the tank's water */
+    for (int i = 0; i < MAX_DROPS; i++)
+        if (g.drops[i].active && g.drops[i].item == ITEM_STICK) CHECK(g.drops[i].y < (float)(s - 1) && g.drops[i].y > (float)surface);
+    run(&g, 5.0f);
+    for (int i = 0; i < MAX_DROPS; i++) {
+        if (!g.drops[i].active) continue;
+        if (g.drops[i].item == ITEM_WOOD) CHECK(g.drops[i].y == (float)(s - 1)); /* on the ground, as ever */
+        else CHECK(g.drops[i].y == (float)surface && world_is_water(w, g.drops[i].x, surface));
+    }
+    CHECK(count_drops(&g, ITEM_STICK) == 1 && count_drops(&g, ITEM_STONE) == 1 && count_drops(&g, ITEM_WOOD) == 1);
+    /* Let the water out from under one and it goes down with it. */
+    for (int y = s - 8; y < s; y++) world_set_water(w, px - 2, y, 0), world_set_water(w, px - 3, y, 0), world_set_water(w, px - 1, y, 0);
+    world_set(w, px - 3, s - 1, TILE_STONE);
+    world_set(w, px - 1, s - 1, TILE_STONE);
+    run(&g, 3.0f);
+    for (int i = 0; i < MAX_DROPS; i++)
+        if (g.drops[i].active && g.drops[i].item == ITEM_STICK) CHECK(g.drops[i].y > (float)surface);
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    for (int y = s - 8; y < s; y++)
+        for (int x = px - 5; x <= px + 5; x++) world_set_water(w, x, y, world_is_solid(w, x, y) ? 0 : WATER_FULL);
+    world_set(w, px - 3, s - 1, TILE_AIR);
+    world_set(w, px - 1, s - 1, TILE_AIR);
+    for (int y = s - 8; y < s; y++)
+        for (int x = px - 5; x <= px + 5; x++) world_set_water(w, x, y, WATER_FULL);
+    settle(w);
+
     /* The water is saved as it stands, moving or not. */
     world_set(w, px, s, TILE_AIR);
     water_step(w);

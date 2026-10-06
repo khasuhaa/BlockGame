@@ -272,6 +272,8 @@ The bar along the bottom has a head button followed by 8 slots. Stacks hold up t
 
 Anything lying in the world - mined, dropped by the player, spilled from a bench, left by a creature, fallen from a tree - is gone 10 minutes after it landed, and blinks for its last 10 seconds. Fruit still on its tree does not count as lying anywhere. The time is `lifetime` under `drops` in `rules.json`.
 
+Items float: one dropped in water rises to the top of it, and one that falls onto water stops there, riding up and down with the water. (`float_speed` under `drops` in `rules.json`; 0 makes them sink.)
+
 A mined block drops as an item where it was. It is collected when the player is on or next to its tile, a moment after it drops, as long as there is room in the bar or in a basket in the bar.
 
 ## More than one character
