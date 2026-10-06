@@ -209,6 +209,7 @@ typedef struct {
     float tool_speed; /* how many times faster it mines blocks of its class */
     int ore_multiplier; /* how many times over it makes ore blocks drop; 1 for no effect */
     int crystals;    /* crystals it turns into when picked up; such an item is never held */
+    bool becomes_player; /* made at a bench, it is not an item at all but another character to play */
     int plants;      /* tree it grows into when planted, or -1 */
     TileType sows;   /* plant block it puts down when planted, or TILE_AIR */
     char plants_name[CONTENT_NAME_LEN];
@@ -222,6 +223,11 @@ typedef struct {
     RecipeItem inputs[RECIPE_MAX_INPUTS];
     int input_count;
     int crystals; /* crystals it costs on top of the inputs */
+    /* Inputs that differ from world to world: so many items in all, shared
+     * out among these kinds by the world's seed. They are worked out into
+     * `inputs` when a world is opened. */
+    ItemId random_items[RECIPE_MAX_INPUTS];
+    int random_item_count, random_total;
 } Recipe;
 
 /* One row of a full-grown tree's leaves. */
@@ -434,6 +440,7 @@ typedef struct {
     int teleport_cost;     /* crystals, up to teleport_free blocks away */
     int teleport_free;
     int teleport_per;      /* one crystal more for every this many blocks beyond */
+    int max_players;       /* how many characters a world can have to play */
     int hand_damage;       /* what a blow with nothing better in hand takes off a creature */
     float attack_time;     /* seconds a blow takes */
     float zoom[MAX_ZOOM_LEVELS];

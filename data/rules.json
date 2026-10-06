@@ -30,6 +30,7 @@
       { "item": "gold_ore", "weight": 10 }, { "item": "platinum_ore", "weight": 5 }, { "item": "titanium_ore", "weight": 5 }
     ]
   },
+  "players": { "max": 2 },
   "combat": { "hand_damage": 2, "attack_time": 0.35 },
   "teleport": { "bench": "portal", "level": 1, "cost": 10, "free_distance": 100, "per_blocks": 10 },
   "fog": { "enabled": true, "radius": 20, "fade": 8 },

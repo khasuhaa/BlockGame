@@ -815,6 +815,7 @@ bool game_click_tile(Game *g, int tx, int ty)
 /* Leaves an item lying in a tile, with whatever is inside it. With no room
  * for another drop it goes straight to the inventory instead. */
 static void vitals_tick(Game *g);
+static TilePos character_feet(const Game *g, int c);
 static bool work_now(Game *g, Work work, int arg, int amount);
 
 static Drop *spawn_drop_stack(Game *g, ItemStack one, TilePos at)
@@ -1063,9 +1064,25 @@ uint16_t game_open_storage(const Game *g)
     return st ? st->container : 0;
 }
 
+/* Whether a drop is within a character's reach to be picked up without asking. */
+static bool drop_in_reach(const Game *g, const Drop *d, TilePos feet)
+{
+    int dx = world_dx(&g->world, feet.x, d->x), dy = (int)(d->y + 0.5f) - feet.y;
+    return dx >= -1 && dx <= 1 && dy >= -2 && dy <= 1;
+}
+
+/* The live character picks up what is lying within their reach. */
+static void collect_nearby(Game *g)
+{
+    for (int i = 0; i < MAX_DROPS; i++) {
+        Drop *d = &g->drops[i];
+        if (!d->active || d->collect > 0.0f || d->attached || d->held_off || d->age < DROP_PICKUP_DELAY) continue;
+        if (drop_in_reach(g, d, g->player.feet)) collect_drop(g, d);
+    }
+}
+
 static void update_drops(Game *g, float dt)
 {
-    TilePos feet = g->player.feet;
     for (int i = 0; i < MAX_DROPS; i++) {
         Drop *d = &g->drops[i];
         if (!d->active) continue;
@@ -1088,13 +1105,10 @@ static void update_drops(Game *g, float dt)
         d->y += DROP_FALL_SPEED * dt;
         if (d->y > (float)rest) d->y = (float)rest;
 
-        /* Collected from the tiles the player occupies or touches. */
-        int dx = world_dx(&g->world, feet.x, d->x), dy = (int)(d->y + 0.5f) - feet.y;
-        bool in_reach = dx >= -1 && dx <= 1 && dy >= -2 && dy <= 1;
-        /* Something the player put down stays down until they have been away. */
+        /* Something put down on purpose stays down until everybody has been away from it. */
+        bool in_reach = false;
+        for (int c = 0; c < g->character_count; c++) in_reach = in_reach || drop_in_reach(g, d, character_feet(g, c));
         if (d->held_off && !in_reach) d->held_off = false;
-        if (d->age < DROP_PICKUP_DELAY || !in_reach || d->held_off) continue;
-        collect_drop(g, d);
     }
 }
 
@@ -1408,6 +1422,11 @@ static bool craft_now(Game *g, const Recipe *r, int count)
     if (game_bench_fuel(g, NULL) == 0) return false; /* out of fuel */
     int max = recipe_max_crafts(&g->inventory, r, g->crystals);
     if (max < 1) return false;
+    /* A character is made one at a time, and only while the world has room for one. */
+    if (item_def(r->output.id)->becomes_player) {
+        if (g->character_count >= content.rules.max_players || g->character_count >= MAX_CHARACTERS) return false;
+        count = 1;
+    }
     g->craft_recipe = r;
     g->craft_total = g->craft_remaining = count < max ? count : max;
     g->craft_timer = 0.0f;
@@ -1579,6 +1598,17 @@ static void update_bench(Game *g, float dt)
     g->craft_timer += dt;
     while (g->craft_remaining > 0 && g->craft_timer >= CRAFT_TIME) {
         g->craft_timer -= CRAFT_TIME;
+        if (item_def(g->craft_recipe->output.id)->becomes_player) {
+            /* Not a thing to carry: somebody new, standing at the bench. */
+            const Recipe *r = g->craft_recipe;
+            g->craft_remaining = 0;
+            if (recipe_max_crafts(&g->inventory, r, g->crystals) < 1) break;
+            TilePos at = g->player.feet;
+            if (game_add_character(g, at) < 0) break;
+            inventory_remove_all(&g->inventory, r->inputs, r->input_count);
+            g->crystals -= r->crystals;
+            break;
+        }
         int left = recipe_craft(&g->inventory, g->craft_recipe, &g->crystals);
         if (left < 0) {
             g->craft_remaining = 0;
@@ -1613,6 +1643,8 @@ static Drop *attached_drop_at(Game *g, int x, int y)
 void game_random_event(Game *g, int x, int y)
 {
     World *w = &g->world;
+    /* (What turns up near a character turns up near whichever is nearest.) */
+    game_use_character(g, game_nearest_character(g, x, y));
 
     if (mobs_try_hatch(g, x, y) || mobs_try_spawn(g, x, y)) return;
     if (tree_trunk_at(w, x, y) >= 0) {
@@ -1651,6 +1683,145 @@ void game_random_event(Game *g, int x, int y)
     if (!fruit) return;
     fruit->attached = true;
     fruit->ttl = content.trees[kind].fruit_ticks;
+}
+
+/* ---- characters --------------------------------------------------------- */
+
+static void character_stash(Game *g, Character *c)
+{
+    c->player = g->player;
+    memcpy(c->slots, g->inventory.slots, sizeof c->slots);
+    memcpy(c->armor, g->inventory.armor, sizeof c->armor);
+    c->sel_slot = g->inventory.sel_slot;
+    c->sel_inner = g->inventory.sel_inner;
+    memcpy(c->choice, g->inventory.choice, sizeof c->choice);
+    c->has_current = g->has_current;
+    c->current = g->current;
+    c->steps = g->steps;
+    c->step_count = g->step_count;
+    c->step_index = g->step_index;
+    memcpy(c->queue, g->queue, sizeof c->queue);
+    c->queue_count = g->queue_count;
+    c->move_dx = g->move_dx;
+    c->move_dy = g->move_dy;
+    c->vitals = g->vitals;
+    c->bench_open = g->bench_open;
+    c->bench_pos = g->bench_pos;
+    c->craft_recipe = g->craft_recipe;
+    c->craft_total = g->craft_total;
+    c->craft_remaining = g->craft_remaining;
+    c->craft_timer = g->craft_timer;
+}
+
+static void character_fetch(Game *g, const Character *c)
+{
+    g->player = c->player;
+    memcpy(g->inventory.slots, c->slots, sizeof c->slots);
+    memcpy(g->inventory.armor, c->armor, sizeof c->armor);
+    g->inventory.sel_slot = c->sel_slot;
+    g->inventory.sel_inner = c->sel_inner;
+    memcpy(g->inventory.choice, c->choice, sizeof c->choice);
+    g->has_current = c->has_current;
+    g->current = c->current;
+    g->steps = c->steps;
+    g->step_count = c->step_count;
+    g->step_index = c->step_index;
+    memcpy(g->queue, c->queue, sizeof c->queue);
+    g->queue_count = c->queue_count;
+    g->move_dx = c->move_dx;
+    g->move_dy = c->move_dy;
+    g->vitals = c->vitals;
+    g->bench_open = c->bench_open;
+    g->bench_pos = c->bench_pos;
+    g->craft_recipe = c->craft_recipe;
+    g->craft_total = c->craft_total;
+    g->craft_remaining = c->craft_remaining;
+    g->craft_timer = c->craft_timer;
+}
+
+void game_use_character(Game *g, int c)
+{
+    if (c == g->live || c < 0 || c >= g->character_count) return;
+    character_stash(g, &g->characters[g->live]);
+    character_fetch(g, &g->characters[c]);
+    g->live = c;
+}
+
+void game_control(Game *g, int c)
+{
+    if (c < 0 || c >= g->character_count) return;
+    /* Whoever is let go of stops being steered, but keeps on with what they were told. */
+    game_use_character(g, g->controlled);
+    g->move_dx = g->move_dy = 0;
+    g->controlled = c;
+    game_use_character(g, c);
+}
+
+/* Where a character is, live or not. */
+static TilePos character_feet(const Game *g, int c)
+{
+    return c == g->live ? g->player.feet : g->characters[c].player.feet;
+}
+
+static const Vitals *character_vitals(const Game *g, int c)
+{
+    return c == g->live ? &g->vitals : &g->characters[c].vitals;
+}
+
+const Vitals *game_character_vitals(const Game *g, int c)
+{
+    return character_vitals(g, c < 0 || c >= g->character_count ? g->live : c);
+}
+
+int game_nearest_character(const Game *g, int x, int y)
+{
+    int best = g->live;
+    long nearest = -1;
+    for (int c = 0; c < g->character_count; c++) {
+        TilePos at = character_feet(g, c);
+        long dx = world_dx(&g->world, at.x, x), dy = y - at.y, d = dx * dx + dy * dy;
+        if (nearest < 0 || d < nearest) nearest = d, best = c;
+    }
+    return best;
+}
+
+int game_add_character(Game *g, TilePos at)
+{
+    int most = content.rules.max_players > 0 ? content.rules.max_players : 1;
+    if (g->character_count >= MAX_CHARACTERS || g->character_count >= most) return -1;
+    Step *steps = malloc(sizeof(Step) * (size_t)g->world.width * g->world.height);
+    if (!steps) return -1;
+    int c = g->character_count++;
+    Character *made = &g->characters[c];
+    memset(made, 0, sizeof *made);
+    made->steps = steps;
+    made->player.feet = made->player.step_to = (TilePos){ world_wrap_x(&g->world, at.x), at.y };
+    made->player.facing = 1;
+    made->sel_inner = -1;
+    memset(made->choice, -1, sizeof made->choice);
+    made->vitals = (Vitals){ .health = 1.0f, .hunger = 1.0f, .energy = 1.0f, .oxygen = 1.0f };
+    game_reveal(g, at.x, at.y - 1);
+    return c;
+}
+
+void game_roll_recipes(const Game *g)
+{
+    for (int i = 0; i < content.recipe_count; i++) {
+        Recipe *r = &content.recipes[i];
+        if (r->random_item_count == 0) continue;
+        /* Each of the total is one of the kinds, picked by the world's seed. */
+        int counts[RECIPE_MAX_INPUTS] = { 0 };
+        uint32_t x = g->world.seed ^ (0x9E3779B9u * (uint32_t)(i + 1));
+        for (int n = 0; n < r->random_total; n++) {
+            x ^= x << 13;
+            x ^= x >> 17;
+            x ^= x << 5;
+            counts[(x >> 8) % (uint32_t)r->random_item_count]++;
+        }
+        r->input_count = 0;
+        for (int k = 0; k < r->random_item_count; k++)
+            if (counts[k] > 0) r->inputs[r->input_count++] = (RecipeItem){ r->random_items[k], counts[k] };
+    }
 }
 
 /* ---- the player's needs ------------------------------------------------- */
@@ -1744,8 +1915,10 @@ bool game_rest(Game *g, Rest kind)
 
 int game_tick_speed(const Game *g)
 {
-    int speed = g->vitals.rest != REST_NONE && content.rules.rest_speed > 1 ? content.rules.rest_speed : 1;
-    return g->tick_rate * speed;
+    /* Time only runs on when every character is at rest. */
+    bool all = true;
+    for (int c = 0; c < g->character_count; c++) all = all && character_vitals(g, c)->rest != REST_NONE;
+    return g->tick_rate * (all && content.rules.rest_speed > 1 ? content.rules.rest_speed : 1);
 }
 
 /* Where something that comes out of the player appears: at their head, to
@@ -1857,7 +2030,12 @@ void game_tick(Game *g)
 
     mobs_tick(g);
     water_step(w);
-    vitals_tick(g);
+    /* Everybody gets hungry, whoever is being played. */
+    for (int c = 0; c < g->character_count; c++) {
+        game_use_character(g, c);
+        vitals_tick(g);
+    }
+    game_use_character(g, g->controlled);
 
     /* Fuel burns down whether or not anything is being made. */
     for (int i = 0; i < MAX_STORAGES; i++)
@@ -1897,7 +2075,6 @@ float game_daylight(const Game *g)
 
 void game_update(Game *g, float dt)
 {
-    Player *p = &g->player;
     float frame = dt;
 
     g->tick_timer += dt * (float)game_tick_speed(g);
@@ -1911,20 +2088,28 @@ void game_update(Game *g, float dt)
         if (g->denials[i].ttl > 0.0f) g->denials[i].ttl -= dt;
     }
 
-    for (;;) {
-        if (p->activity != ACTIVITY_IDLE) {
-            float remaining = p->duration - p->timer;
-            if (dt < remaining) {
-                p->timer += dt;
-                break;
-            }
-            dt -= remaining;
-            finish_activity(g);
-        }
-        if (!start_next_activity(g)) break;
-    }
     update_drops(g, frame);
-    update_bench(g, frame);
+    /* Every character gets on with what they are doing, each in turn. */
+    for (int c = 0; c < g->character_count; c++) {
+        game_use_character(g, c);
+        Player *p = &g->player;
+        float left = frame;
+        for (;;) {
+            if (p->activity != ACTIVITY_IDLE) {
+                float remaining = p->duration - p->timer;
+                if (left < remaining) {
+                    p->timer += left;
+                    break;
+                }
+                left -= remaining;
+                finish_activity(g);
+            }
+            if (!start_next_activity(g)) break;
+        }
+        collect_nearby(g);
+        update_bench(g, frame);
+    }
+    game_use_character(g, g->controlled);
 }
 
 void game_set_move_input(Game *g, int dx, int dy)
@@ -2038,6 +2223,9 @@ bool game_init(Game *g, int width, int height, uint32_t seed, WorldKind kind)
         return false;
     }
     g->vitals = (Vitals){ .health = 1.0f, .hunger = 1.0f, .energy = 1.0f, .oxygen = 1.0f };
+    g->character_count = 1;
+    g->live = g->controlled = 0;
+    game_roll_recipes(g);
     g->fog = content.rules.fog_enabled;
     game_reveal(g, g->player.feet.x, g->player.feet.y - 1);
     g->player.step_to = g->player.feet;
@@ -2048,6 +2236,9 @@ void game_free(Game *g)
 {
     world_free(&g->world);
     world_free(&g->sim);
+    /* (Each character has a route of their own; the live one's is in the Game.) */
+    for (int c = 0; c < g->character_count && c < MAX_CHARACTERS; c++)
+        if (c != g->live) free(g->characters[c].steps);
     free(g->steps);
     free(g->bfs_step);
     free(g->bfs_parent);

@@ -4,12 +4,15 @@
 #include "game.h"
 #include "raylib.h"
 
-/* The player's corner of the screen: a small button with their health and
- * hunger under it. Clicking it flies a panel out beside it, with all three
- * bars and the buttons for sleeping and meditating. */
+/* The players' corner of the screen: for each character a small button with
+ * their health and hunger under it, one below another. Clicking the button
+ * of the one being played flies a panel out beside it, with all their bars
+ * and the buttons for sleeping and meditating; clicking another's hands
+ * control to them. */
 typedef struct {
     bool open;
-    bool pressed; /* a press that began on it */
+    bool pressed;  /* a press that began on it */
+    bool switched; /* set for the frame control passes to another character */
 } PlayerUi;
 
 /* Returns true while the mouse belongs to the button or its panel. */

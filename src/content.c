@@ -400,6 +400,7 @@ static bool read_items(Reader *r, const cJSON *root)
         it->tool_speed = (float)num(tool, "speed", 1.0);
         it->ore_multiplier = (int)num(tool, "ore_multiplier", 1);
         it->crystals = (int)num(e, "crystals", 0);
+        it->becomes_player = flag(e, "becomes_player", false);
         if (tool && (it->tool_class < 0 || it->tool_speed <= 0.0f))
             return fail(r, "item \"%s\": a tool needs a \"class\" and a \"speed\" above 0", it->name);
         /* "holds_water": how many eighths; "durability": how many uses. */
@@ -454,6 +455,18 @@ static bool read_recipes(Reader *r, const cJSON *root)
                 return fail(r, "a recipe has more than %d inputs", RECIPE_MAX_INPUTS);
             if (!stack_ref(r, in, &recipe.inputs[recipe.input_count++])) return false;
         }
+
+        /* "random_inputs": so many in all of these kinds, the mix settled by each world. */
+        const cJSON *random = field(e, "random_inputs"), *kind;
+        recipe.random_total = (int)num(random, "count", 0);
+        cJSON_ArrayForEach(kind, field(random, "of")) {
+            ItemId item = cJSON_IsString(kind) ? item_id(kind->valuestring) : -1;
+            if (item <= 0 || recipe.random_item_count >= RECIPE_MAX_INPUTS)
+                return fail(r, "a recipe's \"random_inputs\" lists at most %d items that exist", RECIPE_MAX_INPUTS);
+            recipe.random_items[recipe.random_item_count++] = item;
+        }
+        if (random && (recipe.input_count > 0 || recipe.random_item_count == 0 || recipe.random_total < 1))
+            return fail(r, "a recipe has \"inputs\" or \"random_inputs\" (some \"of\" and a \"count\"), not both");
 
         /* "bench" is one kind of bench, or a list of kinds that all offer the recipe. */
         recipe.level = (int)num(e, "level", 1);
@@ -834,6 +847,7 @@ static bool read_rules(Reader *r, const cJSON *root)
             if (u->loot[u->loot_count++].weight < 1) return fail(r, "what meditation brings needs a \"weight\" of 1 or more");
         }
     }
+    if (field(root, "players")) u->max_players = (int)num(field(root, "players"), "max", u->max_players);
     const cJSON *combat = field(root, "combat");
     if (combat) {
         u->hand_damage = (int)num(combat, "hand_damage", u->hand_damage);
@@ -1073,8 +1087,10 @@ static bool validate(Reader *r)
         bool money = false;
         for (int c = 0; c < content.trade.currency_count; c++)
             money = money || content.trade.currencies[c].item == i;
-        /* (Nor an item that turns into crystals the moment it is picked up.) */
-        if (i > 0 && it->category < 0 && !money && it->crystals == 0 && content.trade.category_count > 0)
+        /* (Nor an item that is never held: one that turns into crystals the
+         * moment it is picked up, or into a character the moment it is made.) */
+        if (i > 0 && it->category < 0 && !money && it->crystals == 0 && !it->becomes_player &&
+            content.trade.category_count > 0)
             return fail(r, "item \"%s\" has no \"category\", so it could not be bought or sold; "
                            "give it one from trade.json", it->name);
         it->plants = it->plants_name[0] ? tree_id(it->plants_name) : -1;

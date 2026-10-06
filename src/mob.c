@@ -404,6 +404,8 @@ void mobs_tick(Game *g)
         Mob *m = &g->mobs[i];
         if (!m->active) continue;
         const MobDef *def = &content.mobs[m->kind];
+        /* What a creature makes of "the player" is whichever character is nearest it. */
+        game_use_character(g, game_nearest_character(g, m->x, m->y));
 
         m->age++;
         if (m->baby && m->age >= def->baby_ticks) m->baby = false;

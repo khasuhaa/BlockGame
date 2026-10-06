@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 13u
+#define SAVE_VERSION 14u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -132,6 +132,18 @@ static bool read_names(FILE *f, uint8_t map[256], int (*lookup)(const char *))
     return true;
 }
 
+/* A character other than the first, as saved from version 14. (The first is
+ * in the header and the inventory, where the only character always was.) */
+typedef struct {
+    int32_t feet_x, feet_y, climbing, facing;
+    ItemStack slots[INVENTORY_SLOTS];
+    ItemStack armor[ARMOR_SLOTS];
+    int32_t sel_slot, sel_inner;
+    int8_t choice[INVENTORY_SLOTS];
+    Vitals vitals;
+    int32_t reserved[8];
+} SavedCharacter;
+
 /* A creature as saved before version 10. */
 typedef struct {
     bool active;
@@ -201,6 +213,11 @@ bool save_game(const Game *g, const char *path)
     FILE *f = fopen(tmp, "wb");
     if (!f) return false;
 
+    /* The first character is the one written in the header and the inventory. */
+    Game *mine = (Game *)g;
+    int played = g->controlled;
+    game_use_character(mine, 0);
+
     const World *w = &g->world;
     size_t cells = (size_t)w->width * w->height;
     SaveHeader h = {
@@ -232,6 +249,26 @@ bool save_game(const Game *g, const char *path)
          write_names(f, content.biome_count, content.biomes[0].name, sizeof content.biomes[0]) &&
          fwrite(w->biome, 1, (size_t)w->width, f) == (size_t)w->width &&
          fwrite(w->water, 1, cells, f) == cells && fwrite(w->water_awake, 1, (size_t)w->width, f) == (size_t)w->width;
+    /* The other characters, and which of them all was being played. */
+    uint32_t people[2] = { (uint32_t)g->character_count, (uint32_t)played };
+    ok = ok && fwrite(people, sizeof people, 1, f) == 1;
+    for (int c = 1; c < g->character_count && ok; c++) {
+        const Character *who = &g->characters[c];
+        SavedCharacter sc = { .feet_x = who->player.feet.x, .feet_y = who->player.feet.y,
+                              .climbing = who->player.climbing, .facing = who->player.facing,
+                              .sel_slot = who->sel_slot, .sel_inner = who->sel_inner, .vitals = who->vitals };
+        /* A step in progress is saved as already taken. */
+        if (who->player.activity == ACTIVITY_STEPPING) {
+            sc.feet_x = world_wrap_x(w, who->player.step_to.x);
+            sc.feet_y = who->player.step_to.y;
+            sc.climbing = who->player.step.climb;
+        }
+        memcpy(sc.slots, who->slots, sizeof sc.slots);
+        memcpy(sc.armor, who->armor, sizeof sc.armor);
+        memcpy(sc.choice, who->choice, sizeof sc.choice);
+        ok = fwrite(&sc, sizeof sc, 1, f) == 1;
+    }
+    game_use_character(mine, played);
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
         remove(tmp);
@@ -326,6 +363,34 @@ bool load_game(Game *g, const char *path)
         }
         g->vitals.rest = REST_NONE;
         g->vitals.meditation = 0.0f;
+        /* The other characters, from version 14. */
+        uint32_t people[2] = { 1, 0 };
+        if (ok && h.version >= 14) ok = fread(people, sizeof people, 1, f) == 1 && people[0] >= 1 && people[0] <= MAX_CHARACTERS;
+        for (uint32_t c = 1; ok && c < people[0]; c++) {
+            SavedCharacter sc;
+            ok = fread(&sc, sizeof sc, 1, f) == 1 && world_in_bounds(w, 0, sc.feet_y);
+            if (!ok) break;
+            int made = game_add_character(g, (TilePos){ sc.feet_x, sc.feet_y });
+            if (made < 0) continue; /* (the rules now allow fewer: this one is left out) */
+            Character *who = &g->characters[made];
+            who->player.climbing = sc.climbing != 0;
+            who->player.facing = sc.facing < 0 ? -1 : 1;
+            for (int i = 0; i < INVENTORY_SLOTS; i++) {
+                who->slots[i] = sc.slots[i];
+                remap_stack(&who->slots[i], items);
+            }
+            for (int i = 0; i < ARMOR_SLOTS; i++) {
+                who->armor[i] = sc.armor[i];
+                remap_stack(&who->armor[i], items);
+            }
+            who->sel_slot = sc.sel_slot >= 0 && sc.sel_slot < INVENTORY_SLOTS ? sc.sel_slot : 0;
+            who->sel_inner = sc.sel_inner;
+            memcpy(who->choice, sc.choice, sizeof who->choice);
+            who->vitals = sc.vitals;
+            who->vitals.rest = REST_NONE;
+            who->vitals.meditation = 0.0f;
+        }
+        int played = (int)people[1] < g->character_count ? (int)people[1] : 0;
 
         /* Turn the save's ids into this run's. */
         for (int layer = 0; layer < LAYER_COUNT && ok; layer++)
@@ -393,6 +458,7 @@ bool load_game(Game *g, const char *path)
         g->rng = h.rng;
         g->next_drop_id = h.next_drop_id;
         ok = ok && world_in_bounds(w, 0, h.feet_y);
+        if (ok) game_control(g, played);
         if (!ok) game_free(g);
     }
     fclose(f);

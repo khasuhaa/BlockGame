@@ -274,6 +274,14 @@ Anything lying in the world - mined, dropped by the player, spilled from a bench
 
 A mined block drops as an item where it was. It is collected when the player is on or next to its tile, a moment after it drops, as long as there is room in the bar or in a basket in the bar.
 
+## More than one character
+
+A portal makes a **new player**: another character to play, for 100 crystals and 5 fruit. The fruit is apples, oranges and cherries in a mix that is each world's own - 1 apple and 4 cherries in one, 3 oranges and 2 apples in another - and the recipe shows which. The new character appears standing at the portal with nothing. For now a world can have one of them: two characters in all (`players` in `rules.json`).
+
+Each character has a body, a bar of items, a queue of actions and health, hunger, energy and oxygen of their own. Each has a button down the left of the screen, with their bars under it; the one being played is edged in gold and has a small arrow over their head. **Clicking another character's button plays them**: the view, the inventory bar and the menus go over to them. Clicking the button of the one already being played opens their panel, as before.
+
+Whoever is not being played carries on with whatever they were told to do - walking, mining, crafting, sleeping, meditating - so both can be kept busy at once: queue something for one, switch, queue something for the other. Things they walk over go into their own bar, and their needs run down like anyone's. Creatures treat whichever character is nearest them as the player: they turn up and go away by that one's distance, and a dropbear or a shark goes for that one. Time only runs fast when *every* character is asleep or meditating. Something one character drops stays where it is until nobody is standing over it.
+
 ## Health, hunger and energy
 
 The button in the top left corner, under the readout, is the player. Under it are two small bars, health and hunger. Clicking it flies a panel out beside it with those two and a third, energy, and two buttons: **Sleep** and **Meditate**. Bars are green on dark red.
@@ -298,7 +306,7 @@ The top left corner shows, a line each: frames per second; the player's X and Y;
 
 A world starts blacked out. The player uncovers everything within 20 blocks of themselves as they move, and what has been uncovered stays uncovered: it is saved with the world. The edge is not a line; the outer 8 blocks of the circle fade into the black. Fog of war can be turned off and on in the pause menu's world settings - turning it off shows everything, and turning it back on brings back exactly what had been explored. A save from before the fog existed starts with only the area round the player uncovered. The radius, the fade and whether new worlds start fogged are in `rules.json`.
 
-The mouse wheel zooms the view in and out in steps, about the cursor: whatever is under the mouse stays under it. Zooming lets the camera go of the player, as dragging does; `Space` makes it follow again. Zoomed out past a threshold, the view fades into the world map: the whole world at a few pixels a block, each block drawn as the one average colour of its texture, with a marker where the player is. The map can be dragged about like the world, and wraps round like it. Every portal the player has uncovered is marked on it with a small purple doorway, and that is the one thing on the map that can be clicked: the view goes in on that portal and its menu comes up, Teleport button and all. Nothing else on the map answers a click. The fog of war covers the map too. Zooming back in returns to the world.
+The mouse wheel zooms the view in and out in steps, about the cursor: whatever is under the mouse stays under it. Zooming lets the camera go of the player, as dragging does; `Space` makes it follow again. Zoomed out past a threshold, the view fades into the world map: the whole world at a few pixels a block, each block drawn as the one average colour of its texture, with a marker where each character is, ringed for the one being played. The map can be dragged about like the world, and wraps round like it. Every portal the player has uncovered is marked on it with a small purple doorway, and that is the one thing on the map that can be clicked: the view goes in on that portal and its menu comes up, Teleport button and all. Nothing else on the map answers a click. The fog of war covers the map too. Zooming back in returns to the world.
 
 ## Reach
 

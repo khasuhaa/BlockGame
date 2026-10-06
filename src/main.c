@@ -189,7 +189,14 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
         !tradeui_mouse_over(trade, g, &ui_view))
         game_discard(g, hud->discard_slot, hud->discard_count);
     if (on_hud) return;
-    if (playerui_handle_input(player, g)) return;
+    bool on_players = playerui_handle_input(player, g);
+    if (player->switched) {
+        /* Another character is being played: the view and the menus go over to them. */
+        hud_close_all(hud);
+        cam->follow = true;
+        cam->anchored = false;
+    }
+    if (on_players) return;
     if (tradeui_handle_input(trade, g, &ui_view)) return;
     bool on_bench = benchui_handle_input(bench, g, &ui_view);
     if (bench->teleported) {
@@ -585,17 +592,24 @@ static void draw_world_map(const Game *g, const MapCamera *cam, float alpha, flo
         if (i == hot) DrawRing(p, 15.0f, 17.0f, 0.0f, 360.0f, 32, Fade(RAYWHITE, alpha));
     }
 
-    /* Where the player is: a head in a ring that breathes. */
-    float px, py;
-    game_player_visual_pos(g, &px, &py);
-    Vector2 at = { sw / 2 + (view_near_x(&view, px) + 0.5f - cx) * scale, sh / 2 + (py - 0.5f - cy) * scale };
-    float pulse = 0.5f + 0.5f * sinf((float)GetTime() * 4.0f);
-    DrawRing(at, 11.0f + 3.0f * pulse, 13.5f + 3.0f * pulse, 0.0f, 360.0f, 32, Fade(WHITE, alpha * (1.0f - 0.5f * pulse)));
-    DrawRectangleRec((Rectangle){ at.x - 7, at.y - 7, 14, 14 }, Fade(BLACK, alpha));
-    DrawRectangleRec((Rectangle){ at.x - 6, at.y - 6, 12, 12 }, Fade((Color){ 240, 200, 160, 255 }, alpha));
-    DrawRectangleRec((Rectangle){ at.x - 6, at.y - 6, 12, 4 }, Fade((Color){ 90, 60, 40, 255 }, alpha));
-    DrawRectangleRec((Rectangle){ at.x - 3, at.y, 2, 2 }, Fade((Color){ 40, 40, 60, 255 }, alpha));
-    DrawRectangleRec((Rectangle){ at.x + 2, at.y, 2, 2 }, Fade((Color){ 40, 40, 60, 255 }, alpha));
+    /* Where each character is: a head, and round the one being played a ring that breathes. */
+    Game *all = (Game *)g;
+    int played = g->controlled;
+    for (int n = 0; n < g->character_count; n++) {
+        int c = (played + 1 + n) % g->character_count;
+        game_use_character(all, c);
+        float px, py;
+        game_player_visual_pos(g, &px, &py);
+        Vector2 at = { sw / 2 + (view_near_x(&view, px) + 0.5f - cx) * scale, sh / 2 + (py - 0.5f - cy) * scale };
+        float pulse = 0.5f + 0.5f * sinf((float)GetTime() * 4.0f);
+        if (c == played)
+            DrawRing(at, 11.0f + 3.0f * pulse, 13.5f + 3.0f * pulse, 0.0f, 360.0f, 32, Fade(WHITE, alpha * (1.0f - 0.5f * pulse)));
+        DrawRectangleRec((Rectangle){ at.x - 7, at.y - 7, 14, 14 }, Fade(BLACK, alpha));
+        DrawRectangleRec((Rectangle){ at.x - 6, at.y - 6, 12, 12 }, Fade((Color){ 240, 200, 160, 255 }, alpha));
+        DrawRectangleRec((Rectangle){ at.x - 6, at.y - 6, 12, 4 }, Fade((Color){ 90, 60, 40, 255 }, alpha));
+        DrawRectangleRec((Rectangle){ at.x - 3, at.y, 2, 2 }, Fade((Color){ 40, 40, 60, 255 }, alpha));
+        DrawRectangleRec((Rectangle){ at.x + 2, at.y, 2, 2 }, Fade((Color){ 40, 40, 60, 255 }, alpha));
+    }
 
     const char *text = "World map  -  drag to look around, scroll to zoom back in, click a portal to go to its menu";
     DrawText(text, (int)(sw - MeasureText(text, 16)) / 2, (int)sh - 110, 16, Fade(RAYWHITE, alpha));
@@ -892,6 +906,17 @@ static void draw_player(const Game *g, Vector2 origin)
     }
 }
 
+/* With more than one character about, a small arrow over the one being played. */
+static void draw_played_marker(const Game *g, Vector2 origin)
+{
+    float x, y;
+    game_player_visual_pos(g, &x, &y);
+    float cx = origin.x + (view_near_x(&view, x) + 0.5f) * TILE_SIZE, top = origin.y + (y - 1.0f) * TILE_SIZE - 8.0f;
+    float bob = sinf((float)GetTime() * 4.0f) * 2.0f;
+    DrawTriangle((Vector2){ cx - 6, top - 9 + bob }, (Vector2){ cx, top + bob }, (Vector2){ cx + 6, top - 9 + bob },
+                 (Color){ 244, 196, 48, 255 });
+}
+
 /* While the player sleeps or meditates the world runs fast: arrows say so. */
 static void draw_fast_forward(const Game *g)
 {
@@ -1046,12 +1071,22 @@ static void session_draw(Session *s)
         BeginMode2D((Camera2D){ .zoom = zoom });
         draw_world(g, origin);
         draw_mobs(g, origin);
-        draw_player(g, origin);
+        /* Every character, the one being played last so that it is on top. */
+        for (int n = 0; n < g->character_count; n++) {
+            int c = (g->controlled + 1 + n) % g->character_count;
+            game_use_character(g, c);
+            draw_player(g, origin);
+            if (g->character_count > 1 && c == g->controlled) draw_played_marker(g, origin);
+        }
         draw_drops(g, origin);
         /* Darkness falls over the world, but not over the interface. */
         draw_light(g, origin);
         draw_fog(g, origin);
-        draw_actions(g, origin);
+        /* What each of them has queued. */
+        for (int n = 0; n < g->character_count; n++) {
+            game_use_character(g, (g->controlled + 1 + n) % g->character_count);
+            draw_actions(g, origin);
+        }
         if (!on_map && !s->paused && !s->cam.dragging && IsCursorOnScreen() &&
             !hud_mouse_over(&s->hud, &g->inventory) && !benchui_mouse_over(&s->bench, g, &ui_view) &&
             !playerui_mouse_over(&s->player_ui) &&

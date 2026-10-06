@@ -28,7 +28,7 @@ The trade portal buys and sells every item in the game except the coins. Wheneve
 
 - **Adding an item** (including the item that places a new bench or block, and each tier of one): give it a `"category"` from `data/trade.json` in `data/items.json`, and a `"price"` if it should not cost the default. Add a new category to `data/trade.json` if none fits.
 - **Removing an item:** take it out of `data/items.json` and out of anything that names it - recipes, upgrade costs, drops, starting items, currencies.
-- Only currencies listed in `data/trade.json`, and items that turn into crystals when picked up (`"crystals"`), may be left without a category.
+- Only currencies listed in `data/trade.json`, and items that are never held - ones that turn into crystals when picked up (`"crystals"`), or into a character when made (`"becomes_player"`) - may be left without a category.
 
 The loader enforces this: an item with no category that is neither of those stops the game at startup, naming the item. Do not weaken that check to get a new item in; give the item a category.
 

@@ -1906,8 +1906,8 @@ static void test_trade(void)
     CHECK(t->currencies[2].item == plat && t->currencies[2].value == 10000);
     int listed[MAX_CATEGORIES] = { 0 };
     for (int i = 1; i < content.item_count; i++) {
-        /* (Nor the time crystal, which is never held: it turns into crystals.) */
-        bool coin = i == copper || i == gold || i == plat || content.items[i].crystals > 0;
+        /* (Nor what is never held: the time crystal, which turns into crystals, and a new player.) */
+        bool coin = i == copper || i == gold || i == plat || content.items[i].crystals > 0 || content.items[i].becomes_player;
         CHECK(coin ? trade_price(i) == 0 : (trade_price(i) == 1 && content.items[i].category >= 0));
         if (!coin) listed[content.items[i].category]++;
     }
@@ -4778,6 +4778,183 @@ static void test_sea_and_combat(void)
     game_free(&g);
 }
 
+static void test_characters(void)
+{
+    Game g;
+    game_init(&g, 256, 64, 131, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    clear_inventory(&g);
+    clear_mobs(&g);
+    g.tick_rate = 0;
+    int ground = g.player.feet.y;
+    ItemId apple = item_id("apple"), orange = item_id("orange");
+
+    /* The recipe: at a portal, for 100 crystals and 5 fruit - apples, oranges
+     * and cherries in a mix that is this world's own. */
+    const Recipe *r = find_recipe(TILE_SPAWN_PORTAL, "new_player");
+    CHECK(r && r->crystals == 100 && r->level == 1 && item_def(r->output.id)->becomes_player);
+    CHECK(r->random_total == 5 && r->random_item_count == 3 && content.rules.max_players == 2);
+    int total = 0;
+    for (int i = 0; i < r->input_count; i++) {
+        total += r->inputs[i].count;
+        CHECK(r->inputs[i].id == apple || r->inputs[i].id == orange || r->inputs[i].id == ITEM_CHERRY);
+        CHECK(r->inputs[i].count >= 1);
+    }
+    CHECK(total == 5 && r->input_count >= 1);
+    /* Not the same in every world, but always the same in one. */
+    RecipeItem mine[RECIPE_MAX_INPUTS];
+    int mine_count = r->input_count;
+    memcpy(mine, r->inputs, sizeof mine);
+    bool differs = false;
+    Game other;
+    for (uint32_t seed = 1; seed <= 8 && !differs; seed++) {
+        game_init(&other, 64, 48, seed, WORLD_FLAT);
+        differs = r->input_count != mine_count || memcmp(mine, r->inputs, sizeof(RecipeItem) * (size_t)mine_count) != 0;
+        game_free(&other);
+    }
+    CHECK(differs);
+    game_roll_recipes(&g);
+    CHECK(r->input_count == mine_count && memcmp(mine, r->inputs, sizeof(RecipeItem) * (size_t)mine_count) == 0);
+
+    /* Making one. It is not an item: there is simply another character, standing at the portal. */
+    CHECK(g.character_count == 1 && g.controlled == 0);
+    for (int i = 0; i < r->input_count; i++) inventory_add(inv, r->inputs[i].id, r->inputs[i].count);
+    g.crystals = 99;
+    CHECK(game_open_bench(&g, w->spawn_x, ground) && !game_craft(&g, r, 1)); /* a crystal short */
+    g.crystals = 250;
+    CHECK(game_craft(&g, r, 5)); /* (however many are asked for, it is one) */
+    run(&g, 1.0f);
+    CHECK(g.character_count == 2 && g.crystals == 150 && g.controlled == 0 && g.live == 0);
+    CHECK(inventory_count(inv, apple) + inventory_count(inv, orange) + inventory_count(inv, ITEM_CHERRY) == 0);
+    CHECK(inventory_count(inv, item_id("new_player")) == 0 && count_drops(&g, item_id("new_player")) == 0);
+    /* For now, one is all there can be. */
+    for (int i = 0; i < r->input_count; i++) inventory_add(inv, r->inputs[i].id, r->inputs[i].count);
+    CHECK(!game_craft(&g, r, 1));
+    run(&g, 1.0f);
+    CHECK(g.character_count == 2 && g.crystals == 150);
+    game_close_bench(&g);
+    clear_inventory(&g);
+
+    /* The new one has nothing, wants for nothing, and stands by the portal. */
+    inventory_add(inv, ITEM_STONE, 7);
+    game_control(&g, 1);
+    CHECK(g.controlled == 1 && g.live == 1);
+    CHECK(abs(g.player.feet.x - w->spawn_x) <= 2 && g.player.feet.y == ground);
+    CHECK(g.vitals.health == 1.0f && g.vitals.hunger == 1.0f && g.vitals.energy == 1.0f && g.vitals.oxygen == 1.0f);
+    for (int i = 0; i < INVENTORY_SLOTS; i++) CHECK(inv->slots[i].count == 0);
+    /* What each carries is their own. */
+    inventory_add(inv, ITEM_WOOD, 3);
+    inventory_add(inv, ITEM_BASKET, 1);
+    inventory_add(inv, ITEM_DIRT, 4);
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 2, 0 }, (SlotRef){ SLOT_BASKET, 1, 0 }, MAX_STACK));
+    game_control(&g, 0);
+    CHECK(inventory_count(inv, ITEM_STONE) == 7 && inventory_count(inv, ITEM_WOOD) == 0 && inventory_count(inv, ITEM_DIRT) == 0);
+    game_control(&g, 1);
+    CHECK(inventory_count(inv, ITEM_STONE) == 0 && inventory_count(inv, ITEM_WOOD) == 3 && inventory_count(inv, ITEM_DIRT) == 4);
+
+    /* Both can be given things to do, and both get on with them at once. */
+    int start1 = g.player.feet.x;
+    inventory_select(inv, 6, -1); /* (an empty hand each, so that a click is a walk) */
+    CHECK(game_click_tile(&g, start1 + 12, ground));
+    game_control(&g, 0);
+    int start0 = g.player.feet.x;
+    inventory_select(inv, 6, -1);
+    CHECK(is_idle(&g) && game_click_tile(&g, start0 - 12, ground));
+    run(&g, 0.5f);
+    /* Part-way there, both of them. */
+    CHECK(g.player.feet.x < start0 && g.player.feet.x > start0 - 12);
+    game_control(&g, 1);
+    CHECK(g.player.feet.x > start1 && g.player.feet.x < start1 + 12 && !is_idle(&g));
+    run(&g, 5.0f);
+    CHECK(g.player.feet.x == start1 + 12 && is_idle(&g));
+    game_control(&g, 0);
+    CHECK(g.player.feet.x == start0 - 12 && is_idle(&g));
+
+    /* The one not being played still picks up what they walk over, into their own bar. */
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    game_control(&g, 1);
+    int at1 = g.player.feet.x;
+    game_drop_item(&g, ITEM_STICK, at1 + 5, ground);
+    CHECK(game_click_tile(&g, at1 + 6, ground));
+    game_control(&g, 0);
+    run(&g, 4.0f);
+    CHECK(count_drops(&g, ITEM_STICK) == 0 && inventory_count(inv, ITEM_STICK) == 0);
+    game_control(&g, 1);
+    CHECK(inventory_count(inv, ITEM_STICK) == 1 && g.player.feet.x == at1 + 6);
+
+    /* Each has needs of their own. Both get hungry; eating feeds the one who eats. */
+    game_control(&g, 0);
+    for (int i = 0; i < 360; i++) game_tick(&g);
+    CHECK(near(g.vitals.hunger, 0.9f) && near(game_character_vitals(&g, 1)->hunger, 0.9f));
+    inventory_add(inv, apple, 1);
+    for (int i = 0; i < INVENTORY_SLOTS; i++)
+        if (inv->slots[i].id == apple) inventory_select(inv, i, -1);
+    g.vitals.hunger = 0.5f;
+    CHECK(game_eat(&g) && g.vitals.hunger > 0.6f && near(game_character_vitals(&g, 1)->hunger, 0.9f));
+    CHECK(game_character_vitals(&g, 0) == &g.vitals);
+
+    /* Time only runs on when both are at rest. */
+    g.vitals.energy = 0.5f;
+    CHECK(game_rest(&g, REST_SLEEP) && game_tick_speed(&g) == g.tick_rate);
+    game_control(&g, 1);
+    CHECK(g.vitals.rest == REST_NONE && game_rest(&g, REST_MEDITATE));
+    CHECK(game_tick_speed(&g) == 3 * g.tick_rate);
+    game_control(&g, 0);
+    CHECK(g.vitals.rest == REST_SLEEP && game_tick_speed(&g) == 3 * g.tick_rate);
+    /* Meditating goes on for the one who is not being played, and brings what it brings. */
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    for (int i = 0; i < 950; i++) game_tick(&g);
+    int brought = 0;
+    for (int i = 0; i < MAX_DROPS; i++) brought += g.drops[i].active;
+    CHECK(brought == 1 && game_character_vitals(&g, 1)->rest == REST_MEDITATE);
+    game_wake(&g);
+    game_control(&g, 1);
+    game_wake(&g);
+    CHECK(game_tick_speed(&g) == g.tick_rate);
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+
+    /* A creature goes for whichever of them is nearest: here, the one not being played. */
+    int tx = g.player.feet.x + 6;
+    grow_tree(w, tx, "oak");
+    int bear = mob_spawn(&g, mob_id("dropbear"), tx, tree_top(w, tx), true, false);
+    g.mobs[bear].state = MOB_PERCH;
+    g.mobs[bear].home_x = tx;
+    g.player.feet = g.player.step_to = (TilePos){ tx - 1, ground }; /* character 1, under the tree */
+    g.vitals.health = 1.0f;
+    game_control(&g, 0);
+    g.vitals.health = 1.0f;
+    CHECK(abs(world_dx(w, g.player.feet.x, tx)) > 20);
+    for (int i = 0; i < 300 && game_character_vitals(&g, 1)->health == 1.0f; i++) game_tick(&g);
+    CHECK(game_character_vitals(&g, 1)->health < 1.0f && g.vitals.health == 1.0f && g.live == 0);
+    clear_mobs(&g);
+
+    /* A save keeps both: where they are, what they carry, how they are, and who was being played. */
+    game_control(&g, 1);
+    TilePos one = g.player.feet;
+    game_control(&g, 0);
+    TilePos zero = g.player.feet;
+    game_control(&g, 1);
+    Game loaded;
+    CHECK(save_game(&g, "build/test_people.world") && g.controlled == 1 && g.live == 1);
+    CHECK(load_game(&loaded, "build/test_people.world"));
+    CHECK(loaded.character_count == 2 && loaded.controlled == 1 && loaded.live == 1);
+    CHECK(loaded.player.feet.x == one.x && loaded.player.feet.y == one.y);
+    CHECK(inventory_count(&loaded.inventory, ITEM_WOOD) == 3 && inventory_count(&loaded.inventory, ITEM_DIRT) == 4);
+    CHECK(inventory_count(&loaded.inventory, ITEM_STICK) == 1 && inventory_count(&loaded.inventory, ITEM_STONE) == 0);
+    CHECK(near(loaded.vitals.health, g.vitals.health));
+    game_control(&loaded, 0);
+    CHECK(loaded.player.feet.x == zero.x && inventory_count(&loaded.inventory, ITEM_STONE) == 7);
+    CHECK(inventory_count(&loaded.inventory, ITEM_WOOD) == 0);
+    /* And they can still both be played. */
+    CHECK(game_click_tile(&loaded, zero.x + 3, ground));
+    run(&loaded, 3.0f);
+    CHECK(loaded.player.feet.x == zero.x + 3);
+    game_free(&loaded);
+    remove("build/test_people.world");
+    game_free(&g);
+}
+
 static void test_tools(void)
 {
     Game g;
@@ -5142,6 +5319,7 @@ int main(void)
     test_dodo_tree();
     test_water();
     test_basket_pickup();
+    test_characters();
     test_sea_and_combat();
     test_buckets_and_stacks();
     test_remote_benches_and_teleport();

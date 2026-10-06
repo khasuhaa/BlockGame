@@ -56,6 +56,7 @@
     {"bench": "portal", "level": 5, "output": {"item": "ruby_pickaxe", "count": 1}, "inputs": [{"item": "ruby", "count": 3}, {"item": "stick", "count": 1}]},
     {"bench": "portal", "level": 6, "output": {"item": "diamond_pickaxe", "count": 1}, "inputs": [{"item": "diamond", "count": 3}, {"item": "stick", "count": 1}]},
     {"bench": "portal", "level": 6, "output": {"item": "portal_chest", "count": 1}, "inputs": [{"item": "golden_chest", "count": 1}], "crystals": 100},
+    {"bench": "portal", "output": {"item": "new_player", "count": 1}, "random_inputs": {"of": ["apple", "orange", "cherry"], "count": 5}, "crystals": 100},
     {"bench": "campfire", "output": {"item": "cooked_dodo_meat", "count": 1}, "inputs": [{"item": "dodo_meat", "count": 1}]},
     {"bench": "campfire", "output": {"item": "cooked_fish", "count": 1}, "inputs": [{"item": "fish", "count": 1}]}
   ]

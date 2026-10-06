@@ -12,22 +12,36 @@
 #define ROW_HEIGHT 26.0f
 #define ACTION_HEIGHT 34.0f
 
-static Rectangle button_rect(void)
+#define CHARACTER_PITCH (BUTTON_SIZE + 3 * (SMALL_BAR_HEIGHT + SMALL_BAR_GAP) + 10.0f)
+
+/* The button of character `c`: they stand one below another. */
+static Rectangle button_rect(int c)
 {
-    return (Rectangle){ BUTTON_X, BUTTON_Y, BUTTON_SIZE, BUTTON_SIZE };
+    return (Rectangle){ BUTTON_X, BUTTON_Y + (float)c * CHARACTER_PITCH, BUTTON_SIZE, BUTTON_SIZE };
 }
 
-static Rectangle small_bar(int row)
+static Rectangle small_bar(int c, int row)
 {
-    return (Rectangle){ BUTTON_X, BUTTON_Y + BUTTON_SIZE + SMALL_BAR_GAP + row * (SMALL_BAR_HEIGHT + SMALL_BAR_GAP),
-                        BUTTON_SIZE, SMALL_BAR_HEIGHT };
+    Rectangle b = button_rect(c);
+    return (Rectangle){ b.x, b.y + BUTTON_SIZE + SMALL_BAR_GAP + row * (SMALL_BAR_HEIGHT + SMALL_BAR_GAP), BUTTON_SIZE,
+                        SMALL_BAR_HEIGHT };
 }
+
+/* The panel comes out beside the button of the character being played. */
+static Rectangle panel_rect_for(int c)
+{
+    float h = PANEL_PAD * 2 + ROW_HEIGHT * 4 + 8.0f + ACTION_HEIGHT;
+    return (Rectangle){ BUTTON_X + BUTTON_SIZE + 10.0f, button_rect(c).y, PANEL_WIDTH, h };
+}
+
+static int shown_for; /* whose panel it is: the character being played, as of the last frame handled */
 
 static Rectangle panel_rect(void)
 {
-    float h = PANEL_PAD * 2 + ROW_HEIGHT * 4 + 8.0f + ACTION_HEIGHT;
-    return (Rectangle){ BUTTON_X + BUTTON_SIZE + 10.0f, BUTTON_Y, PANEL_WIDTH, h };
+    return panel_rect_for(shown_for);
 }
+
+static int shown_count = 1;
 
 /* The two buttons along the bottom of the panel: 0 sleeps, 1 meditates. */
 static Rectangle action_rect(int which)
@@ -38,6 +52,17 @@ static Rectangle action_rect(int which)
                         ACTION_HEIGHT };
 }
 
+/* The character whose button, or the bars under it, a point is on; -1 for none. */
+static int button_at(Vector2 m)
+{
+    for (int c = 0; c < shown_count; c++) {
+        Rectangle whole = button_rect(c);
+        whole.height += 3 * (SMALL_BAR_HEIGHT + SMALL_BAR_GAP);
+        if (CheckCollisionPointRec(m, whole)) return c;
+    }
+    return -1;
+}
+
 static bool can_sleep(const Game *g)
 {
     return g->vitals.rest == REST_SLEEP || !game_bar_full(g->vitals.energy);
@@ -46,20 +71,22 @@ static bool can_sleep(const Game *g)
 bool playerui_mouse_over(const PlayerUi *ui)
 {
     Vector2 m = GetMousePosition();
-    Rectangle whole = button_rect();
-    whole.height += 3 * (SMALL_BAR_HEIGHT + SMALL_BAR_GAP);
-    return ui->pressed || CheckCollisionPointRec(m, whole) || (ui->open && CheckCollisionPointRec(m, panel_rect()));
+    return ui->pressed || button_at(m) >= 0 || (ui->open && CheckCollisionPointRec(m, panel_rect()));
 }
 
 bool playerui_handle_input(PlayerUi *ui, Game *g)
 {
     Vector2 m = GetMousePosition();
+    shown_for = g->controlled;
+    shown_count = g->character_count;
+    ui->switched = false;
     bool over = playerui_mouse_over(ui);
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) ui->pressed = over;
     if (!ui->pressed) return over;
     if (!IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) return true;
     ui->pressed = false;
 
+    int who = button_at(m);
     if (ui->open && CheckCollisionPointRec(m, action_rect(0))) {
         /* The button for what the player is already doing stops it. */
         if (g->vitals.rest == REST_SLEEP) game_wake(g);
@@ -67,7 +94,13 @@ bool playerui_handle_input(PlayerUi *ui, Game *g)
     } else if (ui->open && CheckCollisionPointRec(m, action_rect(1))) {
         if (g->vitals.rest == REST_MEDITATE) game_wake(g);
         else game_rest(g, REST_MEDITATE);
-    } else if (!ui->open || !CheckCollisionPointRec(m, panel_rect())) {
+    } else if (who >= 0 && who != g->controlled) {
+        /* Somebody else's button: they are the one played from now on. */
+        game_control(g, who);
+        shown_for = who;
+        ui->open = false;
+        ui->switched = true;
+    } else if (who == g->controlled) {
         ui->open = !ui->open;
     }
     return true;
@@ -113,17 +146,32 @@ static void draw_action(Rectangle r, const char *text, bool enabled, bool active
 
 void playerui_draw(const PlayerUi *ui, const Game *g)
 {
-    const Vitals *v = &g->vitals;
-    Rectangle b = button_rect();
-    DrawRectangleRec(b, (Color){ 34, 36, 44, 225 });
-    DrawRectangleLinesEx(b, ui->open ? 3.0f : 2.0f, ui->open ? RAYWHITE : (Color){ 120, 122, 134, 255 });
-    hud_draw_head_icon(b);
-    playerui_draw_bar(small_bar(0), v->health, BAR_GREEN);
-    playerui_draw_bar(small_bar(1), v->hunger, game_saturated(g) ? BAR_GOLD : BAR_GREEN);
-    /* Breath only shows while it is short. */
-    if (v->oxygen < 1.0f) playerui_draw_bar(small_bar(2), v->oxygen, BAR_BLUE);
+    shown_for = g->controlled;
+    shown_count = g->character_count;
+    for (int c = 0; c < g->character_count; c++) {
+        const Vitals *v = game_character_vitals(g, c);
+        bool played = c == g->controlled;
+        Rectangle b = button_rect(c);
+        bool hover = !played && CheckCollisionPointRec(GetMousePosition(), b);
+        DrawRectangleRec(b, hover ? (Color){ 52, 56, 70, 235 } : (Color){ 34, 36, 44, 225 });
+        /* The one being played is picked out; with company, in gold. */
+        Color edge = !played ? (Color){ 120, 122, 134, 255 } : g->character_count > 1 ? (Color){ 244, 196, 48, 255 } : RAYWHITE;
+        DrawRectangleLinesEx(b, played && (ui->open || g->character_count > 1) ? 3.0f : 2.0f,
+                             played && !ui->open && g->character_count == 1 ? (Color){ 120, 122, 134, 255 } : edge);
+        hud_draw_head_icon(b);
+        if (!played) DrawRectangleRec(b, (Color){ 20, 22, 30, 70 });
+        if (g->character_count > 1) DrawText(TextFormat("%d", c + 1), (int)b.x + 4, (int)b.y + 3, 10, played ? edge : LIGHTGRAY);
+        /* Someone at rest says so on their button. */
+        if (v->rest != REST_NONE)
+            DrawText(v->rest == REST_SLEEP ? "zz" : "om", (int)(b.x + b.width) - 16, (int)b.y + 3, 10, (Color){ 170, 220, 255, 255 });
+        playerui_draw_bar(small_bar(c, 0), v->health, BAR_GREEN);
+        playerui_draw_bar(small_bar(c, 1), v->hunger, v->saturation > 0.0f ? BAR_GOLD : BAR_GREEN);
+        /* Breath only shows while it is short. */
+        if (v->oxygen < 1.0f) playerui_draw_bar(small_bar(c, 2), v->oxygen, BAR_BLUE);
+    }
     if (!ui->open) return;
 
+    const Vitals *v = &g->vitals;
     Rectangle p = panel_rect();
     DrawRectangleRec(p, (Color){ 30, 32, 42, 240 });
     DrawRectangleLinesEx(p, 2.0f, (Color){ 120, 122, 134, 255 });

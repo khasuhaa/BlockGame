@@ -15,6 +15,7 @@
 #define MAX_TICKS_PER_UPDATE 200 /* so a slow frame cannot snowball */
 #define MAX_STORAGES 256
 #define MAX_MOBS 64
+#define MAX_CHARACTERS 4 /* characters a world has room for; the rules say how many it may have */
 #define MAX_ATTACK_TRIES 8 /* times a hunt re-plans after its quarry has moved */
 #define MAX_SEARCH 60000 /* poses a route search looks at before giving up */
 
@@ -202,6 +203,32 @@ typedef struct {
     int reserved[2];
 } Storage;
 
+/* Everything that is one character's own: where they are and what they are
+ * doing, what they carry, what they have queued, how they are. A world can
+ * have more than one character. The game works on one of them at a time -
+ * its state is in the Game itself, in the fields of the same names - and
+ * the others wait here, each taking its turn (see game_use_character). */
+typedef struct {
+    Player player;
+    ItemStack slots[INVENTORY_SLOTS];
+    ItemStack armor[ARMOR_SLOTS];
+    int sel_slot, sel_inner;
+    int8_t choice[INVENTORY_SLOTS];
+    bool has_current;
+    Action current;
+    Step *steps;
+    int step_count, step_index;
+    Action queue[MAX_QUEUED_ACTIONS];
+    int queue_count;
+    int move_dx, move_dy;
+    Vitals vitals;
+    bool bench_open;
+    TilePos bench_pos;
+    const Recipe *craft_recipe;
+    int craft_total, craft_remaining;
+    float craft_timer;
+} Character;
+
 typedef struct {
     World world;
     Player player;
@@ -241,6 +268,12 @@ typedef struct {
 
     Vitals vitals;
 
+    /* The characters of this world. `live` is the one whose state is in the
+     * fields above just now; `controlled` is the one the player is playing,
+     * which is the live one whenever nothing is in the middle of happening. */
+    Character characters[MAX_CHARACTERS];
+    int character_count, live, controlled;
+
     /* Fog of war: how far each tile has been uncovered, 0 (never seen) to
      * 255. Once uncovered a tile stays so. */
     uint8_t *explored;
@@ -264,6 +297,25 @@ typedef struct {
 } Game;
 
 bool game_init(Game *g, int width, int height, uint32_t seed, WorldKind kind);
+
+/* Characters. Each has a body, a bar of items, a queue of actions and needs
+ * of their own, and all of them carry on with what they have been told to
+ * do, whichever is being played. */
+/* Makes character `c` the one the game is working on: its state changes
+ * places with the live one's. For looking at or acting as one that is not
+ * being played; put the played one back afterwards. */
+void game_use_character(Game *g, int c);
+/* Hands control to a character: it is the one the player now plays. */
+void game_control(Game *g, int c);
+/* Adds a character, standing at a place, with nothing. Returns its number,
+ * or -1 if the world has all it may. */
+int game_add_character(Game *g, TilePos at);
+/* How a character is, whether or not it is the one being played. */
+const Vitals *game_character_vitals(const Game *g, int c);
+/* The character nearest a place. */
+int game_nearest_character(const Game *g, int x, int y);
+/* Works the inputs of recipes that differ from world to world out for this world. */
+void game_roll_recipes(const Game *g);
 void game_free(Game *g);
 void game_update(Game *g, float dt);
 

@@ -492,6 +492,8 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
         DrawRectangleRec((Rectangle){ b.x, b.y, b.width * done / g->craft_total, b.height },
                          button_color);
         draw_centered(TextFormat("Crafting %d/%d", done, g->craft_total), b, 18, RAYWHITE);
+    } else if (item_def(r->output.id)->becomes_player && g->character_count >= content.rules.max_players) {
+        draw_centered("Already made", b, 18, (Color){ 170, 172, 184, 255 });
     } else if (cap < 1) {
         draw_centered("Not enough items", b, 18, (Color){ 235, 90, 90, 255 });
     } else {

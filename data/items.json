@@ -55,6 +55,7 @@
     {"name": "iron_pickaxe", "label": "Iron pickaxe", "texture": "items/iron_pickaxe.png", "category": "tools", "tool": {"class": "pickaxe", "speed": 5.5}},
     {"name": "iron_axe", "label": "Iron axe", "texture": "items/iron_axe.png", "category": "tools", "tool": {"class": "axe", "speed": 5.5}},
     {"name": "bucket", "label": "Bucket", "texture": "items/bucket.png", "category": "tools", "holds_water": 8},
+    {"name": "new_player", "label": "New player", "texture": "items/new_player.png", "becomes_player": true},
     {"name": "gold_shovel", "label": "Gold shovel", "texture": "items/gold_shovel.png", "category": "tools", "tool": {"class": "shovel", "speed": 5.5}},
     {"name": "titanium_pickaxe", "label": "Titanium pickaxe", "texture": "items/titanium_pickaxe.png", "category": "tools", "tool": {"class": "pickaxe", "speed": 8.0}},
     {"name": "titanium_axe", "label": "Titanium axe", "texture": "items/titanium_axe.png", "category": "tools", "tool": {"class": "axe", "speed": 8.0}},
