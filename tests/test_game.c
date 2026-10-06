@@ -1404,6 +1404,84 @@ static void test_veins(void)
     CHECK(tile_def(tile_id("titanium_ore"))->mine_time > tile_def(TILE_STONE)->mine_time);
 }
 
+/* Seconds the player takes to mine the block beside them, measured by doing it. */
+static float time_to_mine(Game *g, TileType tile)
+{
+    int x = g->player.feet.x + 1, y = g->player.feet.y;
+    world_set(&g->world, x, y, tile);
+    if (!game_queue_action(g, ACTION_MINE, x, y)) return -1.0f;
+    float t = 0.0f;
+    while (world_get(&g->world, x, y) != TILE_AIR && t < 10.0f) {
+        game_update(g, 1.0f / 240.0f);
+        t += 1.0f / 240.0f;
+    }
+    run(g, 1.0f);
+    return t;
+}
+
+static bool about(float a, float b)
+{
+    return a > b - 0.02f && a < b + 0.02f;
+}
+
+static void test_tools(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 22, WORLD_FLAT);
+    Inventory *inv = &g.inventory;
+    int shovel = tool_class_id("shovel"), pickaxe = tool_class_id("pickaxe"), axe = tool_class_id("axe");
+    float stone = tile_def(TILE_STONE)->mine_time, dirt = tile_def(TILE_DIRT)->mine_time;
+    float log = tile_def(TILE_OAK_LOG)->mine_time;
+
+    /* Three kinds of tool, and every block that can be mined belongs to one. */
+    CHECK(shovel >= 0 && pickaxe >= 0 && axe >= 0 && content.tool_class_count == 3);
+    for (int t = 1; t < content.tile_count; t++)
+        CHECK(!content.tiles[t].removable || content.tiles[t].tool_class >= 0);
+    CHECK(tile_def(TILE_DIRT)->tool_class == shovel && tile_def(TILE_GRASS)->tool_class == shovel);
+    CHECK(tile_def(tile_id("flint"))->tool_class == shovel && tile_def(tile_id("copper_dirt"))->tool_class == shovel);
+    CHECK(tile_def(TILE_STONE)->tool_class == pickaxe && tile_def(tile_id("gold_ore"))->tool_class == pickaxe);
+    CHECK(tile_def(tile_id("coal_ore"))->tool_class == pickaxe && tile_def(tile_id("furnace"))->tool_class == pickaxe);
+    CHECK(tile_def(TILE_OAK_LOG)->tool_class == axe && tile_def(TILE_CHERRY_LEAVES)->tool_class == axe);
+    CHECK(tile_def(TILE_WOOD)->tool_class == axe && tile_def(tile_id("chest"))->tool_class == axe);
+    CHECK(tile_def(TILE_PORTAL_BASE)->tool_class == -1);
+    CHECK(item_def(item_id("wooden_pickaxe"))->tool_class == pickaxe && item_def(item_id("stone_shovel"))->tool_class == shovel);
+    CHECK(item_def(item_id("flint_axe"))->tool_class == axe && item_def(ITEM_DIRT)->tool_class == -1);
+
+    /* Bare hands take a block's own time. */
+    clear_inventory(&g);
+    CHECK(about(time_to_mine(&g, TILE_STONE), stone) && about(time_to_mine(&g, TILE_DIRT), dirt));
+    clear_inventory(&g);
+
+    /* A pickaxe speeds up stone and nothing else; it only has to be carried. */
+    float wooden = item_def(item_id("wooden_pickaxe"))->tool_speed;
+    float best = item_def(item_id("stone_pickaxe"))->tool_speed;
+    CHECK(wooden > 1.0f && best > wooden);
+    inventory_add(inv, ITEM_STICK, 1);
+    inventory_add(inv, item_id("wooden_pickaxe"), 1);
+    inventory_select(inv, 0, -1);
+    CHECK(about(game_mine_time(&g, TILE_STONE), stone / wooden));
+    CHECK(about(time_to_mine(&g, TILE_STONE), stone / wooden));
+    CHECK(about(time_to_mine(&g, TILE_DIRT), dirt));
+    CHECK(about(game_mine_time(&g, TILE_OAK_LOG), log));
+
+    /* The best one carried is the one that counts, even from inside a basket. */
+    clear_inventory(&g);
+    inventory_add(inv, ITEM_BASKET, 1);
+    inventory_add(inv, item_id("wooden_pickaxe"), 1);
+    *inventory_slot(inv, (SlotRef){ SLOT_BASKET, 0, 2 }) = (ItemStack){ (uint8_t)item_id("stone_pickaxe"), 1, 0 };
+    CHECK(about(time_to_mine(&g, TILE_STONE), stone / best));
+
+    /* Shovels and axes do the same for their own blocks. */
+    clear_inventory(&g);
+    inventory_add(inv, item_id("flint_shovel"), 1);
+    inventory_add(inv, item_id("flint_axe"), 1);
+    CHECK(about(game_mine_time(&g, TILE_DIRT), dirt / item_def(item_id("flint_shovel"))->tool_speed));
+    CHECK(about(game_mine_time(&g, TILE_OAK_LOG), log / item_def(item_id("flint_axe"))->tool_speed));
+    CHECK(about(game_mine_time(&g, TILE_STONE), stone));
+    CHECK(about(time_to_mine(&g, TILE_GRASS), tile_def(TILE_GRASS)->mine_time / item_def(item_id("flint_shovel"))->tool_speed));
+    game_free(&g);
+}
+
 static ItemStack *chest_slot(Game *g, int i)
 {
     return inventory_slot(&g->inventory, (SlotRef){ SLOT_CONTAINER, game_open_storage(g), i });
@@ -1619,6 +1697,7 @@ int main(void)
     test_place();
     test_bench();
     test_work_benches();
+    test_tools();
     test_wrap();
     test_terrain();
     test_veins();

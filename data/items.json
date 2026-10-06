@@ -33,11 +33,11 @@
     {"name": "gold_ingot", "label": "Gold ingot", "texture": "items/gold_ingot.png"},
     {"name": "platinum_ingot", "label": "Platinum ingot", "texture": "items/platinum_ingot.png"},
     {"name": "titanium_ingot", "label": "Titanium ingot", "texture": "items/titanium_ingot.png"},
-    {"name": "wooden_pickaxe", "label": "Wooden pickaxe", "texture": "items/wooden_pickaxe.png", "max_stack": 1},
-    {"name": "wooden_shovel", "label": "Wooden shovel", "texture": "items/wooden_shovel.png", "max_stack": 1},
-    {"name": "flint_axe", "label": "Flint axe", "texture": "items/flint_axe.png", "max_stack": 1},
-    {"name": "flint_shovel", "label": "Flint shovel", "texture": "items/flint_shovel.png", "max_stack": 1},
-    {"name": "stone_pickaxe", "label": "Stone pickaxe", "texture": "items/stone_pickaxe.png", "max_stack": 1},
-    {"name": "stone_shovel", "label": "Stone shovel", "texture": "items/stone_shovel.png", "max_stack": 1}
+    {"name": "wooden_pickaxe", "label": "Wooden pickaxe", "texture": "items/wooden_pickaxe.png", "max_stack": 1, "tool": {"class": "pickaxe", "speed": 1.5}},
+    {"name": "wooden_shovel", "label": "Wooden shovel", "texture": "items/wooden_shovel.png", "max_stack": 1, "tool": {"class": "shovel", "speed": 1.5}},
+    {"name": "flint_axe", "label": "Flint axe", "texture": "items/flint_axe.png", "max_stack": 1, "tool": {"class": "axe", "speed": 2.0}},
+    {"name": "flint_shovel", "label": "Flint shovel", "texture": "items/flint_shovel.png", "max_stack": 1, "tool": {"class": "shovel", "speed": 2.0}},
+    {"name": "stone_pickaxe", "label": "Stone pickaxe", "texture": "items/stone_pickaxe.png", "max_stack": 1, "tool": {"class": "pickaxe", "speed": 3.0}},
+    {"name": "stone_shovel", "label": "Stone shovel", "texture": "items/stone_shovel.png", "max_stack": 1, "tool": {"class": "shovel", "speed": 3.0}}
   ]
 }

@@ -19,8 +19,8 @@ Everything the game contains is defined in `data/`, not in the code, so it can b
 
 | File | Defines |
 | --- | --- |
-| `tiles.json` | Blocks: whether they are solid, climbable or minable, how long they take to mine, what they drop, their textures, for benches their kind, tier, upgrade and how much fuel they hold, and for storage blocks their grid of slots |
-| `items.json` | Items: label, stack size, how many slots they hold inside them and whether those open from the bar, what block they place, what tree they plant, how long they burn as fuel, and their texture |
+| `tiles.json` | Blocks: whether they are solid, climbable or minable, how long they take to mine and with what kind of tool, what they drop, their textures, for benches their kind, tier, upgrade and how much fuel they hold, and for storage blocks their grid of slots |
+| `items.json` | Items: label, stack size, how many slots they hold inside them and whether those open from the bar, what block they place, what tree they plant, how long they burn as fuel, what kind of tool they are and how fast, and their texture |
 | `recipes.json` | What each kind of bench makes, from what, and at what bench level |
 | `trees.json` | Tree kinds: their blocks, fruit, full height, the shape of the crown row by row, which layer they grow in, and what they can be planted on |
 | `worldgen.json` | World size, the plains, the mountains and valleys (any number of kinds), soil layers, veins (what, in what, how big, how deep, how common, what shape), the spawn and its portal, and how trees are scattered |
@@ -162,7 +162,23 @@ A bench can have tiers. Its menu shows its tier and, if it can go higher, an Upg
 | Kiln | Workbench tier 2 | 10 dirt, 1 stick | Charcoal (1 stick) |
 | Furnace | Workbench tier 2 | 5 stone, 1 stick | One ingot from one ore: copper and tin. Tier 2, for 5 iron ore: iron and gold. Tier 3, for 5 titanium ore: platinum and titanium |
 
-The tools do not do anything yet, and do not stack.
+### Tools
+
+Every block that can be mined belongs to one kind of tool, and a tool of that kind makes mining it faster. The tool only has to be carried, in the bar or in a basket in the bar; the best one for the block is used.
+
+| Tool kind | Blocks |
+| --- | --- |
+| Shovel | Dirt, grass, flint, copper- and tin-bearing dirt |
+| Pickaxe | Stone, coal, all ores, kiln, furnace |
+| Axe | Tree trunks and leaves, wood, chest, workbench, woodwork bench, tool bench, craft bench |
+
+| Tool | Speed |
+| --- | --- |
+| Wooden pickaxe, wooden shovel | 1.5× |
+| Flint axe, flint shovel | 2× |
+| Stone pickaxe, stone shovel | 3× |
+
+Without the right tool a block takes its ordinary time. Tools do not stack and do not wear out.
 
 ### Fuel
 

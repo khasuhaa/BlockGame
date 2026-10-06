@@ -33,6 +33,13 @@ int tree_id(const char *name)
     return -1;
 }
 
+int tool_class_id(const char *name)
+{
+    for (int i = 0; i < content.tool_class_count; i++)
+        if (strcmp(content.tool_classes[i], name) == 0) return i;
+    return -1;
+}
+
 const TileDef *tile_def(TileType t)
 {
     return &content.tiles[t > 0 && t < content.tile_count ? t : TILE_AIR];
@@ -48,11 +55,13 @@ void content_reset(void)
     memset(&content, 0, sizeof content);
     snprintf(content.tiles[0].name, CONTENT_NAME_LEN, "air");
     content.tiles[0].log_of = content.tiles[0].leaves_of = -1;
+    content.tiles[0].tool_class = -1;
     content.tile_count = 1;
     snprintf(content.items[0].name, CONTENT_NAME_LEN, "none");
     snprintf(content.items[0].label, CONTENT_NAME_LEN, "Nothing");
     content.items[0].equip = EQUIP_NONE;
     content.items[0].plants = -1;
+    content.items[0].tool_class = -1;
     content.item_count = 1;
 }
 
@@ -106,6 +115,19 @@ static const char *str(const cJSON *obj, const char *key)
 static void copy_name(char *dst, size_t size, const char *src)
 {
     snprintf(dst, size, "%s", src ? src : "");
+}
+
+/* The id of a kind of tool, adding it if this is the first mention of it. */
+static bool tool_class_ref(Reader *r, const char *name, int *out)
+{
+    *out = -1;
+    if (!name) return true;
+    *out = tool_class_id(name);
+    if (*out >= 0) return true;
+    if (content.tool_class_count >= MAX_TOOL_CLASSES) return fail(r, "too many kinds of tool");
+    *out = content.tool_class_count++;
+    snprintf(content.tool_classes[*out], CONTENT_NAME_LEN, "%s", name);
+    return true;
 }
 
 /* A two-number array such as "size": [10, 60]. */
@@ -201,6 +223,7 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->storage_columns = (int)num(field(e, "storage"), "columns", 0);
         t->storage_rows = (int)num(field(e, "storage"), "rows", 0);
         t->fuel_capacity = (int)num(e, "fuel_capacity", 0);
+        if (!tool_class_ref(r, str(e, "tool"), &t->tool_class)) return false;
         t->upgrade_to = TILE_AIR;
         t->upgrade_cost_count = 0;
         const cJSON *upgrade = field(e, "upgrade"), *cost;
@@ -251,6 +274,12 @@ static bool read_items(Reader *r, const cJSON *root)
                         it->name);
         copy_name(it->texture, sizeof it->texture, str(e, "texture"));
         it->fuel = (int)num(e, "fuel", 0);
+        /* "tool": what kind it is, and how much faster it makes mining. */
+        const cJSON *tool = field(e, "tool");
+        if (!tool_class_ref(r, str(tool, "class"), &it->tool_class)) return false;
+        it->tool_speed = (float)num(tool, "speed", 1.0);
+        if (tool && (it->tool_class < 0 || it->tool_speed <= 0.0f))
+            return fail(r, "item \"%s\": a tool needs a \"class\" and a \"speed\" above 0", it->name);
         it->places = TILE_AIR;
         if (!tile_ref(r, e, "places", &it->places)) return false;
         /* Trees are read later; the name is matched to one once they are. */

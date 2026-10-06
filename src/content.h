@@ -18,6 +18,7 @@
 #define MAX_TREES 32
 #define MAX_FEATURES 16
 #define MAX_VEINS 48
+#define MAX_TOOL_CLASSES 16
 #define MAX_VEIN_HOSTS 4
 #define MAX_VEIN_SIZE 64
 #define MAX_TILE_TEXTURES 4
@@ -61,7 +62,8 @@ typedef struct {
     bool bench;      /* a workbench: can be opened to craft */
     bool removable;  /* can be mined */
     bool climbable;  /* can be held on to by a player in front of it */
-    float mine_time; /* seconds to mine */
+    float mine_time; /* seconds to mine, with bare hands */
+    int tool_class;  /* the kind of tool that mines it faster, or -1 */
     ItemId drop;     /* item left behind when mined */
     int log_of, leaves_of; /* tree this is the trunk / the leaves of, or -1 */
 
@@ -95,6 +97,8 @@ typedef struct {
     EquipSlot equip; /* armor slot it can be worn in, or EQUIP_NONE */
     TileType places; /* block it becomes when placed, or TILE_AIR */
     int fuel;        /* ticks it burns for as fuel; 0 if it is not fuel */
+    int tool_class;  /* the kind of tool it is, or -1 */
+    float tool_speed; /* how many times faster it mines blocks of its class */
     int plants;      /* tree it grows into when planted, or -1 */
     char plants_name[CONTENT_NAME_LEN];
     char texture[CONTENT_PATH_LEN];
@@ -230,6 +234,10 @@ typedef struct {
     int feature_count;
     VeinDef veins[MAX_VEINS];
     int vein_count;
+    /* Kinds of tool, such as "shovel". There is no fixed list: a kind exists
+     * because some block or item names it. */
+    char tool_classes[MAX_TOOL_CLASSES][CONTENT_NAME_LEN];
+    int tool_class_count;
     WorldGenDef worldgen;
     RulesDef rules;
 } Content;
@@ -248,6 +256,7 @@ bool content_load(const char *dir, char *error, size_t error_size);
 TileType tile_id(const char *name);
 ItemId item_id(const char *name);
 int tree_id(const char *name);
+int tool_class_id(const char *name);
 
 /* Out-of-range ids give the definition of nothing. */
 const TileDef *tile_def(TileType t);

@@ -66,6 +66,9 @@ int inventory_add_stack(Inventory *inv, ItemStack stack);
  * whatever was inside them is lost. */
 int inventory_count(const Inventory *inv, ItemId id);
 int inventory_remove(Inventory *inv, ItemId id, int count);
+/* How much faster the best tool of a kind in the bar, or in a container open
+ * in it, mines; 1 if there is none. */
+float inventory_tool_speed(const Inventory *inv, int tool_class);
 /* Takes a single item, selected stack first, along with what is inside it. */
 bool inventory_take_one(Inventory *inv, ItemId id, ItemStack *out);
 

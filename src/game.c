@@ -419,6 +419,12 @@ bool game_queue_action(Game *g, ActionType type, int tx, int ty)
     return queue_checked(g, sim_pending(g), a);
 }
 
+float game_mine_time(const Game *g, TileType t)
+{
+    const TileDef *def = tile_def(t);
+    return def->mine_time / inventory_tool_speed(&g->inventory, def->tool_class);
+}
+
 static TilePos drop_tile(const Drop *d)
 {
     return (TilePos){ d->x, (int)(d->y + 0.5f) };
@@ -694,9 +700,9 @@ static bool start_next_activity(Game *g)
                 switch (g->current.type) {
                 case ACTION_MINE:
                     begin_work(g, ACTIVITY_MINING,
-                               tile_def(world_get_at(w, mine_layer(w, g->current.target),
-                                                     g->current.target.x, g->current.target.y))
-                                   ->mine_time);
+                               game_mine_time(g, world_get_at(w, mine_layer(w, g->current.target),
+                                                              g->current.target.x,
+                                                              g->current.target.y)));
                     return true;
                 case ACTION_PLACE:
                 case ACTION_PLANT:

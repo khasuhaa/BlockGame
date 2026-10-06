@@ -248,6 +248,26 @@ int inventory_count(const Inventory *inv, ItemId id)
     return total;
 }
 
+float inventory_tool_speed(const Inventory *inv, int tool_class)
+{
+    float best = 1.0f;
+    if (tool_class < 0) return best;
+    for (int i = 0; i < INVENTORY_SLOTS; i++) {
+        const ItemStack *s = &inv->slots[i];
+        if (is_empty(s)) continue;
+        const ItemDef *def = item_def(s->id);
+        if (def->tool_class == tool_class && def->tool_speed > best) best = def->tool_speed;
+        if (s->container == 0 || !def->opens_in_bar) continue;
+        for (int j = 0; j < BASKET_SLOTS; j++) {
+            const ItemStack *inner = &inv->containers[s->container].slots[j];
+            if (is_empty(inner)) continue;
+            const ItemDef *held = item_def(inner->id);
+            if (held->tool_class == tool_class && held->tool_speed > best) best = held->tool_speed;
+        }
+    }
+    return best;
+}
+
 static void take_from(Inventory *inv, ItemStack *s, ItemId id, int *want)
 {
     if (!s || is_empty(s) || s->id != id || *want <= 0) return;

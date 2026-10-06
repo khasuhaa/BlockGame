@@ -182,6 +182,10 @@ bool game_click_tile(Game *g, int tx, int ty);
  * the selected item. */
 bool game_queue_action(Game *g, ActionType type, int tx, int ty);
 
+/* Seconds the player takes to mine a kind of block: its own time, divided by
+ * the speed of the best tool for it that they are carrying. */
+float game_mine_time(const Game *g, TileType t);
+
 /* Queues walking up to a drop and picking it up. */
 bool game_queue_collect(Game *g, int drop);
 /* The drop whose centre is nearest a point in tile space and within reach of
