@@ -3053,8 +3053,11 @@ static void test_mobs(void)
     /* Its own eggs, though, are natural ones. */
     for (int i = 0; i < 600; i++) mobs_tick(&g);
     def->lay_chance = 1.0f;
-    mobs_tick(&g);
+    float breeds_on = def->lay_next_chance;
+    def->lay_next_chance = 0.0f; /* (its own kind of egg, for this) */
+    for (int i = 0; i < 20 && world_get_at(w, BG, g.mobs[born].x, g.mobs[born].y) != egg; i++) mobs_tick(&g);
     def->lay_chance = 0.0f;
+    def->lay_next_chance = breeds_on;
     CHECK(!g.mobs[born].baby && world_get_at(w, BG, g.mobs[born].x, g.mobs[born].y) == egg);
     world_set_at(w, BG, g.mobs[born].x, g.mobs[born].y, TILE_AIR);
 
@@ -5003,6 +5006,89 @@ static void test_characters(void)
     game_free(&g);
 }
 
+static void test_fluid_creatures(void)
+{
+    Game g;
+    game_init(&g, 256, 96, 141, WORLD_FLAT);
+    World *w = &g.world;
+    clear_mobs(&g);
+    g.tick_rate = 0;
+    int s = w->surface_y, ground = s - 1, px = g.player.feet.x;
+
+    /* A fish keeps swimming: it is on the move nearly all the time, not a block and then a wait. */
+    int left = px + 20, right = px + 59, top = s - 12;
+    for (int y = top; y < s; y++) {
+        world_set(w, left - 1, y, TILE_STONE);
+        world_set(w, right + 1, y, TILE_STONE);
+        for (int x = left; x <= right; x++) world_set_water(w, x, y, WATER_FULL);
+    }
+    settle(w);
+    int fish = mob_spawn(&g, mob_id("fish"), left + 20, top + 6, true, false);
+    int moving = 0, squares = 0, ticks = 600;
+    TilePos last = { g.mobs[fish].x, g.mobs[fish].y };
+    for (int t = 0; t < ticks; t++) {
+        mobs_tick(&g);
+        moving += g.mobs[fish].step_left > 0;
+        if (g.mobs[fish].x != last.x || g.mobs[fish].y != last.y) squares++, last = (TilePos){ g.mobs[fish].x, g.mobs[fish].y };
+        CHECK(world_is_water(w, g.mobs[fish].x, g.mobs[fish].y));
+    }
+    CHECK(moving * 100 >= ticks * 85);
+    /* One square follows straight on from the last: as many squares as the time allows. */
+    CHECK(squares * content.mobs[mob_id("fish")].step_ticks * 100 >= ticks * 80);
+    /* Between squares it is drawn part-way, moving on every tick. */
+    float x0, y0, x1, y1;
+    while (g.mobs[fish].step_left != content.mobs[mob_id("fish")].step_ticks) mobs_tick(&g);
+    g.tick_timer = 0.0f;
+    game_mob_pos(&g, fish, &x0, &y0);
+    g.tick_timer = 0.5f;
+    game_mob_pos(&g, fish, &x1, &y1);
+    CHECK(x0 != x1 || y0 != y1);
+    clear_mobs(&g);
+
+    /* A dropbear lets go and drops the whole height of its tree in one fall, onto the player. */
+    int tx = px - 20;
+    grow_tree(w, tx, "oak");
+    int up = tree_top(w, tx), kind = mob_id("dropbear");
+    const MobDef *def = &content.mobs[kind];
+    int bear = mob_spawn(&g, kind, tx, up, true, false);
+    Mob *m = &g.mobs[bear];
+    m->state = MOB_PERCH;
+    m->home_x = tx;
+    g.player.feet = g.player.step_to = (TilePos){ tx + 2, ground };
+    g.vitals.health = 1.0f;
+    mobs_tick(&g);
+    CHECK(m->state == MOB_HUNT && m->step_left > 0 && m->y == up);
+    CHECK(m->to_y == ground && m->to_x == tx + 2 && m->to_y - m->y >= 4); /* one step, top to bottom, landing by the player */
+    /* Part-way through it is part-way down: falling, and gathering speed. */
+    float fx, quarter, half;
+    int total = m->step_total;
+    g.tick_timer = 0.0f;
+    m->step_left = total - total / 4;
+    game_mob_pos(&g, bear, &fx, &quarter);
+    m->step_left = total - total / 2;
+    game_mob_pos(&g, bear, &fx, &half);
+    CHECK(quarter > (float)up && half > quarter && half < (float)ground);
+    CHECK(half - quarter > quarter - (float)up);
+    m->step_left = total;
+    /* It lands and bites at once, with no stopping at each block on the way. */
+    int fell = 0;
+    while (m->y != ground && fell < 50) mobs_tick(&g), fell++;
+    CHECK(fell == total && m->x == tx + 2);
+    for (int i = 0; i < 3 && g.vitals.health == 1.0f; i++) mobs_tick(&g);
+    CHECK(g.vitals.health < 1.0f && m->state == MOB_RETURN);
+    /* Then back to the tree and up it without a pause: on the move every tick until it is at the top. */
+    int idle = 0, climbed = 0;
+    for (int t = 0; t < 200 && m->state != MOB_PERCH; t++) {
+        mobs_tick(&g);
+        if (m->state != MOB_PERCH && m->step_left == 0) idle++;
+        climbed++;
+    }
+    CHECK(m->state == MOB_PERCH && m->x == tx && m->y == up && idle <= 2);
+    /* And no slower than a block every step: across two, and up the height of the tree. */
+    CHECK(climbed <= (2 + (ground - up) + 2) * def->step_ticks + 2);
+    game_free(&g);
+}
+
 static void test_tools(void)
 {
     Game g;
@@ -5367,6 +5453,7 @@ int main(void)
     test_dodo_tree();
     test_water();
     test_basket_pickup();
+    test_fluid_creatures();
     test_characters();
     test_sea_and_combat();
     test_buckets_and_stacks();

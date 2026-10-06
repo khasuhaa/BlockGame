@@ -839,8 +839,8 @@
         "mobs/fish.png"
       ],
       "step_ticks": 3,
-      "move_chance": 0.5,
-      "turn_chance": 0.15,
+      "move_chance": 0.96,
+      "turn_chance": 0.06,
       "health": 5,
       "cap": 8,
       "spawn": {
@@ -866,8 +866,8 @@
         "mobs/shark.png"
       ],
       "step_ticks": 2,
-      "move_chance": 0.5,
-      "turn_chance": 0.1,
+      "move_chance": 0.96,
+      "turn_chance": 0.04,
       "health": 25,
       "cap": 3,
       "size": [

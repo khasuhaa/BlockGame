@@ -26,6 +26,7 @@
 #define BACKGROUND_DIM 0.18f /* how much darker the background layer is drawn */
 #define WALL_DIM 0.5f        /* and the backwall behind that */
 #define DROP_WARNING 10.0f   /* seconds before it vanishes that a dropped item starts to blink */
+#define MOB_GLIDE 14.0f      /* how closely a creature's picture keeps up with where it is */
 #define ZOOM_SPEED 10.0f     /* how fast the view eases to a new zoom */
 #define MAP_REFRESH 0.5f     /* seconds between redrawings of the world map */
 
@@ -702,8 +703,22 @@ static void draw_mobs(const Game *g, Vector2 origin)
         const MobDef *def = &content.mobs[m->kind];
         float x, y;
         game_mob_pos(g, i, &x, &y);
-        Rectangle r = { origin.x + view_near_x(&view, x) * TILE_SIZE, origin.y + y * TILE_SIZE, TILE_SIZE,
-                        TILE_SIZE };
+        /* The creature is drawn gliding after where the game has it, so that a
+         * way made of block-long steps comes out as one flowing movement. */
+        static struct {
+            uint32_t id;
+            float x, y;
+        } glide[MAX_MOBS];
+        float near_x = view_near_x(&view, x);
+        if (glide[i].id != m->id || fabsf(glide[i].x - near_x) > 3.0f || fabsf(glide[i].y - y) > 3.0f) {
+            glide[i].id = m->id;
+            glide[i].x = near_x;
+            glide[i].y = y;
+        }
+        float follow = fminf(1.0f, GetFrameTime() * MOB_GLIDE);
+        glide[i].x += (near_x - glide[i].x) * follow;
+        glide[i].y += (y - glide[i].y) * follow;
+        Rectangle r = { origin.x + glide[i].x * TILE_SIZE, origin.y + glide[i].y * TILE_SIZE, TILE_SIZE, TILE_SIZE };
         if (r.x < -TILE_SIZE || r.x > seen.x) continue;
         /* On the move it strides through its walking frames, twice to the
          * block, and bobs with each stride. */

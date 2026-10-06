@@ -188,6 +188,7 @@ The world has four layers from back to front: the backwall; the background layer
 - **Eggs.** A grown dodo has a small chance every tick of leaving a big blue egg where it stands, if nothing is there already. An egg is picked up by clicking it, like a gem, and can be put down again. A random event on an egg hatches it into a chick, which is full grown 600 ticks later.
 - **Whose they are.** A dodo that hatches from an egg the player put down is the player's. One from an egg a dodo laid is wild, whoever the parent belonged to - unless the player picked that egg up and put it down again. A wild egg waits to hatch while the cap of 10 is reached; the player's eggs hatch regardless.
 - **Hunting.** Clicking a creature queues going after it, marked with a red ring; the player follows it as it moves and, once within reach, hits it once (see Fighting). Each click is one blow; to hit it again, click it again. Clicking it again calls that off. A grown dodo leaves 1 or 2 dodo meat and 1 or 2 feathers; a chick leaves nothing. A campfire cooks dodo meat.
+- **No stopping at each block.** Any creature that is going somewhere goes on from one block into the next without a pause between, and is drawn gliding after its position, so a run, a climb or a swim is one flowing movement.
 - **How they move.** A dodo strides through its walking frames and bobs as it goes, setting off and stopping gently. Up a step it hops up and then forward, and down one it walks off and then drops, so it goes round the corner of a block and never through it. The frames and the height of the bob are in `mobs.json`.
 
 **The dodo's family tree.** A dodo does not always lay its own egg. Three times in four it does; the fourth time it lays the egg of one of the kinds that come next after it, each of those as likely as the other. Every kind has an egg of its own colour that hatches into that kind, and only the ordinary dodo ever turns up in the wild: the rest are bred.
@@ -227,7 +228,7 @@ Dodos of every kind have 5 health, fish 5, dropbears 10 and sharks 25. A weapon 
 
 Creatures of the water are counted apart from those of the land: each has a cap of 10 near the player, so fish do not keep dodos from turning up, nor dodos fish.
 
-**Fish** turn up in the water of an ocean, up to eight near the player, and swim about in it; they never leave the water. One leaves a fish, which can be eaten raw or cooked at a campfire.
+**Fish** turn up in the water of an ocean, up to eight near the player, and swim about in it without stopping, one square running on into the next; they never leave the water. One leaves a fish, which can be eaten raw or cooked at a campfire.
 
 **Sharks** turn up there too, far less often, and no more than three near the player. A shark is anything from 1 to 8 blocks long, and is drawn that long. It takes no notice of a player on land or on the sea bed's shore, but one who is in the water within 24 blocks it goes for: it swims straight at them, bites (a fifth of the health bar), makes off for a moment, and comes round again. Killed, it leaves 3 or 4 fish and its **head**.
 
@@ -235,7 +236,7 @@ A **shark head** is a trophy the size of the shark it came from. It can be hung 
 
 **Dropbears** live at the top of trees. A random event on the trunk of a tree near the player can bring one, at most three near the player at once and one to a tree.
 
-- **Ambush.** When the player comes within two columns of its tree, below it, it runs down the trunk, runs at them and bites - 15% of the health bar, and enough to wake a sleeper - then runs back up. It then leaves the player alone for 150 ticks. If the player gets away for long enough it gives up and goes home.
+- **Ambush.** When the player comes within two columns of its tree, below it, it lets go and drops on them - the whole height of the tree in one fall, gathering speed, landing beside them - and bites - 15% of the health bar, and enough to wake a sleeper - then runs back to the tree and up it in one unbroken climb. It then leaves the player alone for 150 ticks. If the player gets away for long enough it gives up and goes home.
 - **Homeless.** If its tree is cut down it drops to the ground and runs for the nearest tree within 24 columns, and goes up that. With none in sight it runs about until one is.
 - Hunted like a dodo, it leaves 1 or 2 fur. Health never goes below nothing, and nothing more happens when it is at nothing.
 

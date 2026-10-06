@@ -257,6 +257,27 @@ static void go_up(Mob *m, const World *w, const MobDef *def)
     m->home_x = m->x;
 }
 
+/* Lets go of the tree and comes down in one fall: onto the column asked for
+ * if the way down to it is clear, and otherwise straight down its own. */
+static void drop_on(Game *g, Mob *m, int column)
+{
+    const World *w = &g->world;
+    int dx = world_dx(w, m->x, column);
+    for (int attempt = 0; attempt < 2; attempt++, dx = 0) {
+        int x = m->x + dx, y = m->y;
+        bool clear = !world_is_solid(w, x, y);
+        while (clear && y < w->height - 1 && !world_is_solid(w, x, y + 1)) y++;
+        if (!clear || y <= m->y) continue;
+        m->to_x = world_wrap_x(w, x);
+        m->to_y = y;
+        /* The further the fall the longer it takes, but not in proportion: it gathers speed. */
+        int ticks = 2 + (int)sqrtf((float)(y - m->y));
+        m->step_total = m->step_left = ticks;
+        if (dx != 0) m->dir = dx > 0 ? 1 : -1;
+        return;
+    }
+}
+
 static void perch_tick(Game *g, Mob *m, const MobDef *def)
 {
     const World *w = &g->world;
@@ -273,10 +294,12 @@ static void perch_tick(Game *g, Mob *m, const MobDef *def)
         } else if (trunk_for(w, def, m->x, m->y - 1)) {
             go_up(m, w, def); /* the tree has grown */
         } else if (m->timer == 0 && abs(pdx) <= def->ambush_range && pdy > 0 && pdy <= def->ambush_depth) {
-            /* Somebody is walking by underneath. */
+            /* Somebody is walking by underneath: it lets go and drops on them,
+             * all the way down in one go. */
             m->state = MOB_HUNT;
             m->home_x = m->x;
             m->timer = def->chase_ticks;
+            drop_on(g, m, p->feet.x);
         }
         break;
     case MOB_HUNT:
@@ -415,11 +438,11 @@ void mobs_tick(Game *g)
             continue;
         }
         if (m->step_left > 0) {
-            if (--m->step_left == 0) {
-                m->x = m->to_x;
-                m->y = m->to_y;
-            }
-            continue;
+            if (--m->step_left > 0) continue;
+            /* There. It goes straight on into whatever it does next, with
+             * no pause between one step and the following one. */
+            m->x = m->to_x;
+            m->y = m->to_y;
         }
         if (m->hp <= 0) m->hp = def->health > 0 ? def->health : 1; /* (from before creatures had any) */
         if (def->swims) {
@@ -476,6 +499,11 @@ void game_mob_pos(const Game *g, int mob, float *x, float *y)
         /* Through the water it goes straight, slant or no. */
         ox = (float)dx * t;
         oy = (float)dy * t;
+    }
+    if (dy > 1) {
+        /* A long way down is a fall: it gathers speed, and carries across as it goes. */
+        ox = (float)dx * t;
+        oy = (float)dy * t * t;
     }
     *x = (float)m->x + ox;
     *y = (float)m->y + oy;
