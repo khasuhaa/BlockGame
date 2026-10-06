@@ -296,7 +296,7 @@ static TileType usable_at(const World *w, int x, int y, int *layer)
 {
     for (int l = 0; l < LAYER_COUNT; l++) {
         TileType t = world_get_at(w, l, x, y);
-        if (!tile_def(t)->bench && tile_def(t)->storage_columns == 0) continue;
+        if (!tile_def(t)->bench && !tile_def(t)->trade && tile_def(t)->storage_columns == 0) continue;
         if (layer) *layer = l;
         return t;
     }
@@ -669,6 +669,12 @@ static bool collect_drop(Game *g, Drop *d)
     return true;
 }
 
+void game_give_items(Game *g, ItemId id, int count)
+{
+    int left = inventory_add(&g->inventory, id, count);
+    for (int i = 0; i < left; i++) spawn_drop(g, id, g->player.feet);
+}
+
 /* ---- storage blocks ---------------------------------------------------- */
 
 static Storage *storage_at(Game *g, TilePos t)
@@ -914,7 +920,7 @@ bool game_craft(Game *g, const Recipe *r, int count)
     TileType bench = game_bench_at(g, g->bench_pos.x, g->bench_pos.y);
     if (strcmp(r->bench, tile_def(bench)->bench_kind) != 0 || recipe_locked(bench, r)) return false;
     if (game_bench_fuel(g, NULL) == 0) return false; /* out of fuel */
-    int max = recipe_max_crafts(&g->inventory, r);
+    int max = recipe_max_crafts(&g->inventory, r, g->crystals);
     if (max < 1) return false;
     g->craft_recipe = r;
     g->craft_total = g->craft_remaining = count < max ? count : max;
@@ -966,7 +972,7 @@ static void update_bench(Game *g, float dt)
     if (!g->bench_open) return;
     /* It shuts if it is removed or the player leaves it. */
     const TileDef *open = tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y));
-    if ((!open->bench && open->storage_columns == 0) || !in_use_range(&g->world, g->player.feet, g->bench_pos)) {
+    if ((!open->bench && !open->trade && open->storage_columns == 0) || !in_use_range(&g->world, g->player.feet, g->bench_pos)) {
         game_close_bench(g);
         return;
     }
@@ -977,7 +983,7 @@ static void update_bench(Game *g, float dt)
     g->craft_timer += dt;
     while (g->craft_remaining > 0 && g->craft_timer >= CRAFT_TIME) {
         g->craft_timer -= CRAFT_TIME;
-        int left = recipe_craft(&g->inventory, g->craft_recipe);
+        int left = recipe_craft(&g->inventory, g->craft_recipe, &g->crystals);
         if (left < 0) {
             g->craft_remaining = 0;
             break;

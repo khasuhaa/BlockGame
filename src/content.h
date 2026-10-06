@@ -19,6 +19,8 @@
 #define MAX_FEATURES 16
 #define MAX_VEINS 48
 #define MAX_TOOL_CLASSES 16
+#define MAX_CATEGORIES 16
+#define MAX_CURRENCIES 8
 #define MAX_VEIN_HOSTS 4
 #define MAX_VEIN_SIZE 64
 #define MAX_TILE_TEXTURES 4
@@ -61,6 +63,7 @@ typedef struct {
     bool solid;      /* in the foreground: blocks movement and can be stood on */
     int layer;       /* the layer it goes in when placed */
     bool bench;      /* a workbench: can be opened to craft */
+    bool trade;      /* can be opened to buy and sell */
     bool removable;  /* can be mined */
     bool climbable;  /* can be held on to by a player in front of it */
     float mine_time; /* seconds to mine, with bare hands */
@@ -98,6 +101,9 @@ typedef struct {
     EquipSlot equip; /* armor slot it can be worn in, or EQUIP_NONE */
     TileType places; /* block it becomes when placed, or TILE_AIR */
     int fuel;        /* ticks it burns for as fuel; 0 if it is not fuel */
+    int category;    /* where it is listed for trading, or -1 if it is not traded */
+    char category_name[CONTENT_NAME_LEN];
+    int price;       /* what one costs, in the smallest currency; 0 for the default */
     int tool_class;  /* the kind of tool it is, or -1 */
     float tool_speed; /* how many times faster it mines blocks of its class */
     int plants;      /* tree it grows into when planted, or -1 */
@@ -111,6 +117,7 @@ typedef struct {
     RecipeItem output;
     RecipeItem inputs[RECIPE_MAX_INPUTS];
     int input_count;
+    int crystals; /* crystals it costs on top of the inputs */
 } Recipe;
 
 /* One row of a full-grown tree's leaves. */
@@ -222,6 +229,25 @@ typedef struct {
     float denial_time;       /* how long a refused action's marker shows */
 } RulesDef;
 
+/* Buying and selling, and the money it is done with. */
+typedef struct {
+    struct {
+        char name[CONTENT_NAME_LEN];
+        char label[CONTENT_NAME_LEN];
+    } categories[MAX_CATEGORIES];
+    int category_count;
+    /* Coins, smallest first. Each is an item worth so many of the smallest. */
+    struct {
+        ItemId item;
+        int value;
+    } currencies[MAX_CURRENCIES];
+    int currency_count;
+    int default_price;
+    /* Crystals are not an item: one number, shared by every world. */
+    int start_crystals;
+    char crystal_icon[CONTENT_PATH_LEN];
+} TradeDef;
+
 typedef struct {
     TileDef tiles[MAX_TILES];
     int tile_count;
@@ -241,6 +267,7 @@ typedef struct {
     int tool_class_count;
     WorldGenDef worldgen;
     RulesDef rules;
+    TradeDef trade;
 } Content;
 
 extern Content content;

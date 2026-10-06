@@ -1,0 +1,98 @@
+#include "trade.h"
+
+bool game_trade_open(const Game *g)
+{
+    return g->bench_open && tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y))->trade;
+}
+
+int trade_price(ItemId item)
+{
+    const ItemDef *def = item_def(item);
+    if (def->category < 0) return 0;
+    return def->price > 0 ? def->price : content.trade.default_price;
+}
+
+long trade_wallet(const Inventory *inv)
+{
+    long total = 0;
+    for (int i = 0; i < content.trade.currency_count; i++)
+        total += (long)inventory_count(inv, content.trade.currencies[i].item) *
+                 content.trade.currencies[i].value;
+    return total;
+}
+
+/* Works out which coins change hands to pay `price`: `delta` gets, for each
+ * currency, how many are gained (change) or lost. Small coins go first; if
+ * they run out, the smallest coin that covers the rest is broken. */
+static bool plan_payment(const Inventory *inv, long price, int *delta)
+{
+    const TradeDef *t = &content.trade;
+    int held[MAX_CURRENCIES];
+    for (int i = 0; i < t->currency_count; i++) {
+        held[i] = inventory_count(inv, t->currencies[i].item);
+        delta[i] = 0;
+    }
+
+    long owed = price;
+    for (int i = 0; i < t->currency_count && owed > 0; i++) {
+        long use = owed / t->currencies[i].value;
+        if (use > held[i]) use = held[i];
+        delta[i] -= (int)use;
+        owed -= use * t->currencies[i].value;
+    }
+    if (owed == 0) return true;
+
+    /* Every coin still held is now worth more than what is owed. */
+    for (int i = 0; i < t->currency_count; i++) {
+        if (held[i] + delta[i] <= 0) continue;
+        long change = t->currencies[i].value - owed;
+        delta[i]--;
+        for (int c = i - 1; c >= 0; c--) {
+            delta[c] += (int)(change / t->currencies[c].value);
+            change %= t->currencies[c].value;
+        }
+        return change == 0;
+    }
+    return false;
+}
+
+bool game_trade_buy(Game *g, ItemId item, int count)
+{
+    int price = trade_price(item), delta[MAX_CURRENCIES];
+    if (!game_trade_open(g) || price <= 0 || count < 1) return false;
+    if (!plan_payment(&g->inventory, (long)price * count, delta)) return false;
+
+    /* Coins out before anything comes in, so the change has room to land. */
+    for (int i = 0; i < content.trade.currency_count; i++)
+        if (delta[i] < 0) inventory_remove(&g->inventory, content.trade.currencies[i].item, -delta[i]);
+    for (int i = 0; i < content.trade.currency_count; i++)
+        if (delta[i] > 0) game_give_items(g, content.trade.currencies[i].item, delta[i]);
+    game_give_items(g, item, count);
+    return true;
+}
+
+bool game_trade_sell(Game *g, ItemId item, int count)
+{
+    const TradeDef *t = &content.trade;
+    int price = trade_price(item);
+    if (!game_trade_open(g) || price <= 0 || count < 1 || t->currency_count == 0) return false;
+    if (inventory_count(&g->inventory, item) < count) return false;
+    inventory_remove(&g->inventory, item, count);
+    game_give_items(g, t->currencies[0].item, price * count / t->currencies[0].value);
+    return true;
+}
+
+bool game_trade_convert(Game *g, int from, int to)
+{
+    const TradeDef *t = &content.trade;
+    if (!game_trade_open(g) || from < 0 || to < 0 || from >= t->currency_count ||
+        to >= t->currency_count || (from - to != 1 && to - from != 1))
+        return false;
+    int lower = from < to ? from : to, higher = from < to ? to : from;
+    int rate = t->currencies[higher].value / t->currencies[lower].value;
+    int give = from == lower ? rate : 1, get = from == lower ? 1 : rate;
+    if (rate < 1 || inventory_count(&g->inventory, t->currencies[from].item) < give) return false;
+    inventory_remove(&g->inventory, t->currencies[from].item, give);
+    game_give_items(g, t->currencies[to].item, get);
+    return true;
+}

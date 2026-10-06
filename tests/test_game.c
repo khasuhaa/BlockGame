@@ -1,6 +1,7 @@
 /* Headless tests for the game rules: no window, just the simulation. */
 #include "../src/game.h"
 #include "../src/save.h"
+#include "../src/trade.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -823,9 +824,10 @@ static void test_bench(void)
     CHECK(bench_recipes(TILE_DIRT, &other, 1) == 0);
     CHECK(n == 1 && portal->output.id == ITEM_WORKBENCH && portal->inputs[0].id == ITEM_DIRT &&
           portal->inputs[0].count == 1);
-    /* The workbench makes the other benches: three at tier 1, two more at tier 2. */
+    /* The workbench makes the other benches: three at tier 1, two more at
+     * tier 2 and one at tier 3, and a portal. */
     const Recipe *list[16];
-    CHECK(bench_recipes(TILE_WORKBENCH, list, 16) == 5 && bench_recipes(TILE_WORKBENCH_2, list, 16) == 5);
+    CHECK(bench_recipes(TILE_WORKBENCH, list, 16) == 7 && bench_recipes(TILE_WORKBENCH_2, list, 16) == 7);
     const Recipe *woodwork = find_recipe(TILE_WORKBENCH, "woodwork_bench");
     const Recipe *toolbench = find_recipe(TILE_WORKBENCH, "tool_bench");
     const Recipe *kiln = find_recipe(TILE_WORKBENCH, "kiln"), *furnace = find_recipe(TILE_WORKBENCH, "furnace");
@@ -852,7 +854,7 @@ static void test_bench(void)
     /* Crafting is capped by what is held and takes 100 ms each. */
     CHECK(!game_craft(&g, portal, 1));
     inventory_add(&g.inventory, ITEM_DIRT, 5);
-    CHECK(recipe_max_crafts(&g.inventory, portal) == 5);
+    CHECK(recipe_max_crafts(&g.inventory, portal, 0) == 5);
     CHECK(game_craft(&g, portal, 99));
     CHECK(g.craft_total == 5);
     run(&g, 0.25f);
@@ -1733,6 +1735,183 @@ static bool about(float a, float b)
     return a > b - 0.02f && a < b + 0.02f;
 }
 
+/* A recipe with any output count. */
+static const Recipe *find_recipe_from(TileType bench, const char *output, const char *input)
+{
+    const Recipe *list[MAX_BENCH_RECIPES];
+    int n = bench_recipes(bench, list, MAX_BENCH_RECIPES);
+    for (int i = 0; i < n; i++)
+        if (list[i]->output.id == item_id(output) && list[i]->inputs[0].id == item_id(input)) return list[i];
+    return NULL;
+}
+
+static int coins(Game *g, const char *name)
+{
+    return inventory_count(&g->inventory, item_id(name));
+}
+
+static void test_crystals_and_coins(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 27, WORLD_FLAT);
+    Inventory *inv = &g.inventory;
+    int s = g.world.surface_y, x = g.world.spawn_x + 4;
+    TileType wb = TILE_WORKBENCH, wb3 = tile_id("workbench_3");
+    TileType m1 = tile_id("metalwork_bench"), m2 = tile_id("metalwork_bench_2"), m3 = tile_id("metalwork_bench_3");
+
+    /* Crystals start at what the data says, and are not part of a world. */
+    CHECK(content.trade.start_crystals == 1000 && g.crystals == 0);
+    CHECK(load_crystals("build/no_profile.txt") == 1000);
+    CHECK(save_crystals("build/test_profile.txt", 742) && load_crystals("build/test_profile.txt") == 742);
+    remove("build/test_profile.txt");
+
+    /* A portal costs 1 stone and 100 crystals at the workbench. */
+    const Recipe *portal = find_recipe(wb, "portal");
+    CHECK(costs(portal, "stone", 1, NULL, 0) && portal->crystals == 100 && portal->level == 1);
+    CHECK(place_and_open(&g, "workbench", x));
+    inventory_add(inv, ITEM_STONE, 5);
+    CHECK(recipe_max_crafts(inv, portal, 0) == 0 && !game_craft(&g, portal, 1));
+    g.crystals = 250;
+    CHECK(recipe_max_crafts(inv, portal, g.crystals) == 2);
+    CHECK(game_craft(&g, portal, 5) && g.craft_total == 2);
+    run(&g, 0.5f);
+    CHECK(coins(&g, "portal") == 2 && g.crystals == 50 && count_item(&g, ITEM_STONE) == 3);
+    CHECK(!game_craft(&g, portal, 1));
+
+    /* The workbench goes to tier 3 for 5 iron ingots, and then makes the
+     * metalwork bench from 3 iron ingots and 1 stone. */
+    const Recipe *metal = find_recipe(wb, "metalwork_bench");
+    CHECK(costs(metal, "iron_ingot", 3, "stone", 1) && metal->level == 3);
+    CHECK(tile_def(TILE_WORKBENCH_2)->upgrade_to == wb3 && tile_def(wb3)->bench_level == 3);
+    CHECK(tile_def(TILE_WORKBENCH_2)->upgrade_cost[0].id == item_id("iron_ingot") &&
+          tile_def(TILE_WORKBENCH_2)->upgrade_cost[0].count == 5);
+    inventory_add(inv, ITEM_STONE, 3); /* 5 for tier 2, 1 for the bench */
+    inventory_add(inv, item_id("iron_ingot"), 8);
+    CHECK(game_upgrade_bench(&g) && !game_craft(&g, metal, 1));
+    CHECK(game_upgrade_bench(&g) && world_get_at(&g.world, BG, x, s - 1) == wb3);
+    CHECK(coins(&g, "iron_ingot") == 3 && !game_upgrade_bench(&g));
+    CHECK(game_craft(&g, metal, 1));
+    run(&g, 0.3f);
+    CHECK(coins(&g, "metalwork_bench") == 1 && coins(&g, "iron_ingot") == 0);
+
+    /* Metalwork bench: coins. */
+    CHECK(place_and_open(&g, "metalwork_bench", x + 2));
+    const Recipe *mint_copper = find_recipe_from(m1, "copper_coin", "copper_ingot");
+    const Recipe *gold_to_copper = find_recipe_from(m1, "copper_coin", "gold_coin");
+    const Recipe *mint_gold = find_recipe_from(m1, "gold_coin", "gold_ingot");
+    const Recipe *copper_to_gold = find_recipe_from(m1, "gold_coin", "copper_coin");
+    const Recipe *plat_to_gold = find_recipe_from(m1, "gold_coin", "platinum_coin");
+    const Recipe *mint_plat = find_recipe_from(m1, "platinum_coin", "platinum_ingot");
+    const Recipe *gold_to_plat = find_recipe_from(m1, "platinum_coin", "gold_coin");
+    CHECK(mint_copper && mint_copper->inputs[0].count == 1 && mint_copper->output.count == 10 && mint_copper->level == 1);
+    CHECK(gold_to_copper && gold_to_copper->inputs[0].count == 1 && gold_to_copper->output.count == 100 && gold_to_copper->level == 1);
+    CHECK(mint_gold && mint_gold->inputs[0].count == 1 && mint_gold->output.count == 1 && mint_gold->level == 2);
+    CHECK(copper_to_gold && copper_to_gold->inputs[0].count == 100 && copper_to_gold->output.count == 1 && copper_to_gold->level == 2);
+    CHECK(plat_to_gold && plat_to_gold->inputs[0].count == 1 && plat_to_gold->output.count == 100 && plat_to_gold->level == 2);
+    CHECK(mint_plat && mint_plat->inputs[0].count == 5 && mint_plat->output.count == 1 && mint_plat->level == 3);
+    CHECK(gold_to_plat && gold_to_plat->inputs[0].count == 100 && gold_to_plat->output.count == 1 && gold_to_plat->level == 3);
+    CHECK(tile_def(m1)->upgrade_to == m2 && tile_def(m1)->upgrade_cost[0].id == item_id("copper_ingot") &&
+          tile_def(m1)->upgrade_cost[0].count == 5);
+    CHECK(tile_def(m2)->upgrade_to == m3 && tile_def(m2)->upgrade_cost[0].id == item_id("gold_ingot") &&
+          tile_def(m2)->upgrade_cost[0].count == 5 && tile_def(m3)->upgrade_to == TILE_AIR);
+
+    inventory_add(inv, item_id("copper_ingot"), 15);
+    CHECK(game_craft(&g, mint_copper, 10));
+    run(&g, 1.5f);
+    /* 100 coins is more than one stack holds: 99 and 1. */
+    CHECK(coins(&g, "copper_coin") == 100 && coins(&g, "copper_ingot") == 5);
+    CHECK(!game_craft(&g, copper_to_gold, 1));
+    CHECK(game_upgrade_bench(&g) && coins(&g, "copper_ingot") == 0);
+    CHECK(game_craft(&g, copper_to_gold, 1));
+    run(&g, 0.3f);
+    CHECK(coins(&g, "gold_coin") == 1 && coins(&g, "copper_coin") == 0);
+    CHECK(game_craft(&g, gold_to_copper, 1));
+    run(&g, 0.3f);
+    CHECK(coins(&g, "gold_coin") == 0 && coins(&g, "copper_coin") == 100);
+    game_free(&g);
+}
+
+static void test_trade(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 28, WORLD_FLAT);
+    Inventory *inv = &g.inventory;
+    int x = g.world.spawn_x + 4;
+    ItemId copper = item_id("copper_coin"), gold = item_id("gold_coin"), plat = item_id("platinum_coin");
+
+    /* The spawn portal turns a portal and a gold coin into a trade portal. */
+    const Recipe *tp = find_recipe(TILE_SPAWN_PORTAL, "trade_portal");
+    CHECK(costs(tp, "portal", 1, "gold_coin", 1));
+    CHECK(tile_def(tile_id("trade_portal"))->trade && !tile_def(TILE_WORKBENCH)->trade);
+
+    /* Every item but the coins is for sale, in a category, for 1 copper. */
+    const TradeDef *t = &content.trade;
+    CHECK(t->currency_count == 3 && t->currencies[0].item == copper && t->currencies[0].value == 1);
+    CHECK(t->currencies[1].item == gold && t->currencies[1].value == 100);
+    CHECK(t->currencies[2].item == plat && t->currencies[2].value == 10000);
+    int listed[MAX_CATEGORIES] = { 0 };
+    for (int i = 1; i < content.item_count; i++) {
+        bool coin = i == copper || i == gold || i == plat;
+        CHECK(coin ? trade_price(i) == 0 : (trade_price(i) == 1 && content.items[i].category >= 0));
+        if (!coin) listed[content.items[i].category]++;
+    }
+    CHECK(t->category_count >= 4);
+    for (int c = 0; c < t->category_count; c++) CHECK(listed[c] > 0);
+    CHECK(item_def(ITEM_DIRT)->category != item_def(ITEM_ACORN)->category);
+
+    /* Nothing can be traded away from a trade portal. */
+    inventory_add(inv, gold, 1);
+    CHECK(!game_trade_open(&g) && !game_trade_buy(&g, ITEM_DIRT, 1));
+    CHECK(place_and_open(&g, "trade_portal", x) && game_trade_open(&g));
+
+    /* Buying breaks a bigger coin into change: 1 gold buys a 1 copper item
+     * and leaves 99 copper. */
+    inventory_add(inv, gold, 1);
+    CHECK(trade_wallet(inv) == 100);
+    CHECK(game_trade_buy(&g, ITEM_DIRT, 1));
+    CHECK(coins(&g, "gold_coin") == 0 && coins(&g, "copper_coin") == 99 && count_item(&g, ITEM_DIRT) == 1);
+    CHECK(trade_wallet(inv) == 99);
+
+    /* Selling just adds copper: 99 and 1 more, and no gold coin appears. */
+    CHECK(game_trade_sell(&g, ITEM_DIRT, 1));
+    CHECK(coins(&g, "copper_coin") == 100 && coins(&g, "gold_coin") == 0 && count_item(&g, ITEM_DIRT) == 0);
+    int stacks = 0;
+    for (int i = 0; i < INVENTORY_SLOTS; i++)
+        if (inv->slots[i].id == copper) stacks++;
+    CHECK(stacks == 2);
+    CHECK(!game_trade_sell(&g, ITEM_DIRT, 1) && !game_trade_sell(&g, copper, 1));
+
+    /* Converting is its own step: 100 copper to 1 gold, and back. */
+    CHECK(game_trade_convert(&g, 0, 1));
+    CHECK(coins(&g, "copper_coin") == 0 && coins(&g, "gold_coin") == 1);
+    CHECK(!game_trade_convert(&g, 0, 1) && !game_trade_convert(&g, 1, 2) && !game_trade_convert(&g, 0, 2));
+    CHECK(game_trade_convert(&g, 1, 0) && coins(&g, "copper_coin") == 100 && coins(&g, "gold_coin") == 0);
+    CHECK(game_trade_convert(&g, 0, 1));
+
+    /* Small coins are spent before a big one is broken, and too little money buys nothing. */
+    clear_inventory(&g);
+    inventory_add(inv, copper, 3);
+    inventory_add(inv, gold, 2);
+    CHECK(game_trade_buy(&g, ITEM_STONE, 2));
+    CHECK(coins(&g, "copper_coin") == 1 && coins(&g, "gold_coin") == 2 && count_item(&g, ITEM_STONE) == 2);
+    CHECK(game_trade_buy(&g, ITEM_STONE, 10));
+    CHECK(coins(&g, "copper_coin") == 91 && coins(&g, "gold_coin") == 1 && count_item(&g, ITEM_STONE) == 12);
+    clear_inventory(&g);
+    inventory_add(inv, copper, 4);
+    CHECK(!game_trade_buy(&g, ITEM_STONE, 5) && coins(&g, "copper_coin") == 4 && count_item(&g, ITEM_STONE) == 0);
+    /* A platinum coin breaks all the way down. */
+    clear_inventory(&g);
+    inventory_add(inv, plat, 1);
+    CHECK(game_trade_buy(&g, ITEM_WOOD, 1));
+    CHECK(coins(&g, "platinum_coin") == 0 && coins(&g, "gold_coin") == 99 && coins(&g, "copper_coin") == 99);
+    CHECK(trade_wallet(inv) == 9999);
+
+    /* Walking away closes the shop. */
+    game_close_bench(&g);
+    CHECK(!game_trade_sell(&g, ITEM_WOOD, 1) && count_item(&g, ITEM_WOOD) == 1);
+    game_free(&g);
+}
+
 static void test_tools(void)
 {
     Game g;
@@ -2011,6 +2190,8 @@ int main(void)
     test_bench();
     test_work_benches();
     test_tools();
+    test_crystals_and_coins();
+    test_trade();
     test_wrap();
     test_terrain();
     test_veins();

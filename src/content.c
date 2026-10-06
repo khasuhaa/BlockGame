@@ -62,6 +62,7 @@ void content_reset(void)
     content.items[0].equip = EQUIP_NONE;
     content.items[0].plants = -1;
     content.items[0].tool_class = -1;
+    content.items[0].category = -1;
     content.item_count = 1;
 }
 
@@ -191,6 +192,7 @@ static bool register_names(Reader *r, const cJSON *root)
         memset(it, 0, sizeof *it);
         copy_name(it->name, sizeof it->name, name);
         it->plants = -1;
+        it->category = -1;
     }
     return true;
 }
@@ -204,6 +206,7 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->layer = str(e, "layer") && strcmp(str(e, "layer"), "background") == 0 ? LAYER_BACKGROUND
                                                                                   : LAYER_FOREGROUND;
         t->bench = flag(e, "bench", false);
+        t->trade = flag(e, "trade", false);
         t->removable = flag(e, "removable", false);
         t->climbable = flag(e, "climbable", false);
         t->mine_time = (float)num(e, "mine_time", 0.35);
@@ -276,6 +279,9 @@ static bool read_items(Reader *r, const cJSON *root)
                         it->name);
         copy_name(it->texture, sizeof it->texture, str(e, "texture"));
         it->fuel = (int)num(e, "fuel", 0);
+        /* The category is matched to the trade file once that has been read. */
+        copy_name(it->category_name, sizeof it->category_name, str(e, "category"));
+        it->price = (int)num(e, "price", 0);
         /* "tool": what kind it is, and how much faster it makes mining. */
         const cJSON *tool = field(e, "tool");
         if (!tool_class_ref(r, str(tool, "class"), &it->tool_class)) return false;
@@ -311,6 +317,7 @@ static bool read_recipes(Reader *r, const cJSON *root)
 
         /* "bench" is one kind of bench, or a list of kinds that all offer the recipe. */
         recipe.level = (int)num(e, "level", 1);
+        recipe.crystals = (int)num(e, "crystals", 0);
         const cJSON *bench = field(e, "bench"), *one;
         int kinds = 0;
         if (cJSON_IsString(bench)) {
@@ -537,6 +544,48 @@ static bool read_rules(Reader *r, const cJSON *root)
     return true;
 }
 
+static bool read_trade(Reader *r, const cJSON *root)
+{
+    TradeDef *t = &content.trade;
+    const cJSON *e;
+    t->default_price = (int)num(root, "default_price", t->default_price > 0 ? t->default_price : 1);
+    cJSON_ArrayForEach(e, field(root, "categories")) {
+        const char *name = str(e, "name");
+        if (!name) return fail(r, "a category has no \"name\"");
+        int id = -1;
+        for (int i = 0; i < t->category_count; i++)
+            if (strcmp(t->categories[i].name, name) == 0) id = i;
+        if (id < 0) {
+            if (t->category_count >= MAX_CATEGORIES) return fail(r, "too many categories");
+            id = t->category_count++;
+        }
+        copy_name(t->categories[id].name, CONTENT_NAME_LEN, name);
+        copy_name(t->categories[id].label, CONTENT_NAME_LEN, str(e, "label") ? str(e, "label") : name);
+    }
+    if (field(root, "currencies")) t->currency_count = 0;
+    cJSON_ArrayForEach(e, field(root, "currencies")) {
+        if (t->currency_count >= MAX_CURRENCIES) return fail(r, "too many currencies");
+        ItemId item = ITEM_NONE;
+        int value = (int)num(e, "value", 0);
+        if (!str(e, "item") || !item_ref(r, e, "item", &item)) return fail(r, "a currency needs an \"item\"");
+        if (value < 1) return fail(r, "currency \"%s\" needs a \"value\" of 1 or more", str(e, "item"));
+        /* Kept in order of value, smallest first. */
+        int at = t->currency_count++;
+        while (at > 0 && t->currencies[at - 1].value > value) {
+            t->currencies[at] = t->currencies[at - 1];
+            at--;
+        }
+        t->currencies[at].item = item;
+        t->currencies[at].value = value;
+    }
+    const cJSON *crystals = field(root, "crystals");
+    if (crystals) {
+        t->start_crystals = (int)num(crystals, "start", 0);
+        copy_name(t->crystal_icon, sizeof t->crystal_icon, str(crystals, "icon"));
+    }
+    return true;
+}
+
 /* ---- loading ----------------------------------------------------------- */
 
 /* Parses a file from the data directory. A missing file is not an error: a
@@ -576,6 +625,12 @@ static bool validate(Reader *r)
 
     for (int i = 0; i < content.item_count; i++) {
         ItemDef *it = &content.items[i];
+        it->category = -1;
+        for (int c = 0; c < content.trade.category_count; c++)
+            if (strcmp(content.trade.categories[c].name, it->category_name) == 0) it->category = c;
+        if (it->category_name[0] && it->category < 0)
+            return fail(r, "item \"%s\" is in category \"%s\", which does not exist", it->name,
+                        it->category_name);
         it->plants = it->plants_name[0] ? tree_id(it->plants_name) : -1;
         if (it->plants_name[0] && it->plants < 0)
             return fail(r, "item \"%s\" plants a tree called \"%s\", which does not exist", it->name,
@@ -619,7 +674,7 @@ static bool validate(Reader *r)
 bool content_load(const char *dir, char *error, size_t error_size)
 {
     static const char *files[] = { "tiles.json", "items.json", "recipes.json", "trees.json",
-                                   "worldgen.json", "rules.json" };
+                                   "worldgen.json", "rules.json", "trade.json" };
     enum { FILE_COUNT = sizeof files / sizeof files[0] };
     Reader r = { "", error, error_size, false };
     cJSON *roots[FILE_COUNT];
@@ -634,7 +689,7 @@ bool content_load(const char *dir, char *error, size_t error_size)
         if (roots[i]) register_names(&r, roots[i]);
     }
     static bool (*const readers[FILE_COUNT])(Reader *, const cJSON *) = {
-        read_tiles, read_items, read_recipes, read_trees, read_worldgen, read_rules,
+        read_tiles, read_items, read_recipes, read_trees, read_worldgen, read_rules, read_trade,
     };
     for (int i = 0; i < FILE_COUNT && !r.failed; i++) {
         r.file = files[i];

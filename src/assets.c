@@ -2,9 +2,18 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
+
+#define MAX_IMAGES 32
 
 static Texture2D tile_textures[MAX_TILES][MAX_TILE_TEXTURES];
 static Texture2D item_textures[MAX_ITEMS];
+static struct {
+    char file[CONTENT_PATH_LEN];
+    Texture2D texture;
+} images[MAX_IMAGES];
+static int image_count;
+static char data_dir[256];
 
 static Texture2D load(const char *dir, const char *file)
 {
@@ -20,6 +29,7 @@ static Texture2D load(const char *dir, const char *file)
 void assets_load(const char *dir)
 {
     assets_unload();
+    snprintf(data_dir, sizeof data_dir, "%s", dir);
     for (int t = 0; t < content.tile_count; t++)
         for (int i = 0; i < content.tiles[t].texture_count; i++)
             tile_textures[t][i] = load(dir, content.tiles[t].textures[i]);
@@ -38,6 +48,9 @@ void assets_unload(void)
         if (item_textures[i].id) UnloadTexture(item_textures[i]);
         item_textures[i] = (Texture2D){ 0 };
     }
+    for (int i = 0; i < image_count; i++)
+        if (images[i].texture.id) UnloadTexture(images[i].texture);
+    image_count = 0;
 }
 
 /* Stands in for a texture that could not be loaded. */
@@ -86,4 +99,23 @@ void assets_draw_item(ItemId id, Rectangle r)
     }
     DrawTexturePro(tex, (Rectangle){ 0, 0, (float)tex.width, (float)tex.height }, r,
                    (Vector2){ 0, 0 }, 0.0f, WHITE);
+}
+
+void assets_draw_image(const char *file, Rectangle r)
+{
+    int found = -1;
+    for (int i = 0; i < image_count; i++)
+        if (strcmp(images[i].file, file) == 0) found = i;
+    if (found < 0 && image_count < MAX_IMAGES) {
+        found = image_count++;
+        snprintf(images[found].file, sizeof images[found].file, "%s", file);
+        images[found].texture = load(data_dir, file);
+    }
+    if (found < 0 || !images[found].texture.id) {
+        draw_placeholder(r);
+        return;
+    }
+    Texture2D tex = images[found].texture;
+    DrawTexturePro(tex, (Rectangle){ 0, 0, (float)tex.width, (float)tex.height }, r, (Vector2){ 0, 0 },
+                   0.0f, WHITE);
 }

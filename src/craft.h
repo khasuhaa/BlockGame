@@ -16,12 +16,13 @@ bool recipe_locked(TileType bench, const Recipe *r);
 bool inventory_has_all(const Inventory *inv, const RecipeItem *items, int count);
 void inventory_remove_all(Inventory *inv, const RecipeItem *items, int count);
 
-/* How many times the recipe can be made from what the inventory holds, up to
- * MAX_CRAFT_AMOUNT. */
-int recipe_max_crafts(const Inventory *inv, const Recipe *r);
+/* How many times the recipe can be made from what the inventory holds and the
+ * crystals there are, up to MAX_CRAFT_AMOUNT. */
+int recipe_max_crafts(const Inventory *inv, const Recipe *r, int crystals);
 
-/* Makes the recipe once. Returns -1 if the inputs are missing, otherwise how
- * many of the output did not fit in the inventory. */
-int recipe_craft(Inventory *inv, const Recipe *r);
+/* Makes the recipe once, taking its inputs and its crystals. Returns -1 if
+ * either is missing, otherwise how many of the output did not fit in the
+ * inventory. */
+int recipe_craft(Inventory *inv, const Recipe *r, int *crystals);
 
 #endif

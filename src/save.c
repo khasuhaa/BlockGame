@@ -256,3 +256,22 @@ bool load_game(Game *g, const char *path)
     if (!ok) memset(g, 0, sizeof *g);
     return ok;
 }
+
+int load_crystals(const char *path)
+{
+    int crystals = content.trade.start_crystals;
+    FILE *f = fopen(path, "r");
+    if (!f) return crystals;
+    int read;
+    if (fscanf(f, "crystals %d", &read) == 1 && read >= 0) crystals = read;
+    fclose(f);
+    return crystals;
+}
+
+bool save_crystals(const char *path, int crystals)
+{
+    FILE *f = fopen(path, "w");
+    if (!f) return false;
+    bool ok = fprintf(f, "crystals %d\n", crystals) > 0;
+    return fclose(f) == 0 && ok;
+}

@@ -20,10 +20,11 @@ Everything the game contains is defined in `data/`, not in the code, so it can b
 | File | Defines |
 | --- | --- |
 | `tiles.json` | Blocks: whether they are solid, climbable or minable, which layer they are placed in, how long they take to mine and with what kind of tool, what they drop, their textures, for benches their kind, tier, upgrade and how much fuel they hold, and for storage blocks their grid of slots |
-| `items.json` | Items: label, stack size, how many slots they hold inside them and whether those open from the bar, what block they place, what tree they plant, how long they burn as fuel, what kind of tool they are and how fast, and their texture |
-| `recipes.json` | What each kind of bench makes, from what, and at what bench level |
+| `items.json` | Items: label, stack size, how many slots they hold inside them and whether those open from the bar, what block they place, what tree they plant, how long they burn as fuel, what kind of tool they are and how fast, their trade category and price, and their texture |
+| `recipes.json` | What each kind of bench makes, from what, for how many crystals, and at what bench tier |
 | `trees.json` | Tree kinds: their blocks, fruit, full height, the shape of the crown row by row, which layer they grow in, and what they can be planted on |
 | `worldgen.json` | World size, the plains, the mountains and valleys (any number of kinds), soil layers, veins (what, in what, how big, how deep, how common, what shape), the spawn and its portal, and how trees are scattered |
+| `trade.json` | The categories items are sold in, the coins and what each is worth, the default price, and the crystals a new player starts with |
 | `rules.json` | Tick rate, day and night length, player step timings, starting items, and how drops behave |
 | `textures/` | PNG images, 32 pixels to the block. A block can list several to vary between; one larger than a block overhangs it |
 
@@ -163,12 +164,35 @@ A bench can have tiers. Its menu shows its tier and, if it can go higher, an Upg
 
 | Bench | Made at | From | Makes |
 | --- | --- | --- | --- |
-| Workbench | Spawn portal | 1 dirt | The other benches. Tier 2 costs 5 stone |
+| Workbench | Spawn portal | 1 dirt | The other benches, and a portal (1 stone, 100 crystals). Tier 2 costs 5 stone, tier 3 costs 5 iron ingots |
 | Woodwork bench | Workbench | 1 wood | Chest (1 wood) |
 | Tool bench | Workbench | 1 stone, 1 flint | Wooden pickaxe, wooden shovel (1 wood, 1 stick each); flint axe, flint shovel (2 flint, 1 stick each). Tier 2, for 5 stone: stone pickaxe, stone shovel (5 stone, 1 stick each) |
 | Craft bench | Workbench | 1 dirt | Basket (10 sticks) |
 | Kiln | Workbench tier 2 | 10 dirt, 1 stick | Charcoal (1 stick) |
 | Furnace | Workbench tier 2 | 5 stone, 1 stick | One ingot from one ore: copper and tin. Tier 2, for 5 iron ore: iron and gold. Tier 3, for 5 titanium ore: platinum and titanium |
+
+### Money
+
+**Crystals** belong to the player, not to a world: the same number is there in every world. They are shown in a box at the top right, kept in `saves/profile.txt`, and written as soon as they change. A new player starts with 1000. So far they are only spent, on the portal recipe.
+
+**Coins** are ordinary items, in stacks of up to 99: 100 copper coins are worth 1 gold coin, and 100 gold coins 1 platinum coin. The metalwork bench makes and exchanges them:
+
+| Tier | Recipes |
+| --- | --- |
+| 1 | 1 copper ingot → 10 copper coins; 1 gold coin → 100 copper coins |
+| 2 (5 copper ingots) | 1 gold ingot → 1 gold coin; 100 copper coins → 1 gold coin; 1 platinum coin → 100 gold coins |
+| 3 (5 gold ingots) | 5 platinum ingots → 1 platinum coin; 100 gold coins → 1 platinum coin |
+
+### Trade portal
+
+Clicking a placed trade portal offers to open or remove it. Open, it shows the coins held and a tab for each category of item - blocks, benches, materials, tools, food - plus a Convert tab.
+
+- Pick an item to see its price and how many are held, then Buy 1, Buy 10, Sell 1 or Sell 10. Every item but the coins themselves is for sale, and for now everything costs 1 copper coin.
+- **Buying** spends the smallest coins first, and breaks a bigger coin into change when they do not cover the price: with 1 gold coin, buying a 1 copper item leaves 99 copper coins.
+- **Selling** pays in copper coins and never exchanges them upward: selling that item back leaves a stack of 99 copper coins and 1 more.
+- The **Convert** tab exchanges between neighbouring coins in either direction, such as 100 copper for 1 gold.
+
+Anything bought or given as change that does not fit in the inventory is dropped at the player's feet.
 
 ### Tools
 
@@ -212,11 +236,13 @@ What an item holds is part of the item, and two stacks only merge if they hold t
 - `src/tree.c` — tree shapes and growth
 - `src/inventory.c` — stacks, baskets and the rules for moving them
 - `src/craft.c` — crafting from the recipes
+- `src/trade.c` — buying, selling and exchanging coins
 - `src/game.c` — player, movement rules, path planning, action queue, item drops, crafting
 - `src/save.c` — saving and loading a world
 - `src/assets.c` — textures for blocks and items
 - `src/hud.c` — the on-screen inventory bar
 - `src/benchui.c` — the bench popup and crafting menu
+- `src/tradeui.c` — the trade portal menu
 - `src/menu.c` — main menu, pause menu and key bindings
 - `src/view.h` — placing the wrapping world on screen
 - `src/main.c` — window, input, camera and rendering

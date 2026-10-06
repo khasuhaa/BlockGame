@@ -1,0 +1,43 @@
+{
+  "default_price": 1,
+  "categories": [
+    {
+      "name": "blocks",
+      "label": "Blocks"
+    },
+    {
+      "name": "benches",
+      "label": "Benches"
+    },
+    {
+      "name": "materials",
+      "label": "Materials"
+    },
+    {
+      "name": "tools",
+      "label": "Tools"
+    },
+    {
+      "name": "food",
+      "label": "Food"
+    }
+  ],
+  "currencies": [
+    {
+      "item": "copper_coin",
+      "value": 1
+    },
+    {
+      "item": "gold_coin",
+      "value": 100
+    },
+    {
+      "item": "platinum_coin",
+      "value": 10000
+    }
+  ],
+  "crystals": {
+    "start": 1000,
+    "icon": "ui/crystal.png"
+  }
+}

@@ -29,20 +29,22 @@ void inventory_remove_all(Inventory *inv, const RecipeItem *items, int count)
     for (int i = 0; i < count; i++) inventory_remove(inv, items[i].id, items[i].count);
 }
 
-int recipe_max_crafts(const Inventory *inv, const Recipe *r)
+int recipe_max_crafts(const Inventory *inv, const Recipe *r, int crystals)
 {
     int max = MAX_CRAFT_AMOUNT;
     for (int i = 0; i < r->input_count; i++) {
         int possible = inventory_count(inv, r->inputs[i].id) / r->inputs[i].count;
         if (possible < max) max = possible;
     }
+    if (r->crystals > 0 && crystals / r->crystals < max) max = crystals / r->crystals;
     return max;
 }
 
-int recipe_craft(Inventory *inv, const Recipe *r)
+int recipe_craft(Inventory *inv, const Recipe *r, int *crystals)
 {
-    if (recipe_max_crafts(inv, r) < 1) return -1;
+    if (recipe_max_crafts(inv, r, *crystals) < 1) return -1;
     for (int i = 0; i < r->input_count; i++)
         inventory_remove(inv, r->inputs[i].id, r->inputs[i].count);
+    *crystals -= r->crystals;
     return inventory_add(inv, r->output.id, r->output.count);
 }

@@ -17,5 +17,7 @@ void assets_unload(void);
  * 0..1. */
 void assets_draw_tile(TileType t, int x, int y, float px, float py, float tile_size, float dim);
 void assets_draw_item(ItemId id, Rectangle r);
+/* Draws any other image under `<dir>/textures`, loading it on first use. */
+void assets_draw_image(const char *file, Rectangle r);
 
 #endif

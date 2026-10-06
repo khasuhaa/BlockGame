@@ -153,6 +153,11 @@ typedef struct {
 
     Denial denials[MAX_DENIALS];
 
+    /* Crystals: a currency that belongs to the player rather than the world.
+     * Whoever runs the game loads it in and saves it away; it is not part of
+     * a world's save. */
+    int crystals;
+
     /* The bench or storage block the player has open, and the crafting run
      * going on at it. */
     bool bench_open;
@@ -221,6 +226,10 @@ bool game_craft(Game *g, const Recipe *r, int count);
 /* Upgrades the open bench in place, paying its cost. False if it cannot be
  * upgraded or the cost is not held. */
 bool game_upgrade_bench(Game *g);
+/* Hands the player items: into the inventory, or dropped at their feet if
+ * there is no room. */
+void game_give_items(Game *g, ItemId id, int count);
+
 /* The bench or storage block at a position, whichever layer it is in, or
  * TILE_AIR if there is nothing there to open. */
 TileType game_bench_at(const Game *g, int x, int y);

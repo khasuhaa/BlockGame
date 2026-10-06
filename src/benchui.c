@@ -1,5 +1,6 @@
 #include "benchui.h"
 
+#include "assets.h"
 #include "hud.h"
 
 #include <stddef.h>
@@ -160,9 +161,16 @@ void benchui_close(BenchUi *ui, Game *g)
     game_close_bench(g);
 }
 
+/* A trade block has a menu of its own; this one stays out of its way. */
+static bool is_trade(const Game *g)
+{
+    return g->bench_open && tile_def(open_bench(g))->trade;
+}
+
 bool benchui_mouse_over(const BenchUi *ui, const Game *g, const View *v)
 {
     Vector2 m = GetMousePosition();
+    if (is_trade(g)) return false;
     if (ui->press != BENCH_PRESS_NONE) return true;
     if (ui->popup && CheckCollisionPointRec(m, popup_rect(ui, v))) return true;
     if (!g->bench_open) return false;
@@ -207,6 +215,12 @@ static BenchPress press_target(const BenchUi *ui, const Game *g, const View *v, 
 bool benchui_handle_input(BenchUi *ui, Game *g, const View *v)
 {
     Vector2 m = GetMousePosition();
+    if (is_trade(g)) {
+        ui->popup = false;
+        ui->was_open = false;
+        ui->press = BENCH_PRESS_NONE;
+        return false;
+    }
 
     if (g->bench_open) {
         bool changed = ui->shown.x != g->bench_pos.x || ui->shown.y != g->bench_pos.y;
@@ -228,7 +242,7 @@ bool benchui_handle_input(BenchUi *ui, Game *g, const View *v)
     if (ui->selected >= count) ui->selected = -1;
 
     /* The amount never goes past what there are materials for. */
-    int cap = ui->selected >= 0 ? recipe_max_crafts(&g->inventory, recipes[ui->selected]) : 0;
+    int cap = ui->selected >= 0 ? recipe_max_crafts(&g->inventory, recipes[ui->selected], g->crystals) : 0;
     if (ui->amount > cap) ui->amount = cap;
     if (ui->amount < 1) ui->amount = 1;
 
@@ -394,7 +408,7 @@ static void draw_list(const BenchUi *ui, const Game *g, const Recipe **recipes, 
 
 static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Rectangle menu)
 {
-    int cap = recipe_max_crafts(&g->inventory, r);
+    int cap = recipe_max_crafts(&g->inventory, r, g->crystals);
     int amount = ui->amount;
     float left = menu.x + MENU_PAD, room = menu.width - 2 * MENU_PAD;
     float y = menu.y + MENU_HEADER + 70;
@@ -416,6 +430,8 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
         icon = sizes[k].icon;
         font = sizes[k].font;
         float width = 24 + icon;
+        if (r->crystals > 0)
+            width += icon + 8 + MeasureText(TextFormat("%d/%d", g->crystals, r->crystals * amount), font);
         for (int i = 0; i < r->input_count; i++)
             width += icon + 8 + MeasureText(TextFormat("%d/%d", inventory_count(&g->inventory, r->inputs[i].id),
                                                        r->inputs[i].count * amount), font);
@@ -429,6 +445,15 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
         const char *text = TextFormat("%d/%d", have, need);
         DrawText(text, (int)(x + icon + 2), (int)text_y, font,
                  have >= need ? RAYWHITE : (Color){ 235, 90, 90, 255 });
+        x += icon + 8 + MeasureText(text, font);
+    }
+    if (r->crystals > 0) {
+        /* Crystals are paid like an input, but come from the player, not the inventory. */
+        int need = r->crystals * amount;
+        assets_draw_image(content.trade.crystal_icon, (Rectangle){ x, icon_y, icon, icon });
+        const char *text = TextFormat("%d/%d", g->crystals, need);
+        DrawText(text, (int)(x + icon + 2), (int)text_y, font,
+                 g->crystals >= need ? RAYWHITE : (Color){ 235, 90, 90, 255 });
         x += icon + 8 + MeasureText(text, font);
     }
     DrawText(">", (int)x + 4, (int)(y + 8), 20, LIGHTGRAY);
@@ -511,7 +536,7 @@ static void draw_fuel(const BenchUi *ui, const Game *g, Rectangle menu)
 void benchui_draw(const BenchUi *ui, const Game *g, const View *v)
 {
     if (ui->popup && !g->bench_open) draw_popup(ui, g, v);
-    if (!g->bench_open) return;
+    if (!g->bench_open || is_trade(g)) return;
 
     const Recipe *recipes[MAX_BENCH_RECIPES];
     int count = open_recipes(g, recipes);

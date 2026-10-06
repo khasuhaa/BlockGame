@@ -5,6 +5,7 @@
 #include "menu.h"
 #include "raylib.h"
 #include "save.h"
+#include "tradeui.h"
 #include "view.h"
 
 #include <math.h>
@@ -13,6 +14,7 @@
 #include <time.h>
 
 #define DATA_DIR "data"
+#define PROFILE_PATH SAVE_DIR "/profile.txt"
 #define TILE_SIZE 32
 #define DRAG_THRESHOLD 6.0f /* pixels the mouse must travel before a press becomes a pan */
 #define CAMERA_FOLLOW_SPEED 8.0f
@@ -78,7 +80,8 @@ static void sync_storage_slots(const Game *g, Hud *hud)
         hud->extra[i] = (HudSlot){ rects[i], { SLOT_CONTAINER, container, i } };
 }
 
-static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, const Keybinds *keys)
+static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, TradeUi *trade,
+                         const Keybinds *keys)
 {
     const int *k = keys->keys;
     if (IsKeyPressed(k[BIND_UP]) || IsKeyPressed(k[BIND_LEFT]) || IsKeyPressed(k[BIND_DOWN]) ||
@@ -99,6 +102,7 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, cons
 
     /* A press that starts on the inventory never reaches the world. */
     if (hud_handle_input(hud, &g->inventory)) return;
+    if (tradeui_handle_input(trade, g, &view)) return;
     if (benchui_handle_input(bench, g, &view)) return;
 
     Vector2 mouse = GetMousePosition();
@@ -124,7 +128,7 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, cons
             TilePos t = tile_at_screen(cam, mouse);
             t.x = world_wrap_x(&g->world, t.x);
             const TileDef *def = tile_def(game_bench_at(g, t.x, t.y));
-            bool opens = def->bench || def->storage_columns > 0;
+            bool opens = def->bench || def->trade || def->storage_columns > 0;
             int drop = game_drop_at(g, (mouse.x - view.origin.x) / TILE_SIZE,
                                     (mouse.y - view.origin.y) / TILE_SIZE);
             /* An item under the cursor comes before the tile behind it.
@@ -336,8 +340,22 @@ static void draw_player(const Game *g, Vector2 origin)
     }
 }
 
+/* Crystals have a box of their own in the corner: they belong to the player,
+ * not to this world or its inventory. */
+static void draw_crystals(const Game *g)
+{
+    const char *text = TextFormat("%d", g->crystals);
+    float w = (float)MeasureText(text, 20) + 52.0f;
+    Rectangle box = { GetScreenWidth() - w - 12.0f, 64.0f, w, 36.0f };
+    DrawRectangleRec(box, (Color){ 22, 30, 48, 235 });
+    DrawRectangleLinesEx(box, 2.0f, (Color){ 120, 220, 255, 255 });
+    assets_draw_image(content.trade.crystal_icon, (Rectangle){ box.x + 8, box.y + 5, 26, 26 });
+    DrawText(text, (int)box.x + 42, (int)box.y + 8, 20, RAYWHITE);
+}
+
 static void draw_hud(const Game *g, const MapCamera *cam)
 {
+    draw_crystals(g);
     DrawRectangle(0, 0, GetScreenWidth(), 52, Fade(BLACK, 0.45f));
     DrawText("Click: move / mine / place held block / use bench / pick up item   Drag: pan   "
              "1-8: select   Esc: menu",
@@ -360,6 +378,8 @@ typedef struct {
     MapCamera cam;
     Hud hud;
     BenchUi bench;
+    TradeUi trade;
+    int saved_crystals; /* what the profile file holds */
     PauseMenu pause;
     bool paused;
     float since_save;
@@ -373,6 +393,9 @@ static void session_begin(Session *s, const MainMenu *menu)
     snprintf(s->path, sizeof s->path, "%s", menu->path);
     s->hud = (Hud){ 0 };
     s->bench = (BenchUi){ .selected = -1, .amount = 1 };
+    s->trade = (TradeUi){ 0 };
+    /* Crystals come with the player into whichever world is opened. */
+    s->game.crystals = s->saved_crystals = load_crystals(PROFILE_PATH);
     s->paused = false;
     s->since_save = 0.0f;
     s->cam = (MapCamera){ .follow = true };
@@ -384,6 +407,7 @@ static void session_save(Session *s)
 {
     if (!DirectoryExists(SAVE_DIR)) MakeDirectory(SAVE_DIR);
     if (!save_game(&s->game, s->path)) fprintf(stderr, "could not save %s\n", s->path);
+    if (save_crystals(PROFILE_PATH, s->game.crystals)) s->saved_crystals = s->game.crystals;
     s->since_save = 0.0f;
 }
 
@@ -396,8 +420,13 @@ static void session_update(Session *s, const Keybinds *keys, float dt)
         game_set_move_input(&s->game, 0, 0);
         return;
     }
-    handle_input(&s->game, &s->cam, &s->hud, &s->bench, keys);
+    handle_input(&s->game, &s->cam, &s->hud, &s->bench, &s->trade, keys);
     game_update(&s->game, dt);
+    /* Crystals are written down as soon as they change, not only on a save. */
+    if (s->game.crystals != s->saved_crystals) {
+        if (!DirectoryExists(SAVE_DIR)) MakeDirectory(SAVE_DIR);
+        if (save_crystals(PROFILE_PATH, s->game.crystals)) s->saved_crystals = s->game.crystals;
+    }
     update_camera(&s->game, &s->cam, dt);
 
     s->since_save += dt;
@@ -420,10 +449,12 @@ static void session_draw(Session *s)
                   Fade((Color){ 6, 8, 30, 255 }, 0.55f * (1.0f - game_daylight(g))));
     draw_actions(g, origin);
     if (!s->paused && !s->cam.dragging && IsCursorOnScreen() &&
-        !hud_mouse_over(&s->hud, &g->inventory) && !benchui_mouse_over(&s->bench, g, &view))
+        !hud_mouse_over(&s->hud, &g->inventory) && !benchui_mouse_over(&s->bench, g, &view) &&
+        !tradeui_mouse_over(&s->trade, g, &view))
         DrawRectangleLinesEx(tile_rect(origin, tile_at_screen(&s->cam, GetMousePosition())), 1.0f,
                              Fade(WHITE, 0.5f));
     benchui_draw(&s->bench, g, &view);
+    tradeui_draw(&s->trade, g, &view);
     sync_storage_slots(g, &s->hud);
     draw_hud(g, &s->cam);
     hud_draw(&s->hud, &g->inventory);
