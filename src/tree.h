@@ -3,23 +3,19 @@
 
 #include "world.h"
 
-typedef enum {
-    TREE_NONE = 0,
-    TREE_OAK,
-    TREE_CHERRY
-} TreeKind;
-
-#define OAK_MAX_HEIGHT 7    /* trunk blocks: a bare stick with a ball of leaves on top */
-#define CHERRY_MAX_HEIGHT 8 /* trunk blocks: six rows of leaves over two of bare trunk */
-#define TREE_MAX_LEAVES 24
+#define TREE_MAX_LEAVES 96
 
 /* A tree is nothing but its blocks: a column of log tiles and the leaf tiles
- * around it. These say which kind of tree a tile belongs to, if any. */
-TreeKind tree_kind_of_log(TileType t);
-TreeKind tree_kind_of_leaves(TileType t);
+ * around it, in the layer its definition names. Its kind is an index into
+ * content.trees. */
 
 /* Starts a tree as a single trunk block. */
-void tree_plant(World *w, int x, int y, TreeKind kind);
+void tree_plant(World *w, int x, int y, int kind);
+
+/* The kind of tree whose trunk or leaves are at a position, in the layer that
+ * kind grows in; -1 if there is none. */
+int tree_trunk_at(const World *w, int x, int y);
+int tree_leaves_at(const World *w, int x, int y);
 
 typedef struct {
     bool grew;     /* something changed */

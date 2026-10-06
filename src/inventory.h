@@ -6,38 +6,7 @@
 #define INVENTORY_SLOTS 8
 #define BASKET_SLOTS 4
 #define ARMOR_SLOTS 4
-#define MAX_STACK 99
 #define MAX_CONTAINERS 256
-
-typedef enum {
-    ITEM_NONE = 0,
-    ITEM_BASKET = 1,
-    ITEM_DIRT = 2,
-    ITEM_WORKBENCH = 3,
-    ITEM_STONE = 4,
-    ITEM_STICK = 5,
-    ITEM_WOOD = 6,
-    ITEM_ACORN = 7,
-    ITEM_CHERRY = 8,
-    ITEM_COUNT
-} ItemId;
-
-/* Armor slots, top to bottom. */
-typedef enum {
-    EQUIP_HEAD = 0,
-    EQUIP_CHEST,
-    EQUIP_LEGS,
-    EQUIP_BOOTS,
-    EQUIP_NONE
-} EquipSlot;
-
-typedef struct {
-    const char *name;
-    int max_stack;
-    bool container;  /* carries BASKET_SLOTS item slots as metadata */
-    EquipSlot equip; /* armor slot it can be worn in, or EQUIP_NONE */
-    TileType places; /* block it becomes when placed, or TILE_AIR */
-} ItemDef;
 
 /* `container` is the item's metadata: 0, or which Inventory.containers entry
  * holds its contents. It travels with the stack wherever it is moved. */
@@ -72,11 +41,7 @@ typedef struct {
     int sel_slot, sel_inner;
 } Inventory;
 
-const ItemDef *item_def(ItemId id);
-/* Item a mined tile drops, or ITEM_NONE. */
-ItemId item_for_tile(TileType t);
-
-/* Starts the player off with one basket in the first slot. */
+/* Starts the player off with the items the rules give them. */
 void inventory_init(Inventory *inv);
 
 /* The slot a reference points at, or NULL if there is no such slot. Slots

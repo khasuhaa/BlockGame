@@ -1,28 +1,11 @@
 #include "craft.h"
 
-#include <stddef.h>
-
-static const Recipe spawn_portal_recipes[] = {
-    { { ITEM_WORKBENCH, 1 }, { { ITEM_DIRT, 1 } }, 1 },
-};
-
-static const Recipe workbench_recipes[] = {
-    { { ITEM_BASKET, 1 }, { { ITEM_DIRT, 1 } }, 1 },
-};
-
-const Recipe *bench_recipes(TileType bench, int *count)
+int bench_recipes(TileType bench, const Recipe **out, int max)
 {
-    switch (bench) {
-    case TILE_SPAWN_PORTAL:
-        *count = (int)(sizeof spawn_portal_recipes / sizeof spawn_portal_recipes[0]);
-        return spawn_portal_recipes;
-    case TILE_WORKBENCH:
-        *count = (int)(sizeof workbench_recipes / sizeof workbench_recipes[0]);
-        return workbench_recipes;
-    default:
-        *count = 0;
-        return NULL;
-    }
+    int n = 0;
+    for (int i = 0; i < content.recipe_count && n < max; i++)
+        if (content.recipes[i].bench == bench) out[n++] = &content.recipes[i];
+    return n;
 }
 
 int recipe_max_crafts(const Inventory *inv, const Recipe *r)

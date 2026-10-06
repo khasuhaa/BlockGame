@@ -12,25 +12,26 @@ else
 LDLIBS := -lGL -lm -lpthread -ldl -lrt -lX11
 endif
 
-ENGINE_SRC := src/world.c src/tree.c src/inventory.c src/craft.c src/game.c src/save.c
+ENGINE_SRC := third_party/cjson/cJSON.c src/content.c src/world.c src/tree.c src/inventory.c src/craft.c src/game.c src/save.c
 HEADERS := $(wildcard src/*.h)
+DATA := $(wildcard data/*.json)
 
 .PHONY: all run test clean
 
 all: build/blockgame
 
-build/blockgame: src/main.c src/hud.c src/benchui.c src/menu.c $(ENGINE_SRC) $(HEADERS) $(RAYLIB_LIB)
+build/blockgame: src/main.c src/assets.c src/hud.c src/benchui.c src/menu.c $(ENGINE_SRC) $(HEADERS) $(RAYLIB_LIB)
 	@mkdir -p build
-	$(CC) $(CFLAGS) -I$(RAYLIB_DIR)/src src/main.c src/hud.c src/benchui.c src/menu.c $(ENGINE_SRC) $(RAYLIB_LIB) $(LDLIBS) -o $@
+	$(CC) $(CFLAGS) -I$(RAYLIB_DIR)/src src/main.c src/assets.c src/hud.c src/benchui.c src/menu.c $(ENGINE_SRC) $(RAYLIB_LIB) $(LDLIBS) -o $@
 
 build/test_game: tests/test_game.c $(ENGINE_SRC) $(HEADERS)
-	@mkdir -p build
+	@mkdir -p build/mod
 	$(CC) $(CFLAGS) tests/test_game.c $(ENGINE_SRC) -o $@
 
 run: build/blockgame
 	./build/blockgame
 
-test: build/test_game
+test: build/test_game $(DATA)
 	./build/test_game
 
 # raylib is downloaded and built on first use; it is not checked in.

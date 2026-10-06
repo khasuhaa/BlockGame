@@ -9,15 +9,33 @@ make run          # build and start the game
 make test         # headless tests of the game rules
 ```
 
-The first build downloads raylib 5.5 into `vendor/` and compiles it.
+The first build downloads raylib 5.5 into `vendor/` and compiles it. The game reads its content from `data/`, so run it from the repository root.
 
 On an Apple Silicon Mac, if the shell is running under Rosetta the compiler may fail with an `xcrun` error; use `arch -arm64 make run` instead.
+
+## Data
+
+Everything the game contains is defined in `data/`, not in the code, so it can be changed without recompiling:
+
+| File | Defines |
+| --- | --- |
+| `tiles.json` | Blocks: whether they are solid, climbable, a bench or minable, how long they take to mine, what they drop, and their textures |
+| `items.json` | Items: label, stack size, whether they hold other items, what block they place, and their texture |
+| `recipes.json` | What each kind of bench makes, and from what |
+| `trees.json` | Tree kinds: their blocks, fruit, full height, the shape of the crown row by row, and which layer they grow in |
+| `worldgen.json` | World size, the plains, the mountains and valleys (any number of kinds), soil layers, the spawn and its portal, and how trees are scattered |
+| `rules.json` | Tick rate, day and night length, player step timings, starting items, and how drops behave |
+| `textures/` | PNG images, 32 pixels to the block. A block can list several to vary between; one larger than a block overhangs it |
+
+Blocks and items refer to each other by name. A mistake, such as a recipe for an item that does not exist, stops the game at startup with a message naming the file and the problem.
+
+The loader can read a second directory on top of the first, adding new definitions and replacing ones with the same name. Nothing uses that yet; it is there for mods.
 
 ## Menus and saves
 
 The game opens on a main menu listing the saved worlds. Pick one to join it, or choose "New world", give it a name, and a fresh world is generated from a random seed.
 
-Worlds are saved in `saves/<name>.world`, next to where the game is run from. A world is saved when it is created, every two minutes while playing, on "Save and quit to menu", and when the window is closed. Actions still queued at that moment are not kept.
+Worlds are saved in `saves/<name>.world`, next to where the game is run from. A save records its blocks and items by name, so it still loads after the data files change; anything that no longer exists is removed from it. A world is saved when it is created, every two minutes while playing, on "Save and quit to menu", and when the window is closed. Actions still queued at that moment are not kept.
 
 `Esc` opens the pause menu, which stops the world and offers:
 
@@ -83,9 +101,11 @@ Trees are generated on the plains at every stage of growth, and keep growing:
 
 An **oak** grows to a 7-block trunk with a ball of leaves on top: rows 3, 5, 5 and 3 wide over 4 blocks of bare trunk. A **cherry** grows to an 8-block trunk with leaf rows 3, 3, 4, 4, 5 and 5 wide from the top down, over 2 blocks of bare trunk.
 
-Breaking a leaf drops a stick; breaking a trunk drops wood, which can be placed as an ordinary block. Trees are solid like any other block, and can be climbed.
+Breaking a leaf drops a stick; breaking a trunk drops wood, which can be placed as an ordinary block.
 
-The world has three layers from back to front: a background layer of blocks (empty for now, drawn dimmed), the foreground layer the player lives in, and the item layer, where dropped items and fruit are drawn in front of the blocks.
+Trees stand in the background layer. The player walks straight past them, but can hold on to them: `W` in front of a tree climbs it, and the movement keys go up, down and sideways through the crown. Clicking any part of a tree queues mining that block, and the player climbs the tree to get within reach. A block in the foreground is always mined before the tree behind it.
+
+The world has three layers from back to front: the background layer, which holds the trees and is drawn slightly dimmed; the foreground layer, which holds the terrain and everything the player collides with; and the item layer, where dropped items and fruit are drawn in front of the blocks.
 
 ## Inventory
 
@@ -121,15 +141,20 @@ Each item takes 100 ms to craft. Output that does not fit in the inventory is dr
 
 ## Layout
 
-- `src/world.c` — tile kinds, the wrapping tile grid and terrain generation
+- `data/` — all game content (see Data above)
+- `src/content.c` — loads the data files into the tables the engine reads
+- `src/world.c` — the wrapping tile grid and terrain generation
 - `src/tree.c` — tree shapes and growth
-- `src/inventory.c` — items, stacks, baskets and the rules for moving them
-- `src/craft.c` — recipes for each kind of bench
+- `src/inventory.c` — stacks, baskets and the rules for moving them
+- `src/craft.c` — crafting from the recipes
 - `src/game.c` — player, movement rules, path planning, action queue, item drops, crafting
 - `src/save.c` — saving and loading a world
+- `src/assets.c` — textures for blocks and items
 - `src/hud.c` — the on-screen inventory bar
 - `src/benchui.c` — the bench popup and crafting menu
 - `src/menu.c` — main menu, pause menu and key bindings
 - `src/view.h` — placing the wrapping world on screen
 - `src/main.c` — window, input, camera and rendering
 - `tests/test_game.c` — tests for the rules, with no window
+- `third_party/cjson/` — the JSON parser (MIT licence)
+- `AGENTS.md` — the standing rule for working on this project: keep everything data driven

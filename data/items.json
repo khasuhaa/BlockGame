@@ -1,0 +1,14 @@
+{
+  "items": [
+    { "name": "basket", "label": "Basket", "max_stack": 1, "container": true,
+      "texture": "items/basket.png" },
+    { "name": "dirt", "label": "Dirt", "places": "dirt", "texture": "items/dirt.png" },
+    { "name": "workbench", "label": "Workbench", "places": "workbench",
+      "texture": "items/workbench.png" },
+    { "name": "stone", "label": "Stone", "places": "stone", "texture": "items/stone.png" },
+    { "name": "stick", "label": "Stick", "texture": "items/stick.png" },
+    { "name": "wood", "label": "Wood", "places": "wood", "texture": "items/wood.png" },
+    { "name": "acorn", "label": "Acorn", "texture": "items/acorn.png" },
+    { "name": "cherry", "label": "Cherry", "texture": "items/cherry.png" }
+  ]
+}

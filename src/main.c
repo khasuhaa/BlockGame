@@ -1,3 +1,4 @@
+#include "assets.h"
 #include "benchui.h"
 #include "game.h"
 #include "hud.h"
@@ -11,12 +12,12 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define WORLD_WIDTH 2048 /* circumference of the world */
-#define WORLD_HEIGHT 401 /* Y -200 to 200 */
+#define DATA_DIR "data"
 #define TILE_SIZE 32
 #define DRAG_THRESHOLD 6.0f /* pixels the mouse must travel before a press becomes a pan */
 #define CAMERA_FOLLOW_SPEED 8.0f
 #define AUTOSAVE_SECONDS 120.0f
+#define BACKGROUND_DIM 0.18f /* how much darker the background layer is drawn */
 
 /* World-space pixel shown at the centre of the window. */
 typedef struct {
@@ -138,137 +139,6 @@ static void update_camera(const Game *g, MapCamera *cam, float dt)
     cam->center.y = fminf(fmaxf(cam->center.y, 0.0f), (float)g->world.height * TILE_SIZE);
 }
 
-/* Cheap per-tile hash so blocks of one kind are not one flat colour. */
-static int tile_shade(int x, int y)
-{
-    unsigned h = (unsigned)x * 73856093u ^ (unsigned)y * 19349663u;
-    return (int)((h >> 8) % 13) - 6;
-}
-
-static void draw_block(int px, int py, Color base, Color edge, int shade)
-{
-    DrawRectangle(px, py, TILE_SIZE, TILE_SIZE, edge);
-    DrawRectangle(px, py, TILE_SIZE - 1, TILE_SIZE - 1,
-                  (Color){ (unsigned char)(base.r + shade), (unsigned char)(base.g + shade),
-                           (unsigned char)(base.b + shade), 255 });
-}
-
-static void draw_dirt(int x, int y, int px, int py)
-{
-    draw_block(px, py, (Color){ 134, 96, 67, 255 }, (Color){ 96, 66, 44, 255 }, tile_shade(x, y));
-}
-
-static void draw_grass(int x, int y, int px, int py)
-{
-    int shade = tile_shade(x, y);
-    draw_dirt(x, y, px, py);
-    DrawRectangle(px, py, TILE_SIZE, 9, (Color){ 58, 132, 52, 255 });
-    DrawRectangle(px, py, TILE_SIZE - 1, 8,
-                  (Color){ (unsigned char)(84 + shade), (unsigned char)(172 + shade),
-                           (unsigned char)(70 + shade), 255 });
-}
-
-static void draw_stone(int x, int y, int px, int py)
-{
-    Color edge = { 84, 86, 96, 255 };
-    unsigned h = (unsigned)x * 2654435761u ^ (unsigned)y * 40503u;
-    draw_block(px, py, (Color){ 128, 130, 140, 255 }, edge, tile_shade(x, y));
-    DrawRectangle(px + 4 + (int)(h % 14), py + 6 + (int)((h >> 4) % 8), 8, 2, edge);
-    DrawRectangle(px + 6 + (int)((h >> 8) % 14), py + 18 + (int)((h >> 12) % 8), 6, 2, edge);
-}
-
-/* The block the spawn portal stands on. */
-static void draw_portal_base(int px, int py)
-{
-    DrawRectangle(px, py, TILE_SIZE, TILE_SIZE, (Color){ 60, 62, 76, 255 });
-    DrawRectangle(px + 1, py + 1, TILE_SIZE - 2, TILE_SIZE - 2, (Color){ 92, 94, 112, 255 });
-    DrawRectangle(px + 6, py, TILE_SIZE - 12, 5, (Color){ 170, 120, 255, 255 });
-    DrawRectangle(px + 6, py + 12, TILE_SIZE - 12, 3, (Color){ 60, 62, 76, 255 });
-}
-
-static void draw_workbench(int px, int py)
-{
-    Color dark = { 104, 72, 44, 255 };
-    DrawRectangle(px, py, TILE_SIZE, TILE_SIZE, dark);
-    DrawRectangle(px + 1, py + 1, TILE_SIZE - 2, TILE_SIZE - 2, (Color){ 164, 120, 74, 255 });
-    DrawRectangle(px, py, TILE_SIZE, 8, dark);
-    DrawRectangle(px + 1, py + 19, TILE_SIZE - 2, 2, dark);
-    DrawRectangle(px + 15, py + 8, 2, TILE_SIZE - 8, dark);
-}
-
-/* One tile of the spawn portal: a shimmering field, framed by stone posts
- * that stand just outside the tile so they show around the player. */
-static void draw_portal(int px, int py, bool top)
-{
-    const int post = 6;
-    Color stone = { 92, 94, 112, 255 };
-    float pulse = 0.5f + 0.5f * sinf((float)GetTime() * 2.5f + py * 0.05f);
-    DrawRectangle(px, py, TILE_SIZE, TILE_SIZE, (Color){ 58, 34, 110, 255 });
-    DrawRectangle(px + 6, py, TILE_SIZE - 12, TILE_SIZE, Fade((Color){ 170, 120, 255, 255 },
-                                                              0.25f + 0.35f * pulse));
-    DrawRectangle(px - post, py, post, TILE_SIZE, stone);
-    DrawRectangle(px + TILE_SIZE, py, post, TILE_SIZE, stone);
-    if (top) DrawRectangle(px - post, py - post, TILE_SIZE + 2 * post, post, stone);
-}
-
-static void draw_log(int x, int y, int px, int py, Color base, Color bark)
-{
-    unsigned h = (unsigned)x * 2654435761u ^ (unsigned)y * 40503u;
-    draw_block(px, py, base, bark, tile_shade(x, y) / 2);
-    DrawRectangle(px + 7, py + (int)(h % 10), 2, 14, bark);
-    DrawRectangle(px + 16, py + 10 + (int)((h >> 4) % 10), 2, 12, bark);
-    DrawRectangle(px + 24, py + (int)((h >> 8) % 14), 2, 12, bark);
-}
-
-static void draw_leaves(int x, int y, int px, int py, Color base, Color light, Color dark)
-{
-    unsigned h = (unsigned)x * 2246822519u ^ (unsigned)y * 3266489917u;
-    draw_block(px, py, base, dark, tile_shade(x, y));
-    for (int i = 0; i < 5; i++) {
-        DrawRectangle(px + 2 + (int)(h % 24), py + 2 + (int)((h >> 5) % 24), 5, 4, i & 1 ? dark : light);
-        h = h * 1664525u + 1013904223u;
-    }
-}
-
-static void draw_wood(int px, int py)
-{
-    Color dark = { 120, 86, 50, 255 };
-    DrawRectangle(px, py, TILE_SIZE, TILE_SIZE, dark);
-    DrawRectangle(px, py, TILE_SIZE - 1, TILE_SIZE - 1, (Color){ 182, 138, 86, 255 });
-    DrawRectangle(px, py + 10, TILE_SIZE, 1, dark);
-    DrawRectangle(px, py + 21, TILE_SIZE, 1, dark);
-    DrawRectangle(px + 12, py, 1, 10, dark);
-    DrawRectangle(px + 22, py + 11, 1, 10, dark);
-}
-
-/* Draws one block. Portals are left out; they are drawn over everything. */
-static void draw_tile(TileType t, int x, int y, int px, int py)
-{
-    switch (t) {
-    case TILE_DIRT: draw_dirt(x, y, px, py); break;
-    case TILE_GRASS: draw_grass(x, y, px, py); break;
-    case TILE_STONE: draw_stone(x, y, px, py); break;
-    case TILE_WORKBENCH: draw_workbench(px, py); break;
-    case TILE_PORTAL_BASE: draw_portal_base(px, py); break;
-    case TILE_WOOD: draw_wood(px, py); break;
-    case TILE_OAK_LOG:
-        draw_log(x, y, px, py, (Color){ 124, 88, 52, 255 }, (Color){ 84, 58, 34, 255 });
-        break;
-    case TILE_CHERRY_LOG:
-        draw_log(x, y, px, py, (Color){ 98, 60, 62, 255 }, (Color){ 64, 38, 42, 255 });
-        break;
-    case TILE_OAK_LEAVES:
-        draw_leaves(x, y, px, py, (Color){ 58, 136, 56, 255 }, (Color){ 88, 168, 74, 255 },
-                    (Color){ 40, 104, 44, 255 });
-        break;
-    case TILE_CHERRY_LEAVES:
-        draw_leaves(x, y, px, py, (Color){ 236, 152, 190, 255 }, (Color){ 249, 196, 220, 255 },
-                    (Color){ 206, 112, 156, 255 });
-        break;
-    default: break;
-    }
-}
-
 static Color mix(Color a, Color b, float t)
 {
     return (Color){ (unsigned char)(a.r + (b.r - a.r) * t), (unsigned char)(a.g + (b.g - a.g) * t),
@@ -296,8 +166,8 @@ static void draw_sky(const Game *g, Vector2 origin)
     }
 }
 
-/* The two tile layers: the background, dimmed, wherever the foreground is
- * empty, then the foreground itself. */
+/* The two tile layers: the background, dimmed a little, wherever the
+ * foreground does not hide it, then the foreground itself. */
 static void draw_world(const World *w, Vector2 origin)
 {
     /* Columns run past either end of the world: reads wrap round it. */
@@ -310,21 +180,20 @@ static void draw_world(const World *w, Vector2 origin)
         for (int x = x0; x <= x1; x++) {
             TileType t = world_get(w, x, y);
             int wx = world_wrap_x(w, x);
-            int px = (int)origin.x + x * TILE_SIZE, py = (int)origin.y + y * TILE_SIZE;
-            TileType behind = (TileType)w->background[(size_t)y * w->width + wx];
-            if (behind != TILE_AIR && !tile_def(t)->solid) {
-                draw_tile(behind, wx, y, px, py);
-                DrawRectangle(px, py, TILE_SIZE, TILE_SIZE, Fade(BLACK, 0.45f));
-            }
-            draw_tile(t, wx, y, px, py);
+            float px = origin.x + (float)(x * TILE_SIZE), py = origin.y + (float)(y * TILE_SIZE);
+            if (!tile_def(t)->solid)
+                assets_draw_tile(world_get_at(w, LAYER_BACKGROUND, x, y), wx, y, px, py, TILE_SIZE,
+                                 BACKGROUND_DIM);
+            if (!tile_def(t)->front) assets_draw_tile(t, wx, y, px, py, TILE_SIZE, 0.0f);
         }
     }
-    /* Portals go on last: their frame overlaps the tiles around them. */
+    /* Tiles marked "front" go on last: their textures overhang their neighbours. */
     for (int y = y0; y <= y1; y++) {
         for (int x = x0 - 1; x <= x1 + 1; x++) {
-            if (world_get(w, x, y) != TILE_SPAWN_PORTAL) continue;
-            draw_portal((int)origin.x + x * TILE_SIZE, (int)origin.y + y * TILE_SIZE,
-                        world_get(w, x, y - 1) != TILE_SPAWN_PORTAL);
+            TileType t = world_get(w, x, y);
+            if (tile_def(t)->front)
+                assets_draw_tile(t, world_wrap_x(w, x), y, origin.x + (float)(x * TILE_SIZE),
+                                 origin.y + (float)(y * TILE_SIZE), TILE_SIZE, 0.0f);
         }
     }
 }
@@ -441,7 +310,7 @@ static void draw_hud(const Game *g, const MapCamera *cam)
                         day ? "Day" : "Night", (int)(phase * 100.0f),
                         g->player.feet.x, world_row_to_y(&g->world, g->player.feet.y),
                         g->queue_count + (g->has_current ? 1 : 0),
-                        held->count > 0 ? item_def((ItemId)held->id)->name : "nothing",
+                        held->count > 0 ? item_def((ItemId)held->id)->label : "nothing",
                         cam->follow ? "" : "   (camera detached)"),
              10, 30, 16, LIGHTGRAY);
 }
@@ -522,10 +391,17 @@ static void session_draw(Session *s)
 
 int main(void)
 {
+    char error[256];
+    if (!content_load(DATA_DIR, error, sizeof error)) {
+        fprintf(stderr, "could not load game data: %s\n", error);
+        return 1;
+    }
+
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
     InitWindow(1280, 720, "BlockGame");
     SetTargetFPS(60);
     SetExitKey(KEY_NULL); /* Escape opens the pause menu instead of quitting */
+    assets_load(DATA_DIR);
 
     Keybinds keys;
     keybinds_load(&keys);
@@ -545,7 +421,8 @@ int main(void)
             if (r == MAIN_MENU_LOAD) ok = load_game(&session.game, menu.path);
             if (r == MAIN_MENU_CREATE) {
                 uint32_t seed = (uint32_t)time(NULL) ^ (uint32_t)(GetTime() * 1000000.0);
-                ok = game_init(&session.game, WORLD_WIDTH, WORLD_HEIGHT, seed, WORLD_TERRAIN);
+                ok = game_init(&session.game, content.worldgen.width, content.worldgen.height, seed,
+                               WORLD_TERRAIN);
             }
             if (r == MAIN_MENU_LOAD || r == MAIN_MENU_CREATE) {
                 if (ok) {
@@ -577,6 +454,7 @@ int main(void)
         session_save(&session);
         game_free(&session.game);
     }
+    assets_unload();
     CloseWindow();
     return 0;
 }

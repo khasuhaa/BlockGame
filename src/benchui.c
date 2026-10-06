@@ -58,9 +58,9 @@ static Rectangle popup_button(Rectangle popup, int i)
                         popup.width - 12, POPUP_BUTTON_HEIGHT };
 }
 
-static const Recipe *open_recipes(const Game *g, int *count)
+static int open_recipes(const Game *g, const Recipe **out)
 {
-    return bench_recipes(world_get(&g->world, g->bench_pos.x, g->bench_pos.y), count);
+    return bench_recipes(world_get(&g->world, g->bench_pos.x, g->bench_pos.y), out, MAX_BENCH_RECIPES);
 }
 
 /* The list only scrolls when its items are wider than the menu. */
@@ -134,14 +134,14 @@ bool benchui_handle_input(BenchUi *ui, Game *g, const View *v)
     }
     ui->was_open = g->bench_open;
 
-    int count = 0;
-    const Recipe *recipes = g->bench_open ? open_recipes(g, &count) : NULL;
+    const Recipe *recipes[MAX_BENCH_RECIPES];
+    int count = g->bench_open ? open_recipes(g, recipes) : 0;
     Rectangle menu = menu_rect(g, v);
     Rectangle list = list_rect(menu);
     if (ui->selected >= count) ui->selected = -1;
 
     /* The amount never goes past what there are materials for. */
-    int cap = ui->selected >= 0 ? recipe_max_crafts(&g->inventory, &recipes[ui->selected]) : 0;
+    int cap = ui->selected >= 0 ? recipe_max_crafts(&g->inventory, recipes[ui->selected]) : 0;
     if (ui->amount > cap) ui->amount = cap;
     if (ui->amount < 1) ui->amount = 1;
 
@@ -182,7 +182,7 @@ bool benchui_handle_input(BenchUi *ui, Game *g, const View *v)
             ui->amount = 1;
         }
     } else if (ui->press == BENCH_PRESS_CRAFT && released == BENCH_PRESS_CRAFT) {
-        game_craft(g, &recipes[ui->selected], ui->amount);
+        game_craft(g, recipes[ui->selected], ui->amount);
     } else if (ui->press == BENCH_PRESS_OPEN && released == BENCH_PRESS_OPEN) {
         ui->popup = false;
         game_queue_action(g, ACTION_USE, ui->popup_tile.x, ui->popup_tile.y);
@@ -217,7 +217,7 @@ static void draw_popup(const BenchUi *ui, const View *v)
     }
 }
 
-static void draw_list(const BenchUi *ui, const Recipe *recipes, int count, Rectangle list)
+static void draw_list(const BenchUi *ui, const Recipe **recipes, int count, Rectangle list)
 {
     bool scrolls = max_scroll(list, count) > 0.0f;
     if (scrolls) BeginScissorMode((int)list.x, (int)list.y, (int)list.width, (int)list.height);
@@ -227,7 +227,7 @@ static void draw_list(const BenchUi *ui, const Recipe *recipes, int count, Recta
         DrawRectangleRec(cell, (Color){ 44, 47, 58, 255 });
         DrawRectangleLinesEx(cell, i == ui->selected ? 3.0f : 2.0f,
                              i == ui->selected ? RAYWHITE : edge_color);
-        hud_draw_item_icon(recipes[i].output.id, cell);
+        hud_draw_item_icon(recipes[i]->output.id, cell);
     }
     if (scrolls) {
         EndScissorMode();
@@ -259,7 +259,7 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
     DrawText(">", (int)x + 4, (int)y + 9, 20, LIGHTGRAY);
     x += 24;
     hud_draw_item_icon(r->output.id, (Rectangle){ x, y, icon, icon });
-    DrawText(TextFormat("x%d %s", r->output.count * amount, item_def(r->output.id)->name),
+    DrawText(TextFormat("x%d %s", r->output.count * amount, item_def(r->output.id)->label),
              (int)(x + icon + 2), (int)y + 11, 16, RAYWHITE);
 
     /* Slider over 1..99; the part past what can be afforded is greyed out. */
@@ -295,8 +295,8 @@ void benchui_draw(const BenchUi *ui, const Game *g, const View *v)
     if (ui->popup && !g->bench_open) draw_popup(ui, v);
     if (!g->bench_open) return;
 
-    int count;
-    const Recipe *recipes = open_recipes(g, &count);
+    const Recipe *recipes[MAX_BENCH_RECIPES];
+    int count = open_recipes(g, recipes);
     Rectangle menu = menu_rect(g, v);
     float bench_y = view_tile_pos(v, 0.0f, (float)g->bench_pos.y + 0.5f).y;
 
@@ -310,7 +310,7 @@ void benchui_draw(const BenchUi *ui, const Game *g, const View *v)
     /* Until input has caught up with a newly opened bench, show no selection. */
     bool current = ui->was_open && ui->shown.x == g->bench_pos.x && ui->shown.y == g->bench_pos.y;
     if (current && ui->selected >= 0 && ui->selected < count) {
-        draw_recipe(ui, g, &recipes[ui->selected], menu);
+        draw_recipe(ui, g, recipes[ui->selected], menu);
     } else {
         Rectangle rest = { menu.x, menu.y + 72, menu.width, menu.height - 72 };
         draw_centered("Select an item to craft", rest, 16, LIGHTGRAY);

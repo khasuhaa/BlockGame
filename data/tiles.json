@@ -1,0 +1,31 @@
+{
+  "tiles": [
+    { "name": "dirt", "solid": true, "removable": true, "mine_time": 0.35, "drop": "dirt",
+      "texture": "tiles/dirt.png", "shade": 12 },
+    { "name": "workbench", "solid": true, "removable": true, "mine_time": 0.35, "drop": "workbench",
+      "bench": true, "texture": "tiles/workbench.png" },
+    { "name": "spawn_portal", "bench": true, "front": true, "pulse": 0.12,
+      "texture": "tiles/spawn_portal.png" },
+    { "name": "grass", "solid": true, "removable": true, "mine_time": 0.35, "drop": "dirt",
+      "texture": "tiles/grass.png", "shade": 12 },
+    { "name": "stone", "solid": true, "removable": true, "mine_time": 0.7, "drop": "stone",
+      "texture": ["tiles/stone_0.png", "tiles/stone_1.png", "tiles/stone_2.png", "tiles/stone_3.png"],
+      "shade": 12 },
+    { "name": "portal_base", "solid": true, "texture": "tiles/portal_base.png" },
+    { "name": "oak_log", "removable": true, "climbable": true, "mine_time": 0.5, "drop": "wood",
+      "texture": ["tiles/oak_log_0.png", "tiles/oak_log_1.png", "tiles/oak_log_2.png"], "shade": 6 },
+    { "name": "oak_leaves", "removable": true, "climbable": true, "mine_time": 0.15, "drop": "stick",
+      "texture": ["tiles/oak_leaves_0.png", "tiles/oak_leaves_1.png", "tiles/oak_leaves_2.png",
+                  "tiles/oak_leaves_3.png"], "shade": 12 },
+    { "name": "cherry_log", "removable": true, "climbable": true, "mine_time": 0.5, "drop": "wood",
+      "texture": ["tiles/cherry_log_0.png", "tiles/cherry_log_1.png", "tiles/cherry_log_2.png"],
+      "shade": 6 },
+    { "name": "cherry_leaves", "removable": true, "climbable": true, "mine_time": 0.15, "drop": "stick",
+      "texture": ["tiles/cherry_leaves_0.png", "tiles/cherry_leaves_1.png", "tiles/cherry_leaves_2.png",
+                  "tiles/cherry_leaves_3.png"], "shade": 12 },
+    { "name": "wood", "solid": true, "removable": true, "mine_time": 0.5, "drop": "wood",
+      "texture": "tiles/wood.png" },
+    { "name": "spawn_portal_top", "bench": true, "front": true, "pulse": 0.12,
+      "texture": "tiles/spawn_portal_top.png" }
+  ]
+}

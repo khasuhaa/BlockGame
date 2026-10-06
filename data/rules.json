@@ -1,0 +1,13 @@
+{
+  "time": {
+    "tick_rate": 10, "day_ticks": 1000, "night_ticks": 800, "twilight_ticks": 80,
+    "chunk_width": 16, "random_events_per_chunk": 1
+  },
+  "player": {
+    "walk_time": 0.12, "fall_time": 0.07, "climb_time": 0.16, "hop_time": 0.2, "hop_height": 0.35,
+    "max_wall_hop": 2, "place_time": 0.15, "craft_time": 0.1,
+    "start_items": [ { "item": "basket", "count": 1 } ]
+  },
+  "drops": { "fall_speed": 12.0, "pickup_delay": 0.45, "collect_time": 0.15 },
+  "interface": { "denial_time": 0.6 }
+}

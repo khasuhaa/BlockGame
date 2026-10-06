@@ -1,0 +1,34 @@
+{
+  "width": 2048,
+  "height": 401,
+
+  "plains": {
+    "level": 10,
+    "swells": [ { "amplitude": 7, "wavelength": 96 }, { "amplitude": 3, "wavelength": 28 } ],
+    "gap": [50, 120]
+  },
+
+  "features": [
+    { "name": "mountain", "direction": 1, "size": [10, 60],
+      "half_width": { "per_size": 0.9, "base": 10 },
+      "profile": "peak", "shoulders": 0.8, "ledges": [1, 3], "max_step": 3, "jitter": 1.5 },
+    { "name": "steep_valley", "direction": -1, "size": [10, 60],
+      "half_width": { "per_size": 0.55, "base": 8 },
+      "profile": "basin", "steepness": 1.7, "jitter": 1.0 },
+    { "name": "smooth_valley", "direction": -1, "size": [10, 60],
+      "half_width": { "per_size": 2.2, "base": 20 },
+      "profile": "bowl" }
+  ],
+
+  "layers": {
+    "surface": "grass", "soil": "dirt", "rock": "stone",
+    "soil_depth": 4.6, "soil_variation": 0.6, "bare_at": 0.6
+  },
+
+  "spawn": {
+    "column": [30, 50], "first_feature_at": 80, "flat_radius": 3, "ease_radius": 24,
+    "portal": { "base": "portal_base", "body": "spawn_portal", "top": "spawn_portal_top", "height": 3 }
+  },
+
+  "tree_placement": { "one_in": 10, "spacing": 7, "spawn_clearance": 8, "grown_chance": 0.5, "max_young_steps": 20 }
+}

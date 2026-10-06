@@ -1,5 +1,7 @@
 #include "hud.h"
 
+#include "assets.h"
+
 #include <stddef.h>
 
 #define SLOT_SIZE 52.0f
@@ -165,63 +167,7 @@ static void draw_head_icon(Rectangle r)
 
 void hud_draw_item_icon(ItemId id, Rectangle r)
 {
-    if (id == ITEM_DIRT) {
-        Color dark = { 96, 66, 44, 255 };
-        DrawRectangleRec(sub_rect(r, 0.18f, 0.18f, 0.64f, 0.64f), dark);
-        DrawRectangleRec(sub_rect(r, 0.18f, 0.18f, 0.6f, 0.6f), (Color){ 134, 96, 67, 255 });
-        DrawRectangleRec(sub_rect(r, 0.3f, 0.32f, 0.1f, 0.1f), dark);
-        DrawRectangleRec(sub_rect(r, 0.56f, 0.5f, 0.1f, 0.1f), dark);
-        DrawRectangleRec(sub_rect(r, 0.36f, 0.6f, 0.08f, 0.08f), dark);
-    } else if (id == ITEM_BASKET) {
-        Color cane = { 150, 108, 54, 255 };
-        DrawRectangleLinesEx(sub_rect(r, 0.28f, 0.14f, 0.44f, 0.4f), r.width * 0.07f, cane);
-        DrawRectangleRec(sub_rect(r, 0.16f, 0.46f, 0.68f, 0.4f), (Color){ 200, 158, 92, 255 });
-        for (int i = 0; i < 2; i++)
-            DrawRectangleRec(sub_rect(r, 0.16f, 0.58f + 0.13f * i, 0.68f, 0.04f), cane);
-        for (int i = 0; i < 3; i++)
-            DrawRectangleRec(sub_rect(r, 0.3f + 0.18f * i, 0.46f, 0.04f, 0.4f), cane);
-        DrawRectangleRec(sub_rect(r, 0.12f, 0.42f, 0.76f, 0.09f), cane);
-    } else if (id == ITEM_WORKBENCH) {
-        Color dark = { 104, 72, 44, 255 };
-        DrawRectangleRec(sub_rect(r, 0.18f, 0.2f, 0.64f, 0.62f), (Color){ 164, 120, 74, 255 });
-        DrawRectangleRec(sub_rect(r, 0.14f, 0.2f, 0.72f, 0.16f), dark);
-        DrawRectangleRec(sub_rect(r, 0.18f, 0.56f, 0.64f, 0.05f), dark);
-        DrawRectangleRec(sub_rect(r, 0.47f, 0.36f, 0.06f, 0.46f), dark);
-    } else if (id == ITEM_STONE) {
-        Color dark = { 84, 86, 96, 255 };
-        DrawRectangleRec(sub_rect(r, 0.18f, 0.18f, 0.64f, 0.64f), dark);
-        DrawRectangleRec(sub_rect(r, 0.18f, 0.18f, 0.6f, 0.6f), (Color){ 128, 130, 140, 255 });
-        DrawRectangleRec(sub_rect(r, 0.28f, 0.3f, 0.16f, 0.06f), dark);
-        DrawRectangleRec(sub_rect(r, 0.5f, 0.52f, 0.2f, 0.06f), dark);
-        DrawRectangleRec(sub_rect(r, 0.3f, 0.64f, 0.1f, 0.06f), dark);
-    } else if (id == ITEM_STICK) {
-        DrawLineEx((Vector2){ r.x + r.width * 0.26f, r.y + r.height * 0.78f },
-                   (Vector2){ r.x + r.width * 0.74f, r.y + r.height * 0.22f }, r.width * 0.11f,
-                   (Color){ 96, 66, 40, 255 });
-        DrawLineEx((Vector2){ r.x + r.width * 0.3f, r.y + r.height * 0.72f },
-                   (Vector2){ r.x + r.width * 0.72f, r.y + r.height * 0.24f }, r.width * 0.05f,
-                   (Color){ 150, 108, 66, 255 });
-    } else if (id == ITEM_WOOD) {
-        Color dark = { 120, 86, 50, 255 };
-        DrawRectangleRec(sub_rect(r, 0.18f, 0.18f, 0.64f, 0.64f), dark);
-        DrawRectangleRec(sub_rect(r, 0.18f, 0.18f, 0.6f, 0.6f), (Color){ 182, 138, 86, 255 });
-        DrawRectangleRec(sub_rect(r, 0.18f, 0.37f, 0.6f, 0.04f), dark);
-        DrawRectangleRec(sub_rect(r, 0.18f, 0.58f, 0.6f, 0.04f), dark);
-    } else if (id == ITEM_ACORN) {
-        DrawEllipse((int)(r.x + r.width * 0.5f), (int)(r.y + r.height * 0.58f), r.width * 0.2f,
-                    r.height * 0.25f, (Color){ 176, 122, 60, 255 });
-        DrawRectangleRec(sub_rect(r, 0.26f, 0.3f, 0.48f, 0.18f), (Color){ 104, 70, 38, 255 });
-        DrawRectangleRec(sub_rect(r, 0.46f, 0.18f, 0.08f, 0.14f), (Color){ 104, 70, 38, 255 });
-    } else if (id == ITEM_CHERRY) {
-        Color stem = { 70, 140, 60, 255 };
-        Vector2 top = { r.x + r.width * 0.56f, r.y + r.height * 0.18f };
-        Vector2 a = { r.x + r.width * 0.34f, r.y + r.height * 0.64f };
-        Vector2 b = { r.x + r.width * 0.68f, r.y + r.height * 0.7f };
-        DrawLineEx(top, a, r.width * 0.05f, stem);
-        DrawLineEx(top, b, r.width * 0.05f, stem);
-        DrawCircleV(a, r.width * 0.16f, (Color){ 210, 36, 60, 255 });
-        DrawCircleV(b, r.width * 0.16f, (Color){ 190, 28, 52, 255 });
-    }
+    assets_draw_item(id, r);
 }
 
 /* Faint outline of what belongs in an empty armor slot. */

@@ -3,22 +3,12 @@
 
 #include "inventory.h"
 
-#define RECIPE_MAX_INPUTS 3
 #define MAX_CRAFT_AMOUNT 99
+#define MAX_BENCH_RECIPES 64
 
-typedef struct {
-    ItemId id;
-    int count;
-} RecipeItem;
-
-typedef struct {
-    RecipeItem output;
-    RecipeItem inputs[RECIPE_MAX_INPUTS];
-    int input_count;
-} Recipe;
-
-/* What a kind of bench can make. Returns NULL and 0 for tiles that are not benches. */
-const Recipe *bench_recipes(TileType bench, int *count);
+/* What a kind of bench can make: fills `out` with up to `max` recipes and
+ * returns how many. A tile that is not a bench has none. */
+int bench_recipes(TileType bench, const Recipe **out, int max);
 
 /* How many times the recipe can be made from what the inventory holds, up to
  * MAX_CRAFT_AMOUNT. */

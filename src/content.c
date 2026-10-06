@@ -1,0 +1,512 @@
+#include "content.h"
+
+#include "../third_party/cjson/cJSON.h"
+
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+Content content;
+
+/* ---- lookup ------------------------------------------------------------ */
+
+TileType tile_id(const char *name)
+{
+    for (int i = 0; i < content.tile_count; i++)
+        if (strcmp(content.tiles[i].name, name) == 0) return i;
+    return -1;
+}
+
+ItemId item_id(const char *name)
+{
+    for (int i = 0; i < content.item_count; i++)
+        if (strcmp(content.items[i].name, name) == 0) return i;
+    return -1;
+}
+
+int tree_id(const char *name)
+{
+    for (int i = 0; i < content.tree_count; i++)
+        if (strcmp(content.trees[i].name, name) == 0) return i;
+    return -1;
+}
+
+const TileDef *tile_def(TileType t)
+{
+    return &content.tiles[t > 0 && t < content.tile_count ? t : TILE_AIR];
+}
+
+const ItemDef *item_def(ItemId id)
+{
+    return &content.items[id > 0 && id < content.item_count ? id : ITEM_NONE];
+}
+
+void content_reset(void)
+{
+    memset(&content, 0, sizeof content);
+    snprintf(content.tiles[0].name, CONTENT_NAME_LEN, "air");
+    content.tiles[0].log_of = content.tiles[0].leaves_of = -1;
+    content.tile_count = 1;
+    snprintf(content.items[0].name, CONTENT_NAME_LEN, "none");
+    snprintf(content.items[0].label, CONTENT_NAME_LEN, "Nothing");
+    content.items[0].equip = EQUIP_NONE;
+    content.item_count = 1;
+}
+
+/* ---- reading JSON ------------------------------------------------------ */
+
+/* Where we are, for error messages. */
+typedef struct {
+    const char *file;
+    char *error;
+    size_t error_size;
+    bool failed;
+} Reader;
+
+static bool fail(Reader *r, const char *fmt, ...)
+{
+    if (!r->failed) {
+        va_list args;
+        va_start(args, fmt);
+        int n = snprintf(r->error, r->error_size, "%s: ", r->file);
+        if (n >= 0 && (size_t)n < r->error_size)
+            vsnprintf(r->error + n, r->error_size - (size_t)n, fmt, args);
+        va_end(args);
+        r->failed = true;
+    }
+    return false;
+}
+
+static const cJSON *field(const cJSON *obj, const char *key)
+{
+    return cJSON_GetObjectItemCaseSensitive(obj, key);
+}
+
+static double num(const cJSON *obj, const char *key, double fallback)
+{
+    const cJSON *v = field(obj, key);
+    return cJSON_IsNumber(v) ? v->valuedouble : fallback;
+}
+
+static bool flag(const cJSON *obj, const char *key, bool fallback)
+{
+    const cJSON *v = field(obj, key);
+    return cJSON_IsBool(v) ? cJSON_IsTrue(v) : fallback;
+}
+
+static const char *str(const cJSON *obj, const char *key)
+{
+    const cJSON *v = field(obj, key);
+    return cJSON_IsString(v) ? v->valuestring : NULL;
+}
+
+static void copy_name(char *dst, size_t size, const char *src)
+{
+    snprintf(dst, size, "%s", src ? src : "");
+}
+
+/* A two-number array such as "size": [10, 60]. */
+static void pair(const cJSON *obj, const char *key, int *a, int *b)
+{
+    const cJSON *v = field(obj, key);
+    if (cJSON_GetArraySize(v) != 2) return;
+    *a = (int)cJSON_GetArrayItem(v, 0)->valuedouble;
+    *b = (int)cJSON_GetArrayItem(v, 1)->valuedouble;
+}
+
+/* A field naming a tile or an item. Absent means "nothing"; unknown is an error. */
+static bool tile_ref(Reader *r, const cJSON *obj, const char *key, TileType *out)
+{
+    const char *name = str(obj, key);
+    if (!name) return true;
+    if (tile_id(name) < 0) return fail(r, "\"%s\": there is no tile called \"%s\"", key, name);
+    *out = tile_id(name);
+    return true;
+}
+
+static bool item_ref(Reader *r, const cJSON *obj, const char *key, ItemId *out)
+{
+    const char *name = str(obj, key);
+    if (!name) return true;
+    if (item_id(name) < 0) return fail(r, "\"%s\": there is no item called \"%s\"", key, name);
+    *out = item_id(name);
+    return true;
+}
+
+static bool stack_ref(Reader *r, const cJSON *obj, RecipeItem *out)
+{
+    out->count = (int)num(obj, "count", 1);
+    if (!str(obj, "item")) return fail(r, "an item stack needs an \"item\"");
+    return item_ref(r, obj, "item", &out->id) && out->count > 0;
+}
+
+/* ---- tiles and items --------------------------------------------------- */
+
+/* Tiles and items name each other, so every name is registered before any
+ * definition is filled in. */
+static bool register_names(Reader *r, const cJSON *root)
+{
+    const cJSON *e;
+    cJSON_ArrayForEach(e, field(root, "tiles")) {
+        const char *name = str(e, "name");
+        if (!name) return fail(r, "a tile has no \"name\"");
+        if (tile_id(name) >= 0) continue;
+        if (content.tile_count >= MAX_TILES) return fail(r, "too many tiles");
+        TileDef *t = &content.tiles[content.tile_count++];
+        memset(t, 0, sizeof *t);
+        copy_name(t->name, sizeof t->name, name);
+        t->log_of = t->leaves_of = -1;
+    }
+    cJSON_ArrayForEach(e, field(root, "items")) {
+        const char *name = str(e, "name");
+        if (!name) return fail(r, "an item has no \"name\"");
+        if (item_id(name) >= 0) continue;
+        if (content.item_count >= MAX_ITEMS) return fail(r, "too many items");
+        ItemDef *it = &content.items[content.item_count++];
+        memset(it, 0, sizeof *it);
+        copy_name(it->name, sizeof it->name, name);
+    }
+    return true;
+}
+
+static bool read_tiles(Reader *r, const cJSON *root)
+{
+    const cJSON *e;
+    cJSON_ArrayForEach(e, field(root, "tiles")) {
+        TileDef *t = &content.tiles[tile_id(str(e, "name"))];
+        t->solid = flag(e, "solid", false);
+        t->bench = flag(e, "bench", false);
+        t->removable = flag(e, "removable", false);
+        t->climbable = flag(e, "climbable", false);
+        t->mine_time = (float)num(e, "mine_time", 0.35);
+        t->shade = (int)num(e, "shade", 0);
+        t->front = flag(e, "front", false);
+        t->pulse = (float)num(e, "pulse", 0.0);
+        t->drop = ITEM_NONE;
+        if (!item_ref(r, e, "drop", &t->drop)) return false;
+
+        /* "texture" is one file, or a list to vary between. */
+        const cJSON *tex = field(e, "texture"), *one;
+        t->texture_count = 0;
+        if (cJSON_IsString(tex)) {
+            copy_name(t->textures[t->texture_count++], CONTENT_PATH_LEN, tex->valuestring);
+        } else {
+            cJSON_ArrayForEach(one, tex) {
+                if (t->texture_count < MAX_TILE_TEXTURES && cJSON_IsString(one))
+                    copy_name(t->textures[t->texture_count++], CONTENT_PATH_LEN, one->valuestring);
+            }
+        }
+    }
+    return true;
+}
+
+static bool read_items(Reader *r, const cJSON *root)
+{
+    static const char *equip_names[] = { "head", "chest", "legs", "boots" };
+    const cJSON *e;
+    cJSON_ArrayForEach(e, field(root, "items")) {
+        ItemDef *it = &content.items[item_id(str(e, "name"))];
+        copy_name(it->label, sizeof it->label, str(e, "label") ? str(e, "label") : it->name);
+        it->max_stack = (int)num(e, "max_stack", 99);
+        if (it->max_stack < 1 || it->max_stack > 255)
+            return fail(r, "item \"%s\": max_stack must be 1 to 255", it->name);
+        it->container = flag(e, "container", false);
+        if (it->container && it->max_stack != 1)
+            return fail(r, "item \"%s\": a container cannot stack", it->name);
+        copy_name(it->texture, sizeof it->texture, str(e, "texture"));
+        it->places = TILE_AIR;
+        if (!tile_ref(r, e, "places", &it->places)) return false;
+        it->equip = EQUIP_NONE;
+        const char *equip = str(e, "equip");
+        for (int i = 0; equip && i < 4; i++)
+            if (strcmp(equip, equip_names[i]) == 0) it->equip = (EquipSlot)i;
+    }
+    return true;
+}
+
+/* ---- recipes and trees ------------------------------------------------- */
+
+static bool read_recipes(Reader *r, const cJSON *root)
+{
+    const cJSON *e, *in;
+    cJSON_ArrayForEach(e, field(root, "recipes")) {
+        Recipe recipe = { 0 };
+        if (!cJSON_IsObject(field(e, "output")) || !stack_ref(r, field(e, "output"), &recipe.output))
+            return fail(r, "a recipe needs an \"output\"");
+        cJSON_ArrayForEach(in, field(e, "inputs")) {
+            if (recipe.input_count >= RECIPE_MAX_INPUTS)
+                return fail(r, "a recipe has more than %d inputs", RECIPE_MAX_INPUTS);
+            if (!stack_ref(r, in, &recipe.inputs[recipe.input_count++])) return false;
+        }
+
+        /* "bench" is one tile, or a list of tiles that all offer the recipe. */
+        const cJSON *bench = field(e, "bench"), *one;
+        cJSON *single = NULL;
+        if (cJSON_IsString(bench)) {
+            single = cJSON_CreateArray();
+            cJSON_AddItemToArray(single, cJSON_CreateString(bench->valuestring));
+            bench = single;
+        }
+        bool ok = cJSON_GetArraySize(bench) > 0;
+        if (!ok) fail(r, "a recipe needs a \"bench\"");
+        cJSON_ArrayForEach(one, bench) {
+            if (!ok) break;
+            TileType t = cJSON_IsString(one) ? tile_id(one->valuestring) : -1;
+            if (t < 0) ok = fail(r, "recipe bench: there is no such tile");
+            else if (content.recipe_count >= MAX_RECIPES) ok = fail(r, "too many recipes");
+            else {
+                recipe.bench = t;
+                content.recipes[content.recipe_count++] = recipe;
+            }
+        }
+        cJSON_Delete(single);
+        if (!ok) return false;
+    }
+    return true;
+}
+
+static bool read_trees(Reader *r, const cJSON *root)
+{
+    const cJSON *e, *row;
+    cJSON_ArrayForEach(e, field(root, "trees")) {
+        const char *name = str(e, "name");
+        if (!name) return fail(r, "a tree has no \"name\"");
+        int id = tree_id(name);
+        if (id < 0) {
+            if (content.tree_count >= MAX_TREES) return fail(r, "too many trees");
+            id = content.tree_count++;
+        }
+        TreeDef *t = &content.trees[id];
+        memset(t, 0, sizeof *t);
+        copy_name(t->name, sizeof t->name, name);
+        if (!tile_ref(r, e, "log", &t->log) || !tile_ref(r, e, "leaves", &t->leaves) ||
+            !item_ref(r, e, "fruit", &t->fruit))
+            return false;
+        if (t->log == TILE_AIR || t->leaves == TILE_AIR)
+            return fail(r, "tree \"%s\" needs a \"log\" and \"leaves\"", name);
+        t->fruit_ticks = (int)num(e, "fruit_ticks", 1800);
+        t->max_height = (int)num(e, "max_height", 6);
+        t->weight = (int)num(e, "weight", 1);
+        t->mirror_by_column = flag(e, "mirror_by_column", false);
+        const char *layer = str(e, "layer");
+        t->layer = layer && strcmp(layer, "foreground") == 0 ? LAYER_FOREGROUND : LAYER_BACKGROUND;
+        cJSON_ArrayForEach(row, field(e, "rows")) {
+            if (t->row_count >= MAX_TREE_ROWS) return fail(r, "tree \"%s\" has too many rows", name);
+            t->rows[t->row_count++] = (TreeRow){ (int)num(row, "offset", 0), (int)num(row, "left", 0),
+                                                 (int)num(row, "right", 0), flag(row, "center", false) };
+        }
+        content.tiles[t->log].log_of = id;
+        content.tiles[t->leaves].leaves_of = id;
+    }
+    return true;
+}
+
+/* ---- world generation and rules ---------------------------------------- */
+
+static bool read_worldgen(Reader *r, const cJSON *root)
+{
+    WorldGenDef *g = &content.worldgen;
+    const cJSON *e;
+    if (cJSON_IsNumber(field(root, "width"))) g->width = (int)num(root, "width", 0);
+    if (cJSON_IsNumber(field(root, "height"))) g->height = (int)num(root, "height", 0);
+
+    const cJSON *plains = field(root, "plains");
+    if (plains) {
+        g->plains_level = (int)num(plains, "level", 10);
+        pair(plains, "gap", &g->gap_min, &g->gap_max);
+        g->swell_count = 0;
+        cJSON_ArrayForEach(e, field(plains, "swells")) {
+            if (g->swell_count < MAX_SWELLS)
+                g->swells[g->swell_count++] =
+                    (Swell){ (float)num(e, "amplitude", 0), (int)num(e, "wavelength", 64) };
+        }
+    }
+
+    static const char *profiles[] = { "peak", "bowl", "basin" };
+    cJSON_ArrayForEach(e, field(root, "features")) {
+        const char *name = str(e, "name");
+        if (!name) return fail(r, "a feature has no \"name\"");
+        int id = -1;
+        for (int i = 0; i < content.feature_count; i++)
+            if (strcmp(content.features[i].name, name) == 0) id = i;
+        if (id < 0) {
+            if (content.feature_count >= MAX_FEATURES) return fail(r, "too many features");
+            id = content.feature_count++;
+        }
+        FeatureDef *f = &content.features[id];
+        memset(f, 0, sizeof *f);
+        copy_name(f->name, sizeof f->name, name);
+        f->direction = num(e, "direction", 1) < 0 ? -1 : 1;
+        f->min_size = 10;
+        f->max_size = 60;
+        pair(e, "size", &f->min_size, &f->max_size);
+        if (f->min_size < 1 || f->max_size < f->min_size)
+            return fail(r, "feature \"%s\": bad \"size\"", name);
+        f->width_per_size = (float)num(field(e, "half_width"), "per_size", 1.0);
+        f->width_base = (int)num(field(e, "half_width"), "base", 10);
+        f->steepness = (float)num(e, "steepness", 1.0);
+        f->shoulders = (float)num(e, "shoulders", 0.0);
+        f->max_step = (int)num(e, "max_step", 0);
+        f->jitter = (float)num(e, "jitter", 0.0);
+        pair(e, "ledges", &f->ledge_min, &f->ledge_max);
+        const char *profile = str(e, "profile");
+        f->profile = PROFILE_BOWL;
+        for (int i = 0; profile && i < 3; i++)
+            if (strcmp(profile, profiles[i]) == 0) f->profile = (FeatureProfile)i;
+    }
+
+    const cJSON *layers = field(root, "layers");
+    if (layers) {
+        if (!tile_ref(r, layers, "surface", &g->surface) || !tile_ref(r, layers, "soil", &g->soil) ||
+            !tile_ref(r, layers, "rock", &g->rock))
+            return false;
+        g->soil_depth = (float)num(layers, "soil_depth", 4.6);
+        g->soil_variation = (float)num(layers, "soil_variation", 0.6);
+        g->bare_at = (float)num(layers, "bare_at", 0.6);
+    }
+
+    const cJSON *spawn = field(root, "spawn");
+    if (spawn) {
+        pair(spawn, "column", &g->spawn_min, &g->spawn_max);
+        g->first_feature_at = (int)num(spawn, "first_feature_at", 80);
+        g->flat_radius = (int)num(spawn, "flat_radius", 3);
+        g->ease_radius = (int)num(spawn, "ease_radius", 24);
+        const cJSON *portal = field(spawn, "portal");
+        if (portal) {
+            if (!tile_ref(r, portal, "base", &g->portal_base) ||
+                !tile_ref(r, portal, "body", &g->portal_body) ||
+                !tile_ref(r, portal, "top", &g->portal_top))
+                return false;
+            g->portal_height = (int)num(portal, "height", 3);
+        }
+    }
+
+    const cJSON *trees = field(root, "tree_placement");
+    if (trees) {
+        g->tree_one_in = (int)num(trees, "one_in", 10);
+        g->tree_spacing = (int)num(trees, "spacing", 7);
+        g->tree_spawn_clearance = (int)num(trees, "spawn_clearance", 8);
+        g->tree_grown_chance = (float)num(trees, "grown_chance", 0.5);
+        g->tree_young_steps = (int)num(trees, "max_young_steps", 20);
+    }
+    return true;
+}
+
+static bool read_rules(Reader *r, const cJSON *root)
+{
+    RulesDef *u = &content.rules;
+    const cJSON *time = field(root, "time"), *player = field(root, "player");
+    const cJSON *drops = field(root, "drops"), *ui = field(root, "interface"), *e;
+    if (time) {
+        u->tick_rate = (int)num(time, "tick_rate", u->tick_rate);
+        u->day_ticks = (int)num(time, "day_ticks", u->day_ticks);
+        u->night_ticks = (int)num(time, "night_ticks", u->night_ticks);
+        u->twilight_ticks = (int)num(time, "twilight_ticks", u->twilight_ticks);
+        u->chunk_width = (int)num(time, "chunk_width", u->chunk_width);
+        u->random_events_per_chunk =
+            (int)num(time, "random_events_per_chunk", u->random_events_per_chunk);
+    }
+    if (player) {
+        u->walk_time = (float)num(player, "walk_time", u->walk_time);
+        u->fall_time = (float)num(player, "fall_time", u->fall_time);
+        u->climb_time = (float)num(player, "climb_time", u->climb_time);
+        u->hop_time = (float)num(player, "hop_time", u->hop_time);
+        u->hop_height = (float)num(player, "hop_height", u->hop_height);
+        u->max_wall_hop = (int)num(player, "max_wall_hop", u->max_wall_hop);
+        u->place_time = (float)num(player, "place_time", u->place_time);
+        u->craft_time = (float)num(player, "craft_time", u->craft_time);
+        if (field(player, "start_items")) u->start_item_count = 0;
+        cJSON_ArrayForEach(e, field(player, "start_items")) {
+            if (u->start_item_count >= MAX_START_ITEMS) return fail(r, "too many start items");
+            if (!stack_ref(r, e, &u->start_items[u->start_item_count++])) return false;
+        }
+    }
+    if (drops) {
+        u->drop_fall_speed = (float)num(drops, "fall_speed", u->drop_fall_speed);
+        u->drop_pickup_delay = (float)num(drops, "pickup_delay", u->drop_pickup_delay);
+        u->drop_collect_time = (float)num(drops, "collect_time", u->drop_collect_time);
+    }
+    if (ui) u->denial_time = (float)num(ui, "denial_time", u->denial_time);
+    return true;
+}
+
+/* ---- loading ----------------------------------------------------------- */
+
+/* Parses a file from the data directory. A missing file is not an error: a
+ * mod need only contain the files it changes. */
+static cJSON *parse_file(Reader *r, const char *dir, const char *file)
+{
+    char path[512];
+    snprintf(path, sizeof path, "%s/%s", dir, file);
+    r->file = file;
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char *text = size >= 0 ? malloc((size_t)size + 1) : NULL;
+    cJSON *root = NULL;
+    if (text && fread(text, 1, (size_t)size, f) == (size_t)size) {
+        text[size] = '\0';
+        root = cJSON_Parse(text);
+        if (!root) fail(r, "not valid JSON");
+    } else {
+        fail(r, "could not be read");
+    }
+    free(text);
+    fclose(f);
+    return root;
+}
+
+/* What the game cannot run without. */
+static bool validate(Reader *r)
+{
+    const WorldGenDef *g = &content.worldgen;
+    const RulesDef *u = &content.rules;
+    r->file = "data";
+    if (g->width < 64 || g->height < 64 || g->width > 65536 || g->height > 4096)
+        return fail(r, "worldgen needs a sensible \"width\" and \"height\"");
+    if (g->soil == TILE_AIR || g->rock == TILE_AIR || g->surface == TILE_AIR)
+        return fail(r, "worldgen needs \"layers\" with a surface, soil and rock tile");
+    if (g->portal_body == TILE_AIR || g->portal_base == TILE_AIR || g->portal_height < 2)
+        return fail(r, "worldgen needs a spawn \"portal\" at least 2 tall");
+    if (g->portal_top == TILE_AIR) content.worldgen.portal_top = g->portal_body;
+    if (g->gap_min < 1 || g->gap_max < g->gap_min || g->spawn_max < g->spawn_min)
+        return fail(r, "worldgen has a bad \"gap\" or spawn \"column\" range");
+    if (u->tick_rate < 1 || u->day_ticks < 1 || u->night_ticks < 1 || u->chunk_width < 1)
+        return fail(r, "rules need a tick rate, day and night length and chunk width");
+    if (u->walk_time <= 0 || u->fall_time <= 0 || u->climb_time <= 0 || u->hop_time <= 0)
+        return fail(r, "rules need positive player step times");
+    return true;
+}
+
+bool content_load(const char *dir, char *error, size_t error_size)
+{
+    static const char *files[] = { "tiles.json", "items.json", "recipes.json", "trees.json",
+                                   "worldgen.json", "rules.json" };
+    enum { FILE_COUNT = sizeof files / sizeof files[0] };
+    Reader r = { "", error, error_size, false };
+    cJSON *roots[FILE_COUNT];
+    if (error_size > 0) error[0] = '\0';
+    if (content.tile_count == 0) content_reset();
+
+    for (int i = 0; i < FILE_COUNT; i++) roots[i] = parse_file(&r, dir, files[i]);
+
+    /* Names first, across every file, then the definitions that use them. */
+    for (int i = 0; i < FILE_COUNT && !r.failed; i++) {
+        r.file = files[i];
+        if (roots[i]) register_names(&r, roots[i]);
+    }
+    static bool (*const readers[FILE_COUNT])(Reader *, const cJSON *) = {
+        read_tiles, read_items, read_recipes, read_trees, read_worldgen, read_rules,
+    };
+    for (int i = 0; i < FILE_COUNT && !r.failed; i++) {
+        r.file = files[i];
+        if (roots[i]) readers[i](&r, roots[i]);
+    }
+    for (int i = 0; i < FILE_COUNT; i++) cJSON_Delete(roots[i]);
+    if (!r.failed) validate(&r);
+    return !r.failed;
+}

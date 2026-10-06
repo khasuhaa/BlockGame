@@ -2,39 +2,6 @@
 
 #include <string.h>
 
-static const ItemDef item_defs[ITEM_COUNT] = {
-    [ITEM_NONE] = { "Nothing", 0, false, EQUIP_NONE, TILE_AIR },
-    [ITEM_BASKET] = { "Basket", 1, true, EQUIP_NONE, TILE_AIR },
-    [ITEM_DIRT] = { "Dirt", MAX_STACK, false, EQUIP_NONE, TILE_DIRT },
-    [ITEM_WORKBENCH] = { "Workbench", MAX_STACK, false, EQUIP_NONE, TILE_WORKBENCH },
-    [ITEM_STONE] = { "Stone", MAX_STACK, false, EQUIP_NONE, TILE_STONE },
-    [ITEM_STICK] = { "Stick", MAX_STACK, false, EQUIP_NONE, TILE_AIR },
-    [ITEM_WOOD] = { "Wood", MAX_STACK, false, EQUIP_NONE, TILE_WOOD },
-    [ITEM_ACORN] = { "Acorn", MAX_STACK, false, EQUIP_NONE, TILE_AIR },
-    [ITEM_CHERRY] = { "Cherry", MAX_STACK, false, EQUIP_NONE, TILE_AIR },
-};
-
-const ItemDef *item_def(ItemId id)
-{
-    return &item_defs[id < ITEM_COUNT ? id : ITEM_NONE];
-}
-
-ItemId item_for_tile(TileType t)
-{
-    switch (t) {
-    case TILE_DIRT:
-    case TILE_GRASS: return ITEM_DIRT;
-    case TILE_STONE: return ITEM_STONE;
-    case TILE_OAK_LOG:
-    case TILE_CHERRY_LOG:
-    case TILE_WOOD: return ITEM_WOOD;
-    case TILE_OAK_LEAVES:
-    case TILE_CHERRY_LEAVES: return ITEM_STICK;
-    case TILE_WORKBENCH: return ITEM_WORKBENCH;
-    default: return ITEM_NONE;
-    }
-}
-
 static bool is_empty(const ItemStack *s)
 {
     return s->id == ITEM_NONE || s->count == 0;
@@ -60,7 +27,8 @@ void inventory_init(Inventory *inv)
 {
     memset(inv, 0, sizeof *inv);
     inv->sel_inner = -1;
-    inv->slots[0] = item_make(inv, ITEM_BASKET, 1);
+    for (int i = 0; i < content.rules.start_item_count; i++)
+        inventory_add(inv, content.rules.start_items[i].id, content.rules.start_items[i].count);
 }
 
 ItemStack *inventory_slot(Inventory *inv, SlotRef ref)
@@ -114,7 +82,7 @@ static int fill_empty(Inventory *inv, ItemStack *slots, int n, ItemId id, int co
 
 int inventory_add(Inventory *inv, ItemId id, int count)
 {
-    if (id == ITEM_NONE || id >= ITEM_COUNT) return count;
+    if (id <= ITEM_NONE || id >= content.item_count) return count;
 
     /* Pass 0 tops up existing stacks, pass 1 starts new ones; within each,
      * the bar comes before the baskets sitting in it. */

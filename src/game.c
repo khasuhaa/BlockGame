@@ -22,9 +22,20 @@ static bool can_cling_side(const World *w, TilePos feet, int d)
     return world_is_solid(w, feet.x + d, feet.y) || world_is_solid(w, feet.x + d, feet.y - 1);
 }
 
+/* Something climbable behind the player's body, such as a tree. */
+static bool can_hold(const World *w, TilePos feet)
+{
+    for (int layer = 0; layer < LAYER_COUNT; layer++) {
+        if (tile_def(world_get_at(w, layer, feet.x, feet.y))->climbable ||
+            tile_def(world_get_at(w, layer, feet.x, feet.y - 1))->climbable)
+            return true;
+    }
+    return false;
+}
+
 static bool can_cling(const World *w, TilePos feet)
 {
-    return can_cling_side(w, feet, -1) || can_cling_side(w, feet, 1);
+    return can_cling_side(w, feet, -1) || can_cling_side(w, feet, 1) || can_hold(w, feet);
 }
 
 /* Pull up onto the block beside the feet: a one-block ledge when standing,
@@ -84,6 +95,8 @@ static int list_moves(const World *w, Pose p, Step *out)
         for (int d = -1; d <= 1; d += 2) {
             int k;
             if (can_mantle(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, -1, false };
+            else if (body_fits(w, x + d, y) && can_hold(w, (TilePos){ x + d, y }))
+                out[n++] = (Step){ (int8_t)d, 0, true }; /* sideways across a tree */
             else if ((k = wall_hop_distance(w, p.feet, d)) > 0)
                 out[n++] = (Step){ (int8_t)(d * k), 0, true };
         }
@@ -139,6 +152,8 @@ static Step key_step(const World *w, Pose p, int dx, int dy)
         if (can_mantle(w, p.feet, dx)) return (Step){ (int8_t)dx, -1, false };
         if (can_cling_side(w, p.feet, dx))
             return can_climb_up(w, p.feet) ? (Step){ 0, -1, true } : none;
+        if (body_fits(w, x + dx, y) && can_hold(w, (TilePos){ x + dx, y }))
+            return (Step){ (int8_t)dx, 0, true };
         int k = wall_hop_distance(w, p.feet, dx);
         if (k > 0) return (Step){ (int8_t)(dx * k), 0, true };
         return dy < 0 ? none : (Step){ 0, 1, true };
@@ -189,10 +204,23 @@ static bool in_use_range(const World *w, TilePos feet, TilePos bench)
     return on_body(feet, bench) || in_reach(w, feet, bench);
 }
 
+/* Which layer a mine action on a tile takes its block from: the foreground
+ * if there is a block there, otherwise the background; -1 if neither has
+ * anything that can be mined. */
+static int mine_layer(const World *w, TilePos t)
+{
+    TileType front = world_get(w, t.x, t.y);
+    if (front != TILE_AIR) return tile_def(front)->removable ? LAYER_FOREGROUND : -1;
+    return tile_def(world_get_at(w, LAYER_BACKGROUND, t.x, t.y))->removable ? LAYER_BACKGROUND : -1;
+}
+
 static bool is_goal(const World *w, Pose p, Action a)
 {
     switch (a.type) {
     case ACTION_MINE:
+        /* A background block can be mined from right in front of it. */
+        if (!world_is_solid(w, a.target.x, a.target.y)) return in_use_range(w, p.feet, a.target);
+        return in_reach(w, p.feet, a.target);
     case ACTION_PLACE: return in_reach(w, p.feet, a.target);
     case ACTION_USE:
     case ACTION_COLLECT: return in_use_range(w, p.feet, a.target);
@@ -217,7 +245,7 @@ static bool target_valid(const World *w, Action a)
     if (a.type == ACTION_COLLECT) return true; /* the drop itself is checked on arrival */
     TileType t = world_get(w, a.target.x, a.target.y);
     switch (a.type) {
-    case ACTION_MINE: return tile_def(t)->solid && tile_def(t)->removable;
+    case ACTION_MINE: return mine_layer(w, a.target) >= 0;
     case ACTION_PLACE:
         return t == TILE_AIR && item_def((ItemId)a.item)->places != TILE_AIR &&
                beside_block(w, a.target);
@@ -290,7 +318,9 @@ static bool plan_action(Game *g, const World *w, Pose start, Action a,
 /* What a finished action does to the scratch world. */
 static Pose sim_effect(Game *g, Pose pose, Action a)
 {
-    if (a.type == ACTION_MINE) world_set(&g->sim, a.target.x, a.target.y, TILE_AIR);
+    int layer = mine_layer(&g->sim, a.target);
+    if (a.type == ACTION_MINE && layer >= 0)
+        world_set_at(&g->sim, layer, a.target.x, a.target.y, TILE_AIR);
     else if (a.type == ACTION_PLACE)
         world_set(&g->sim, a.target.x, a.target.y, item_def((ItemId)a.item)->places);
     return pose_rest(&g->sim, pose);
@@ -320,7 +350,9 @@ static void deny(Game *g, TilePos pos)
 static Pose sim_pending(Game *g)
 {
     const Player *p = &g->player;
-    memcpy(g->sim.tiles, g->world.tiles, (size_t)g->world.width * g->world.height);
+    for (int layer = 0; layer < LAYER_COUNT; layer++)
+        memcpy(g->sim.layers[layer], g->world.layers[layer],
+               (size_t)g->world.width * g->world.height);
     Pose pos = { p->feet, p->climbing };
     if (p->activity == ACTIVITY_STEPPING)
         pos = (Pose){ { world_wrap_x(&g->world, p->step_to.x), p->step_to.y }, p->step.climb };
@@ -413,7 +445,8 @@ bool game_click_tile(Game *g, int tx, int ty)
     Action a = { .type = ACTION_MOVE, .target = { tx, ty } };
     const ItemStack *held = inventory_selected(&g->inventory);
 
-    if (world_in_bounds(&g->world, tx, ty) && world_is_solid(&g->sim, tx, ty)) {
+    if (world_in_bounds(&g->world, tx, ty) && mine_layer(&g->sim, a.target) >= 0) {
+        /* A block here, in front or behind, is mined. */
         a.type = ACTION_MINE;
     } else if (held->count > 0 && item_def((ItemId)held->id)->places != TILE_AIR) {
         /* Holding a block: air beside a block is where it gets placed. */
@@ -469,7 +502,9 @@ static void update_drops(Game *g, float dt)
 static void begin_step(Game *g, Step s)
 {
     Player *p = &g->player;
-    bool hop = s.dy == 0 && (p->climbing || s.dx > 1 || s.dx < -1);
+    TilePos to = { p->feet.x + s.dx, p->feet.y + s.dy };
+    /* Going hand over hand across a tree is a climb; letting go of a wall is a hop. */
+    bool hop = s.dy == 0 && (s.dx > 1 || s.dx < -1 || (p->climbing && !can_hold(&g->world, to)));
     p->activity = ACTIVITY_STEPPING;
     p->step = s;
     p->step_hop = hop;
@@ -498,8 +533,11 @@ static void finish_activity(Game *g)
         p->climbing = p->step.climb;
     } else if (p->activity == ACTIVITY_MINING) {
         TilePos t = g->current.target;
-        spawn_drop(g, item_for_tile(world_get(&g->world, t.x, t.y)), t);
-        world_set(&g->world, t.x, t.y, TILE_AIR);
+        int layer = mine_layer(&g->world, t);
+        if (layer >= 0) {
+            spawn_drop(g, tile_def(world_get_at(&g->world, layer, t.x, t.y))->drop, t);
+            world_set_at(&g->world, layer, t.x, t.y, TILE_AIR);
+        }
         g->has_current = false;
     } else if (p->activity == ACTIVITY_PLACING) {
         TilePos t = g->current.target;
@@ -541,7 +579,8 @@ static bool start_next_activity(Game *g)
                 switch (g->current.type) {
                 case ACTION_MINE:
                     begin_work(g, ACTIVITY_MINING,
-                               tile_def(world_get(w, g->current.target.x, g->current.target.y))
+                               tile_def(world_get_at(w, mine_layer(w, g->current.target),
+                                                     g->current.target.x, g->current.target.y))
                                    ->mine_time);
                     return true;
                 case ACTION_PLACE:
@@ -661,27 +700,26 @@ static Drop *attached_drop_at(Game *g, int x, int y)
 static void random_event(Game *g, int x, int y)
 {
     World *w = &g->world;
-    TileType t = world_get(w, x, y);
 
-    if (tree_kind_of_log(t) != TREE_NONE) {
+    if (tree_trunk_at(w, x, y) >= 0) {
         TreeGrowth growth = tree_grow(w, x, y, &g->rng);
         if (!growth.extended) return;
         /* Fruit rides up with the leaf it hangs on. */
         for (int i = 0; i < MAX_DROPS; i++) {
             Drop *d = &g->drops[i];
-            if (!d->active || !d->attached || abs(world_dx(w, growth.x, d->x)) > 2) continue;
-            if ((int)d->y < growth.top - 1 || (int)d->y > growth.top + 6) continue;
-            if (tree_kind_of_leaves(world_get(w, d->x, (int)d->y - 1)) != TREE_NONE) d->y -= 1.0f;
+            if (!d->active || !d->attached || abs(world_dx(w, growth.x, d->x)) > MAX_TREE_ROWS) continue;
+            if ((int)d->y < growth.top - 2 || (int)d->y > growth.top + MAX_TREE_ROWS) continue;
+            if (tree_leaves_at(w, d->x, (int)d->y - 1) >= 0) d->y -= 1.0f;
         }
         return;
     }
 
-    TreeKind leaves = tree_kind_of_leaves(t);
-    if (leaves == TREE_NONE || attached_drop_at(g, x, y)) return;
-    Drop *fruit = spawn_drop(g, leaves == TREE_OAK ? ITEM_ACORN : ITEM_CHERRY, (TilePos){ x, y });
+    int kind = tree_leaves_at(w, x, y);
+    if (kind < 0 || content.trees[kind].fruit == ITEM_NONE || attached_drop_at(g, x, y)) return;
+    Drop *fruit = spawn_drop(g, content.trees[kind].fruit, (TilePos){ x, y });
     if (!fruit) return;
     fruit->attached = true;
-    fruit->ttl = FRUIT_TICKS;
+    fruit->ttl = content.trees[kind].fruit_ticks;
 }
 
 void game_tick(Game *g)
@@ -690,16 +728,18 @@ void game_tick(Game *g)
     g->tick++;
 
     for (int chunk = 0; chunk * CHUNK_WIDTH < w->width; chunk++) {
-        uint32_t r = game_random(g);
-        int x = chunk * CHUNK_WIDTH + (int)(r % CHUNK_WIDTH);
-        if (x < w->width) random_event(g, x, (int)((r >> 8) % (uint32_t)w->height));
+        for (int n = 0; n < content.rules.random_events_per_chunk; n++) {
+            uint32_t r = game_random(g);
+            int x = chunk * CHUNK_WIDTH + (int)(r % (uint32_t)CHUNK_WIDTH);
+            if (x < w->width) random_event(g, x, (int)((r >> 8) % (uint32_t)w->height));
+        }
     }
 
     for (int i = 0; i < MAX_DROPS; i++) {
         Drop *d = &g->drops[i];
         if (!d->active) continue;
         /* Fruit whose leaf is gone falls like anything else. */
-        if (d->attached && tree_kind_of_leaves(world_get(w, d->x, (int)d->y)) == TREE_NONE)
+        if (d->attached && tree_leaves_at(w, d->x, (int)d->y) < 0)
             d->attached = false;
         if (d->ttl > 0 && --d->ttl == 0 && d->collect == 0.0f) d->active = false;
     }

@@ -6,6 +6,37 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Content is looked up by name: the engine has no ids of its own. */
+#define TILE_DIRT tile_id("dirt")
+#define TILE_GRASS tile_id("grass")
+#define TILE_STONE tile_id("stone")
+#define TILE_WORKBENCH tile_id("workbench")
+#define TILE_SPAWN_PORTAL tile_id("spawn_portal")
+#define TILE_SPAWN_PORTAL_TOP tile_id("spawn_portal_top")
+#define TILE_PORTAL_BASE tile_id("portal_base")
+#define TILE_OAK_LOG tile_id("oak_log")
+#define TILE_OAK_LEAVES tile_id("oak_leaves")
+#define TILE_CHERRY_LOG tile_id("cherry_log")
+#define TILE_CHERRY_LEAVES tile_id("cherry_leaves")
+#define TILE_WOOD tile_id("wood")
+#define ITEM_BASKET item_id("basket")
+#define ITEM_DIRT item_id("dirt")
+#define ITEM_WORKBENCH item_id("workbench")
+#define ITEM_STONE item_id("stone")
+#define ITEM_STICK item_id("stick")
+#define ITEM_WOOD item_id("wood")
+#define ITEM_ACORN item_id("acorn")
+#define ITEM_CHERRY item_id("cherry")
+#define TREE_OAK tree_id("oak")
+#define TREE_CHERRY tree_id("cherry")
+#define OAK_MAX_HEIGHT (content.trees[TREE_OAK].max_height)
+#define CHERRY_MAX_HEIGHT (content.trees[TREE_CHERRY].max_height)
+#define FRUIT_TICKS (content.trees[TREE_OAK].fruit_ticks)
+#define MAX_STACK 255 /* "the whole stack" when moving */
+#define FEATURE_MAX_SIZE 60
+#define PLAINS_MAX_LEVEL 20
+#define BG LAYER_BACKGROUND
+
 static int failures;
 
 #define CHECK(cond)                                                    \
@@ -399,7 +430,7 @@ static void test_drops(void)
     CHECK(!g.drops[0].active && count_item(&g, ITEM_DIRT) == 1);
 
     /* Out of reach it stays put until the player walks up to it. */
-    g.drops[0] = (Drop){ true, ITEM_DIRT, start.x + 6, (float)(s - 5), 0.0f, 0.0f, false, 0, 1 };
+    g.drops[0] = (Drop){ true, (uint8_t)ITEM_DIRT, start.x + 6, (float)(s - 5), 0.0f, 0.0f, false, 0, 1 };
     run(&g, 2.0f);
     CHECK(g.drops[0].active && g.drops[0].y == (float)(s - 1));
     CHECK(game_click_tile(&g, start.x + 5, start.y));
@@ -409,7 +440,7 @@ static void test_drops(void)
     /* With no room, it is left on the ground. */
     inventory_add(&g.inventory, ITEM_DIRT, 99 * 12);
     int before = count_item(&g, ITEM_DIRT);
-    g.drops[0] = (Drop){ true, ITEM_DIRT, g.player.feet.x, (float)g.player.feet.y, 0.0f, 0.0f, false, 0, 2 };
+    g.drops[0] = (Drop){ true, (uint8_t)ITEM_DIRT, g.player.feet.x, (float)g.player.feet.y, 0.0f, 0.0f, false, 0, 2 };
     run(&g, 2.0f);
     CHECK(g.drops[0].active && count_item(&g, ITEM_DIRT) == before);
     game_free(&g);
@@ -467,17 +498,21 @@ static void test_bench(void)
 
     CHECK(world_get(&g.world, px, s - 1) == TILE_SPAWN_PORTAL);
     CHECK(world_get(&g.world, px, s - 2) == TILE_SPAWN_PORTAL);
-    CHECK(world_get(&g.world, px, s - 3) == TILE_SPAWN_PORTAL);
+    CHECK(world_get(&g.world, px, s - 3) == TILE_SPAWN_PORTAL_TOP);
     CHECK(world_get(&g.world, px, s - 4) == TILE_AIR);
     CHECK(world_get(&g.world, px, s) == TILE_PORTAL_BASE);
     CHECK(!game_queue_action(&g, ACTION_MINE, px, s));
     CHECK(tile_def(TILE_SPAWN_PORTAL)->bench && !tile_def(TILE_SPAWN_PORTAL)->removable);
+    CHECK(tile_def(TILE_SPAWN_PORTAL_TOP)->bench && !tile_def(TILE_SPAWN_PORTAL_TOP)->removable);
     CHECK(tile_def(TILE_WORKBENCH)->bench && tile_def(TILE_WORKBENCH)->removable);
 
-    const Recipe *portal = bench_recipes(TILE_SPAWN_PORTAL, &n);
+    const Recipe *portal = NULL, *bench = NULL, *other = NULL;
+    n = bench_recipes(TILE_SPAWN_PORTAL, &portal, 1);
+    CHECK(bench_recipes(TILE_SPAWN_PORTAL_TOP, &other, 1) == 1 && other->output.id == portal->output.id);
+    CHECK(bench_recipes(TILE_DIRT, &other, 1) == 0);
     CHECK(n == 1 && portal->output.id == ITEM_WORKBENCH && portal->inputs[0].id == ITEM_DIRT &&
           portal->inputs[0].count == 1);
-    const Recipe *bench = bench_recipes(TILE_WORKBENCH, &n);
+    n = bench_recipes(TILE_WORKBENCH, &bench, 1);
     CHECK(n == 1 && bench->output.id == ITEM_BASKET && bench->inputs[0].id == ITEM_DIRT);
 
     /* Using the portal from afar walks back to it, then opens it. */
@@ -560,7 +595,7 @@ static void test_wrap(void)
 
 static bool is_tree(TileType t)
 {
-    return tree_kind_of_log(t) != TREE_NONE || tree_kind_of_leaves(t) != TREE_NONE;
+    return tile_def(t)->log_of >= 0 || tile_def(t)->leaves_of >= 0;
 }
 
 /* Feet level of a column: the height of its lowest air tile, ignoring trees. */
@@ -585,7 +620,7 @@ static void test_terrain(void)
         CHECK(world_row_to_y(&w, w.spawn_y) == 0);
         CHECK(world_get(&w, w.spawn_x, w.spawn_y + 1) == TILE_PORTAL_BASE);
         for (int i = 0; i < 3; i++)
-            CHECK(world_get(&w, w.spawn_x, w.spawn_y - i) == TILE_SPAWN_PORTAL);
+            CHECK(world_get(&w, w.spawn_x, w.spawn_y - i) == (i == 2 ? TILE_SPAWN_PORTAL_TOP : TILE_SPAWN_PORTAL));
         CHECK(world_get(&w, w.spawn_x, w.spawn_y - 3) == TILE_AIR);
 
         int lo = 1000, hi = -1000, max_step = 0, bad = 0;
@@ -610,10 +645,10 @@ static void test_terrain(void)
 
             /* Trees stand on grass: a trunk has trunk or grass under it. */
             for (int r = 0; r < top; r++) {
-                TileType t = world_get(&w, x, r);
-                if (tree_kind_of_log(t) == TREE_NONE) continue;
-                TileType under = world_get(&w, x, r + 1);
-                if (under != t && under != TILE_GRASS) bad++;
+                TileType t = world_get_at(&w, BG, x, r);
+                if (is_tree(world_get(&w, x, r))) bad++; /* trees keep to the background */
+                if (tile_def(t)->log_of < 0) continue;
+                if (world_get_at(&w, BG, x, r + 1) != t && world_get(&w, x, r + 1) != TILE_GRASS) bad++;
                 if (t == TILE_OAK_LOG) saw_oak = true;
                 if (t == TILE_CHERRY_LOG) saw_cherry = true;
             }
@@ -647,14 +682,14 @@ static int tree_row_width(const World *w, int x, int row)
 {
     int n = 0;
     for (int dx = -4; dx <= 4; dx++)
-        if (is_tree(world_get(w, x + dx, row))) n++;
+        if (is_tree(world_get_at(w, BG, x + dx, row))) n++;
     return n;
 }
 
 static int trunk_height(const World *w, int x, int base)
 {
     int h = 0;
-    while (tree_kind_of_log(world_get(w, x, base - h)) != TREE_NONE) h++;
+    while (tile_def(world_get_at(w, BG, x, base - h))->log_of >= 0) h++;
     return h;
 }
 
@@ -683,7 +718,7 @@ static void test_trees(void)
     int top = base - OAK_MAX_HEIGHT + 1;
     static const int oak_rows[] = { 3, 5, 5, 3, 1, 1, 1, 1 };
     for (int i = 0; i < 8; i++) CHECK(tree_row_width(w, ox, top - 1 + i) == oak_rows[i]);
-    CHECK(world_get(w, ox, top - 1) == TILE_OAK_LEAVES && world_get(w, ox, top) == TILE_OAK_LOG);
+    CHECK(world_get_at(w, BG, ox, top - 1) == TILE_OAK_LEAVES && world_get_at(w, BG, ox, top) == TILE_OAK_LOG);
     CHECK(steps == 6 + 13);
 
     /* A cherry ends up 3, 3, 4, 4, 5, 5 wide over two blocks of bare trunk. */
@@ -695,9 +730,9 @@ static void test_trees(void)
     for (int i = 0; i < 8; i++) {
         int row = base - CHERRY_MAX_HEIGHT + 1 + i;
         CHECK(tree_row_width(w, cx, row) == cherry_rows[i]);
-        CHECK(world_get(w, cx, row) == TILE_CHERRY_LOG);
+        CHECK(world_get_at(w, BG, cx, row) == TILE_CHERRY_LOG && world_get(w, cx, row) == TILE_AIR);
     }
-    CHECK(world_get(w, cx, base - CHERRY_MAX_HEIGHT) == TILE_AIR);
+    CHECK(world_get_at(w, BG, cx, base - CHERRY_MAX_HEIGHT) == TILE_AIR);
 
     /* A one-block tree can put a leaf out sideways before it grows up. When
      * the trunk does extend, the leaves ride up with it, except one with a
@@ -711,20 +746,21 @@ static void test_trees(void)
         leaf_first = growth.grew && !growth.extended;
     }
     CHECK(leaf_first && trunk_height(w, tx, base) == 1);
-    world_set(w, tx - 1, base, TILE_CHERRY_LEAVES);
-    world_set(w, tx + 1, base, TILE_CHERRY_LEAVES);
+    world_set_at(w, BG, tx - 1, base, TILE_CHERRY_LEAVES);
+    world_set_at(w, BG, tx + 1, base, TILE_CHERRY_LEAVES);
     world_set(w, tx + 1, base - 1, TILE_STONE);
     TreeGrowth growth = tree_grow(w, tx, base, &rng);
     CHECK(growth.extended && trunk_height(w, tx, base) == 2);
-    CHECK(world_get(w, tx - 1, base - 1) == TILE_CHERRY_LEAVES);
-    CHECK(world_get(w, tx - 1, base) == TILE_AIR && world_get(w, tx + 1, base) == TILE_AIR);
+    CHECK(world_get_at(w, BG, tx - 1, base - 1) == TILE_CHERRY_LEAVES);
+    CHECK(world_get_at(w, BG, tx - 1, base) == TILE_AIR && world_get_at(w, BG, tx + 1, base) == TILE_AIR);
+    CHECK(world_get_at(w, BG, tx + 1, base - 1) == TILE_AIR);
     CHECK(world_get(w, tx + 1, base - 1) == TILE_STONE);
 
     /* Breaking a leaf gives a stick, a trunk gives wood, and wood placed
      * again is an ordinary block, not a tree. */
-    CHECK(item_for_tile(TILE_OAK_LEAVES) == ITEM_STICK && item_for_tile(TILE_CHERRY_LEAVES) == ITEM_STICK);
-    CHECK(item_for_tile(TILE_OAK_LOG) == ITEM_WOOD && item_for_tile(TILE_CHERRY_LOG) == ITEM_WOOD);
-    CHECK(item_def(ITEM_WOOD)->places == TILE_WOOD && tree_kind_of_log(TILE_WOOD) == TREE_NONE);
+    CHECK(tile_def(TILE_OAK_LEAVES)->drop == ITEM_STICK && tile_def(TILE_CHERRY_LEAVES)->drop == ITEM_STICK);
+    CHECK(tile_def(TILE_OAK_LOG)->drop == ITEM_WOOD && tile_def(TILE_CHERRY_LOG)->drop == ITEM_WOOD);
+    CHECK(item_def(ITEM_WOOD)->places == TILE_WOOD && tile_def(TILE_WOOD)->log_of < 0);
     game_free(&g);
 }
 
@@ -770,7 +806,7 @@ static void test_ticks(void)
         const Drop *d = &g.drops[i];
         if (!d->active) continue;
         CHECK(d->attached && d->item == ITEM_ACORN && d->ttl > 0 && d->ttl <= FRUIT_TICKS);
-        CHECK(world_get(w, d->x, (int)d->y) == TILE_OAK_LEAVES);
+        CHECK(world_get_at(w, BG, d->x, (int)d->y) == TILE_OAK_LEAVES);
         fruits++;
         fruit = i;
     }
@@ -783,13 +819,12 @@ static void test_ticks(void)
     run(&g, 1.0f);
     CHECK(g.drops[fruit].active && g.drops[fruit].y == kept.y && count_item(&g, ITEM_ACORN) == 0);
 
-    /* ...until it is tapped. One on the underside of the crown can be reached
-     * by climbing the trunk; one on top of the crown cannot, and is refused. */
+    /* ...until it is tapped: the player climbs the tree to it. */
     int top = base - OAK_MAX_HEIGHT + 1, low = -1, high = -1;
     for (int i = 0; i < MAX_DROPS && (low < 0 || high < 0); i++) {
         if (g.drops[i].active) continue;
         TilePos at = low < 0 ? (TilePos){ tx - 1, top + 2 } : (TilePos){ tx, top - 1 };
-        g.drops[i] = (Drop){ true, ITEM_ACORN, at.x, (float)at.y, 0.0f, 0.0f, true, FRUIT_TICKS,
+        g.drops[i] = (Drop){ true, (uint8_t)ITEM_ACORN, at.x, (float)at.y, 0.0f, 0.0f, true, FRUIT_TICKS,
                              ++g.next_drop_id };
         if (low < 0) low = i;
         else high = i;
@@ -800,7 +835,6 @@ static void test_ticks(void)
     int hit = game_drop_at(&g, cx + 0.2f, cy - 0.2f);
     CHECK(hit >= 0 && g.drops[hit].x == g.drops[low].x && g.drops[hit].y == g.drops[low].y);
     CHECK(game_drop_at(&g, cx + 9.0f, cy) == -1);
-    CHECK(!game_queue_collect(&g, high));
     CHECK(game_queue_collect(&g, low));
     CHECK(g.queue[0].type == ACTION_COLLECT);
     run(&g, 6.0f);
@@ -822,7 +856,7 @@ static void test_ticks(void)
         if (g.drops[i].active && g.drops[i].attached) fruit = i;
     CHECK(fruit >= 0);
     if (fruit >= 0) {
-        world_set(w, g.drops[fruit].x, (int)g.drops[fruit].y, TILE_AIR);
+        world_set_at(w, BG, g.drops[fruit].x, (int)g.drops[fruit].y, TILE_AIR);
         game_tick(&g);
         CHECK(!g.drops[fruit].attached);
     }
@@ -841,7 +875,7 @@ static void test_save(void)
     run(&g, 2.0f);
     inventory_add(&g.inventory, ITEM_STONE, 7);
     tree_plant(&g.world, start.x - 5, s - 1, TREE_CHERRY);
-    g.world.background[5] = TILE_STONE;
+    g.world.layers[BG][5] = (uint8_t)TILE_STONE;
     g.tick = 12345;
     g.tick_rate = 25;
     CHECK(save_game(&g, path));
@@ -850,8 +884,8 @@ static void test_save(void)
     CHECK(load_game(&loaded, path));
     size_t cells = (size_t)g.world.width * g.world.height;
     CHECK(loaded.world.width == 64 && loaded.world.height == 48 && loaded.world.seed == 16);
-    CHECK(memcmp(loaded.world.tiles, g.world.tiles, cells) == 0);
-    CHECK(memcmp(loaded.world.background, g.world.background, cells) == 0);
+    CHECK(memcmp(loaded.world.layers[0], g.world.layers[0], cells) == 0);
+    CHECK(memcmp(loaded.world.layers[BG], g.world.layers[BG], cells) == 0);
     CHECK(memcmp(&loaded.inventory, &g.inventory, sizeof g.inventory) == 0);
     CHECK(memcmp(loaded.drops, g.drops, sizeof g.drops) == 0);
     CHECK(loaded.player.feet.x == g.player.feet.x && loaded.player.feet.y == g.player.feet.y);
@@ -871,8 +905,149 @@ static void test_save(void)
     remove(path);
 }
 
+/* Trees stand behind the player: walked past on the ground, climbed to be mined. */
+static void test_background_trees(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 17, WORLD_FLAT);
+    World *w = &g.world;
+    TilePos start = g.player.feet;
+    int base = w->surface_y - 1, tx = start.x + 3;
+    uint32_t rng = 5;
+
+    tree_plant(w, tx, base, TREE_OAK);
+    while (tree_grow(w, tx, base, &rng).grew) {}
+    int top = base - OAK_MAX_HEIGHT + 1;
+    CHECK(world_get(w, tx, base) == TILE_AIR && world_get_at(w, BG, tx, base) == TILE_OAK_LOG);
+
+    /* Walking goes straight through it, by key and by click. */
+    game_set_move_input(&g, 1, 0);
+    Trace tr = run_traced(&g, WALK_TIME * 6 + 0.05f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 0.5f);
+    CHECK(!tr.climbed && tr.deepest == base && g.player.feet.x >= tx + 3 && g.player.feet.y == base);
+    CHECK(game_click_tile(&g, start.x, base - 1));
+    CHECK(g.queue[0].type == ACTION_MOVE);
+    tr = run_traced(&g, 3.0f);
+    CHECK(!tr.climbed && g.player.feet.x == start.x && g.player.feet.y == base);
+
+    /* Up on a tree: W in front of the trunk grabs it, and the player hangs there. */
+    g.player.feet = g.player.step_to = (TilePos){ tx, base };
+    game_set_move_input(&g, 0, -1);
+    run(&g, CLIMB_TIME * 3 + 0.02f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 1.0f);
+    CHECK(g.player.climbing && g.player.feet.x == tx && g.player.feet.y < base - 1);
+    CHECK(game_player_grip_side(&g) == 0);
+    game_set_move_input(&g, 0, 1);
+    run(&g, 2.0f);
+    game_set_move_input(&g, 0, 0);
+    CHECK(!g.player.climbing && g.player.feet.y == base);
+
+    /* Clicking a leaf at the very top queues mining it: the player climbs
+     * the tree to get within reach, and the leaf leaves a stick. */
+    g.player.feet = g.player.step_to = (TilePos){ start.x, base };
+    CHECK(game_click_tile(&g, tx, top - 1));
+    CHECK(g.queue[0].type == ACTION_MINE);
+    tr = run_traced(&g, 8.0f);
+    CHECK(is_idle(&g) && tr.climbed);
+    CHECK(world_get_at(w, BG, tx, top - 1) == TILE_AIR);
+    int sticks = count_item(&g, ITEM_STICK);
+    for (int i = 0; i < MAX_DROPS; i++)
+        if (g.drops[i].active && g.drops[i].item == ITEM_STICK) sticks++;
+    CHECK(sticks == 1);
+
+    /* A trunk block gives wood, and a block in front is mined before the tree behind it. */
+    CHECK(game_click_tile(&g, tx, base - 1));
+    run(&g, 8.0f);
+    CHECK(world_get_at(w, BG, tx, base - 1) == TILE_AIR && world_get_at(w, BG, tx, base) == TILE_OAK_LOG);
+    world_set(w, tx, base, TILE_STONE);
+    g.player.feet = g.player.step_to = (TilePos){ tx - 1, base };
+    CHECK(game_click_tile(&g, tx, base));
+    run(&g, 3.0f);
+    CHECK(world_get(w, tx, base) == TILE_AIR && world_get_at(w, BG, tx, base) == TILE_OAK_LOG);
+    game_free(&g);
+}
+
+static void write_file(const char *path, const char *text)
+{
+    FILE *f = fopen(path, "w");
+    if (f) {
+        fputs(text, f);
+        fclose(f);
+    }
+}
+
+/* Runs last: it changes the loaded content. */
+static void test_content(void)
+{
+    char err[256];
+
+    /* The shipped data, found by name. */
+    CHECK(tile_id("air") == TILE_AIR && item_id("none") == ITEM_NONE);
+    CHECK(ITEM_BASKET == 1 && tile_id("no_such_tile") == -1 && item_id("no_such_item") == -1);
+    CHECK(tile_def(TILE_STONE)->solid && tile_def(TILE_STONE)->mine_time > tile_def(TILE_DIRT)->mine_time);
+    CHECK(!tile_def(TILE_OAK_LOG)->solid && tile_def(TILE_OAK_LOG)->climbable);
+    CHECK(content.trees[TREE_OAK].layer == LAYER_BACKGROUND && content.feature_count == 3);
+    CHECK(content.worldgen.width == 2048 && content.worldgen.height == 401);
+    CHECK(content.rules.day_ticks == 1000 && content.rules.night_ticks == 800 && content.rules.tick_rate == 10);
+
+    /* A second directory loads on top of the first, the way a mod would:
+     * it can change what exists and add what does not. */
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count;
+    write_file("build/mod/tiles.json",
+               "{ \"tiles\": [ { \"name\": \"dirt\", \"solid\": true, \"removable\": true,"
+               " \"mine_time\": 2.5, \"drop\": \"gem\" },"
+               " { \"name\": \"gem_block\", \"solid\": true, \"removable\": true, \"drop\": \"gem\" } ] }");
+    write_file("build/mod/items.json",
+               "{ \"items\": [ { \"name\": \"gem\", \"label\": \"Gem\", \"max_stack\": 20,"
+               " \"places\": \"gem_block\" } ] }");
+    write_file("build/mod/recipes.json",
+               "{ \"recipes\": [ { \"bench\": \"workbench\", \"output\": { \"item\": \"gem\" },"
+               " \"inputs\": [ { \"item\": \"stone\", \"count\": 4 } ] } ] }");
+    write_file("build/mod/rules.json", "{ \"time\": { \"day_ticks\": 500 } }");
+    CHECK(content_load("build/mod", err, sizeof err));
+    CHECK(content.tile_count == tiles + 1 && content.item_count == items + 1);
+    CHECK(content.recipe_count == recipes + 1 && tile_id("dirt") == 1);
+    CHECK(tile_def(TILE_DIRT)->mine_time == 2.5f && tile_def(TILE_DIRT)->drop == item_id("gem"));
+    CHECK(item_def(item_id("gem"))->max_stack == 20 && item_def(item_id("gem"))->places == tile_id("gem_block"));
+    CHECK(content.rules.day_ticks == 500 && content.rules.night_ticks == 800);
+
+    /* The new content works in the game with no code written for it. */
+    Game g;
+    game_init(&g, 64, 48, 18, WORLD_FLAT);
+    TilePos start = g.player.feet;
+    int s = g.world.surface_y;
+    CHECK(game_click_tile(&g, start.x + 1, s));
+    run(&g, 4.0f);
+    CHECK(count_item(&g, item_id("gem")) == 1);
+    inventory_select(&g.inventory, 1, -1);
+    CHECK(game_click_tile(&g, start.x + 1, s));
+    run(&g, 2.0f);
+    CHECK(world_get(&g.world, start.x + 1, s) == tile_id("gem_block"));
+    CHECK(inventory_add(&g.inventory, item_id("gem"), 25) == 0 && g.inventory.slots[1].count == 20);
+    game_free(&g);
+
+    /* A mistake in the data is reported, not ignored. */
+    write_file("build/mod/recipes.json",
+               "{ \"recipes\": [ { \"bench\": \"workbench\", \"output\": { \"item\": \"unobtainium\" } } ] }");
+    CHECK(!content_load("build/mod", err, sizeof err));
+    CHECK(strstr(err, "recipes.json") && strstr(err, "unobtainium"));
+    write_file("build/mod/recipes.json", "{ not json");
+    CHECK(!content_load("build/mod", err, sizeof err) && strstr(err, "not valid JSON"));
+
+    content_reset();
+    CHECK(content_load("data", err, sizeof err) && content.tile_count == tiles);
+}
+
 int main(void)
 {
+    char err[256];
+    if (!content_load("data", err, sizeof err)) {
+        printf("could not load data: %s\n", err);
+        return 1;
+    }
+
     test_world();
     test_mine_range();
     test_keys();
@@ -892,6 +1067,8 @@ int main(void)
     test_trees();
     test_ticks();
     test_save();
+    test_background_trees();
+    test_content();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;

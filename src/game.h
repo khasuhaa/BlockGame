@@ -8,28 +8,28 @@
 
 #define MAX_QUEUED_ACTIONS 32
 #define MAX_DENIALS 8
-#define MAX_WALL_HOP 2 /* columns a wall-to-wall hop can cover */
 #define MAX_MOVES 8
 #define MAX_DROPS 2048
-
-#define DEFAULT_TICK_RATE 10 /* ticks per second */
 #define MAX_TICK_RATE 100
-#define DAY_TICKS 1000
-#define NIGHT_TICKS 800
-#define TWILIGHT_TICKS 80   /* length of the fade at dawn and dusk */
-#define FRUIT_TICKS 1800    /* how long a fruit lasts */
 
-#define WALK_TIME 0.12f
-#define FALL_TIME 0.07f
-#define CLIMB_TIME 0.16f
-#define HOP_TIME 0.2f
-#define HOP_HEIGHT 0.35f /* peak of a hop's arc, in tiles */
-#define PLACE_TIME 0.15f
-#define CRAFT_TIME 0.1f /* per item crafted */
-#define DENIAL_TIME 0.6f
-#define DROP_FALL_SPEED 12.0f   /* tiles per second */
-#define DROP_PICKUP_DELAY 0.45f /* how long a fresh drop lies before it can be collected */
-#define DROP_COLLECT_TIME 0.15f /* flight into the player once collected */
+/* The pace of the game comes from the rules data; these are shorthands. */
+#define WALK_TIME (content.rules.walk_time)
+#define FALL_TIME (content.rules.fall_time)
+#define CLIMB_TIME (content.rules.climb_time)
+#define HOP_TIME (content.rules.hop_time)
+#define HOP_HEIGHT (content.rules.hop_height)
+#define MAX_WALL_HOP (content.rules.max_wall_hop)
+#define PLACE_TIME (content.rules.place_time)
+#define CRAFT_TIME (content.rules.craft_time)
+#define DENIAL_TIME (content.rules.denial_time)
+#define DROP_FALL_SPEED (content.rules.drop_fall_speed)
+#define DROP_PICKUP_DELAY (content.rules.drop_pickup_delay)
+#define DROP_COLLECT_TIME (content.rules.drop_collect_time)
+#define DEFAULT_TICK_RATE (content.rules.tick_rate)
+#define DAY_TICKS (content.rules.day_ticks)
+#define NIGHT_TICKS (content.rules.night_ticks)
+#define TWILIGHT_TICKS (content.rules.twilight_ticks)
+#define CHUNK_WIDTH (content.rules.chunk_width)
 
 typedef struct {
     int x, y;
@@ -37,7 +37,8 @@ typedef struct {
 
 typedef enum {
     ACTION_MOVE, /* put one of the player's two blocks on the target tile */
-    ACTION_MINE, /* walk next to the target tile, then mine it */
+    ACTION_MINE, /* walk within reach of the target tile, then mine it: the foreground block,
+                    or failing that the background block behind it */
     ACTION_PLACE, /* walk next to the target tile, then put a block there */
     ACTION_USE,  /* walk up to the bench on the target tile, then open it */
     ACTION_COLLECT /* walk up to a dropped item, then pick it up */
