@@ -277,11 +277,30 @@ Items float: one dropped in water rises to the top of it, and one that falls ont
 
 A mined block drops as an item where it was. It is collected when the player is on or next to its tile, a moment after it drops, as long as there is room in the bar or in a basket in the bar.
 
+## Making a character
+
+A world does not come with a character. On joining a new one there is a panel at the top of the screen: type a name and press Enter (or the button) and the character is made at the spawn portal, with what a new player starts with. Until then there is nothing to do but look about - drag, zoom, the map.
+
+The same panel comes back if every character has died and been removed. A character can be made at any portal the player has uncovered, not only the spawn portal: click the portal, or zoom out to the map and click its mark there, and the panel says which one it will be. A character made later this way starts with nothing: a world's starting items are given once.
+
+## Dying
+
+Losing the whole health bar is not death. With health gone, whatever hurts next comes off a second bar, red on black, that shows in health's place ("Dying" in the panel). It is as long as the health bar. Mending - by itself, or from food - fills the death bar back up before it does anything for health. Only when the death bar is gone as well is the character dead. Bites and drowning can do it; hunger alone still stops short.
+
+A dead character lies where they fell, grey, and does nothing; their queue is dropped, creatures ignore them, and if they were the one being played and somebody else is alive, that one is played instead. They come back by themselves after 1800 ticks, at the spawn portal, whole, with everything they were carrying.
+
+Over a dead character in the world, and beside their button on the left when it is clicked, is a menu with how long is left and two buttons:
+
+- **Respawn now**, for crystals: 100 just after dying, and less the more of the wait is done - 50 half-way through, 1 at the very end.
+- **Remove character**, which has to be pressed twice. They are gone for good, everything they carried is left lying where they died, and their place is free for a new character to be made.
+
+The length of the death bar, the wait and the price are `death` in `rules.json`.
+
 ## More than one character
 
-A portal makes a **new player**: another character to play, for 100 crystals and 5 fruit. The fruit is apples, oranges and cherries in a mix that is each world's own - 1 apple and 4 cherries in one, 3 oranges and 2 apples in another - and the recipe shows which. The new character appears standing at the portal with nothing. For now a world can have one of them: two characters in all (`players` in `rules.json`).
+A portal makes a **new player**: another character to play, for 100 crystals and 5 fruit. The fruit is apples, oranges and cherries in a mix that is each world's own - 1 apple and 4 cherries in one, 3 oranges and 2 apples in another - and the recipe shows which. The new character appears standing at the portal with nothing, and is called "Player 2". For now a world can have one of them: two characters in all (`players` in `rules.json`).
 
-Each character has a body, a bar of items, a queue of actions and health, hunger, energy and oxygen of their own. Each has a button down the left of the screen, with their bars under it; the one being played is edged in gold and has a small arrow over their head. **Clicking another character's button plays them**: the view, the inventory bar and the menus go over to them. Clicking the button of the one already being played opens their panel, as before.
+Each character has a body, a bar of items, a queue of actions and health, hunger, energy and oxygen of their own. Each has a button down the left of the screen, with their name beside it and their bars under it; the one being played is edged in gold and has a small arrow over their head. **Clicking another character's button plays them**: the view, the inventory bar and the menus go over to them. Clicking the button of the one already being played opens their panel, as before.
 
 Whoever is not being played carries on with whatever they were told to do - walking, mining, crafting, sleeping, meditating - so both can be kept busy at once: queue something for one, switch, queue something for the other. Things they walk over go into their own bar, and their needs run down like anyone's. Creatures treat whichever character is nearest them as the player: they turn up and go away by that one's distance, and a dropbear or a shark goes for that one. Time only runs fast when *every* character is asleep or meditating. Something one character drops stays where it is until nobody is standing over it.
 

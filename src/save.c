@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 14u
+#define SAVE_VERSION 15u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -26,7 +26,8 @@ typedef struct {
 typedef struct {
     int32_t sea_row; /* -1 for a world with no sea */
     int32_t fog;     /* fog of war: 1 on, 2 off, 0 not recorded */
-    int32_t reserved[6];
+    int32_t started; /* whether the world has had its first character: 1 yes, 2 no, 0 not recorded (yes) */
+    int32_t reserved[5];
 } SaveExtra;
 
 /* How the inventory and drops were laid out before version 3, when a
@@ -234,7 +235,7 @@ bool save_game(const Game *g, const char *path)
         h.climbing = g->player.step.climb;
     }
 
-    SaveExtra extra = { .sea_row = w->sea_row, .fog = g->fog ? 1 : 2 };
+    SaveExtra extra = { .sea_row = w->sea_row, .fog = g->fog ? 1 : 2, .started = g->started ? 1 : 2 };
     bool ok = fwrite(&h, sizeof h, 1, f) == 1 && fwrite(&extra, sizeof extra, 1, f) == 1 &&
               write_names(f, content.tile_count, content.tiles[0].name, sizeof content.tiles[0]) &&
               write_names(f, content.item_count, content.items[0].name, sizeof content.items[0]);
@@ -267,6 +268,12 @@ bool save_game(const Game *g, const char *path)
         memcpy(sc.armor, who->armor, sizeof sc.armor);
         memcpy(sc.choice, who->choice, sizeof sc.choice);
         ok = fwrite(&sc, sizeof sc, 1, f) == 1;
+    }
+    /* What each is called, the first included. */
+    for (int c = 0; c < g->character_count && ok; c++) {
+        char name[CHARACTER_NAME_MAX] = "";
+        snprintf(name, sizeof name, "%s", game_character_name(g, c));
+        ok = fwrite(name, sizeof name, 1, f) == 1;
     }
     game_use_character(mine, played);
     ok = fclose(f) == 0 && ok;
@@ -365,7 +372,13 @@ bool load_game(Game *g, const char *path)
         g->vitals.meditation = 0.0f;
         /* The other characters, from version 14. */
         uint32_t people[2] = { 1, 0 };
-        if (ok && h.version >= 14) ok = fread(people, sizeof people, 1, f) == 1 && people[0] >= 1 && people[0] <= MAX_CHARACTERS;
+        if (ok && h.version >= 14)
+            ok = fread(people, sizeof people, 1, f) == 1 && people[0] <= MAX_CHARACTERS && (people[0] >= 1 || h.version >= 15);
+        /* Before version 15 nobody could die: everyone has their death bar whole. */
+        if (h.version < 15) {
+            g->vitals.death = 1.0f;
+            g->vitals.respawn = 0;
+        }
         for (uint32_t c = 1; ok && c < people[0]; c++) {
             SavedCharacter sc;
             ok = fread(&sc, sizeof sc, 1, f) == 1 && world_in_bounds(w, 0, sc.feet_y);
@@ -389,7 +402,21 @@ bool load_game(Game *g, const char *path)
             who->vitals = sc.vitals;
             who->vitals.rest = REST_NONE;
             who->vitals.meditation = 0.0f;
+            if (h.version < 15) {
+                who->vitals.death = 1.0f;
+                who->vitals.respawn = 0;
+            }
         }
+        /* Their names, from version 15; before that they had none of their own. */
+        for (uint32_t c = 0; ok && h.version >= 15 && c < people[0]; c++) {
+            char name[CHARACTER_NAME_MAX];
+            ok = fread(name, sizeof name, 1, f) == 1;
+            name[sizeof name - 1] = '\0';
+            if (ok && (int)c < g->character_count && name[0])
+                snprintf((int)c == g->live ? g->name : g->characters[c].name, CHARACTER_NAME_MAX, "%s", name);
+        }
+        bool nobody = ok && h.version >= 15 && people[0] == 0;
+        g->started = extra.started != 2;
         int played = (int)people[1] < g->character_count ? (int)people[1] : 0;
 
         /* Turn the save's ids into this run's. */
@@ -459,6 +486,8 @@ bool load_game(Game *g, const char *path)
         g->next_drop_id = h.next_drop_id;
         ok = ok && world_in_bounds(w, 0, h.feet_y);
         if (ok) game_control(g, played);
+        /* A world can be saved with nobody in it. */
+        if (nobody) g->character_count = 0;
         if (!ok) game_free(g);
     }
     fclose(f);

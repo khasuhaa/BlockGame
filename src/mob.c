@@ -126,7 +126,7 @@ static bool try_spawn_in_water(Game *g, int x, int y)
 bool mobs_try_spawn(Game *g, int x, int y)
 {
     const World *w = &g->world;
-    if (!world_in_bounds(w, x, y)) return false;
+    if (!world_in_bounds(w, x, y) || !game_alive(g)) return false; /* nothing turns up with nobody there */
     if (try_spawn_in_tree(g, x, y)) return true;
     if (try_spawn_in_water(g, x, y)) return true;
     if (world_get(w, x, y) != TILE_AIR) return false;
@@ -293,7 +293,8 @@ static void perch_tick(Game *g, Mob *m, const MobDef *def)
             m->state = MOB_SEEK;
         } else if (trunk_for(w, def, m->x, m->y - 1)) {
             go_up(m, w, def); /* the tree has grown */
-        } else if (m->timer == 0 && abs(pdx) <= def->ambush_range && pdy > 0 && pdy <= def->ambush_depth) {
+        } else if (game_alive(g) && m->timer == 0 && abs(pdx) <= def->ambush_range && pdy > 0 &&
+                   pdy <= def->ambush_depth) {
             /* Somebody is walking by underneath: it lets go and drops on them,
              * all the way down in one go. */
             m->state = MOB_HUNT;
@@ -304,14 +305,13 @@ static void perch_tick(Game *g, Mob *m, const MobDef *def)
         break;
     case MOB_HUNT:
         if (m->timer > 0) m->timer--;
-        if (abs(pdx) <= 1 && pdy >= -1 && pdy <= 1) {
+        if (game_alive(g) && abs(pdx) <= 1 && pdy >= -1 && pdy <= 1) {
             /* Got them. A bite wakes anybody. */
-            g->vitals.health -= def->bite;
-            if (g->vitals.health < 0.0f) g->vitals.health = 0.0f;
             game_wake(g);
+            game_hurt(g, def->bite);
             m->state = MOB_RETURN;
             m->timer = def->bite_rest;
-        } else if (m->timer == 0 || abs(pdx) > def->seek_radius || !head_for(g, m, p->feet.x)) {
+        } else if (!game_alive(g) || m->timer == 0 || abs(pdx) > def->seek_radius || !head_for(g, m, p->feet.x)) {
             /* Too far, too long, or no way to them: back up the tree. */
             m->state = MOB_RETURN;
             m->timer = def->bite_rest;
@@ -401,11 +401,10 @@ static void swim_tick(Game *g, Mob *m, const MobDef *def)
             /* Just bitten: off it goes, before it comes round again. */
             m->timer--;
             if (swim_toward(g, m, pdx, pdy, true)) return;
-        } else if (game_player_in_water(g) && pdx * pdx + pdy * pdy <= def->sight * def->sight) {
+        } else if (game_alive(g) && game_player_in_water(g) && pdx * pdx + pdy * pdy <= def->sight * def->sight) {
             if (abs(pdx) <= 1 && abs(pdy) <= 1) {
-                g->vitals.health -= def->bite;
-                if (g->vitals.health < 0.0f) g->vitals.health = 0.0f;
                 game_wake(g);
+                game_hurt(g, def->bite);
                 m->timer = def->bite_rest;
                 return;
             }
@@ -432,8 +431,9 @@ void mobs_tick(Game *g)
 
         m->age++;
         if (m->baby && m->age >= def->baby_ticks) m->baby = false;
-        /* A wild one that has got too far from the player is gone. */
-        if (!m->owned && !in_range(g, m->x, m->y)) {
+        /* A wild one that has got too far from the player is gone. (With nobody
+         * alive to be far from, things stay as they are.) */
+        if (!m->owned && game_alive(g) && !in_range(g, m->x, m->y)) {
             m->active = false;
             continue;
         }

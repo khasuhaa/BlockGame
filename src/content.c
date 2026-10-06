@@ -849,6 +849,12 @@ static bool read_rules(Reader *r, const cJSON *root)
         }
     }
     if (field(root, "players")) u->max_players = (int)num(field(root, "players"), "max", u->max_players);
+    const cJSON *death = field(root, "death");
+    if (death) {
+        u->death_bar = (float)num(death, "bar", u->death_bar);
+        u->respawn_ticks = (int)num(death, "respawn_ticks", u->respawn_ticks);
+        u->respawn_cost = (int)num(death, "respawn_cost", u->respawn_cost);
+    }
     const cJSON *combat = field(root, "combat");
     if (combat) {
         u->hand_damage = (int)num(combat, "hand_damage", u->hand_damage);

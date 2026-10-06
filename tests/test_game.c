@@ -2806,6 +2806,10 @@ static void test_plants(void)
     for (int y = s - 5; y <= s - 1; y++) CHECK(world_get_at(w, BG, kx, y) == kelp);
     CHECK(world_get_at(w, BG, kx, s - 6) == TILE_AIR);
     CHECK(world_get_at(w, BG, kx - 1, s - 3) == TILE_AIR && world_get_at(w, BG, kx + 1, s - 3) == TILE_AIR);
+    /* (The player has been standing under water all this while, and would
+     * not have lived. They are put right, and the clock stopped, for the rest.) */
+    g.vitals = (Vitals){ .health = 1.0f, .hunger = 1.0f, .energy = 1.0f, .oxygen = 1.0f, .death = 1.0f };
+    g.tick_rate = 0;
     /* It can be climbed. */
     g.player.feet = g.player.step_to = (TilePos){ kx, s - 1 };
     game_set_move_input(&g, 0, -1);
@@ -5090,6 +5094,206 @@ static void test_fluid_creatures(void)
     game_free(&g);
 }
 
+static void test_death(void)
+{
+    Game g;
+    game_init(&g, 256, 64, 151, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    Vitals *v = &g.vitals;
+    const RulesDef *u = &content.rules;
+    clear_inventory(&g);
+    clear_mobs(&g);
+    g.tick_rate = 0;
+    int ground = g.player.feet.y;
+    CHECK(u->respawn_ticks == 1800 && u->respawn_cost == 100 && u->death_bar > 0.0f);
+    CHECK(v->death == 1.0f && v->respawn == 0 && game_alive(&g) && strcmp(game_character_name(&g, 0), "Player 1") == 0);
+
+    /* Losing all of the health bar is not dying: what goes past it comes off the death bar. */
+    game_hurt(&g, 0.4f);
+    CHECK(near(v->health, 0.6f) && v->death == 1.0f);
+    game_hurt(&g, 0.9f);
+    CHECK(v->health == 0.0f && near(v->death, 1.0f - 0.3f / u->death_bar) && game_alive(&g));
+    /* Mending fills the death bar again before it does anything for health. */
+    float low = v->death;
+    for (int i = 0; i < 60; i++) game_tick(&g);
+    CHECK(v->death > low && v->health == 0.0f);
+    for (int i = 0; i < u->health_regen_ticks; i++) {
+        v->hunger = 1.0f; /* (fed all the while) */
+        game_tick(&g);
+    }
+    CHECK(v->death == 1.0f && v->health > 0.5f);
+
+    /* With the death bar gone too, the character is dead. */
+    v->hunger = v->health = 1.0f;
+    inventory_add(inv, ITEM_STONE, 9);
+    inventory_add(inv, ITEM_BASKET, 1);
+    inventory_add(inv, ITEM_WOOD, 4);
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 2, 0 }, (SlotRef){ SLOT_BASKET, 1, 0 }, MAX_STACK));
+    g.player.feet = g.player.step_to = (TilePos){ w->spawn_x + 30, ground };
+    TilePos fell = g.player.feet;
+    inventory_select(inv, 6, -1);
+    CHECK(game_click_tile(&g, fell.x + 5, ground));
+    game_hurt(&g, 1.0f + u->death_bar - 0.01f);
+    CHECK(game_alive(&g) && v->death > 0.0f && v->death < 0.02f);
+    game_hurt(&g, 0.05f);
+    CHECK(!game_alive(&g) && game_character_dead(&g, 0) && v->respawn == 1800 && g.queue_count == 0 && !g.has_current);
+    /* The dead do nothing, and nothing more can be done to them. */
+    CHECK(!game_click_tile(&g, fell.x + 3, ground) && !game_rest(&g, REST_MEDITATE) && !game_eat(&g));
+    game_hurt(&g, 5.0f);
+    run(&g, 2.0f);
+    game_set_move_input(&g, 1, 0);
+    run(&g, 1.0f);
+    game_set_move_input(&g, 0, 0);
+    CHECK(g.player.feet.x == fell.x && v->respawn == 1800);
+
+    /* Coming back at once costs up to 100 crystals: less the more of the wait is done. */
+    CHECK(game_respawn_cost(&g, 0) == 100);
+    for (int i = 0; i < 450; i++) game_tick(&g);
+    CHECK(v->respawn == 1350 && game_respawn_cost(&g, 0) == 75);
+    for (int i = 0; i < 450; i++) game_tick(&g);
+    CHECK(game_respawn_cost(&g, 0) == 50);
+    g.crystals = 49;
+    CHECK(!game_respawn(&g, 0) && game_character_dead(&g, 0));
+    g.crystals = 80;
+    CHECK(game_respawn(&g, 0) && g.crystals == 30 && game_alive(&g));
+    /* Back at the spawn portal, whole, with everything they had. */
+    CHECK(abs(g.player.feet.x - w->spawn_x) <= 2 && v->health == 1.0f && v->death == 1.0f && v->respawn == 0);
+    CHECK(inventory_count(inv, ITEM_STONE) == 9 && inventory_count(inv, ITEM_WOOD) == 4 && game_respawn_cost(&g, 0) == -1);
+    CHECK(!game_remove_character(&g, 0)); /* the living are not removed */
+
+    /* Left alone, the dead come back by themselves when the 1800 ticks are up. */
+    g.player.feet = g.player.step_to = fell;
+    game_hurt(&g, 10.0f);
+    CHECK(!game_alive(&g));
+    for (int i = 0; i < 1799; i++) game_tick(&g);
+    CHECK(!game_alive(&g) && v->respawn == 1 && game_respawn_cost(&g, 0) == 1);
+    game_tick(&g);
+    CHECK(game_alive(&g) && abs(g.player.feet.x - w->spawn_x) <= 2 && g.crystals == 30);
+
+    /* Drowning is a way to die. */
+    g.player.feet = g.player.step_to = (TilePos){ w->spawn_x + 40, ground };
+    for (int dx = -1; dx <= 1; dx++)
+        for (int dy = -3; dy <= 0; dy++) world_set_water(w, w->spawn_x + 40 + dx, ground + dy, WATER_FULL);
+    world_set(w, w->spawn_x + 38, ground, TILE_STONE);
+    world_set(w, w->spawn_x + 42, ground, TILE_STONE);
+    world_set(w, w->spawn_x + 38, ground - 1, TILE_STONE);
+    world_set(w, w->spawn_x + 42, ground - 1, TILE_STONE);
+    int breaths = 0;
+    while (game_alive(&g) && breaths < 5000) {
+        for (int dx = -1; dx <= 1; dx++) world_set_water(w, w->spawn_x + 40 + dx, ground - 1, WATER_FULL);
+        game_tick(&g);
+        breaths++;
+    }
+    CHECK(!game_alive(&g) && breaths > u->oxygen_ticks + u->drown_ticks && breaths < 5000);
+    for (int dx = -2; dx <= 2; dx++)
+        for (int dy = -4; dy <= 0; dy++) world_set_water(w, w->spawn_x + 40 + dx, ground + dy, 0);
+    TilePos drowned = g.player.feet;
+
+    /* Removing a dead character leaves all they carried where they died,
+     * and leaves the world with nobody in it. */
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    CHECK(game_remove_character(&g, 0));
+    CHECK(g.character_count == 0 && !game_alive(&g));
+    CHECK(count_drops(&g, ITEM_STONE) == 9 && count_drops(&g, ITEM_BASKET) == 1 && count_drops(&g, ITEM_WOOD) == 0);
+    for (int i = 0; i < MAX_DROPS; i++) {
+        if (!g.drops[i].active) continue;
+        CHECK(g.drops[i].x == drowned.x);
+        /* (The basket still has the wood in it.) */
+        if (g.drops[i].item == ITEM_BASKET) CHECK(g.inventory.containers[g.drops[i].container].slots[0].id == ITEM_WOOD);
+    }
+    /* With nobody there, nothing can be done and nothing comes for anybody; time still passes. */
+    uint64_t tick = g.tick;
+    CHECK(!game_click_tile(&g, drowned.x + 2, ground) && !game_open_bench(&g, w->spawn_x, ground));
+    g.tick_rate = 10;
+    run(&g, 2.0f);
+    g.tick_rate = 0;
+    CHECK(g.tick > tick && g.character_count == 0);
+    for (int i = 0; i < 2000; i++) mobs_try_spawn(&g, w->spawn_x + 5, ground);
+    CHECK(count_mobs(&g) == 0);
+
+    /* A new first character is made at a portal the player has uncovered, and named. */
+    CHECK(game_is_portal(&g, w->spawn_x, ground) && !game_is_portal(&g, w->spawn_x + 5, ground));
+    CHECK(game_create_character(&g, (TilePos){ w->spawn_x + 5, ground }, "Nobody") == -1 && g.character_count == 0);
+    CHECK(game_create_character(&g, (TilePos){ w->spawn_x, ground }, "Ada") == 0);
+    CHECK(g.character_count == 1 && game_alive(&g) && strcmp(game_character_name(&g, 0), "Ada") == 0);
+    CHECK(abs(g.player.feet.x - w->spawn_x) <= 2 && v->health == 1.0f && v->death == 1.0f);
+    /* This world has had its first already: this one starts with nothing. */
+    for (int i = 0; i < INVENTORY_SLOTS; i++) CHECK(inv->slots[i].count == 0);
+    CHECK(game_click_tile(&g, w->spawn_x + 4, ground));
+    run(&g, 3.0f);
+    CHECK(g.player.feet.x == w->spawn_x + 4);
+    game_free(&g);
+
+    /* A brand new world has nobody in it until its first character is made
+     * - and that one is given what a new player starts with. */
+    game_init(&g, 256, 64, 152, WORLD_FLAT);
+    w = &g.world;
+    ground = g.player.feet.y;
+    game_clear_characters(&g);
+    CHECK(g.character_count == 0 && !g.started && !game_alive(&g));
+    for (int i = 0; i < INVENTORY_SLOTS; i++) CHECK(g.inventory.slots[i].count == 0);
+    Game loaded;
+    CHECK(save_game(&g, "build/test_death.world") && load_game(&loaded, "build/test_death.world"));
+    CHECK(loaded.character_count == 0 && !loaded.started);
+    CHECK(game_create_character(&loaded, (TilePos){ loaded.world.spawn_x, ground }, "Grace") == 0 && loaded.started);
+    CHECK(inventory_count(&loaded.inventory, ITEM_BASKET) == 1 && strcmp(game_character_name(&loaded, 0), "Grace") == 0);
+    game_free(&loaded);
+    CHECK(game_create_character(&g, (TilePos){ w->spawn_x, ground }, "") == 0);
+    CHECK(strcmp(game_character_name(&g, 0), "Player 1") == 0 && inventory_count(&g.inventory, ITEM_BASKET) == 1);
+
+    /* Two characters. When the one being played dies, the other is played. */
+    g.tick_rate = 0;
+    clear_mobs(&g);
+    CHECK(game_add_character(&g, (TilePos){ w->spawn_x + 6, ground }) == 1);
+    game_control(&g, 1);
+    inventory_add(&g.inventory, ITEM_DIRT, 3);
+    game_hurt(&g, 10.0f);
+    CHECK(game_character_dead(&g, 1) && g.controlled == 0);
+    game_control(&g, g.controlled);
+    CHECK(g.live == 0 && game_alive(&g) && !game_character_dead(&g, 0));
+    /* A creature takes no notice of the dead one, however near. */
+    int bear = mob_spawn(&g, mob_id("dropbear"), w->spawn_x + 7, ground, true, false);
+    g.mobs[bear].state = MOB_HUNT;
+    g.mobs[bear].timer = 50;
+    g.player.feet = g.player.step_to = (TilePos){ w->spawn_x - 60, ground };
+    for (int i = 0; i < 100; i++) game_tick(&g);
+    CHECK(g.vitals.health == 1.0f && game_character_vitals(&g, 1)->respawn == 1700);
+    clear_mobs(&g);
+    /* Time does not wait on the dead: with the living one at rest it runs on. */
+    g.tick_rate = 10;
+    CHECK(game_rest(&g, REST_MEDITATE) && game_tick_speed(&g) == 3 * 10);
+    game_wake(&g);
+    g.tick_rate = 0;
+    /* Saved and loaded, the dead are still dead, and still called what they were called. */
+    snprintf(g.characters[1].name, CHARACTER_NAME_MAX, "Second");
+    CHECK(save_game(&g, "build/test_death.world") && load_game(&loaded, "build/test_death.world"));
+    CHECK(loaded.character_count == 2 && game_character_dead(&loaded, 1) && !game_character_dead(&loaded, 0));
+    CHECK(game_character_vitals(&loaded, 1)->respawn == 1700 && strcmp(game_character_name(&loaded, 1), "Second") == 0);
+    CHECK(strcmp(game_character_name(&loaded, 0), "Player 1") == 0 && loaded.controlled == 0);
+    game_free(&loaded);
+    remove("build/test_death.world");
+    /* Removing the dead one frees its place: another can be made at the portal bench. */
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    const Recipe *r = find_recipe(TILE_SPAWN_PORTAL, "new_player");
+    g.player.feet = g.player.step_to = (TilePos){ w->spawn_x, ground };
+    for (int i = 0; i < r->input_count; i++) inventory_add(&g.inventory, r->inputs[i].id, r->inputs[i].count);
+    g.crystals = 500;
+    CHECK(game_open_bench(&g, w->spawn_x, ground) && !game_craft(&g, r, 1));
+    CHECK(game_remove_character(&g, 1) && g.character_count == 1 && g.live == 0 && g.controlled == 0);
+    CHECK(count_drops(&g, ITEM_DIRT) == 3);
+    CHECK(game_open_bench(&g, w->spawn_x, ground) && game_craft(&g, r, 1));
+    run(&g, 1.0f);
+    CHECK(g.character_count == 2 && !game_character_dead(&g, 1));
+    /* Removing the first of two leaves the second as the only one, and played. */
+    game_hurt(&g, 10.0f);
+    CHECK(game_character_dead(&g, 0) && g.controlled == 1);
+    game_control(&g, 1);
+    CHECK(game_remove_character(&g, 0) && g.character_count == 1 && g.live == 0 && g.controlled == 0 && game_alive(&g));
+    CHECK(strcmp(game_character_name(&g, 0), "Player 2") == 0);
+    game_free(&g);
+}
+
 static void test_tools(void)
 {
     Game g;
@@ -5454,6 +5658,7 @@ int main(void)
     test_dodo_tree();
     test_water();
     test_basket_pickup();
+    test_death();
     test_fluid_creatures();
     test_characters();
     test_sea_and_combat();

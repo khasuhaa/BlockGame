@@ -4,6 +4,7 @@
 #include "trade.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -642,6 +643,7 @@ static int pending_places(const Game *g, ItemId item)
 /* Queues `a` if it can be done from `pos` in the scratch world. */
 static bool queue_checked(Game *g, Pose pos, Action a)
 {
+    if (!game_alive(g)) return false; /* nobody there to do it */
     bool ok = g->queue_count < MAX_QUEUED_ACTIONS;
     if (ok && uses_item(a))
         ok = inventory_count(&g->inventory, (ItemId)a.item) > pending_places(g, (ItemId)a.item);
@@ -1074,6 +1076,7 @@ static bool drop_in_reach(const Game *g, const Drop *d, TilePos feet)
 /* The live character picks up what is lying within their reach. */
 static void collect_nearby(Game *g)
 {
+    if (!game_alive(g)) return;
     for (int i = 0; i < MAX_DROPS; i++) {
         Drop *d = &g->drops[i];
         if (!d->active || d->collect > 0.0f || d->attached || d->held_off || d->age < DROP_PICKUP_DELAY) continue;
@@ -1322,6 +1325,8 @@ static bool start_next_activity(Game *g)
         begin_step(g, (Step){ 0, 1, false });
         return true;
     }
+    /* The dead do nothing more than lie where they fell. */
+    if (g->vitals.respawn > 0) return false;
     /* Asleep or meditating, the player stays put - on the ground, that is. */
     if (g->vitals.rest != REST_NONE) {
         if (!p->climbing) return false;
@@ -1518,7 +1523,7 @@ bool game_open_bench(Game *g, int x, int y)
 {
     x = world_wrap_x(&g->world, x);
     const TileDef *def = tile_def(game_bench_at(g, x, y));
-    if (!def->bench && !def->trade) return false;
+    if (!game_alive(g) || (!def->bench && !def->trade)) return false;
     if (g->bench_open && g->bench_pos.x == x && g->bench_pos.y == y) return true;
     game_close_bench(g);
     g->bench_open = true;
@@ -1534,7 +1539,7 @@ bool game_at_bench(const Game *g)
 
 bool game_bench_work(Game *g, Work work, int arg, int amount)
 {
-    if (!g->bench_open || work == WORK_NONE) return false;
+    if (!game_alive(g) || !g->bench_open || work == WORK_NONE) return false;
     /* Standing at it with nothing else to do first: done here and now. */
     if (game_at_bench(g) && !g->has_current && g->queue_count == 0) return work_now(g, work, arg, amount);
     /* Otherwise the player goes there, and does it on arriving. */
@@ -1558,7 +1563,7 @@ bool game_teleport(Game *g)
     World *w = &g->world;
     Player *p = &g->player;
     int cost = game_teleport_cost(g);
-    if (cost < 0 || g->crystals < cost || in_use_range(w, p->feet, g->bench_pos)) return false;
+    if (!game_alive(g) || cost < 0 || g->crystals < cost || in_use_range(w, p->feet, g->bench_pos)) return false;
     /* To the foot of the portal, or failing that beside it. */
     int layer = LAYER_FOREGROUND, bottom = g->bench_pos.y;
     usable_at(w, g->bench_pos.x, g->bench_pos.y, &layer);
@@ -1593,7 +1598,7 @@ void game_close_bench(Game *g)
 
 static void update_bench(Game *g, float dt)
 {
-    if (!g->bench_open) return;
+    if (!g->bench_open || !game_alive(g)) return;
     /* It shuts if it is removed. A chest shuts when the player leaves it too;
      * a bench's menu stays up to be looked at, but nothing is made at it
      * while the player is away. */
@@ -1705,6 +1710,7 @@ void game_random_event(Game *g, int x, int y)
 
 static void character_stash(Game *g, Character *c)
 {
+    memcpy(c->name, g->name, sizeof c->name);
     c->player = g->player;
     memcpy(c->slots, g->inventory.slots, sizeof c->slots);
     memcpy(c->armor, g->inventory.armor, sizeof c->armor);
@@ -1731,6 +1737,7 @@ static void character_stash(Game *g, Character *c)
 
 static void character_fetch(Game *g, const Character *c)
 {
+    memcpy(g->name, c->name, sizeof g->name);
     g->player = c->player;
     memcpy(g->inventory.slots, c->slots, sizeof c->slots);
     memcpy(g->inventory.armor, c->armor, sizeof c->armor);
@@ -1794,6 +1801,8 @@ int game_nearest_character(const Game *g, int x, int y)
     int best = g->live;
     long nearest = -1;
     for (int c = 0; c < g->character_count; c++) {
+        /* The living, if there are any: the dead are nobody to a creature. */
+        if (character_vitals(g, c)->respawn > 0) continue;
         TilePos at = character_feet(g, c);
         long dx = world_dx(&g->world, at.x, x), dy = y - at.y, d = dx * dx + dy * dy;
         if (nearest < 0 || d < nearest) nearest = d, best = c;
@@ -1815,9 +1824,243 @@ int game_add_character(Game *g, TilePos at)
     made->player.facing = 1;
     made->sel_inner = -1;
     memset(made->choice, -1, sizeof made->choice);
-    made->vitals = (Vitals){ .health = 1.0f, .hunger = 1.0f, .energy = 1.0f, .oxygen = 1.0f };
+    made->vitals = (Vitals){ .health = 1.0f, .hunger = 1.0f, .energy = 1.0f, .oxygen = 1.0f, .death = 1.0f };
+    snprintf(made->name, sizeof made->name, "Player %d", c + 1);
     game_reveal(g, at.x, at.y - 1);
     return c;
+}
+
+const char *game_character_name(const Game *g, int c)
+{
+    return c == g->live ? g->name : c >= 0 && c < g->character_count ? g->characters[c].name : "";
+}
+
+TilePos game_character_pos(const Game *g, int c)
+{
+    return character_feet(g, c < 0 || c >= g->character_count ? g->live : c);
+}
+
+bool game_alive(const Game *g)
+{
+    return g->character_count > 0 && g->vitals.respawn == 0;
+}
+
+bool game_character_dead(const Game *g, int c)
+{
+    return c >= 0 && c < g->character_count && character_vitals(g, c)->respawn > 0;
+}
+
+bool game_is_portal(const Game *g, int x, int y)
+{
+    const TileDef *def = tile_def(game_bench_at(g, x, y));
+    return def->bench && content.rules.teleport_bench[0] && strcmp(def->bench_kind, content.rules.teleport_bench) == 0;
+}
+
+/* Somewhere to stand at a portal: its foot, or failing that beside it. */
+static bool portal_standing(const Game *g, TilePos portal, TilePos *out)
+{
+    const World *w = &g->world;
+    int layer = LAYER_FOREGROUND, bottom = portal.y;
+    usable_at(w, portal.x, portal.y, &layer);
+    world_structure(w, layer, portal.x, portal.y, &bottom);
+    static const int beside[5] = { 0, -1, 1, -2, 2 };
+    for (int i = 0; i < 5; i++) {
+        for (int dy = 0; dy <= 2; dy++) {
+            TilePos at = { world_wrap_x(w, portal.x + beside[i]), bottom - dy };
+            if (!body_fits(w, at.x, at.y) || !is_supported(w, at)) continue;
+            *out = at;
+            return true;
+        }
+    }
+    return false;
+}
+
+void game_clear_characters(Game *g)
+{
+    while (g->character_count > 1) {
+        int last = g->character_count - 1;
+        if (g->live == last) game_use_character(g, 0);
+        for (int i = 0; i < INVENTORY_SLOTS; i++) container_free(&g->inventory, g->characters[last].slots[i].container);
+        free(g->characters[last].steps);
+        g->character_count--;
+    }
+    for (int i = 0; i < INVENTORY_SLOTS; i++) container_free(&g->inventory, g->inventory.slots[i].container);
+    for (int i = 0; i < ARMOR_SLOTS; i++) container_free(&g->inventory, g->inventory.armor[i].container);
+    memset(g->inventory.slots, 0, sizeof g->inventory.slots);
+    memset(g->inventory.armor, 0, sizeof g->inventory.armor);
+    g->queue_count = 0;
+    g->has_current = false;
+    g->bench_open = false;
+    g->player.activity = ACTIVITY_IDLE;
+    g->character_count = 0;
+    g->live = g->controlled = 0;
+    g->started = false;
+}
+
+int game_create_character(Game *g, TilePos portal, const char *name)
+{
+    TilePos at;
+    portal.x = world_wrap_x(&g->world, portal.x);
+    if (!game_is_portal(g, portal.x, portal.y) || !portal_standing(g, portal, &at)) return -1;
+    int c;
+    if (g->character_count == 0) {
+        /* Into the place the Game itself keeps for whoever is live. */
+        c = 0;
+        g->character_count = 1;
+        g->live = g->controlled = 0;
+        memset(&g->player, 0, sizeof g->player);
+        g->player.feet = g->player.step_to = at;
+        g->player.facing = 1;
+        memset(g->inventory.slots, 0, sizeof g->inventory.slots);
+        memset(g->inventory.armor, 0, sizeof g->inventory.armor);
+        g->inventory.sel_slot = 0;
+        g->inventory.sel_inner = -1;
+        memset(g->inventory.choice, -1, sizeof g->inventory.choice);
+        g->queue_count = 0;
+        g->has_current = false;
+        g->move_dx = g->move_dy = 0;
+        g->bench_open = false;
+        g->craft_remaining = 0;
+        g->vitals = (Vitals){ .health = 1.0f, .hunger = 1.0f, .energy = 1.0f, .oxygen = 1.0f, .death = 1.0f };
+        game_reveal(g, at.x, at.y - 1);
+    } else {
+        c = game_add_character(g, at);
+        if (c < 0) return -1;
+    }
+    char *named = c == g->live ? g->name : g->characters[c].name;
+    if (name && name[0]) snprintf(named, CHARACTER_NAME_MAX, "%s", name);
+    else snprintf(named, CHARACTER_NAME_MAX, "Player %d", c + 1);
+    /* A world's first character is given what a new player starts with. */
+    if (!g->started) {
+        int was = g->live;
+        game_use_character(g, c);
+        for (int i = 0; i < content.rules.start_item_count; i++)
+            inventory_add(&g->inventory, content.rules.start_items[i].id, content.rules.start_items[i].count);
+        game_use_character(g, was);
+        g->started = true;
+    }
+    return c;
+}
+
+/* The live character dies. */
+static void die(Game *g)
+{
+    Vitals *v = &g->vitals;
+    v->health = v->death = 0.0f;
+    v->respawn = content.rules.respawn_ticks > 0 ? content.rules.respawn_ticks : 1;
+    v->rest = REST_NONE;
+    v->meditation = 0.0f;
+    game_cancel_actions(g);
+    game_close_bench(g);
+    g->move_dx = g->move_dy = 0;
+    /* If they were the one being played and somebody else is alive, that one is played instead. */
+    if (g->controlled != g->live) return;
+    for (int c = 0; c < g->character_count; c++) {
+        if (c == g->live || character_vitals(g, c)->respawn > 0) continue;
+        g->controlled = c;
+        return;
+    }
+}
+
+void game_hurt(Game *g, float amount)
+{
+    Vitals *v = &g->vitals;
+    if (!game_alive(g) || amount <= 0.0f) return;
+    v->health -= amount;
+    if (v->health >= 0.0f) return;
+    /* Past the end of health it comes off the bar underneath. */
+    float bar = content.rules.death_bar > 0.0f ? content.rules.death_bar : 1.0f;
+    v->death += v->health / bar;
+    v->health = 0.0f;
+    game_wake(g);
+    if (v->death <= 0.0f) die(g);
+}
+
+/* Mends the live character by so much of a health bar: the death bar first, then health. */
+static void heal(Game *g, float amount)
+{
+    Vitals *v = &g->vitals;
+    float bar = content.rules.death_bar > 0.0f ? content.rules.death_bar : 1.0f;
+    if (v->death < 1.0f) {
+        float need = (1.0f - v->death) * bar, used = amount < need ? amount : need;
+        v->death += used / bar;
+        if (v->death > 0.9999f) v->death = 1.0f;
+        amount -= used;
+    }
+    v->health = v->health + amount > 1.0f ? 1.0f : v->health + amount;
+}
+
+/* Brings the live character back: at the spawn portal, whole. */
+static void revive(Game *g)
+{
+    Player *p = &g->player;
+    TilePos at = { g->world.spawn_x, g->world.spawn_y };
+    portal_standing(g, at, &at);
+    p->feet = p->step_to = at;
+    p->activity = ACTIVITY_IDLE;
+    p->climbing = false;
+    float hunger = g->vitals.hunger > 0.5f ? g->vitals.hunger : 0.5f, energy = g->vitals.energy > 0.5f ? g->vitals.energy : 0.5f;
+    g->vitals = (Vitals){ .health = 1.0f, .hunger = hunger, .energy = energy, .oxygen = 1.0f, .death = 1.0f };
+    game_reveal(g, at.x, at.y - 1);
+}
+
+int game_respawn_cost(const Game *g, int c)
+{
+    if (!game_character_dead(g, c)) return -1;
+    int total = content.rules.respawn_ticks > 0 ? content.rules.respawn_ticks : 1;
+    long left = character_vitals(g, c)->respawn;
+    return (int)((left * content.rules.respawn_cost + total - 1) / total);
+}
+
+bool game_respawn(Game *g, int c)
+{
+    int cost = game_respawn_cost(g, c);
+    if (cost < 0 || g->crystals < cost) return false;
+    g->crystals -= cost;
+    int was = g->live;
+    game_use_character(g, c);
+    revive(g);
+    game_use_character(g, was);
+    return true;
+}
+
+bool game_remove_character(Game *g, int c)
+{
+    if (!game_character_dead(g, c)) return false;
+    int played = g->controlled;
+    game_use_character(g, c);
+    /* All they carried is left lying where they died. */
+    TilePos at = g->player.feet;
+    for (int i = 0; i < INVENTORY_SLOTS + ARMOR_SLOTS; i++) {
+        ItemStack *s = i < INVENTORY_SLOTS ? &g->inventory.slots[i] : &g->inventory.armor[i - INVENTORY_SLOTS];
+        ItemStack one;
+        while (s->count > 0 && inventory_split(&g->inventory, s, 1, &one)) {
+            if (!spawn_drop_stack(g, one, at)) break;
+        }
+        *s = (ItemStack){ 0 };
+    }
+    game_cancel_actions(g);
+    game_close_bench(g);
+    if (g->character_count == 1) {
+        /* Nobody left: the world waits for a new first character. */
+        g->character_count = 0;
+        g->live = g->controlled = 0;
+        g->vitals.respawn = 0;
+        return true;
+    }
+    game_use_character(g, c == 0 ? 1 : 0);
+    free(g->characters[c].steps);
+    for (int i = c; i + 1 < g->character_count; i++) g->characters[i] = g->characters[i + 1];
+    g->character_count--;
+    if (g->live > c) g->live--;
+    if (played == c) played = g->live;
+    else if (played > c) played--;
+    /* (Somebody alive, if the one who was being played is the one who went.) */
+    for (int i = 0; i < g->character_count && character_vitals(g, played)->respawn > 0; i++)
+        if (character_vitals(g, i)->respawn == 0) played = i;
+    g->controlled = played;
+    game_use_character(g, played);
+    return true;
 }
 
 void game_roll_recipes(const Game *g)
@@ -1887,7 +2130,7 @@ bool game_eat(Game *g)
 {
     Vitals *v = &g->vitals;
     const ItemStack *held = inventory_selected(&g->inventory);
-    if (held->count < 1 || !game_can_eat(g, held->id)) return false;
+    if (!game_alive(g) || held->count < 1 || !game_can_eat(g, held->id)) return false;
     const ItemDef *def = item_def(held->id);
     ItemStack eaten;
     if (!inventory_take_one(&g->inventory, held->id, &eaten)) return false;
@@ -1898,7 +2141,7 @@ bool game_eat(Game *g)
     if (game_bar_full(v->hunger)) v->saturation += def->food * (float)content.rules.saturation_ticks;
     v->hunger = clamp01(v->hunger + def->food);
     float mend = def->food_health >= 0.0f ? def->food_health : def->food * content.rules.food_health;
-    v->health = clamp01(v->health + mend);
+    heal(g, mend);
     v->energy = clamp01(v->energy + def->food_energy);
     return true;
 }
@@ -1916,6 +2159,7 @@ bool game_rest(Game *g, Rest kind)
         game_wake(g);
         return true;
     }
+    if (!game_alive(g)) return false;
     if (kind == REST_SLEEP && game_bar_full(g->vitals.energy)) return false;
     /* Only from standing on the ground, or about to be. */
     TilePos at = p->activity == ACTIVITY_STEPPING ? p->step_to : p->feet;
@@ -1933,8 +2177,13 @@ int game_tick_speed(const Game *g)
 {
     /* Time only runs on when every character is at rest. */
     bool all = true;
-    for (int c = 0; c < g->character_count; c++) all = all && character_vitals(g, c)->rest != REST_NONE;
-    return g->tick_rate * (all && content.rules.rest_speed > 1 ? content.rules.rest_speed : 1);
+    int living = 0;
+    for (int c = 0; c < g->character_count; c++) {
+        if (character_vitals(g, c)->respawn > 0) continue; /* (the dead are not waited for) */
+        living++;
+        all = all && character_vitals(g, c)->rest != REST_NONE;
+    }
+    return g->tick_rate * (living > 0 && all && content.rules.rest_speed > 1 ? content.rules.rest_speed : 1);
 }
 
 /* Where something that comes out of the player appears: at their head, to
@@ -1983,6 +2232,11 @@ static void vitals_tick(Game *g)
 {
     const RulesDef *u = &content.rules;
     Vitals *v = &g->vitals;
+    /* The dead only wait: when the wait is over they are back. */
+    if (v->respawn > 0) {
+        if (--v->respawn == 0) revive(g);
+        return;
+    }
 
     /* Meditating, the body wants nothing: neither hunger nor energy runs down. */
     bool still = v->rest == REST_MEDITATE;
@@ -1999,7 +2253,7 @@ static void vitals_tick(Game *g)
             if (v->health < u->starve_floor) v->health = u->starve_floor;
         }
     } else if (u->health_regen_ticks > 0) {
-        v->health = clamp01(v->health + 1.0f / (float)u->health_regen_ticks);
+        heal(g, 1.0f / (float)u->health_regen_ticks);
     }
 
     /* Breath: it runs down with the head under water and comes back in the
@@ -2007,8 +2261,9 @@ static void vitals_tick(Game *g)
     if (u->oxygen_ticks > 0 && game_player_underwater(g)) {
         v->oxygen = clamp01(v->oxygen - 1.0f / (float)u->oxygen_ticks);
         if (v->oxygen <= 0.0f && u->drown_ticks > 0) {
-            v->health = clamp01(v->health - 1.0f / (float)u->drown_ticks);
             game_wake(g);
+            game_hurt(g, 1.0f / (float)u->drown_ticks);
+            if (v->respawn > 0) return;
         }
     } else {
         v->oxygen = u->oxygen_refill_ticks > 0 ? clamp01(v->oxygen + 1.0f / (float)u->oxygen_refill_ticks) : 1.0f;
@@ -2130,6 +2385,7 @@ void game_update(Game *g, float dt)
 
 void game_set_move_input(Game *g, int dx, int dy)
 {
+    if (!game_alive(g)) dx = dy = 0;
     g->move_dx = dx;
     g->move_dy = dy;
     if (dx != 0 || dy != 0) game_wake(g);
@@ -2238,7 +2494,9 @@ bool game_init(Game *g, int width, int height, uint32_t seed, WorldKind kind)
         game_free(g);
         return false;
     }
-    g->vitals = (Vitals){ .health = 1.0f, .hunger = 1.0f, .energy = 1.0f, .oxygen = 1.0f };
+    g->vitals = (Vitals){ .health = 1.0f, .hunger = 1.0f, .energy = 1.0f, .oxygen = 1.0f, .death = 1.0f };
+    snprintf(g->name, sizeof g->name, "Player 1");
+    g->started = true;
     g->character_count = 1;
     g->live = g->controlled = 0;
     game_roll_recipes(g);

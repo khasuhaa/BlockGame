@@ -15,6 +15,7 @@
 #define MAX_TICKS_PER_UPDATE 200 /* so a slow frame cannot snowball */
 #define MAX_STORAGES 256
 #define MAX_MOBS 64
+#define CHARACTER_NAME_MAX 16
 #define MAX_CHARACTERS 4 /* characters a world has room for; the rules say how many it may have */
 #define MAX_ATTACK_TRIES 8 /* times a hunt re-plans after its quarry has moved */
 #define MAX_SEARCH 60000 /* poses a route search looks at before giving up */
@@ -135,7 +136,9 @@ typedef struct {
     float meditation; /* progress toward the next thing meditating brings, 0..1 */
     int32_t rest;     /* a Rest */
     float oxygen;     /* breath left, which runs down with the head under water */
-    int32_t reserved[3];
+    float death;      /* the bar under health: what is left between no health and dead */
+    int32_t respawn;  /* dead, with this many ticks to go before coming back; 0 for alive */
+    int32_t reserved[1];
 } Vitals;
 
 /* Fading marker shown on a tile whose action was refused. */
@@ -209,6 +212,7 @@ typedef struct {
  * its state is in the Game itself, in the fields of the same names - and
  * the others wait here, each taking its turn (see game_use_character). */
 typedef struct {
+    char name[CHARACTER_NAME_MAX];
     Player player;
     ItemStack slots[INVENTORY_SLOTS];
     ItemStack armor[ARMOR_SLOTS];
@@ -273,6 +277,10 @@ typedef struct {
      * which is the live one whenever nothing is in the middle of happening. */
     Character characters[MAX_CHARACTERS];
     int character_count, live, controlled;
+    char name[CHARACTER_NAME_MAX]; /* the live character's */
+    /* Whether this world's first character has been made yet: the one who is
+     * given what a new world starts a player with. */
+    bool started;
 
     /* Fog of war: how far each tile has been uncovered, 0 (never seen) to
      * 255. Once uncovered a tile stays so. */
@@ -310,6 +318,36 @@ void game_control(Game *g, int c);
 /* Adds a character, standing at a place, with nothing. Returns its number,
  * or -1 if the world has all it may. */
 int game_add_character(Game *g, TilePos at);
+/* A world can be without any character at all: a new one is, until its
+ * first is made, and so is one whose characters have all been removed. */
+/* Takes every character away, as a world that has yet to have its first. */
+void game_clear_characters(Game *g);
+/* Makes a character at a portal the player has uncovered, with a name. The
+ * first of a world needs nothing but that, and is given what a new player
+ * starts with; after that they are made at the bench. Returns the
+ * character's number, or -1 if that is no such portal or there is no room. */
+int game_create_character(Game *g, TilePos portal, const char *name);
+/* True if the block at a place is a portal a character can be made at or carried to. */
+bool game_is_portal(const Game *g, int x, int y);
+const char *game_character_name(const Game *g, int c);
+TilePos game_character_pos(const Game *g, int c);
+
+/* Dying. */
+/* Hurts the live character by so much of a health bar. With health gone it
+ * comes off the death bar; with that gone they are dead. */
+void game_hurt(Game *g, float amount);
+/* True if the live character is there and alive. */
+bool game_alive(const Game *g);
+bool game_character_dead(const Game *g, int c);
+/* What it costs to bring a dead character back now: the full price right
+ * after dying, less the more of the wait is done. -1 if they are not dead. */
+int game_respawn_cost(const Game *g, int c);
+/* Pays that and brings them back, at the world's spawn portal. */
+bool game_respawn(Game *g, int c);
+/* Takes a dead character out of the world for good, leaving all they
+ * carried lying where they died. Its place can be filled by a new one. */
+bool game_remove_character(Game *g, int c);
+
 /* How a character is, whether or not it is the one being played. */
 const Vitals *game_character_vitals(const Game *g, int c);
 /* The character nearest a place. */

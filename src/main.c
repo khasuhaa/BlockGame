@@ -156,6 +156,133 @@ static int map_portal_at(const MapCamera *cam, Vector2 screen)
     return best;
 }
 
+/* The portal at a place, by its lowest block; false if there is none there that the player has uncovered. */
+static bool portal_under(const Game *g, int x, int y, TilePos *out)
+{
+    x = world_wrap_x(&g->world, x);
+    if (!game_is_portal(g, x, y) || game_explored(g, x, y) == 0) return false;
+    while (game_is_portal(g, x, y + 1)) y++;
+    *out = (TilePos){ x, y };
+    return true;
+}
+
+/* The panel for making a first character, at the top of the screen. */
+static Rectangle create_panel(void)
+{
+    return (Rectangle){ GetScreenWidth() / 2.0f - 210.0f, 130.0f, 420.0f, 172.0f };
+}
+
+static Rectangle create_button(void)
+{
+    Rectangle p = create_panel();
+    return (Rectangle){ p.x + 16, p.y + p.height - 48, p.width - 32, 34 };
+}
+
+/* With nobody in the world there is nothing to do but look about, pick a
+ * portal, and make somebody. Returns true once a character has been made. */
+static bool handle_nobody(Game *g, MapCamera *cam, char *name, TilePos *create_at)
+{
+    /* The name, as it is typed. */
+    size_t len = strlen(name);
+    for (int c = GetCharPressed(); c > 0; c = GetCharPressed())
+        if (c >= 32 && c < 127 && len + 1 < CHARACTER_NAME_MAX) name[len++] = (char)c, name[len] = '\0';
+    if ((IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) && len > 0) name[len - 1] = '\0';
+
+    Vector2 mouse = GetMousePosition();
+    bool on_panel = CheckCollisionPointRec(mouse, create_panel());
+    bool make = IsKeyPressed(KEY_ENTER) ||
+                (IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && !cam->dragging && CheckCollisionPointRec(mouse, create_button()));
+    if (make && game_create_character(g, *create_at, name) >= 0) {
+        cam->pressed = cam->dragging = false;
+        cam->follow = true;
+        cam->anchored = false;
+        cam->zoom_level = ZOOM_DEFAULT;
+        return true;
+    }
+
+    /* The view: the wheel, and dragging. */
+    float wheel = GetMouseWheelMove();
+    if (wheel != 0.0f) {
+        int before = cam->zoom_level;
+        cam->zoom_level += wheel > 0.0f ? -1 : 1;
+        if (cam->zoom_level < 0) cam->zoom_level = 0;
+        if (cam->zoom_level >= ZOOM_LEVELS) cam->zoom_level = ZOOM_LEVELS > 0 ? ZOOM_LEVELS - 1 : 0;
+        if (cam->zoom_level != before) {
+            cam->anchored = true;
+            cam->anchor_screen = mouse;
+            cam->anchor_world = (Vector2){ cam->center.x + (mouse.x - GetScreenWidth() / 2.0f) / zoom,
+                                           cam->center.y + (mouse.y - GetScreenHeight() / 2.0f) / zoom };
+        }
+    }
+    cam->follow = false;
+    bool on_map = zoom_step(cam->zoom_level) < MAP_FADE_FROM;
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !on_panel) {
+        cam->pressed = true;
+        cam->dragging = false;
+        cam->press_mouse = mouse;
+        cam->press_center = cam->center;
+    }
+    if (cam->pressed && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+        float dx = mouse.x - cam->press_mouse.x, dy = mouse.y - cam->press_mouse.y;
+        if (!cam->dragging && dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
+            cam->dragging = true;
+            cam->anchored = false;
+            cam->press_center = cam->center;
+            cam->press_mouse = mouse;
+            dx = dy = 0.0f;
+        }
+        if (cam->dragging)
+            cam->center = (Vector2){ cam->press_center.x - dx / zoom, cam->press_center.y - dy / zoom };
+    }
+    if (cam->pressed && IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+        /* A click on a portal - its mark on the map, or the thing itself -
+         * makes it the one the character will be made at, and goes in on it. */
+        TilePos picked;
+        bool found = false;
+        if (!cam->dragging && on_map) {
+            int portal = map_portal_at(cam, mouse);
+            if (portal >= 0) picked = world_map.portals[portal], found = true;
+        } else if (!cam->dragging) {
+            TilePos t = tile_at_screen(cam, mouse);
+            found = portal_under(g, t.x, t.y, &picked);
+        }
+        if (found) {
+            *create_at = picked;
+            cam->zoom_level = ZOOM_DEFAULT;
+            cam->anchored = false;
+            cam->center = (Vector2){ (view_near_x(&view, (float)picked.x) + 0.5f) * TILE_SIZE, ((float)picked.y - 2.0f) * TILE_SIZE };
+        }
+        cam->pressed = false;
+        cam->dragging = false;
+    }
+    return false;
+}
+
+static void draw_nobody(const Game *g, const char *name, TilePos create_at)
+{
+    Rectangle p = create_panel(), b = create_button();
+    DrawRectangleRec(p, (Color){ 28, 30, 40, 244 });
+    DrawRectangleLinesEx(p, 2.0f, (Color){ 244, 196, 48, 255 });
+    const char *title = g->started ? "Nobody is left. Make a new character" : "Make your first character";
+    DrawText(title, (int)(p.x + (p.width - MeasureText(title, 20)) / 2), (int)p.y + 12, 20, RAYWHITE);
+    /* The name, with a cursor that blinks. */
+    Rectangle field = { p.x + 16, p.y + 44, p.width - 32, 32 };
+    DrawRectangleRec(field, (Color){ 14, 15, 20, 255 });
+    DrawRectangleLinesEx(field, 1.0f, (Color){ 120, 122, 134, 255 });
+    bool blink = fmodf((float)GetTime(), 1.0f) < 0.5f;
+    if (name[0]) DrawText(TextFormat("%s%s", name, blink ? "_" : ""), (int)field.x + 8, (int)field.y + 7, 18, RAYWHITE);
+    else DrawText(blink ? "Type a name_" : "Type a name", (int)field.x + 8, (int)field.y + 7, 18, GRAY);
+    bool spawn = create_at.x == g->world.spawn_x;
+    const char *where = TextFormat("At the %s at X %d, Y %d.  Click another portal to start there:", spawn ? "spawn portal" : "portal",
+                                   create_at.x, world_row_to_y(&g->world, create_at.y));
+    DrawText(where, (int)p.x + 16, (int)p.y + 84, 10, LIGHTGRAY);
+    DrawText("zoom out to the map to find the ones you have discovered.", (int)p.x + 16, (int)p.y + 98, 10, LIGHTGRAY);
+    bool hot = CheckCollisionPointRec(GetMousePosition(), b);
+    DrawRectangleRec(b, hot ? (Color){ 90, 160, 100, 255 } : (Color){ 70, 130, 80, 255 });
+    const char *label = "Create character  (Enter)";
+    DrawText(label, (int)(b.x + (b.width - MeasureText(label, 18)) / 2), (int)b.y + 8, 18, RAYWHITE);
+}
+
 static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, TradeUi *trade, PlayerUi *player,
                          const Keybinds *keys)
 {
@@ -860,6 +987,17 @@ static void draw_player(const Game *g, Vector2 origin)
     /* When climbing, press against the wall and reach for it. */
     float px = origin.x + view_near_x(&view, x) * TILE_SIZE + grip * inset, py = origin.y + y * TILE_SIZE;
     bool settled = p->activity == ACTIVITY_IDLE && !p->climbing;
+    if (g->vitals.respawn > 0) {
+        /* Dead: laid out on the ground, the colour gone from them. */
+        float ground = py + TILE_SIZE;
+        Color grey = { 120, 124, 134, 255 }, pale = { 176, 178, 186, 255 };
+        DrawRectangleRec((Rectangle){ px - 6, ground - 10, TILE_SIZE + 4, 10 }, grey);
+        DrawRectangleRec((Rectangle){ px + TILE_SIZE - 2, ground - 14, 14, 14 }, pale);
+        DrawRectangleRec((Rectangle){ px + TILE_SIZE - 2, ground - 14, 14, 4 }, (Color){ 70, 66, 62, 255 });
+        DrawLineEx((Vector2){ px + TILE_SIZE + 3, ground - 8 }, (Vector2){ px + TILE_SIZE + 7, ground - 4 }, 1.5f, EYE);
+        DrawLineEx((Vector2){ px + TILE_SIZE + 7, ground - 8 }, (Vector2){ px + TILE_SIZE + 3, ground - 4 }, 1.5f, EYE);
+        return;
+    }
     if (g->vitals.rest == REST_SLEEP && settled) {
         draw_player_asleep(g, px, py);
         return;
@@ -988,8 +1126,11 @@ static void draw_hud(const Game *g, const MapCamera *cam)
     float phase = game_day_phase(g, &day);
     int row = 0;
     draw_readout_line(row++, TextFormat("%d fps", GetFPS()));
-    draw_readout_line(row++, TextFormat("XY: %d / %d", g->player.feet.x, world_row_to_y(w, g->player.feet.y)));
-    draw_readout_line(row++, TextFormat("Biome: %s", content.biomes[world_biome(w, g->player.feet.x)].label));
+    /* Where the character is - or, with nobody, where the view is. */
+    int at_x = g->character_count > 0 ? g->player.feet.x : world_wrap_x(w, (int)floorf(cam->center.x / TILE_SIZE));
+    int at_y = g->character_count > 0 ? g->player.feet.y : (int)floorf(cam->center.y / TILE_SIZE);
+    draw_readout_line(row++, TextFormat("XY: %d / %d", at_x, world_row_to_y(w, at_y)));
+    draw_readout_line(row++, TextFormat("Biome: %s", content.biomes[world_biome(w, at_x)].label));
     draw_readout_line(row++, TextFormat("Mobs: %d / %d land, %d / %d water", mobs_near_player(g), content.mob_cap,
                                         mobs_near_player_in_water(g), content.mob_water_cap));
     draw_readout_line(row++, TextFormat("%s %d%%   tick %llu at %d/s%s", day ? "Day" : "Night", (int)(phase * 100.0f),
@@ -1010,6 +1151,10 @@ typedef struct {
     PauseMenu pause;
     bool paused;
     PlayerUi player_ui;
+    /* With nobody in the world: the name being typed for a first character,
+     * and the portal they will be made at. */
+    char new_name[CHARACTER_NAME_MAX];
+    TilePos create_at;
     float since_save;
     char name[WORLD_NAME_MAX + 1];
     char path[256];
@@ -1023,6 +1168,8 @@ static void session_begin(Session *s, const MainMenu *menu)
     s->bench = (BenchUi){ .selected = -1, .amount = 1 };
     s->trade = (TradeUi){ 0 };
     s->player_ui = (PlayerUi){ 0 };
+    s->new_name[0] = '\0';
+    s->create_at = (TilePos){ s->game.world.spawn_x, s->game.world.spawn_y };
     /* Crystals come with the player into whichever world is opened. */
     profile_load(PROFILE_PATH, &s->game);
     s->saved_crystals = s->game.crystals;
@@ -1059,7 +1206,19 @@ static void session_update(Session *s, const Keybinds *keys, float dt)
         game_set_move_input(&s->game, 0, 0);
         return;
     }
-    handle_input(&s->game, &s->cam, &s->hud, &s->bench, &s->trade, &s->player_ui, keys);
+    playerui_set_view(&ui_view, zoom_step(s->cam.zoom_level) >= MAP_FADE_FROM);
+    if (s->game.character_count == 0) {
+        /* Nobody to play: somebody has to be made first. */
+        hud_close_all(&s->hud);
+        benchui_close(&s->bench, &s->game);
+        s->player_ui = (PlayerUi){ 0 };
+        if (handle_nobody(&s->game, &s->cam, s->new_name, &s->create_at)) {
+            s->new_name[0] = '\0';
+            s->create_at = (TilePos){ s->game.world.spawn_x, s->game.world.spawn_y };
+        }
+    } else {
+        handle_input(&s->game, &s->cam, &s->hud, &s->bench, &s->trade, &s->player_ui, keys);
+    }
     game_update(&s->game, dt);
     /* What belongs to the player is written down as soon as it changes, not
      * only when the world is saved. */
@@ -1091,7 +1250,7 @@ static void session_draw(Session *s)
             int c = (g->controlled + 1 + n) % g->character_count;
             game_use_character(g, c);
             draw_player(g, origin);
-            if (g->character_count > 1 && c == g->controlled) draw_played_marker(g, origin);
+            if (g->character_count > 1 && c == g->controlled && game_alive(g)) draw_played_marker(g, origin);
         }
         draw_drops(g, origin);
         /* Darkness falls over the world, but not over the interface. */
@@ -1119,6 +1278,13 @@ static void session_draw(Session *s)
     if (!on_map) {
         benchui_draw(&s->bench, g, &ui_view);
         tradeui_draw(&s->trade, g, &ui_view);
+    }
+    playerui_set_view(&ui_view, !on_map);
+    if (g->character_count == 0) {
+        /* Nobody in the world: just the readout, and the making of somebody. */
+        draw_hud(g, &s->cam);
+        if (!s->paused) draw_nobody(g, s->new_name, s->create_at);
+        return;
     }
     sync_storage_slots(g, &s->hud);
     draw_hud(g, &s->cam);
@@ -1161,6 +1327,8 @@ int main(void)
                 uint32_t seed = (uint32_t)time(NULL) ^ (uint32_t)(GetTime() * 1000000.0);
                 ok = game_init(&session.game, content.worldgen.width, content.worldgen.height, seed,
                                WORLD_TERRAIN);
+                /* A new world has nobody in it: its first character is made by the player. */
+                if (ok) game_clear_characters(&session.game);
             }
             if (r == MAIN_MENU_LOAD || r == MAIN_MENU_CREATE) {
                 if (ok) {

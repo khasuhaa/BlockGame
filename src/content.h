@@ -442,6 +442,12 @@ typedef struct {
     int teleport_free;
     int teleport_per;      /* one crystal more for every this many blocks beyond */
     int max_players;       /* how many characters a world can have to play */
+    /* Dying. With health gone, what hurts comes off a second bar; when that
+     * is gone too the character is dead, and comes back by themselves after
+     * a while - or sooner, for crystals. */
+    float death_bar;       /* how much the second bar takes, in health bars */
+    int respawn_ticks;     /* how long the dead stay dead */
+    int respawn_cost;      /* crystals to come back at once, right after dying; less as the wait runs down */
     int hand_damage;       /* what a blow with nothing better in hand takes off a creature */
     float attack_time;     /* seconds a blow takes */
     float zoom[MAX_ZOOM_LEVELS];
