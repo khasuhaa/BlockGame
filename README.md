@@ -26,7 +26,7 @@ Everything the game contains is defined in `data/`, not in the code, so it can b
 | `worldgen.json` | World size, the plains, the mountains and valleys (any number of kinds), soil layers, sea level, the climate maps and the biomes (their ground, trees and plants), caves and what is set into them, veins (what, in what, how big, how deep, how common, what shape), the spawn and its portal, and how trees are scattered |
 | `mobs.json` | Creatures: how they move, where they turn up, what they lay, how long they take to grow up, what they leave, and the spawning range and cap |
 | `trade.json` | The categories items are sold in, the coins and what each is worth, the default price, and the crystals a new player starts with |
-| `rules.json` | Tick rate, day and night length, how bright the sun and moon are and how fast light fades, player step timings, starting items, and how drops behave |
+| `rules.json` | Tick rate, day and night length, how bright the sun and moon are and how fast light fades, the fog of war, the steps of the zoom and where it becomes the world map, player step timings, starting items, and how drops behave |
 | `textures/` | PNG images, 32 pixels to the block. A block can list several to vary between; one larger than a block overhangs it |
 
 Blocks and items refer to each other by name. A mistake, such as a recipe for an item that does not exist, stops the game at startup with a message naming the file and the problem.
@@ -41,7 +41,7 @@ Worlds are saved in `saves/<name>.world`, next to where the game is run from. A 
 
 `Esc` opens the pause menu, which stops the world and offers:
 
-- **World settings** — the tick rate, from 1 to 60 ticks a second (10 by default). It is saved with the world.
+- **World settings** — the tick rate, from 1 to 60 ticks a second (10 by default), and whether the fog of war is on. Both are saved with the world.
 - **Keybinds** — the keys for moving left and right, climbing up and down, and making the camera follow the player. Click one, then press the new key; a key already in use swaps with the one it replaces. Bindings are shared by all worlds and kept in `saves/keybinds.txt`.
 
 ## Controls
@@ -59,6 +59,7 @@ Worlds are saved in `saves/<name>.world`, next to where the game is run from. A 
 | Click a creature | Queue hunting it |
 | `Esc` | Pause menu |
 | Drag | Pan the map |
+| Mouse wheel | Zoom in and out; far enough out, the world map |
 | `Space` | Make the camera follow the player again |
 | `1`–`8` | Select an inventory slot |
 
@@ -192,6 +193,12 @@ The bar along the bottom has a head button followed by 8 slots. Stacks hold up t
 - Clicking or dragging the world, or pressing a movement key, closes everything.
 
 A mined block drops as an item where it was. It is collected when the player is on or next to its tile, a moment after it drops, as long as there is room in the bar or in a basket in the bar.
+
+## Fog of war and the world map
+
+A world starts blacked out. The player uncovers everything within 20 blocks of themselves as they move, and what has been uncovered stays uncovered: it is saved with the world. The edge is not a line; the outer 8 blocks of the circle fade into the black. Fog of war can be turned off and on in the pause menu's world settings - turning it off shows everything, and turning it back on brings back exactly what had been explored. A save from before the fog existed starts with only the area round the player uncovered. The radius, the fade and whether new worlds start fogged are in `rules.json`.
+
+The mouse wheel zooms the view in and out in steps. Zoomed out past a threshold, the view fades into the world map: the whole world at a few pixels a block, each block drawn as the one average colour of its texture, with a marker where the player is. The map can be dragged about like the world, and wraps round like it, but nothing on it can be clicked. The fog of war covers the map too. Zooming back in returns to the world.
 
 ## Reach
 

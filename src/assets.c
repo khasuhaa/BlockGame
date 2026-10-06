@@ -10,6 +10,7 @@ static Texture2D tile_textures[MAX_TILES][MAX_TILE_TEXTURES];
 static Texture2D tile_top_textures[MAX_TILES];
 static Texture2D tile_base_textures[MAX_TILES];
 static Texture2D item_textures[MAX_ITEMS];
+static Color tile_colors[MAX_TILES];
 static struct {
     char file[CONTENT_PATH_LEN];
     Texture2D texture;
@@ -28,6 +29,30 @@ static Texture2D load(const char *dir, const char *file)
     return LoadTexture(path);
 }
 
+/* The average of a texture's solid pixels. */
+static Color average_color(const char *dir, const char *file)
+{
+    const char *path = TextFormat("%s/textures/%s", dir, file);
+    if (!file[0] || !FileExists(path)) return MAGENTA;
+    Image img = LoadImage(path);
+    long r = 0, g = 0, b = 0, n = 0;
+    for (int y = 0; y < img.height; y++) {
+        for (int x = 0; x < img.width; x++) {
+            Color c = GetImageColor(img, x, y);
+            if (c.a < 128) continue;
+            r += c.r, g += c.g, b += c.b, n++;
+        }
+    }
+    UnloadImage(img);
+    if (n == 0) return BLANK;
+    return (Color){ (unsigned char)(r / n), (unsigned char)(g / n), (unsigned char)(b / n), 255 };
+}
+
+Color assets_tile_color(TileType t)
+{
+    return t > TILE_AIR && t < content.tile_count ? tile_colors[t] : BLANK;
+}
+
 void assets_load(const char *dir)
 {
     assets_unload();
@@ -36,6 +61,7 @@ void assets_load(const char *dir)
         for (int i = 0; i < content.tiles[t].texture_count; i++)
             tile_textures[t][i] = load(dir, content.tiles[t].textures[i]);
         tile_top_textures[t] = load(dir, content.tiles[t].texture_top);
+        tile_colors[t] = average_color(dir, content.tiles[t].texture_count > 0 ? content.tiles[t].textures[0] : "");
         tile_base_textures[t] = load(dir, content.tiles[t].texture_base);
     }
     for (int i = 0; i < content.item_count; i++) item_textures[i] = load(dir, content.items[i].texture);

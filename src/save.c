@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 7u
+#define SAVE_VERSION 8u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -25,7 +25,8 @@ typedef struct {
  * grow, so adding to it does not move what comes after. */
 typedef struct {
     int32_t sea_row; /* -1 for a world with no sea */
-    int32_t reserved[7];
+    int32_t fog;     /* fog of war: 1 on, 2 off, 0 not recorded */
+    int32_t reserved[6];
 } SaveExtra;
 
 /* How the inventory and drops were laid out before version 3, when a
@@ -181,7 +182,7 @@ bool save_game(const Game *g, const char *path)
         h.climbing = g->player.step.climb;
     }
 
-    SaveExtra extra = { .sea_row = w->sea_row };
+    SaveExtra extra = { .sea_row = w->sea_row, .fog = g->fog ? 1 : 2 };
     bool ok = fwrite(&h, sizeof h, 1, f) == 1 && fwrite(&extra, sizeof extra, 1, f) == 1 &&
               write_names(f, content.tile_count, content.tiles[0].name, sizeof content.tiles[0]) &&
               write_names(f, content.item_count, content.items[0].name, sizeof content.items[0]);
@@ -191,7 +192,8 @@ bool save_game(const Game *g, const char *path)
          fwrite(g->drops, sizeof g->drops, 1, f) == 1 &&
          fwrite(g->storages, sizeof g->storages, 1, f) == 1 &&
          write_names(f, content.mob_count, content.mobs[0].name, sizeof content.mobs[0]) &&
-         fwrite(g->mobs, sizeof g->mobs, 1, f) == 1 && fwrite(&g->next_mob_id, sizeof g->next_mob_id, 1, f) == 1;
+         fwrite(g->mobs, sizeof g->mobs, 1, f) == 1 && fwrite(&g->next_mob_id, sizeof g->next_mob_id, 1, f) == 1 &&
+         fwrite(g->explored, 1, cells, f) == cells;
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
         remove(tmp);
@@ -255,6 +257,10 @@ bool load_game(Game *g, const char *path)
                 g->mobs[i].kind = kinds[g->mobs[i].kind];
             }
         }
+        /* What has been uncovered, from version 8. An older world starts
+         * dark, but for where the player is standing. */
+        memset(g->explored, 0, cells);
+        if (ok && h.version >= 8) ok = fread(g->explored, 1, cells, f) == cells;
 
         /* Turn the save's ids into this run's. */
         for (int layer = 0; layer < LAYER_COUNT && ok; layer++)
@@ -301,10 +307,12 @@ bool load_game(Game *g, const char *path)
 
         w->y_top = h.y_top;
         w->sea_row = extra.sea_row;
+        if (extra.fog != 0) g->fog = extra.fog == 1;
         w->spawn_x = h.spawn_x;
         w->spawn_y = h.spawn_y;
         w->surface_y = h.surface_y;
         g->player.feet = g->player.step_to = (TilePos){ world_wrap_x(w, h.feet_x), h.feet_y };
+        if (ok && world_in_bounds(w, 0, h.feet_y)) game_reveal(g, g->player.feet.x, g->player.feet.y - 1);
         g->player.climbing = h.climbing != 0;
         g->player.facing = h.facing < 0 ? -1 : 1;
         g->tick = h.tick;

@@ -745,6 +745,35 @@ static bool collect_drop(Game *g, Drop *d)
     return true;
 }
 
+int game_explored(const Game *g, int x, int y)
+{
+    if (!g->fog || !g->explored) return 255;
+    if (!world_in_bounds(&g->world, x, y)) return 0;
+    return g->explored[(size_t)y * g->world.width + world_wrap_x(&g->world, x)];
+}
+
+void game_reveal(Game *g, int x, int y)
+{
+    if (!g->explored) return;
+    const World *w = &g->world;
+    int radius = content.rules.fog_radius, fade = content.rules.fog_fade;
+    if (fade < 1) fade = 1;
+    for (int dy = -radius; dy <= radius; dy++) {
+        int ty = y + dy;
+        if (ty < 0 || ty >= w->height) continue;
+        for (int dx = -radius; dx <= radius; dx++) {
+            /* Clear near the middle, thinning out over the last few blocks,
+             * so the edge of what is known fades into the dark. */
+            float d = sqrtf((float)(dx * dx + dy * dy));
+            float clear = ((float)radius - d) / (float)fade;
+            if (clear <= 0.0f) continue;
+            int level = clear >= 1.0f ? 255 : (int)(clear * clear * (3.0f - 2.0f * clear) * 255.0f);
+            uint8_t *cell = &g->explored[(size_t)ty * w->width + world_wrap_x(w, x + dx)];
+            if (level > *cell) *cell = (uint8_t)level;
+        }
+    }
+}
+
 void game_drop_item(Game *g, ItemId id, int x, int y)
 {
     spawn_drop(g, id, (TilePos){ world_wrap_x(&g->world, x), y });
@@ -915,6 +944,7 @@ static void finish_activity(Game *g)
     if (p->activity == ACTIVITY_STEPPING) {
         /* A step across the seam lands on the far side of the world. */
         p->feet = (TilePos){ world_wrap_x(&g->world, p->step_to.x), p->step_to.y };
+        game_reveal(g, p->feet.x, p->feet.y - 1);
         p->step_to = p->feet;
         p->climbing = p->step.climb;
     } else if (p->activity == ACTIVITY_MINING) {
@@ -1363,6 +1393,13 @@ bool game_init(Game *g, int width, int height, uint32_t seed, WorldKind kind)
     inventory_init(&g->inventory);
     g->tick_rate = DEFAULT_TICK_RATE;
     g->rng = seed ^ 0x5EED1E57u;
+    g->explored = calloc(cells, 1);
+    if (!g->explored) {
+        game_free(g);
+        return false;
+    }
+    g->fog = content.rules.fog_enabled;
+    game_reveal(g, g->player.feet.x, g->player.feet.y - 1);
     g->player.step_to = g->player.feet;
     return true;
 }
@@ -1376,5 +1413,6 @@ void game_free(Game *g)
     free(g->bfs_parent);
     free(g->bfs_queue);
     free(g->bfs_seen);
+    free(g->explored);
     memset(g, 0, sizeof *g);
 }

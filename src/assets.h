@@ -26,6 +26,8 @@ void assets_draw_tile(TileType t, int x, int y, float px, float py, float tile_s
  * block that stands alone counts as a top. */
 TilePart assets_tile_part(TileType t, TileType above, TileType below);
 void assets_draw_item(ItemId id, Rectangle r);
+/* The one colour that stands for a tile on a small map: the average of its texture. */
+Color assets_tile_color(TileType t);
 /* Draws any other image under `<dir>/textures`, loading it on first use. */
 void assets_draw_image(const char *file, Rectangle r);
 /* The same, optionally mirrored left to right. */

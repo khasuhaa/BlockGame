@@ -387,7 +387,11 @@ static void world_page(PauseMenu *p, Game *g, float top)
     DrawText("Trees and fruit grow by ticks; movement does not.", (int)row.x, (int)row.y + 106, 14,
              GRAY);
 
-    if (button(column_button(top + 150, 0), "Back", true)) p->page = PAUSE_PAGE_MAIN;
+    /* Fog of war: on, the world is dark until the player has been near it. */
+    if (button(column_button(top + 150, 0), g->fog ? "Fog of war: on" : "Fog of war: off", true)) g->fog = !g->fog;
+    DrawText("What has been uncovered is remembered either way.", (int)row.x, (int)(top + 196), 14, GRAY);
+
+    if (button(column_button(top + 230, 0), "Back", true)) p->page = PAUSE_PAGE_MAIN;
 }
 
 static void keys_page(PauseMenu *p, Keybinds *k, float top)

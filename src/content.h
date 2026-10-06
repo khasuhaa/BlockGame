@@ -65,6 +65,8 @@ typedef enum {
     EQUIP_NONE
 } EquipSlot;
 
+#define MAX_ZOOM_LEVELS 16
+
 typedef struct {
     ItemId id;
     int count;
@@ -330,6 +332,17 @@ typedef struct {
     int light_minimum; /* the least anything is ever lit, so the dark is not blind */
     int light_water_depth; /* blocks of water that cost one level of sky light */
     int water_color[4];    /* red, green, blue, alpha of the tint drawn over water */
+
+    /* Fog of war: the world is dark until the player has been near it. */
+    bool fog_enabled; /* whether a new world starts with it */
+    int fog_radius;   /* blocks round the player that are uncovered */
+    int fog_fade;     /* of which the outermost this many fade out toward the dark */
+    /* The view: how many pixels a block is at each step of the zoom, from
+     * closest to farthest, and the one a world opens at. Between map_from
+     * and map_to pixels the view fades into the world map. */
+    float zoom[MAX_ZOOM_LEVELS];
+    int zoom_count, zoom_start;
+    float map_from, map_to;
 } RulesDef;
 
 /* A creature. */

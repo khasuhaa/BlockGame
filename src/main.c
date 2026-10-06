@@ -24,6 +24,21 @@
 #define AUTOSAVE_SECONDS 120.0f
 #define BACKGROUND_DIM 0.18f /* how much darker the background layer is drawn */
 #define WALL_DIM 0.5f        /* and the backwall behind that */
+#define ZOOM_SPEED 10.0f     /* how fast the view eases to a new zoom */
+#define MAP_REFRESH 0.5f     /* seconds between redrawings of the world map */
+
+/* How big a block is drawn, in pixels, at each step of the mouse wheel, and
+ * where the view fades into the world map, are in the rules. */
+#define ZOOM_LEVELS (content.rules.zoom_count)
+#define ZOOM_DEFAULT (content.rules.zoom_start)
+#define MAP_FADE_FROM (content.rules.map_from)
+#define MAP_FADE_TO (content.rules.map_to)
+
+static float zoom_step(int level)
+{
+    if (ZOOM_LEVELS == 0) return (float)TILE_SIZE; /* no steps in the data: no zooming */
+    return content.rules.zoom[level < 0 ? 0 : level >= ZOOM_LEVELS ? ZOOM_LEVELS - 1 : level];
+}
 
 /* World-space pixel shown at the centre of the window. */
 typedef struct {
@@ -31,18 +46,30 @@ typedef struct {
     bool follow; /* track the player until the map is dragged */
     bool pressed, dragging;
     Vector2 press_mouse, press_center;
+    int zoom_level; /* which of zoom_levels the wheel has asked for */
+    float scale;    /* pixels per block being drawn now, easing toward that */
 } MapCamera;
 
-/* Refreshed from the camera at the start of each frame. */
-static View view;
+/* Refreshed from the camera at the start of each frame. The world is drawn
+ * as if a block were always TILE_SIZE pixels, onto a screen `seen` in size,
+ * and the whole picture is then scaled by `zoom`. `view` is that unscaled
+ * layout; `ui_view` is the same thing on the real screen, for the interface
+ * that is pinned to places in the world but not scaled with it. */
+static View view, ui_view;
+static float zoom = 1.0f;
+static Vector2 seen;
 
 static void update_view(const MapCamera *cam, const World *w)
 {
-    view.origin = (Vector2){ floorf(GetScreenWidth() / 2.0f - cam->center.x),
-                             floorf(GetScreenHeight() / 2.0f - cam->center.y) };
+    zoom = (cam->scale > 0.0f ? cam->scale : (float)TILE_SIZE) / TILE_SIZE;
+    seen = (Vector2){ GetScreenWidth() / zoom, GetScreenHeight() / zoom };
+    view.origin = (Vector2){ floorf(seen.x / 2.0f - cam->center.x), floorf(seen.y / 2.0f - cam->center.y) };
     view.tile_size = TILE_SIZE;
     view.center_x = cam->center.x / TILE_SIZE;
     view.world_width = w->width;
+    ui_view = view;
+    ui_view.origin = (Vector2){ view.origin.x * zoom, view.origin.y * zoom };
+    ui_view.tile_size = TILE_SIZE * zoom;
 }
 
 static Vector2 view_origin(const MapCamera *cam)
@@ -55,8 +82,8 @@ static Vector2 view_origin(const MapCamera *cam)
 static TilePos tile_at_screen(const MapCamera *cam, Vector2 screen)
 {
     Vector2 origin = view_origin(cam);
-    return (TilePos){ (int)floorf((screen.x - origin.x) / TILE_SIZE),
-                      (int)floorf((screen.y - origin.y) / TILE_SIZE) };
+    return (TilePos){ (int)floorf((screen.x / zoom - origin.x) / TILE_SIZE),
+                      (int)floorf((screen.y / zoom - origin.y) / TILE_SIZE) };
 }
 
 static Rectangle tile_rect(Vector2 origin, TilePos t)
@@ -79,7 +106,7 @@ static void sync_storage_slots(const Game *g, Hud *hud)
 {
     Rectangle rects[HUD_MAX_EXTRA_SLOTS];
     uint16_t container;
-    hud->extra_count = benchui_storage_slots(g, &view, rects, HUD_MAX_EXTRA_SLOTS, &container);
+    hud->extra_count = benchui_storage_slots(g, &ui_view, rects, HUD_MAX_EXTRA_SLOTS, &container);
     for (int i = 0; i < hud->extra_count; i++)
         hud->extra[i] = (HudSlot){ rects[i], { SLOT_CONTAINER, container, i } };
 }
@@ -106,8 +133,23 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
 
     /* A press that starts on the inventory never reaches the world. */
     if (hud_handle_input(hud, &g->inventory)) return;
-    if (tradeui_handle_input(trade, g, &view)) return;
-    if (benchui_handle_input(bench, g, &view)) return;
+    if (tradeui_handle_input(trade, g, &ui_view)) return;
+    if (benchui_handle_input(bench, g, &ui_view)) return;
+
+    /* The wheel zooms, when it is not scrolling a menu under the cursor. */
+    float wheel = GetMouseWheelMove();
+    if (wheel != 0.0f && !hud_mouse_over(hud, &g->inventory) && !tradeui_mouse_over(trade, g, &ui_view) &&
+        !benchui_mouse_over(bench, g, &ui_view)) {
+        cam->zoom_level += wheel > 0.0f ? -1 : 1;
+        if (cam->zoom_level < 0) cam->zoom_level = 0;
+        if (cam->zoom_level >= ZOOM_LEVELS) cam->zoom_level = ZOOM_LEVELS > 0 ? ZOOM_LEVELS - 1 : 0;
+        /* On the world map there is nothing to have open. */
+        if (zoom_step(cam->zoom_level) < MAP_FADE_FROM) {
+            hud_close_all(hud);
+            benchui_close(bench, g);
+        }
+    }
+    bool on_map = zoom_step(cam->zoom_level) < MAP_FADE_FROM;
 
     Vector2 mouse = GetMousePosition();
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
@@ -125,21 +167,22 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
             cam->follow = false;
         }
         if (cam->dragging)
-            cam->center = (Vector2){ cam->press_center.x - dx, cam->press_center.y - dy };
+            cam->center = (Vector2){ cam->press_center.x - dx / zoom, cam->press_center.y - dy / zoom };
     }
     if (cam->pressed && IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-        if (!cam->dragging) {
+        /* The world map can be dragged about, but a click on it does nothing. */
+        if (!cam->dragging && !on_map) {
             TilePos t = tile_at_screen(cam, mouse);
             t.x = world_wrap_x(&g->world, t.x);
             const TileDef *def = tile_def(game_bench_at(g, t.x, t.y));
             bool opens = def->bench || def->trade || def->storage_columns > 0;
-            int drop = game_drop_at(g, (mouse.x - view.origin.x) / TILE_SIZE,
-                                    (mouse.y - view.origin.y) / TILE_SIZE);
+            int drop = game_drop_at(g, (mouse.x / zoom - view.origin.x) / TILE_SIZE,
+                                    (mouse.y / zoom - view.origin.y) / TILE_SIZE);
             /* An item under the cursor comes before the tile behind it.
              * Something that opens offers a choice if it can also be removed;
              * otherwise it just opens. */
-            int mob = game_mob_at(g, (mouse.x - view.origin.x) / TILE_SIZE,
-                                  (mouse.y - view.origin.y) / TILE_SIZE);
+            int mob = game_mob_at(g, (mouse.x / zoom - view.origin.x) / TILE_SIZE,
+                                  (mouse.y / zoom - view.origin.y) / TILE_SIZE);
             if (drop >= 0) game_click_drop(g, drop);
             /* A creature under the cursor is hunted. */
             else if (mob >= 0) game_click_mob(g, mob);
@@ -162,6 +205,7 @@ static void update_camera(const Game *g, MapCamera *cam, float dt)
         cam->center.x += (target.x - cam->center.x) * k;
         cam->center.y += (target.y - cam->center.y) * k;
     }
+    cam->scale += (zoom_step(cam->zoom_level) - cam->scale) * fminf(1.0f, dt * ZOOM_SPEED);
     /* No limit sideways: the world goes all the way round. */
     cam->center.y = fminf(fmaxf(cam->center.y, 0.0f), (float)g->world.height * TILE_SIZE);
 }
@@ -178,7 +222,8 @@ static void draw_sky(const Game *g, Vector2 origin)
     const World *w = &g->world;
     float light = game_daylight(g);
     Color sky = mix((Color){ 12, 16, 40, 255 }, (Color){ 135, 190, 235, 255 }, light);
-    DrawRectangle(0, (int)origin.y, GetScreenWidth(), w->height * TILE_SIZE, sky);
+    /* (Drawn straight to the screen, not through the zoom.) */
+    DrawRectangle(0, (int)(origin.y * zoom), GetScreenWidth(), (int)(w->height * TILE_SIZE * zoom) + 1, sky);
 
     bool day;
     float phase = game_day_phase(g, &day);
@@ -200,7 +245,7 @@ static void draw_world(const World *w, Vector2 origin)
 {
     /* Columns run past either end of the world: reads wrap round it. */
     int x0 = (int)floorf(-origin.x / TILE_SIZE), y0 = (int)floorf(-origin.y / TILE_SIZE);
-    int x1 = x0 + GetScreenWidth() / TILE_SIZE + 1, y1 = y0 + GetScreenHeight() / TILE_SIZE + 1;
+    int x1 = x0 + (int)seen.x / TILE_SIZE + 1, y1 = y0 + (int)seen.y / TILE_SIZE + 1;
     if (y0 < 0) y0 = 0;
     if (y1 >= w->height) y1 = w->height - 1;
 
@@ -252,7 +297,7 @@ static void draw_light(const Game *g, Vector2 origin)
     static uint8_t *light;
     static int capacity;
     int x0 = (int)floorf(-origin.x / TILE_SIZE) - 1, y0 = (int)floorf(-origin.y / TILE_SIZE) - 1;
-    int cols = GetScreenWidth() / TILE_SIZE + 4, rows = GetScreenHeight() / TILE_SIZE + 4;
+    int cols = (int)seen.x / TILE_SIZE + 4, rows = (int)seen.y / TILE_SIZE + 4;
     if (cols * rows > capacity) {
         uint8_t *bigger = realloc(light, (size_t)cols * rows);
         if (!bigger) return;
@@ -281,6 +326,122 @@ static void draw_light(const Game *g, Vector2 origin)
             DrawRectangleGradientEx(r, corner[0], corner[1], corner[2], corner[3]);
         }
     }
+}
+
+/* Fog of war: black over what the player has never been near, thinning out
+ * smoothly at the edge of what they have. */
+static void draw_fog(const Game *g, Vector2 origin)
+{
+    if (!g->fog) return;
+    int x0 = (int)floorf(-origin.x / TILE_SIZE) - 1, y0 = (int)floorf(-origin.y / TILE_SIZE) - 1;
+    int cols = (int)seen.x / TILE_SIZE + 4, rows = (int)seen.y / TILE_SIZE + 4;
+    for (int cy = 1; cy < rows - 1; cy++) {
+        for (int cx = 1; cx < cols - 1; cx++) {
+            Color corner[4]; /* top left, bottom left, bottom right, top right */
+            static const int at[4][2] = { { -1, -1 }, { -1, 0 }, { 0, 0 }, { 0, -1 } };
+            int darkest = 0;
+            for (int k = 0; k < 4; k++) {
+                int bx = x0 + cx + at[k][0], by = y0 + cy + at[k][1];
+                int sum = game_explored(g, bx, by) + game_explored(g, bx + 1, by) +
+                          game_explored(g, bx, by + 1) + game_explored(g, bx + 1, by + 1);
+                int dark = 255 - sum / 4;
+                corner[k] = (Color){ 0, 0, 0, (unsigned char)dark };
+                if (dark > darkest) darkest = dark;
+            }
+            if (darkest == 0) continue;
+            Rectangle r = { origin.x + (float)((x0 + cx) * TILE_SIZE), origin.y + (float)((y0 + cy) * TILE_SIZE),
+                            TILE_SIZE, TILE_SIZE };
+            DrawRectangleGradientEx(r, corner[0], corner[1], corner[2], corner[3]);
+        }
+    }
+}
+
+/* ---- the world map ----------------------------------------------------- */
+
+/* The whole world, a pixel to a block, redrawn every so often while it shows. */
+static struct {
+    Texture2D texture;
+    Color *pixels;
+    int width, height;
+    float age;
+} world_map;
+
+static Color scaled(Color c, float k)
+{
+    return (Color){ (unsigned char)(c.r * k), (unsigned char)(c.g * k), (unsigned char)(c.b * k), 255 };
+}
+
+static void world_map_refresh(const Game *g)
+{
+    const World *w = &g->world;
+    if (world_map.width != w->width || world_map.height != w->height) {
+        if (world_map.texture.id) UnloadTexture(world_map.texture);
+        free(world_map.pixels);
+        world_map.pixels = malloc(sizeof(Color) * (size_t)w->width * w->height);
+        Image blank = GenImageColor(w->width, w->height, BLACK);
+        world_map.texture = LoadTextureFromImage(blank);
+        UnloadImage(blank);
+        world_map.width = w->width;
+        world_map.height = w->height;
+    }
+    if (!world_map.pixels) return;
+
+    const int *wc = content.rules.water_color;
+    Color sky = { 135, 190, 235, 255 }, water = { (unsigned char)wc[0], (unsigned char)wc[1], (unsigned char)wc[2], 255 };
+    for (int y = 0; y < w->height; y++) {
+        for (int x = 0; x < w->width; x++) {
+            /* Each block is one colour: what is in front, else what is behind it. */
+            TileType front = world_get(w, x, y), behind = world_get_at(w, LAYER_BACKGROUND, x, y);
+            TileType wall = world_get_at(w, LAYER_WALL, x, y);
+            Color c = sky;
+            if (assets_tile_color(front).a) c = assets_tile_color(front);
+            else if (assets_tile_color(behind).a) c = scaled(assets_tile_color(behind), 1.0f - BACKGROUND_DIM);
+            else if (wall != TILE_AIR) c = scaled(assets_tile_color(wall), 1.0f - WALL_DIM);
+            else if (world_is_water(w, x, y)) c = water;
+            /* Fog of war covers the map as it does the world. */
+            world_map.pixels[(size_t)y * w->width + x] = scaled(c, (float)game_explored(g, x, y) / 255.0f);
+        }
+    }
+    UpdateTexture(world_map.texture, world_map.pixels);
+    world_map.age = 0.0f;
+}
+
+/* Draws the world map over the view, `alpha` of the way faded in, with a
+ * marker where the player is. */
+static void draw_world_map(const Game *g, const MapCamera *cam, float alpha, float dt)
+{
+    world_map.age += dt;
+    if (!world_map.texture.id || world_map.age >= MAP_REFRESH || world_map.width != g->world.width)
+        world_map_refresh(g);
+    if (!world_map.texture.id) return;
+
+    float sw = (float)GetScreenWidth(), sh = (float)GetScreenHeight(), scale = cam->scale;
+    float cx = cam->center.x / TILE_SIZE, cy = cam->center.y / TILE_SIZE;
+    DrawRectangle(0, 0, (int)sw, (int)sh, Fade((Color){ 8, 9, 14, 255 }, alpha));
+    /* The world goes round: as many copies side by side as the screen shows. */
+    int base = (int)floorf(cx / (float)world_map.width);
+    for (int k = -2; k <= 2; k++) {
+        Rectangle to = { sw / 2 - (cx - (float)(base + k) * world_map.width) * scale, sh / 2 - cy * scale,
+                         world_map.width * scale, world_map.height * scale };
+        if (to.x > sw || to.x + to.width < 0) continue;
+        DrawTexturePro(world_map.texture, (Rectangle){ 0, 0, (float)world_map.width, (float)world_map.height },
+                       to, (Vector2){ 0, 0 }, 0.0f, Fade(WHITE, alpha));
+    }
+
+    /* Where the player is: a head in a ring that breathes. */
+    float px, py;
+    game_player_visual_pos(g, &px, &py);
+    Vector2 at = { sw / 2 + (view_near_x(&view, px) + 0.5f - cx) * scale, sh / 2 + (py - 0.5f - cy) * scale };
+    float pulse = 0.5f + 0.5f * sinf((float)GetTime() * 4.0f);
+    DrawRing(at, 11.0f + 3.0f * pulse, 13.5f + 3.0f * pulse, 0.0f, 360.0f, 32, Fade(WHITE, alpha * (1.0f - 0.5f * pulse)));
+    DrawRectangleRec((Rectangle){ at.x - 7, at.y - 7, 14, 14 }, Fade(BLACK, alpha));
+    DrawRectangleRec((Rectangle){ at.x - 6, at.y - 6, 12, 12 }, Fade((Color){ 240, 200, 160, 255 }, alpha));
+    DrawRectangleRec((Rectangle){ at.x - 6, at.y - 6, 12, 4 }, Fade((Color){ 90, 60, 40, 255 }, alpha));
+    DrawRectangleRec((Rectangle){ at.x - 3, at.y, 2, 2 }, Fade((Color){ 40, 40, 60, 255 }, alpha));
+    DrawRectangleRec((Rectangle){ at.x + 2, at.y, 2, 2 }, Fade((Color){ 40, 40, 60, 255 }, alpha));
+
+    const char *text = "World map  -  drag to look around, scroll to zoom back in";
+    DrawText(text, (int)(sw - MeasureText(text, 16)) / 2, (int)sh - 110, 16, Fade(RAYWHITE, alpha));
 }
 
 /* Screen position of the middle of a drop, with its little hover. */
@@ -373,7 +534,7 @@ static void draw_mobs(const Game *g, Vector2 origin)
         game_mob_pos(g, i, &x, &y);
         Rectangle r = { origin.x + view_near_x(&view, x) * TILE_SIZE, origin.y + y * TILE_SIZE, TILE_SIZE,
                         TILE_SIZE };
-        if (r.x < -TILE_SIZE || r.x > GetScreenWidth()) continue;
+        if (r.x < -TILE_SIZE || r.x > seen.x) continue;
         assets_draw_sprite(m->baby ? def->texture_baby : def->texture, r, m->dir < 0);
     }
 }
@@ -387,7 +548,7 @@ static void draw_drops(const Game *g, Vector2 origin)
         const Drop *d = &g->drops[i];
         if (!d->active) continue;
         Vector2 p = drop_screen_pos(g, i, origin);
-        if (p.x < -TILE_SIZE || p.x > GetScreenWidth() + TILE_SIZE) continue;
+        if (p.x < -TILE_SIZE || p.x > seen.x + TILE_SIZE) continue;
         /* Collected ones fly into the player. */
         p.x += (origin.x + player.x - p.x) * d->collect;
         p.y += (origin.y + player.y - p.y) * d->collect;
@@ -449,8 +610,8 @@ static void draw_hud(const Game *g, const MapCamera *cam)
 {
     draw_crystals(g);
     DrawRectangle(0, 0, GetScreenWidth(), 52, Fade(BLACK, 0.45f));
-    DrawText("Click: move / mine / place held block / use bench / pick up item   Drag: pan   "
-             "1-8: select   Esc: menu",
+    DrawText("Click: move / mine / place / use / pick up   Drag: pan   Scroll: zoom, out to the "
+             "world map   1-8: select   Esc: menu",
              10, 8, 16, RAYWHITE);
     const ItemStack *held = inventory_selected(&g->inventory);
     bool day;
@@ -494,7 +655,7 @@ static void session_begin(Session *s, const MainMenu *menu)
     s->saved_shared = s->game.inventory.containers[SHARED_CONTAINER];
     s->paused = false;
     s->since_save = 0.0f;
-    s->cam = (MapCamera){ .follow = true };
+    s->cam = (MapCamera){ .follow = true, .zoom_level = ZOOM_DEFAULT, .scale = zoom_step(ZOOM_DEFAULT) };
     s->cam.center = (Vector2){ (s->game.player.feet.x + 0.5f) * TILE_SIZE,
                                (float)s->game.player.feet.y * TILE_SIZE };
 }
@@ -542,23 +703,38 @@ static void session_draw(Session *s)
     Game *g = &s->game;
     update_view(&s->cam, &g->world);
     Vector2 origin = view_origin(&s->cam);
+    bool on_map = zoom_step(s->cam.zoom_level) < MAP_FADE_FROM;
 
     ClearBackground((Color){ 20, 22, 28, 255 });
     draw_sky(g, origin);
-    draw_world(&g->world, origin);
-    draw_mobs(g, origin);
-    draw_player(g, origin);
-    draw_drops(g, origin);
-    /* Darkness falls over the world, but not over the interface. */
-    draw_light(g, origin);
-    draw_actions(g, origin);
-    if (!s->paused && !s->cam.dragging && IsCursorOnScreen() &&
-        !hud_mouse_over(&s->hud, &g->inventory) && !benchui_mouse_over(&s->bench, g, &view) &&
-        !tradeui_mouse_over(&s->trade, g, &view))
-        DrawRectangleLinesEx(tile_rect(origin, tile_at_screen(&s->cam, GetMousePosition())), 1.0f,
-                             Fade(WHITE, 0.5f));
-    benchui_draw(&s->bench, g, &view);
-    tradeui_draw(&s->trade, g, &view);
+    if (s->cam.scale > MAP_FADE_TO) {
+        /* The world itself, scaled by the zoom. */
+        BeginMode2D((Camera2D){ .zoom = zoom });
+        draw_world(&g->world, origin);
+        draw_mobs(g, origin);
+        draw_player(g, origin);
+        draw_drops(g, origin);
+        /* Darkness falls over the world, but not over the interface. */
+        draw_light(g, origin);
+        draw_fog(g, origin);
+        draw_actions(g, origin);
+        if (!on_map && !s->paused && !s->cam.dragging && IsCursorOnScreen() &&
+            !hud_mouse_over(&s->hud, &g->inventory) && !benchui_mouse_over(&s->bench, g, &ui_view) &&
+            !tradeui_mouse_over(&s->trade, g, &ui_view))
+            DrawRectangleLinesEx(tile_rect(origin, tile_at_screen(&s->cam, GetMousePosition())), 1.0f,
+                                 Fade(WHITE, 0.5f));
+        EndMode2D();
+    }
+    /* Zoomed far enough out, the world map fades in over it. */
+    if (s->cam.scale < MAP_FADE_FROM) {
+        float span = MAP_FADE_FROM - MAP_FADE_TO;
+        float alpha = span > 0.0f ? (MAP_FADE_FROM - s->cam.scale) / span : 1.0f;
+        draw_world_map(g, &s->cam, alpha > 1.0f ? 1.0f : alpha, GetFrameTime());
+    }
+    if (!on_map) {
+        benchui_draw(&s->bench, g, &ui_view);
+        tradeui_draw(&s->trade, g, &ui_view);
+    }
     sync_storage_slots(g, &s->hud);
     draw_hud(g, &s->cam);
     hud_draw(&s->hud, &g->inventory);

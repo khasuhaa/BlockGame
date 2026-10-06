@@ -181,6 +181,11 @@ typedef struct {
      * a world's save. */
     int crystals;
 
+    /* Fog of war: how far each tile has been uncovered, 0 (never seen) to
+     * 255. Once uncovered a tile stays so. */
+    uint8_t *explored;
+    bool fog; /* whether this world hides what has not been uncovered */
+
     /* The bench or storage block the player has open, and the crafting run
      * going on at it. */
     bool bench_open;
@@ -249,6 +254,13 @@ bool game_craft(Game *g, const Recipe *r, int count);
 /* Upgrades the open bench in place, paying its cost. False if it cannot be
  * upgraded or the cost is not held. */
 bool game_upgrade_bench(Game *g);
+/* How visible a tile is through the fog of war: 0 for never seen, 255 for
+ * plain to see, in between at the edge of what has been uncovered. Always 255
+ * with fog turned off. */
+int game_explored(const Game *g, int x, int y);
+/* Uncovers the fog round a point, as the player's being there does. */
+void game_reveal(Game *g, int x, int y);
+
 /* Leaves one of an item lying in a tile. */
 void game_drop_item(Game *g, ItemId id, int x, int y);
 /* The world's own random numbers, saved with it. */

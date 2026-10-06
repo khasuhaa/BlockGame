@@ -714,6 +714,30 @@ static bool read_rules(Reader *r, const cJSON *root)
     const cJSON *water = field(field(root, "water"), "color");
     for (int i = 0; i < 4 && cJSON_GetArraySize(water) == 4; i++)
         u->water_color[i] = (int)cJSON_GetArrayItem(water, i)->valuedouble;
+    const cJSON *fog = field(root, "fog");
+    if (fog) {
+        u->fog_enabled = flag(fog, "enabled", u->fog_enabled);
+        u->fog_radius = (int)num(fog, "radius", u->fog_radius);
+        u->fog_fade = (int)num(fog, "fade", u->fog_fade);
+    }
+    const cJSON *look = field(root, "view");
+    if (look) {
+        const cJSON *steps = field(look, "zoom");
+        float start = (float)num(look, "start", 0.0);
+        if (cJSON_GetArraySize(steps) > 0) {
+            u->zoom_count = 0;
+            for (int i = 0; i < cJSON_GetArraySize(steps) && i < MAX_ZOOM_LEVELS; i++) {
+                float px = (float)cJSON_GetArrayItem(steps, i)->valuedouble;
+                if (px < 1.0f) px = 1.0f; /* a block cannot be drawn smaller than a pixel */
+                u->zoom[u->zoom_count++] = px;
+            }
+            if (u->zoom_start >= u->zoom_count) u->zoom_start = 0;
+        }
+        for (int i = 0; i < u->zoom_count; i++)
+            if (u->zoom[i] == start) u->zoom_start = i;
+        u->map_from = (float)num(look, "map_from", u->map_from);
+        u->map_to = (float)num(look, "map_to", u->map_to);
+    }
     const cJSON *light = field(root, "light");
     if (light) {
         u->light_sun = (int)num(light, "sun", u->light_sun);

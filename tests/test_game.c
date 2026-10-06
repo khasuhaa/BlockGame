@@ -3022,6 +3022,65 @@ static void test_mobs(void)
     game_free(&g);
 }
 
+static void test_fog(void)
+{
+    Game g;
+    game_init(&g, 256, 96, 39, WORLD_FLAT);
+    World *w = &g.world;
+    TilePos start = g.player.feet;
+    int s = w->surface_y, radius = content.rules.fog_radius, fade = content.rules.fog_fade;
+
+    CHECK(content.rules.fog_enabled && radius == 20 && fade > 0 && g.fog);
+
+    /* A new world is dark but for what is round the player: plain to see up
+     * close, fading out toward 20 blocks, black beyond. */
+    CHECK(game_explored(&g, start.x, start.y) == 255 && game_explored(&g, start.x + 5, start.y - 3) == 255);
+    CHECK(game_explored(&g, start.x + radius - fade - 1, start.y - 1) == 255);
+    int mid = game_explored(&g, start.x + radius - fade / 2, start.y - 1);
+    CHECK(mid > 0 && mid < 255);
+    CHECK(game_explored(&g, start.x + radius - 1, start.y - 1) < mid);
+    CHECK(game_explored(&g, start.x + radius + 1, start.y - 1) == 0 && game_explored(&g, start.x + 60, start.y) == 0);
+    CHECK(game_explored(&g, start.x, start.y - 1 - radius - 1) == 0 && game_explored(&g, start.x, s + 8) == 255);
+    /* It never steps: neighbouring tiles differ a little at a time. */
+    int steepest = 0;
+    for (int d = 0; d < radius + 2; d++) {
+        int step = abs(game_explored(&g, start.x + d, start.y - 1) - game_explored(&g, start.x + d + 1, start.y - 1));
+        if (step > steepest) steepest = step;
+    }
+    CHECK(steepest > 0 && steepest < 110);
+
+    /* Walking uncovers more, and what was uncovered stays so behind. */
+    CHECK(game_click_tile(&g, start.x + 40, start.y));
+    run(&g, 8.0f);
+    CHECK(g.player.feet.x == start.x + 40);
+    CHECK(game_explored(&g, start.x + 40, start.y) == 255 && game_explored(&g, start.x + 50, start.y) == 255);
+    CHECK(game_explored(&g, start.x, start.y) == 255 && game_explored(&g, start.x - 10, start.y) == 255);
+    CHECK(game_explored(&g, start.x + 20, start.y - 6) == 255); /* the whole way along, not only the ends */
+    CHECK(game_explored(&g, start.x + 70, start.y) == 0 && game_explored(&g, start.x - 30, start.y) == 0);
+    /* Across the seam of the world, too. */
+    game_reveal(&g, 2, s - 1);
+    CHECK(game_explored(&g, 250, s - 1) == 255 && game_explored(&g, -6, s - 1) == 255);
+
+    /* Turned off, everything shows; turned on again, what was known is still known. */
+    g.fog = false;
+    CHECK(game_explored(&g, start.x + 100, start.y) == 255 && game_explored(&g, start.x - 100, s + 20) == 255);
+    g.fog = true;
+    CHECK(game_explored(&g, start.x + 100, start.y) == 0 && game_explored(&g, start.x + 40, start.y) == 255);
+
+    /* It is saved with the world, setting and all. */
+    CHECK(save_game(&g, "build/test_fog.world"));
+    Game loaded;
+    CHECK(load_game(&loaded, "build/test_fog.world"));
+    CHECK(loaded.fog && memcmp(loaded.explored, g.explored, (size_t)w->width * w->height) == 0);
+    game_free(&loaded);
+    g.fog = false;
+    CHECK(save_game(&g, "build/test_fog.world") && load_game(&loaded, "build/test_fog.world") && !loaded.fog);
+    CHECK(loaded.explored[(size_t)start.y * w->width + start.x] == 255);
+    game_free(&loaded);
+    remove("build/test_fog.world");
+    game_free(&g);
+}
+
 static void test_tools(void)
 {
     Game g;
@@ -3379,6 +3438,7 @@ int main(void)
     test_bench();
     test_work_benches();
     test_tools();
+    test_fog();
     test_mobs();
     test_biomes();
     test_plants();
