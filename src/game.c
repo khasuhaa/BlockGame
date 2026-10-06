@@ -1500,8 +1500,12 @@ static void vitals_tick(Game *g)
     const RulesDef *u = &content.rules;
     Vitals *v = &g->vitals;
 
+    /* Meditating, the body wants nothing: neither hunger nor energy runs down. */
+    bool still = v->rest == REST_MEDITATE;
+
     /* Hunger waits for a full stomach to wear off, then runs down. */
-    if (v->saturation > 0.0f) v->saturation = v->saturation > 1.0f ? v->saturation - 1.0f : 0.0f;
+    if (still) {}
+    else if (v->saturation > 0.0f) v->saturation = v->saturation > 1.0f ? v->saturation - 1.0f : 0.0f;
     else if (u->hunger_ticks > 0) v->hunger = clamp01(v->hunger - 1.0f / (float)u->hunger_ticks);
 
     /* Health mends by itself, unless there is nothing left to eat on. */
@@ -1517,7 +1521,7 @@ static void vitals_tick(Game *g)
     if (v->rest == REST_SLEEP) {
         if (u->sleep_ticks > 0) v->energy = clamp01(v->energy + 1.0f / (float)u->sleep_ticks);
         if (v->energy >= 1.0f || u->sleep_ticks <= 0) game_wake(g);
-    } else if (u->energy_ticks > 0) {
+    } else if (u->energy_ticks > 0 && !still) {
         v->energy = clamp01(v->energy - 1.0f / (float)u->energy_ticks);
     }
 

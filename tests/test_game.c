@@ -3247,8 +3247,11 @@ static void test_vitals(void)
     clear_inventory(&g);
     v->energy = 1.0f;
     CHECK(game_rest(&g, REST_MEDITATE) && v->rest == REST_MEDITATE && game_tick_speed(&g) == 3 * g.tick_rate);
+    v->hunger = 0.8f;
     for (int i = 0; i < 450; i++) game_tick(&g);
     CHECK(near(v->meditation, 0.5f));
+    /* Neither hunger nor energy runs down while meditating. */
+    CHECK(v->hunger == 0.8f && v->energy == 1.0f);
     int found = 0;
     for (int i = 0; i < MAX_DROPS; i++) found += g.drops[i].active;
     CHECK(found == 0);
@@ -3550,7 +3553,14 @@ static void test_coffee_and_dropbears(void)
     CHECK(m->x == tx && m->y == top && m->state == MOB_PERCH);
     /* It does not come straight back down for another go. */
     CHECK(v->health >= after);
-    /* A bite wakes a sleeper. */
+    /* Being attacked brings the player out of meditation... */
+    m->timer = 0;
+    CHECK(game_rest(&g, REST_MEDITATE));
+    float before_bite = v->health;
+    for (int i = 0; i < 300 && v->rest == REST_MEDITATE; i++) game_tick(&g);
+    CHECK(v->rest == REST_NONE && v->health < before_bite);
+    for (int i = 0; i < 100; i++) game_tick(&g);
+    /* ...and wakes a sleeper. */
     m->timer = 0;
     v->energy = 0.2f;
     CHECK(game_rest(&g, REST_SLEEP));

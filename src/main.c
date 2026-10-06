@@ -48,6 +48,10 @@ typedef struct {
     bool follow; /* track the player until the map is dragged */
     bool pressed, dragging;
     Vector2 press_mouse, press_center;
+    /* Zooming holds still whatever was under the cursor when the wheel was
+     * turned: that point of the world, and where on the screen it was. */
+    bool anchored;
+    Vector2 anchor_world, anchor_screen;
     int zoom_level; /* which of zoom_levels the wheel has asked for */
     float scale;    /* pixels per block being drawn now, easing toward that */
 } MapCamera;
@@ -159,9 +163,20 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
     if (wheel != 0.0f && !hud_mouse_over(hud, &g->inventory) && !tradeui_mouse_over(trade, g, &ui_view) &&
         !playerui_mouse_over(player) &&
         !benchui_mouse_over(bench, g, &ui_view)) {
+        int before = cam->zoom_level;
         cam->zoom_level += wheel > 0.0f ? -1 : 1;
         if (cam->zoom_level < 0) cam->zoom_level = 0;
         if (cam->zoom_level >= ZOOM_LEVELS) cam->zoom_level = ZOOM_LEVELS > 0 ? ZOOM_LEVELS - 1 : 0;
+        if (cam->zoom_level != before) {
+            /* Zoom about the cursor, not the middle of the screen. The camera
+             * lets go of the player to do it, as it does when dragged. */
+            Vector2 at = GetMousePosition();
+            cam->anchored = true;
+            cam->anchor_screen = at;
+            cam->anchor_world = (Vector2){ cam->center.x + (at.x - GetScreenWidth() / 2.0f) / zoom,
+                                           cam->center.y + (at.y - GetScreenHeight() / 2.0f) / zoom };
+            cam->follow = false;
+        }
         /* On the world map there is nothing to have open. */
         if (zoom_step(cam->zoom_level) < MAP_FADE_FROM) {
             hud_close_all(hud);
@@ -185,6 +200,10 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
         if (!cam->dragging && dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
             cam->dragging = true;
             cam->follow = false;
+            cam->anchored = false;
+            cam->press_center = cam->center;
+            cam->press_mouse = mouse;
+            dx = dy = 0.0f;
         }
         if (cam->dragging)
             cam->center = (Vector2){ cam->press_center.x - dx / zoom, cam->press_center.y - dy / zoom };
@@ -225,7 +244,15 @@ static void update_camera(const Game *g, MapCamera *cam, float dt)
         cam->center.x += (target.x - cam->center.x) * k;
         cam->center.y += (target.y - cam->center.y) * k;
     }
+    if (cam->follow) cam->anchored = false;
     cam->scale += (zoom_step(cam->zoom_level) - cam->scale) * fminf(1.0f, dt * ZOOM_SPEED);
+    if (cam->anchored) {
+        /* Keep the point that was under the cursor under it as the zoom eases in. */
+        float z = cam->scale / TILE_SIZE;
+        cam->center = (Vector2){ cam->anchor_world.x - (cam->anchor_screen.x - GetScreenWidth() / 2.0f) / z,
+                                 cam->anchor_world.y - (cam->anchor_screen.y - GetScreenHeight() / 2.0f) / z };
+        if (fabsf(zoom_step(cam->zoom_level) - cam->scale) < 0.01f) cam->anchored = false;
+    }
     /* No limit sideways: the world goes all the way round. */
     cam->center.y = fminf(fmaxf(cam->center.y, 0.0f), (float)g->world.height * TILE_SIZE);
 }

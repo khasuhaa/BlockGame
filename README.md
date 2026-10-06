@@ -221,6 +221,8 @@ The button in the top left corner, under the readout, is the player. Under it ar
 - **Energy** runs down while awake: a full bar lasts 1800 ticks. It has no golden state.
 - **Sleeping** lays the player on the ground and brings energy back; they wake by themselves when it is full. The button is greyed out while energy is full.
 - **Meditating** sits the player down, with a progress bar over their head. Every 900 ticks it reaches 100% and something drops out right on top of them, and is picked up like anything else at their feet: a gem (amethyst most often, diamond least), a fruit, or one of the six ores found in stone. (Coffee beans count as a fruit.)
+- While meditating neither hunger nor energy runs down.
+- Being attacked wakes the player from either.
 - Either needs the player to be standing on the ground, and ends as soon as they are told to do anything else - a click on the world, a movement key - or the button is pressed again.
 - While the player sleeps or meditates the ticks go three times as fast (30 a second instead of 10), and arrows at the top of the screen say so.
 
@@ -234,7 +236,7 @@ The top left corner shows, a line each: frames per second; the player's X and Y;
 
 A world starts blacked out. The player uncovers everything within 20 blocks of themselves as they move, and what has been uncovered stays uncovered: it is saved with the world. The edge is not a line; the outer 8 blocks of the circle fade into the black. Fog of war can be turned off and on in the pause menu's world settings - turning it off shows everything, and turning it back on brings back exactly what had been explored. A save from before the fog existed starts with only the area round the player uncovered. The radius, the fade and whether new worlds start fogged are in `rules.json`.
 
-The mouse wheel zooms the view in and out in steps. Zoomed out past a threshold, the view fades into the world map: the whole world at a few pixels a block, each block drawn as the one average colour of its texture, with a marker where the player is. The map can be dragged about like the world, and wraps round like it, but nothing on it can be clicked. The fog of war covers the map too. Zooming back in returns to the world.
+The mouse wheel zooms the view in and out in steps, about the cursor: whatever is under the mouse stays under it. Zooming lets the camera go of the player, as dragging does; `Space` makes it follow again. Zoomed out past a threshold, the view fades into the world map: the whole world at a few pixels a block, each block drawn as the one average colour of its texture, with a marker where the player is. The map can be dragged about like the world, and wraps round like it, but nothing on it can be clicked. The fog of war covers the map too. Zooming back in returns to the world.
 
 ## Reach
 
