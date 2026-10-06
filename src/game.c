@@ -786,7 +786,7 @@ bool game_click_tile(Game *g, int tx, int ty)
     int holds = held->count > 0 && item_def((ItemId)held->id)->holds_water ? inventory_meter(&g->inventory, held) : -1;
     int wet = world_water(&g->world, tx, ty);
     if (holds >= 0 && world_in_bounds(&g->world, tx, ty) && !world_is_solid(&g->sim, tx, ty) &&
-        ((wet > 0 && holds < item_def((ItemId)held->id)->meter_max) || (holds > 0 && wet < WATER_FULL))) {
+        ((wet > 0 && holds < item_def((ItemId)held->id)->meter_max) || holds > 0)) {
         a.type = ACTION_BUCKET;
         a.item = held->id;
     } else if (held->count > 0 && can_plant(&g->sim, (ItemId)held->id, a.target)) {
@@ -1224,8 +1224,8 @@ static void finish_activity(Game *g)
 
 /* A bucket at a square of the world. If there is water there and room in the
  * bucket, it takes as much as it has room for and no more than is there;
- * otherwise it pours out as much as the square has room for. Either way the
- * water only changes places. */
+ * otherwise it is emptied there, all it holds. Either way the water only
+ * changes places. */
 static void use_bucket(Game *g, ItemId item, TilePos at)
 {
     World *w = &g->world;
@@ -1239,10 +1239,9 @@ static void use_bucket(Game *g, ItemId item, TilePos at)
         inventory_set_meter(&g->inventory, bucket, held + taken);
         return;
     }
-    int poured = held < WATER_FULL - there ? held : WATER_FULL - there;
-    if (poured <= 0) return;
-    world_set_water(w, at.x, at.y, there + poured);
-    inventory_set_meter(&g->inventory, bucket, held - poured);
+    /* Emptied: all of it goes in there, and finds its own level from then on. */
+    if (held <= 0) return;
+    inventory_set_meter(&g->inventory, bucket, water_add(w, at.x, at.y, held));
 }
 
 /* Picks what the idle player does next. Returns false if nothing. */

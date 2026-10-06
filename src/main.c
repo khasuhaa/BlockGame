@@ -120,6 +120,41 @@ static void sync_storage_slots(const Game *g, Hud *hud)
         hud->extra[i] = (HudSlot){ rects[i], { SLOT_CONTAINER, container, i } };
 }
 
+/* The whole world, a pixel to a block, redrawn every so often while it shows. */
+#define MAX_MAP_PORTALS 128
+#define MAP_ICON_REACH 16.0f /* pixels round an icon on the map that count as a click on it */
+
+static struct {
+    Texture2D texture;
+    Color *pixels;
+    int width, height;
+    float age;
+    /* The portals the player has uncovered, each by the lowest of its blocks. */
+    TilePos portals[MAX_MAP_PORTALS];
+    int portal_count;
+} world_map;
+
+/* Where a point of the world is on the screen while the map is up. */
+static Vector2 map_point(const MapCamera *cam, float x, float y)
+{
+    float cx = cam->center.x / TILE_SIZE, cy = cam->center.y / TILE_SIZE;
+    return (Vector2){ GetScreenWidth() / 2.0f + (view_near_x(&view, x) - cx) * cam->scale,
+                      GetScreenHeight() / 2.0f + (y - cy) * cam->scale };
+}
+
+/* The portal whose icon on the map is under a point of the screen, or -1. */
+static int map_portal_at(const MapCamera *cam, Vector2 screen)
+{
+    int best = -1;
+    float nearest = MAP_ICON_REACH * MAP_ICON_REACH;
+    for (int i = 0; i < world_map.portal_count; i++) {
+        Vector2 at = map_point(cam, world_map.portals[i].x + 0.5f, world_map.portals[i].y - 0.5f);
+        float dx = at.x - screen.x, dy = at.y - screen.y;
+        if (dx * dx + dy * dy < nearest) nearest = dx * dx + dy * dy, best = i;
+    }
+    return best;
+}
+
 static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, TradeUi *trade, PlayerUi *player,
                          const Keybinds *keys)
 {
@@ -217,7 +252,18 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
             cam->center = (Vector2){ cam->press_center.x - dx / zoom, cam->press_center.y - dy / zoom };
     }
     if (cam->pressed && IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-        /* The world map can be dragged about, but a click on it does nothing. */
+        /* The world map can be dragged about, and the only thing on it that a
+         * click does anything to is a portal: the view goes in on it, and its
+         * menu comes up. */
+        int portal = !cam->dragging && on_map ? map_portal_at(cam, mouse) : -1;
+        if (portal >= 0) {
+            TilePos at = world_map.portals[portal];
+            cam->zoom_level = ZOOM_DEFAULT;
+            cam->follow = false;
+            cam->anchored = false;
+            cam->center = (Vector2){ (view_near_x(&view, (float)at.x) + 0.5f) * TILE_SIZE, ((float)at.y - 2.0f) * TILE_SIZE };
+            game_open_bench(g, at.x, at.y);
+        }
         if (!cam->dragging && !on_map) {
             TilePos t = tile_at_screen(cam, mouse);
             t.x = world_wrap_x(&g->world, t.x);
@@ -450,14 +496,6 @@ static void draw_fog(const Game *g, Vector2 origin)
 
 /* ---- the world map ----------------------------------------------------- */
 
-/* The whole world, a pixel to a block, redrawn every so often while it shows. */
-static struct {
-    Texture2D texture;
-    Color *pixels;
-    int width, height;
-    float age;
-} world_map;
-
 static Color scaled(Color c, float k)
 {
     return (Color){ (unsigned char)(c.r * k), (unsigned char)(c.g * k), (unsigned char)(c.b * k), 255 };
@@ -478,6 +516,12 @@ static void world_map_refresh(const Game *g)
     }
     if (!world_map.pixels) return;
 
+    /* Which blocks are portals: the kind of bench a player can be carried to. */
+    bool portal[MAX_TILES] = { false };
+    for (int t = 1; t < content.tile_count && content.rules.teleport_bench[0]; t++)
+        portal[t] = content.tiles[t].bench && strcmp(content.tiles[t].bench_kind, content.rules.teleport_bench) == 0;
+    world_map.portal_count = 0;
+
     const int *wc = content.rules.water_color;
     Color sky = { 135, 190, 235, 255 }, water = { (unsigned char)wc[0], (unsigned char)wc[1], (unsigned char)wc[2], 255 };
     for (int y = 0; y < w->height; y++) {
@@ -490,6 +534,12 @@ static void world_map_refresh(const Game *g)
             else if (assets_tile_color(behind).a) c = scaled(assets_tile_color(behind), 1.0f - BACKGROUND_DIM);
             else if (wall != TILE_AIR) c = scaled(assets_tile_color(wall), 1.0f - WALL_DIM);
             else if (world_is_water(w, x, y)) c = water;
+            /* A portal is marked at its foot, once the player has seen it. */
+            for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
+                if (!portal[world_get_at(w, layer, x, y)] || portal[world_get_at(w, layer, x, y + 1)]) continue;
+                if (game_explored(g, x, y) > 0 && world_map.portal_count < MAX_MAP_PORTALS)
+                    world_map.portals[world_map.portal_count++] = (TilePos){ x, y };
+            }
             /* Fog of war covers the map as it does the world. */
             world_map.pixels[(size_t)y * w->width + x] = scaled(c, (float)game_explored(g, x, y) / 255.0f);
         }
@@ -520,6 +570,21 @@ static void draw_world_map(const Game *g, const MapCamera *cam, float alpha, flo
                        to, (Vector2){ 0, 0 }, 0.0f, Fade(WHITE, alpha));
     }
 
+    /* Portals: a little doorway of light each, brighter under the cursor. They can be clicked. */
+    int hot = map_portal_at(cam, GetMousePosition());
+    for (int i = 0; i < world_map.portal_count; i++) {
+        Vector2 p = map_point(cam, world_map.portals[i].x + 0.5f, world_map.portals[i].y - 0.5f);
+        float glow = 0.5f + 0.5f * sinf((float)GetTime() * 3.0f + (float)i);
+        float grow = i == hot ? 2.0f : 0.0f;
+        DrawRectangleRounded((Rectangle){ p.x - 7 - grow, p.y - 10 - grow, 14 + 2 * grow, 20 + 2 * grow }, 0.5f, 6,
+                             Fade(BLACK, alpha));
+        DrawRectangleRounded((Rectangle){ p.x - 5 - grow, p.y - 8 - grow, 10 + 2 * grow, 16 + 2 * grow }, 0.5f, 6,
+                             Fade((Color){ 150, 90, 230, 255 }, alpha));
+        DrawRectangleRounded((Rectangle){ p.x - 2.5f, p.y - 5, 5, 10 }, 0.6f, 6,
+                             Fade((Color){ 226, 200, 255, 255 }, alpha * (0.6f + 0.4f * glow)));
+        if (i == hot) DrawRing(p, 15.0f, 17.0f, 0.0f, 360.0f, 32, Fade(RAYWHITE, alpha));
+    }
+
     /* Where the player is: a head in a ring that breathes. */
     float px, py;
     game_player_visual_pos(g, &px, &py);
@@ -532,7 +597,7 @@ static void draw_world_map(const Game *g, const MapCamera *cam, float alpha, flo
     DrawRectangleRec((Rectangle){ at.x - 3, at.y, 2, 2 }, Fade((Color){ 40, 40, 60, 255 }, alpha));
     DrawRectangleRec((Rectangle){ at.x + 2, at.y, 2, 2 }, Fade((Color){ 40, 40, 60, 255 }, alpha));
 
-    const char *text = "World map  -  drag to look around, scroll to zoom back in";
+    const char *text = "World map  -  drag to look around, scroll to zoom back in, click a portal to go to its menu";
     DrawText(text, (int)(sw - MeasureText(text, 16)) / 2, (int)sh - 110, 16, Fade(RAYWHITE, alpha));
 }
 

@@ -4364,14 +4364,51 @@ static void test_buckets_and_stacks(void)
     run(&g, 3.0f);
     CHECK(world_water(w, b, s) == 2 && inventory_meter(inv, &inv->slots[0]) == 8);
     CHECK(water_total(w) == total - 8);
-    /* Full, it pours: onto a square with room, as much as fits there. */
+    /* Full, it is emptied where it is used - all of it, whatever is there already. */
+    world_set(w, b - 1, s - 1, TILE_STONE); /* (kerbs, so what overflows the pit stays over it) */
+    world_set(w, b + 1, s - 1, TILE_STONE);
     CHECK(game_click_tile(&g, b, s));
     run(&g, 3.0f);
-    CHECK(world_water(w, b, s) == 8 && inventory_meter(inv, &inv->slots[0]) == 2 && water_total(w) == total - 2);
-    CHECK(game_click_tile(&g, a, s));
-    run(&g, 3.0f);
-    CHECK(world_water(w, a, s) == 2 && inventory_meter(inv, &inv->slots[0]) == 0 && water_total(w) == total);
-    CHECK(inv->slots[0].container == 0); /* empty again, it is as new */
+    CHECK(inventory_meter(inv, &inv->slots[0]) == 0 && inv->slots[0].container == 0); /* empty again, it is as new */
+    CHECK(water_total(w) == total && world_water(w, b, s) == 8 && world_water(w, b, s - 1) == 2);
+    world_set(w, b - 1, s - 1, TILE_AIR);
+    world_set(w, b + 1, s - 1, TILE_AIR);
+
+    /* Emptied onto level ground, a bucketful makes a puddle an eighth deep
+     * round where it landed - eight squares of it - and goes no further. */
+    world_set_water(w, b, s - 1, 0);
+    world_set_water(w, b, s, 0);
+    world_set_water(w, a, s, 0);
+    world_set(w, a, s, TILE_DIRT);
+    world_set(w, b, s, TILE_DIRT);
+    CHECK(water_total(w) == 0);
+    inventory_set_meter(inv, &inv->slots[0], 8);
+    int drop = g.player.feet.x + 2;
+    g.tick_rate = 10;
+    CHECK(game_click_tile(&g, drop, s - 1) && g.queue[g.queue_count - 1].type == ACTION_BUCKET);
+    run(&g, 20.0f);
+    g.tick_rate = 0;
+    CHECK(inventory_meter(inv, &inv->slots[0]) == 0 && water_total(w) == 8 && !w->water_stirring);
+    int wet = 0, leftmost = -1, rightmost = -1, deep = 0;
+    for (int x = 0; x < w->width; x++) {
+        int level = world_water(w, x, s - 1);
+        if (level == 0) continue;
+        wet++;
+        if (leftmost < 0) leftmost = x;
+        rightmost = x;
+        if (level > 1) deep++;
+    }
+    CHECK(wet == 8 && deep == 0 && rightmost - leftmost == 7 && leftmost <= drop && drop <= rightmost);
+    /* A second bucketful on top of it only widens it. */
+    inventory_set_meter(inv, &inv->slots[0], 8);
+    water_add(w, drop, s - 1, 8);
+    inventory_set_meter(inv, &inv->slots[0], 0);
+    settle(w);
+    wet = 0;
+    for (int x = 0; x < w->width; x++) wet += world_water(w, x, s - 1) == 1;
+    CHECK(wet == 16 && water_total(w) == 16 && world_water(w, drop + 30, s - 1) == 0 && world_water(w, 0, s - 1) == 0);
+    for (int x = 0; x < w->width; x++) world_set_water(w, x, s - 1, 0);
+    settle(w);
     /* With nothing in it and no water there, a click is an ordinary click. */
     CHECK(game_click_tile(&g, px + 8, s - 1) && g.queue[g.queue_count - 1].type == ACTION_MOVE);
     run(&g, 3.0f);

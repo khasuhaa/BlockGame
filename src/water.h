@@ -28,6 +28,10 @@ int water_step(World *w);
  * gone by: what a sea does to the caves it opens into, done once when a
  * world is made rather than whenever somebody first disturbs it. */
 void water_settle(World *w, int max_steps);
+/* Pours water in at a square: it fills that square and then stands above it,
+ * as far up as there is open space, and is left to find its own level.
+ * Returns what there was no room for. */
+int water_add(World *w, int x, int y, int amount);
 /* A block has been put where there was water: it goes up, or failing that
  * aside. */
 void water_displace(World *w, int x, int y);

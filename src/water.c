@@ -90,6 +90,18 @@ long water_total(const World *w)
     return total;
 }
 
+int water_add(World *w, int x, int y, int amount)
+{
+    if (!w->water || !world_in_bounds(w, x, y) || amount <= 0) return amount;
+    for (int yy = y; amount > 0 && yy >= 0 && !world_is_solid(w, x, yy); yy--) {
+        int room = WATER_FULL - *cell(w, x, yy), n = amount < room ? amount : room;
+        *cell(w, x, yy) += (uint8_t)n;
+        amount -= n;
+    }
+    water_wake(w, x);
+    return amount;
+}
+
 void water_displace(World *w, int x, int y)
 {
     if (!w->water || !world_in_bounds(w, x, y)) return;
@@ -131,27 +143,46 @@ static void move(World *w, int from_x, int from_y, int to_x, int to_y, int n)
     water_wake(w, to_x);
 }
 
-/* Evens out one level stretch of water, from column `l` to `r` of a row:
- * the lowest square takes an eighth from the nearest one that stands two or
- * more higher, a few times over, so a dip fills in from round about it and
- * the whole comes to within an eighth of level. At either end, where the
- * floor stops, it runs over the edge. */
+/* Evens out one level stretch of water, from column `l` to `r` of a row.
+ * Water runs from a square to the nearest one that stands two or more
+ * eighths lower, an eighth at a time, the closest such pair first - so a dip
+ * fills in from round about it, and water set down on level ground spreads
+ * into a puddle an eighth deep round where it landed, and no further. It does
+ * not feel a difference more than WATER_REACH squares off. At either end,
+ * where the floor stops, it runs over the edge. */
+#define WATER_REACH 32
 static int settle_run(World *w, int l, int r, int y, int flow)
 {
+    static bool flip; /* which side wins a tie, turn about, so nothing drifts one way */
     int moved = 0;
     for (int n = 0; n < flow; n++) {
-        int low = l, least = WATER_FULL + 1;
+        int least = WATER_FULL + 1, most = -1;
         for (int x = l; x <= r; x++) {
             int level = *cell(w, x, y);
-            if (level < least) least = level, low = x;
+            if (level < least) least = level;
+            if (level > most) most = level;
         }
-        int from = INT_MIN;
-        for (int d = 1; from == INT_MIN && (low - d >= l || low + d <= r); d++) {
-            if (low - d >= l && *cell(w, low - d, y) >= least + 2) from = low - d;
-            else if (low + d <= r && *cell(w, low + d, y) >= least + 2) from = low + d;
+        if (most - least < 2) break; /* as level as eighths allow */
+        int from = INT_MIN, to = INT_MIN, near = WATER_REACH + 1, drop = 0;
+        flip = !flip;
+        for (int i = 0; i <= r - l; i++) {
+            int x = flip ? r - i : l + i, level = *cell(w, x, y);
+            if (level < 2) continue;
+            for (int d = 1; d <= near && d <= WATER_REACH; d++) {
+                int found = INT_MIN, fall = 0;
+                for (int side = 0; side < 2; side++) {
+                    int o = (side == 0) != flip ? x - d : x + d;
+                    if (o < l || o > r) continue;
+                    int diff = level - *cell(w, o, y);
+                    if (diff >= 2 && diff > fall) found = o, fall = diff;
+                }
+                if (found == INT_MIN) continue;
+                if (d < near || fall > drop) from = x, to = found, near = d, drop = fall;
+                break;
+            }
         }
         if (from == INT_MIN) break;
-        move(w, from, y, low, y, 1);
+        move(w, from, y, to, y, 1);
         moved++;
     }
     for (int side = 0; side < 2; side++) {
