@@ -16,7 +16,7 @@ uint16_t container_alloc(Inventory *inv)
     for (int i = 1; i < SHARED_CONTAINER; i++) {
         if (inv->containers[i].used) continue;
         memset(&inv->containers[i], 0, sizeof inv->containers[i]);
-        inv->containers[i].used = true;
+        inv->containers[i].used = CONTAINER_ITEMS;
         return (uint16_t)i;
     }
     return 0;
@@ -57,6 +57,7 @@ static uint16_t clone_nested(Inventory *inv, uint16_t id, bool *ok, int depth)
         s.container = clone_nested(inv, s.container, ok, depth + 1);
         inv->containers[copy].slots[i] = s;
     }
+    inv->containers[copy].used = inv->containers[id].used;
     return copy;
 }
 
@@ -103,11 +104,124 @@ static bool holds(const Inventory *inv, uint16_t outer, uint16_t target, int dep
     return false;
 }
 
-/* Two stacks that could be one: the same item with the same things inside. */
+static void normalize_selection(Inventory *inv);
+
+/* ---- meters ------------------------------------------------------------ */
+
+static bool has_meter(ItemId id)
+{
+    return item_def(id)->meter_max > 0;
+}
+
+/* How the meters of a stack read, one to an item, bottom of the stack first. */
+typedef struct {
+    uint8_t reads[256];
+    int count;
+} Meters;
+
+static void meters_read(const Inventory *inv, const ItemStack *s, Meters *m)
+{
+    m->count = 0;
+    if (is_empty(s)) return;
+    uint8_t fresh = (uint8_t)item_def(s->id)->meter_start;
+    if (s->container != 0 && s->container < MAX_CONTAINERS && inv->containers[s->container].used == CONTAINER_METERS) {
+        const ItemStack *runs = inv->containers[s->container].slots;
+        for (int i = 0; i < CONTAINER_MAX_SLOTS; i++)
+            for (int k = 0; k < runs[i].count && m->count < s->count; k++) m->reads[m->count++] = (uint8_t)(runs[i].id - 1);
+    }
+    while (m->count < s->count) m->reads[m->count++] = fresh; /* anything unrecorded is as new */
+}
+
+/* Whether a stack of these readings can be written down: in few enough runs. */
+static bool meters_fit(const Meters *m)
+{
+    int runs = 0;
+    for (int i = 0; i < m->count; i++)
+        if (i == 0 || m->reads[i] != m->reads[i - 1]) runs++;
+    return runs <= CONTAINER_MAX_SLOTS;
+}
+
+/* Writes a stack's readings down, and sets its count to match. A stack that
+ * is all as new needs no record at all. False, changing nothing, if there is
+ * no room for the record. */
+static bool meters_write(Inventory *inv, ItemStack *s, const Meters *m)
+{
+    if (!meters_fit(m)) return false;
+    uint8_t fresh = (uint8_t)item_def(s->id)->meter_start;
+    bool plain = true;
+    for (int i = 0; i < m->count; i++) plain = plain && m->reads[i] == fresh;
+    if (plain) {
+        container_free(inv, s->container);
+        s->container = 0;
+    } else {
+        if (s->container == 0) {
+            s->container = container_alloc(inv);
+            if (s->container == 0) return false;
+        }
+        Container *c = &inv->containers[s->container];
+        memset(c->slots, 0, sizeof c->slots);
+        c->used = CONTAINER_METERS;
+        int run = -1;
+        for (int i = 0; i < m->count; i++) {
+            if (run < 0 || c->slots[run].id != m->reads[i] + 1 || c->slots[run].count == 255) {
+                run++;
+                c->slots[run] = (ItemStack){ (uint8_t)(m->reads[i] + 1), 0, 0 };
+            }
+            c->slots[run].count++;
+        }
+    }
+    s->count = (uint8_t)m->count;
+    if (m->count == 0) *s = (ItemStack){ 0 };
+    return true;
+}
+
+/* Moves the top `n` items of one metered stack onto the top of another (or
+ * into an empty slot), in the same order. Returns how many went: all or none. */
+static int meters_move(Inventory *inv, ItemStack *to, ItemStack *from, int n)
+{
+    static Meters a, b;
+    if (n <= 0 || n > from->count) return 0;
+    bool fresh_slot = is_empty(to);
+    ItemStack onto = fresh_slot ? (ItemStack){ from->id, 0, 0 } : *to;
+    b.count = 0;
+    if (!fresh_slot) meters_read(inv, &onto, &b);
+    meters_read(inv, from, &a);
+    if (b.count + n > 255) return 0;
+    for (int i = 0; i < n; i++) b.reads[b.count + i] = a.reads[a.count - n + i];
+    b.count += n;
+    a.count -= n;
+    if (!meters_fit(&a) || !meters_fit(&b) || !meters_write(inv, &onto, &b)) return 0;
+    *to = onto;
+    ItemStack rest = *from;
+    meters_write(inv, &rest, &a); /* (fewer of what was there: this always fits) */
+    *from = rest;
+    return n;
+}
+
+int inventory_meter(const Inventory *inv, const ItemStack *s)
+{
+    static Meters m;
+    if (!s || is_empty(s) || !has_meter(s->id)) return -1;
+    meters_read(inv, s, &m);
+    return m.reads[m.count - 1];
+}
+
+bool inventory_set_meter(Inventory *inv, ItemStack *s, int value)
+{
+    static Meters m;
+    if (!s || is_empty(s) || !has_meter(s->id)) return false;
+    int max = item_def(s->id)->meter_max;
+    meters_read(inv, s, &m);
+    m.reads[m.count - 1] = (uint8_t)(value < 0 ? 0 : value > max ? max : value);
+    return meters_write(inv, s, &m);
+}
+
+/* Two stacks that could be one: the same item with the same things inside,
+ * or the same item with a meter, however the meters read. */
 static bool can_merge(const Inventory *inv, const ItemStack *a, const ItemStack *b)
 {
-    return a->id == b->id && item_def(a->id)->max_stack > 1 &&
-           containers_equal(inv, a->container, b->container);
+    if (a->id != b->id || item_def(a->id)->max_stack <= 1) return false;
+    return has_meter(a->id) || containers_equal(inv, a->container, b->container);
 }
 
 /* ---- slots ------------------------------------------------------------- */
@@ -173,6 +287,10 @@ static void merge_into(Inventory *inv, ItemStack *slots, int n, ItemStack *stack
     for (int i = 0; i < n && stack->count > 0; i++) {
         if (is_empty(&slots[i]) || slots[i].count >= max || !can_merge(inv, &slots[i], stack)) continue;
         int moved = max - slots[i].count < stack->count ? max - slots[i].count : stack->count;
+        if (has_meter(stack->id)) {
+            meters_move(inv, &slots[i], stack, moved); /* onto the top, readings and all */
+            continue;
+        }
         slots[i].count = (uint8_t)(slots[i].count + moved);
         stack->count = (uint8_t)(stack->count - moved);
     }
@@ -186,6 +304,10 @@ static void fill_empty(Inventory *inv, ItemStack *slots, int n, ItemStack *stack
     for (int i = 0; i < n && stack->count > 0; i++) {
         if (!is_empty(&slots[i])) continue;
         int moved = max < stack->count ? max : stack->count;
+        if (has_meter(stack->id)) {
+            if (meters_move(inv, &slots[i], stack, moved) == 0) return;
+            continue;
+        }
         bool ok = true;
         uint16_t contents = moved == stack->count ? stack->container
                                                   : container_clone(inv, stack->container, &ok);
@@ -226,9 +348,17 @@ static bool take_slot_for_basket(Inventory *inv, ItemStack basket)
     return false;
 }
 
+/* Adds a stack wherever it fits and returns what did not. */
+static ItemStack add_stack_rest(Inventory *inv, ItemStack stack);
+
 int inventory_add_stack(Inventory *inv, ItemStack stack)
 {
-    if (stack.id <= ITEM_NONE || stack.id >= content.item_count) return stack.count;
+    return add_stack_rest(inv, stack).count;
+}
+
+static ItemStack add_stack_rest(Inventory *inv, ItemStack stack)
+{
+    if (stack.id <= ITEM_NONE || stack.id >= content.item_count) return stack;
 
     /* Pass 0 tops up existing stacks, pass 1 starts new ones; within each,
      * the bar comes before the containers open in it. */
@@ -249,10 +379,11 @@ int inventory_add_stack(Inventory *inv, ItemStack stack)
     }
     /* A basket always finds room if anything in the bar is not a basket: it
      * takes that thing's slot and takes the thing inside itself. */
-    if (stack.count == 1 && take_slot_for_basket(inv, stack)) return 0;
+    if (stack.count == 1 && take_slot_for_basket(inv, stack)) return (ItemStack){ 0 };
     /* Whatever merged into a matching stack no longer needs its own contents. */
-    if (stack.count == 0) container_free(inv, stack.container);
-    return stack.count;
+    if (stack.count == 0 && !has_meter(stack.id)) container_free(inv, stack.container);
+    if (stack.count == 0) stack = (ItemStack){ 0 };
+    return stack;
 }
 
 int inventory_add(Inventory *inv, ItemId id, int count)
@@ -327,8 +458,14 @@ static void take_from(Inventory *inv, ItemStack *s, ItemId id, int *want)
 {
     if (!s || is_empty(s) || s->id != id || *want <= 0) return;
     int taken = s->count < *want ? s->count : *want;
-    s->count = (uint8_t)(s->count - taken);
     *want -= taken;
+    if (has_meter(id)) {
+        /* Off the top, with their readings. */
+        ItemStack gone = { 0 };
+        if (meters_move(inv, &gone, s, taken) == taken) container_free(inv, gone.container);
+        return;
+    }
+    s->count = (uint8_t)(s->count - taken);
     if (s->count == 0) {
         container_free(inv, s->container);
         *s = (ItemStack){ 0 };
@@ -364,17 +501,55 @@ int inventory_remove(Inventory *inv, ItemId id, int count)
     return count - want;
 }
 
-bool inventory_take_one(Inventory *inv, ItemId id, ItemStack *out)
+bool inventory_split(Inventory *inv, ItemStack *from, int n, ItemStack *out)
 {
-    ItemStack *s = find_stack(inv, id);
-    if (!s) return false;
+    *out = (ItemStack){ 0 };
+    if (!from || is_empty(from) || n < 1 || n > from->count) return false;
+    if (has_meter(from->id)) return meters_move(inv, out, from, n) == n;
     bool ok = true;
     /* The last of a stack takes the contents with it; the others take a copy. */
-    uint16_t contents = s->count == 1 ? s->container : container_clone(inv, s->container, &ok);
+    uint16_t contents = n == from->count ? from->container : container_clone(inv, from->container, &ok);
     if (!ok) return false;
-    *out = (ItemStack){ (uint8_t)id, 1, contents };
-    if (--s->count == 0) *s = (ItemStack){ 0 };
+    *out = (ItemStack){ from->id, (uint8_t)n, contents };
+    from->count = (uint8_t)(from->count - n);
+    if (from->count == 0) *from = (ItemStack){ 0 };
     return true;
+}
+
+ItemStack *inventory_find(Inventory *inv, ItemId id)
+{
+    return find_stack(inv, id);
+}
+
+bool inventory_take_one(Inventory *inv, ItemId id, ItemStack *out)
+{
+    return inventory_split(inv, find_stack(inv, id), 1, out);
+}
+
+void inventory_wear_tool(Inventory *inv, int tool_class)
+{
+    if (tool_class < 0) return;
+    ItemStack *best = NULL;
+    float speed = 0.0f;
+    for (int i = 0; i < INVENTORY_SLOTS; i++) {
+        for (int j = -1; j < BASKET_SLOTS; j++) {
+            if (j >= 0 && (inv->slots[i].container == 0 || !item_def(inv->slots[i].id)->opens_in_bar)) break;
+            ItemStack *s = j < 0 ? &inv->slots[i] : inventory_slot(inv, (SlotRef){ SLOT_BASKET, i, j });
+            if (!s || is_empty(s)) continue;
+            const ItemDef *def = item_def(s->id);
+            if (def->tool_class == tool_class && def->tool_speed > speed) speed = def->tool_speed, best = s;
+        }
+    }
+    if (!best || !has_meter(best->id) || item_def(best->id)->holds_water) return;
+    int left = inventory_meter(inv, best) - 1;
+    if (left > 0) {
+        inventory_set_meter(inv, best, left);
+        return;
+    }
+    /* Worn out: that one is gone, and the next in the stack comes to the top. */
+    ItemStack gone;
+    if (inventory_split(inv, best, 1, &gone)) container_free(inv, gone.container);
+    normalize_selection(inv);
 }
 
 /* Whether `s` may be put in the slot `ref` points at. */
@@ -407,6 +582,12 @@ bool inventory_move(Inventory *inv, SlotRef from, SlotRef to, int count)
         int max = item_def(a->id)->max_stack;
         int moved = max - b->count < count ? max - b->count : count;
         if (moved == 0) return false;
+        if (has_meter(a->id)) {
+            /* The ones taken come off the top of one stack and go on top of the other. */
+            if (meters_move(inv, b, a, moved) == 0) return false;
+            normalize_selection(inv);
+            return true;
+        }
         b->count = (uint8_t)(b->count + moved);
         a->count = (uint8_t)(a->count - moved);
         if (a->count == 0) {
@@ -421,12 +602,7 @@ bool inventory_move(Inventory *inv, SlotRef from, SlotRef to, int count)
         /* Splitting a stack needs somewhere empty to put the part taken,
          * which gets its own copy of the contents. */
         if (!is_empty(b)) return false;
-        bool ok = true;
-        uint16_t contents = container_clone(inv, a->container, &ok);
-        if (!ok) return false;
-        *b = (ItemStack){ a->id, (uint8_t)count, contents };
-        a->count = (uint8_t)(a->count - count);
-        return true;
+        return inventory_split(inv, a, count, b);
     }
 
     if (!slot_accepts(inv, from, b)) return false;
@@ -449,16 +625,23 @@ int inventory_quick_move(Inventory *inv, SlotRef from, uint16_t container, int s
         /* Out of the container: lift the stack out, and put back what the
          * inventory has no room for. */
         *src = (ItemStack){ 0 };
-        int left = inventory_add_stack(inv, moving);
-        if (left > 0) *src = (ItemStack){ moving.id, (uint8_t)left, moving.container };
+        ItemStack rest = add_stack_rest(inv, moving);
+        if (rest.count > 0) *src = rest;
         normalize_selection(inv);
-        return before - left;
+        return before - rest.count;
     }
 
     if (!slot_accepts(inv, (SlotRef){ SLOT_CONTAINER, container, 0 }, &moving)) return 0;
     ItemStack *dest = inv->containers[container].slots;
     merge_into(inv, dest, slots, &moving);
     fill_empty(inv, dest, slots, &moving);
+    if (has_meter(moving.id)) {
+        /* (Its record went with it, or was rewritten for what is left.) */
+        int went = before - moving.count;
+        *src = moving.count > 0 ? moving : (ItemStack){ 0 };
+        normalize_selection(inv);
+        return went;
+    }
     if (moving.count == 0) {
         /* All of it went. If it merged into a matching stack, its own copy
          * of the contents is no longer needed. */

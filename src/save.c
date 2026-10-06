@@ -334,9 +334,11 @@ bool load_game(Game *g, const char *path)
             Inventory *inv = &g->inventory;
             for (int i = 0; i < INVENTORY_SLOTS; i++) remap_stack(&inv->slots[i], items);
             for (int i = 0; i < ARMOR_SLOTS; i++) remap_stack(&inv->armor[i], items);
-            for (int i = 0; i < MAX_CONTAINERS; i++)
-                for (int j = 0; j < CONTAINER_MAX_SLOTS; j++)
-                    remap_stack(&inv->containers[i].slots[j], items);
+            for (int i = 0; i < MAX_CONTAINERS; i++) {
+                /* (One that records meters holds readings, not items.) */
+                if (inv->containers[i].used == CONTAINER_METERS) continue;
+                for (int j = 0; j < CONTAINER_MAX_SLOTS; j++) remap_stack(&inv->containers[i].slots[j], items);
+            }
             if (h.version < 13) memset(inv->choice, -1, sizeof inv->choice);
             for (int i = 0; i < MAX_DROPS; i++) {
                 /* (Before version 11 this was unused space in the record.) */

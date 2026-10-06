@@ -27,6 +27,7 @@
     {"bench": "metalwork_bench", "output": {"item": "copper_coin", "count": 10}, "inputs": [{"item": "copper_ingot", "count": 1}]},
     {"bench": "metalwork_bench", "output": {"item": "copper_coin", "count": 100}, "inputs": [{"item": "gold_coin", "count": 1}]},
     {"bench": "metalwork_bench", "level": 2, "output": {"item": "gold_coin", "count": 1}, "inputs": [{"item": "gold_ingot", "count": 1}]},
+    {"bench": "metalwork_bench", "level": 2, "output": {"item": "bucket", "count": 1}, "inputs": [{"item": "iron_ingot", "count": 3}]},
     {"bench": "metalwork_bench", "level": 2, "output": {"item": "gold_coin", "count": 1}, "inputs": [{"item": "copper_coin", "count": 100}]},
     {"bench": "metalwork_bench", "level": 2, "output": {"item": "gold_coin", "count": 100}, "inputs": [{"item": "platinum_coin", "count": 1}]},
     {"bench": "metalwork_bench", "level": 3, "output": {"item": "platinum_coin", "count": 1}, "inputs": [{"item": "platinum_ingot", "count": 5}]},

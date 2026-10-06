@@ -51,7 +51,8 @@ typedef enum {
     ACTION_PLANT, /* walk next to the target tile, then plant a tree on top of it */
     ACTION_USE,  /* walk up to the bench on the target tile, then open it */
     ACTION_COLLECT, /* walk up to a dropped item, then pick it up */
-    ACTION_ATTACK   /* go after a creature, and kill it */
+    ACTION_ATTACK,  /* go after a creature, and kill it */
+    ACTION_BUCKET   /* go within reach of a tile, then scoop its water up or pour some out */
 } ActionType;
 
 /* What can be done at an open bench or trade block. Its menu can be looked
@@ -113,6 +114,7 @@ typedef struct {
     Activity activity;
     Step step;       /* the step in progress while ACTIVITY_STEPPING */
     bool step_hop;   /* that step is a hop, drawn as an arc */
+    bool step_swim;  /* that step is through water: straight there, even on the slant */
     TilePos step_to; /* and its destination */
     float timer, duration;
 } Player;

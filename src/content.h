@@ -190,6 +190,13 @@ typedef struct {
     float food_health; /* share of the health bar it mends; below 0 for the usual share of `food` */
     float food_energy; /* share of the energy bar it gives back */
     float food_oxygen; /* share of the oxygen bar it gives back */
+    /* A meter: a number each single item carries, shown as a bar under it -
+     * how much water a bucket holds, how much use a tool has left. Items of
+     * a kind stack whatever their meters read; it is the one on top of the
+     * stack that is used. */
+    int meter_max;     /* the most it reads; 0 if the item has no meter */
+    int meter_start;   /* what a new one reads */
+    bool holds_water;  /* the meter is eighths of water, scooped up and poured out */
     int category;    /* where it is listed for trading, or -1 if it is not traded */
     char category_name[CONTENT_NAME_LEN];
     int price;       /* what one costs, in the smallest currency; 0 for the default */

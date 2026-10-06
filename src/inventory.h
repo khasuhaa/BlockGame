@@ -23,8 +23,17 @@ typedef struct {
     uint16_t container;
 } ItemStack;
 
+/* A container holds items - or, for a stack of things with meters, how the
+ * meters of the stack read: each slot then is a run of items reading the
+ * same, bottom of the stack first, as { reading + 1, how many, 0 }. */
+enum {
+    CONTAINER_FREE = 0,
+    CONTAINER_ITEMS = 1,
+    CONTAINER_METERS = 2
+};
+
 typedef struct {
-    bool used;
+    uint8_t used; /* one of the above (it was a bool: old saves read as items) */
     ItemStack slots[CONTAINER_MAX_SLOTS];
 } Container;
 
@@ -93,6 +102,21 @@ bool inventory_move(Inventory *inv, SlotRef from, SlotRef to, int count);
  * stacks first, then takes free slots; what does not fit stays where it was.
  * Returns how many items moved. */
 int inventory_quick_move(Inventory *inv, SlotRef from, uint16_t container, int slots);
+
+/* Takes the top `n` items of a stack off into a stack of their own, in the
+ * same order, with what is inside them or how their meters read. False if
+ * there are not that many or no room to record it. */
+bool inventory_split(Inventory *inv, ItemStack *from, int n, ItemStack *out);
+/* The first stack of an item, as items are taken: the selected stack, then
+ * the bar, then the baskets open in it. NULL if none is held. */
+ItemStack *inventory_find(Inventory *inv, ItemId id);
+/* What the meter of the item on top of a stack reads, or -1 if the item has
+ * none; and setting it. */
+int inventory_meter(const Inventory *inv, const ItemStack *s);
+bool inventory_set_meter(Inventory *inv, ItemStack *s, int value);
+/* Wears the best tool of a kind by one use, if it is one that wears: the one
+ * on top of its stack, which is gone when it reads nothing. */
+void inventory_wear_tool(Inventory *inv, int tool_class);
 
 void inventory_select(Inventory *inv, int slot, int inner);
 /* Chooses a bar slot as the number keys do: if a basket is there, the item

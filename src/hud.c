@@ -279,10 +279,22 @@ static void draw_box(Rectangle r, bool selected)
 }
 
 /* Draws a stack, less `taken` items that are currently on the cursor. */
-static void draw_stack(const ItemStack *s, Rectangle r, int taken)
+static void draw_stack(const Inventory *inv, const ItemStack *s, Rectangle r, int taken)
 {
     if (!s || s->count <= taken) return;
     int count = s->count - taken;
+    /* A meter that is not as new shows as a bar under the item: the top one of the stack's. */
+    const ItemDef *def = item_def(s->id);
+    int reads = inventory_meter(inv, s);
+    if (reads >= 0 && reads != def->meter_start) {
+        float share = (float)reads / (float)def->meter_max;
+        Rectangle bar = { r.x + 6, r.y + r.height - 9, r.width - 12, 5 };
+        Color fill = def->holds_water ? (Color){ 70, 160, 236, 255 }
+                     : share > 0.5f ? (Color){ 76, 190, 84, 255 } : share > 0.2f ? (Color){ 236, 190, 60, 255 }
+                                                                                 : (Color){ 226, 80, 70, 255 };
+        DrawRectangleRec((Rectangle){ bar.x - 1, bar.y - 1, bar.width + 2, bar.height + 2 }, (Color){ 12, 13, 18, 255 });
+        DrawRectangleRec((Rectangle){ bar.x, bar.y, bar.width * share, bar.height }, fill);
+    }
     hud_draw_item_icon((ItemId)s->id, (Rectangle){ r.x + ICON_INSET, r.y + ICON_INSET, r.width - 2 * ICON_INSET,
                                                    r.height - 2 * ICON_INSET });
     if (count > 1) {
@@ -321,7 +333,7 @@ void hud_draw(const Hud *hud, const Inventory *inv)
     for (int i = 0; i < hud->extra_count; i++) {
         const ItemStack *s = inventory_slot(lookup, hud->extra[i].ref);
         draw_box(hud->extra[i].rect, false);
-        draw_stack(s, hud->extra[i].rect, s == dragged ? picked : 0);
+        draw_stack(inv, s, hud->extra[i].rect, s == dragged ? picked : 0);
     }
 
     draw_box(cell_rect(0, 0), hud->armor_open);
@@ -331,7 +343,7 @@ void hud_draw(const Hud *hud, const Inventory *inv)
             Rectangle r = cell_rect(0, COLUMN_ROWS - i);
             draw_box(r, false);
             if (inv->armor[i].count == 0) draw_armor_hint(i, r);
-            draw_stack(&inv->armor[i], r, &inv->armor[i] == dragged ? picked : 0);
+            draw_stack(inv, &inv->armor[i], r, &inv->armor[i] == dragged ? picked : 0);
         }
     }
 
@@ -347,10 +359,10 @@ void hud_draw(const Hud *hud, const Inventory *inv)
             /* A closed basket shows the item chosen inside it, with a small
              * basket in the corner as a reminder of where it lives. */
             SlotRef ref = { SLOT_BASKET, i, chosen };
-            draw_stack(inventory_slot(lookup, ref), r, 0);
+            draw_stack(inv, inventory_slot(lookup, ref), r, 0);
             hud_draw_item_icon((ItemId)s->id, sub_rect(r, 0.04f, 0.04f, 0.42f, 0.42f));
         } else {
-            draw_stack(s, r, s == dragged ? picked : 0);
+            draw_stack(inv, s, r, s == dragged ? picked : 0);
         }
 
         if (!open) continue;
@@ -358,7 +370,7 @@ void hud_draw(const Hud *hud, const Inventory *inv)
             Rectangle cell = cell_rect(i + 1, j + 1);
             const ItemStack *inner = inventory_slot(lookup, (SlotRef){ SLOT_BASKET, i, j });
             draw_box(cell, inside && inv->sel_inner == j);
-            draw_stack(inner, cell, inner == dragged ? picked : 0);
+            draw_stack(inv, inner, cell, inner == dragged ? picked : 0);
         }
     }
 
@@ -389,7 +401,7 @@ void hud_draw(const Hud *hud, const Inventory *inv)
     if (dragged && dragged->count > 0) {
         Vector2 m = GetMousePosition();
         Rectangle r = { m.x - SLOT_SIZE / 2, m.y - SLOT_SIZE / 2, SLOT_SIZE, SLOT_SIZE };
-        draw_stack(dragged, r, dragged->count - picked);
+        draw_stack(inv, dragged, r, dragged->count - picked);
         /* What is being carried, named under the cursor. */
         draw_name(item_def(dragged->id)->label, m.x, m.y + SLOT_SIZE / 2 + 4, 1.0f);
     }

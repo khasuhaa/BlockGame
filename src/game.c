@@ -159,6 +159,15 @@ static int list_moves(const World *w, Pose p, Step *out)
             if (can_swing_up(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, -1, true };
             if (can_swing_under(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, 1, true };
         }
+        /* In water there is nothing to go round: a swimmer goes on the slant
+         * too, wherever the squares either side of the slant are clear. */
+        for (int d = -1; in_water(w, p.feet) && d <= 1; d += 2) {
+            for (int v = -1; v <= 1 && n < MAX_MOVES; v += 2) {
+                TilePos to = { x + d, y + v };
+                if (in_water(w, to) && body_fits(w, to.x, to.y) && body_fits(w, x + d, y) && body_fits(w, x, y + v))
+                    out[n++] = (Step){ (int8_t)d, (int8_t)v, true };
+            }
+        }
         return n;
     }
 
@@ -343,6 +352,7 @@ static bool is_goal(const World *w, Pose p, Action a)
         if (!world_is_solid(w, a.target.x, a.target.y)) return in_use_range(w, p.feet, a.target);
         return in_reach(w, p.feet, a.target);
     case ACTION_PLACE:
+    case ACTION_BUCKET:
     case ACTION_PLANT: return in_reach(w, p.feet, a.target);
     case ACTION_USE:
     case ACTION_COLLECT:
@@ -439,6 +449,78 @@ static Pose pose_at_index(const World *w, int idx)
  * for the fewest steps that accomplish `a` from `start`, which must be at
  * rest. On success writes the steps to `out` (if non-NULL), their count, and
  * the final pose. */
+/* Afloat: in water, held up by it and by nothing else. */
+static bool pose_afloat(const World *w, Pose p)
+{
+    return p.climbing && in_water(w, p.feet) && !is_supported(w, p.feet);
+}
+
+/* The straight line through the water from one pose to another, as steps:
+ * whichever of across and up-or-down is the longer way is gone one square at
+ * a time, the other spread evenly along it. False if anything is in the way,
+ * or it would take more than `most` steps. */
+static bool swim_line(const World *w, Pose from, Pose to, int most, Step *out, int *count)
+{
+    int dx = world_dx(w, from.feet.x, to.feet.x), dy = to.feet.y - from.feet.y;
+    int len = abs(dx) > abs(dy) ? abs(dx) : abs(dy);
+    if (len == 0 || len > most) return false;
+    Pose at = from;
+    int px = 0, py = 0;
+    for (int k = 1; k <= len; k++) {
+        int nx = (int)lroundf((float)(k * dx) / (float)len), ny = (int)lroundf((float)(k * dy) / (float)len);
+        Step s = { (int8_t)(nx - px), (int8_t)(ny - py), true };
+        if (!move_allowed(w, at, s)) return false;
+        at = pose_after(w, at, s);
+        if (at.feet.x != world_wrap_x(w, from.feet.x + nx) || at.feet.y != from.feet.y + ny) return false;
+        if (k < len && !pose_afloat(w, at)) return false;
+        out[k - 1] = s;
+        px = nx;
+        py = ny;
+    }
+    if (at.climbing != to.climbing) return false;
+    *count = len;
+    return true;
+}
+
+/* A route is found square by square, which through open water comes out as
+ * a dog-leg. Wherever it swims from one place to another with nothing in the
+ * way, this puts the straight line there instead. */
+#define SWIM_LOOKAHEAD 48
+static void straighten_swim(const World *w, Pose start, Step *steps, int *count)
+{
+    int n = *count;
+    if (n < 2) return;
+    Pose *at = malloc(sizeof(Pose) * (size_t)(n + 1));
+    Step *made = malloc(sizeof(Step) * (size_t)n);
+    if (!at || !made) {
+        free(at);
+        free(made);
+        return;
+    }
+    at[0] = start;
+    for (int i = 0; i < n; i++) at[i + 1] = pose_after(w, at[i], steps[i]);
+    int kept = 0;
+    for (int i = 0; i < n;) {
+        Step line[SWIM_LOOKAHEAD];
+        int length = 0, reach = -1;
+        if (pose_afloat(w, at[i])) {
+            int far = i + SWIM_LOOKAHEAD < n ? i + SWIM_LOOKAHEAD : n;
+            for (int j = far; j > i + 1 && reach < 0; j--)
+                if (in_water(w, at[j].feet) && swim_line(w, at[i], at[j], j - i, line, &length)) reach = j;
+        }
+        if (reach < 0) {
+            made[kept++] = steps[i++];
+            continue;
+        }
+        for (int k = 0; k < length; k++) made[kept++] = line[k];
+        i = reach;
+    }
+    memcpy(steps, made, sizeof(Step) * (size_t)kept);
+    *count = kept;
+    free(at);
+    free(made);
+}
+
 static bool plan_action(Game *g, const World *w, Pose start, Action a,
                         Step *out, int *out_count, Pose *end)
 {
@@ -481,6 +563,7 @@ static bool plan_action(Game *g, const World *w, Pose start, Action a,
         for (int idx = goal_idx; idx != start_idx; idx = g->bfs_parent[idx])
             out[--i] = g->bfs_step[idx];
     }
+    if (out) straighten_swim(w, start, out, &count);
     if (out_count) *out_count = count;
     if (end) *end = pose_at_index(w, goal_idx);
     return true;
@@ -699,7 +782,14 @@ bool game_click_tile(Game *g, int tx, int ty)
     const ItemStack *held = inventory_selected(&g->inventory);
 
     Action plant = { .type = ACTION_PLANT, .target = a.target, .item = held->id };
-    if (held->count > 0 && can_plant(&g->sim, (ItemId)held->id, a.target)) {
+    /* Holding a bucket: water is scooped up into it, and poured out where there is room for it. */
+    int holds = held->count > 0 && item_def((ItemId)held->id)->holds_water ? inventory_meter(&g->inventory, held) : -1;
+    int wet = world_water(&g->world, tx, ty);
+    if (holds >= 0 && world_in_bounds(&g->world, tx, ty) && !world_is_solid(&g->sim, tx, ty) &&
+        ((wet > 0 && holds < item_def((ItemId)held->id)->meter_max) || (holds > 0 && wet < WATER_FULL))) {
+        a.type = ACTION_BUCKET;
+        a.item = held->id;
+    } else if (held->count > 0 && can_plant(&g->sim, (ItemId)held->id, a.target)) {
         /* Holding something that grows: soil with room above is where it is planted. */
         a = plant;
     } else if (world_in_bounds(&g->world, tx, ty) && mine_layer(&g->sim, a.target) >= 0) {
@@ -1003,8 +1093,9 @@ static void begin_step(Game *g, Step s)
     p->timer = 0.0f;
     bool swim = in_water(&g->world, p->feet) && in_water(&g->world, to) && !is_supported(&g->world, to) &&
                 content.rules.swim_time > 0.0f;
+    p->step_swim = swim;
     if (hop) p->duration = HOP_TIME;
-    else if (swim) p->duration = content.rules.swim_time;
+    else if (swim) p->duration = content.rules.swim_time * (s.dx != 0 && s.dy != 0 ? 1.4142f : 1.0f);
     else if (s.climb || p->climbing) p->duration = CLIMB_TIME;
     else if (s.dy > 0) p->duration = FALL_TIME;
     else p->duration = crawl ? CRAWL_TIME : WALK_TIME;
@@ -1087,6 +1178,8 @@ static void finish_activity(Game *g)
             /* Ore comes out several times over with the right pickaxe. */
             int count = def->drop_count > 0 ? def->drop_count : 1;
             if (def->ore) count *= inventory_ore_multiplier(&g->inventory, def->tool_class);
+            /* A tool that wears is the worse for it. */
+            inventory_wear_tool(&g->inventory, def->tool_class);
             /* A tall block comes down whole, and lands at its foot. */
             int bottom;
             world_structure(&g->world, layer, t.x, t.y, &bottom);
@@ -1127,6 +1220,29 @@ static void finish_activity(Game *g)
         g->has_current = false;
     }
     p->activity = ACTIVITY_IDLE;
+}
+
+/* A bucket at a square of the world. If there is water there and room in the
+ * bucket, it takes as much as it has room for and no more than is there;
+ * otherwise it pours out as much as the square has room for. Either way the
+ * water only changes places. */
+static void use_bucket(Game *g, ItemId item, TilePos at)
+{
+    World *w = &g->world;
+    ItemStack *bucket = inventory_find(&g->inventory, item);
+    if (!bucket || !item_def(item)->holds_water || world_is_solid(w, at.x, at.y)) return;
+    int held = inventory_meter(&g->inventory, bucket), most = item_def(item)->meter_max;
+    int there = world_water(w, at.x, at.y);
+    int taken = there < most - held ? there : most - held;
+    if (taken > 0) {
+        world_set_water(w, at.x, at.y, there - taken);
+        inventory_set_meter(&g->inventory, bucket, held + taken);
+        return;
+    }
+    int poured = held < WATER_FULL - there ? held : WATER_FULL - there;
+    if (poured <= 0) return;
+    world_set_water(w, at.x, at.y, there + poured);
+    inventory_set_meter(&g->inventory, bucket, held - poured);
 }
 
 /* Picks what the idle player does next. Returns false if nothing. */
@@ -1190,6 +1306,10 @@ static bool start_next_activity(Game *g)
                     if (inventory_count(&g->inventory, (ItemId)g->current.item) < 1) break;
                     begin_work(g, ACTIVITY_PLACING, PLACE_TIME);
                     return true;
+                case ACTION_BUCKET:
+                    use_bucket(g, (ItemId)g->current.item, g->current.target);
+                    g->has_current = false;
+                    continue;
                 case ACTION_COLLECT: {
                     Drop *d = &g->drops[g->current.drop];
                     bool there = d->active && d->id == g->current.drop_id && d->collect == 0.0f;
@@ -1625,12 +1745,9 @@ int game_discard(Game *g, SlotRef from, int count)
     TilePos at = toss_tile(g);
     int gone = 0;
     while (s && s->count > 0 && gone < count) {
-        /* The last of a stack takes the contents with it; the others take a copy. */
-        bool ok = true;
-        uint16_t contents = s->count == 1 ? s->container : container_clone(inv, s->container, &ok);
-        if (!ok) break;
-        ItemStack one = { s->id, 1, contents };
-        if (--s->count == 0) *s = (ItemStack){ 0 };
+        /* One at a time off the top, each with what is inside it or how its meter reads. */
+        ItemStack one;
+        if (!inventory_split(inv, s, 1, &one)) break;
         Drop *d = spawn_drop_stack(g, one, at);
         if (!d) break; /* no room in the world for more: it went back where it fits */
         d->held_off = true;
@@ -1808,6 +1925,11 @@ void game_player_visual_pos(const Game *g, float *x, float *y)
     }
     float ox, oy;
     game_step_offset(dx, dy, rise_first, t, &ox, &oy);
+    if (p->activity == ACTIVITY_STEPPING && p->step_swim) {
+        /* Swimming is straight there, slant or no. */
+        ox = (float)dx * t;
+        oy = (float)dy * t;
+    }
     *x = (float)p->feet.x + ox;
     *y = (float)p->feet.y + oy;
     if (p->activity == ACTIVITY_STEPPING && p->step_hop) *y -= HOP_HEIGHT * 4.0f * t * (1.0f - t);

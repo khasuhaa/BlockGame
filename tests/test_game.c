@@ -5,6 +5,7 @@
 #include "../src/save.h"
 #include "../src/trade.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1029,11 +1030,11 @@ static void test_work_benches(void)
     run(&g, 0.3f);
     CHECK(count_item(&g, item_id("wooden_pickaxe")) == 2 && count_item(&g, item_id("flint_axe")) == 1);
     CHECK(count_item(&g, item_id("stone_pickaxe")) == 1 && count_item(&g, ITEM_STONE) == 0);
-    /* Tools do not stack. */
+    /* Tools stack. */
     int pick_slots = 0;
     for (int i = 0; i < INVENTORY_SLOTS; i++)
-        if (inv->slots[i].id == item_id("wooden_pickaxe") && inv->slots[i].count == 1) pick_slots++;
-    CHECK(pick_slots == 2);
+        if (inv->slots[i].id == item_id("wooden_pickaxe") && inv->slots[i].count == 2) pick_slots++;
+    CHECK(pick_slots == 1);
 
     /* Kiln: needs fuel to work, and burns sticks, wood or coal. */
     CHECK(place_and_open(&g, "kiln", x + 6));
@@ -2002,7 +2003,7 @@ static void test_metal_tools(void)
         /* And each is faster than the one before. */
         const ItemDef *p = item_def(pick->output.id), *a = item_def(axe->output.id);
         CHECK(p->tool_class == tool_class_id("pickaxe") && a->tool_class == tool_class_id("axe"));
-        CHECK(p->tool_speed > last && a->tool_speed == p->tool_speed && p->max_stack == 1);
+        CHECK(p->tool_speed > last && a->tool_speed == p->tool_speed && p->max_stack > 1);
         last = p->tool_speed;
     }
     /* A tin spade with the bronze tools, a gold shovel with the iron ones. */
@@ -4325,6 +4326,180 @@ static void test_remote_benches_and_teleport(void)
     game_free(&g);
 }
 
+static void test_buckets_and_stacks(void)
+{
+    Game g;
+    game_init(&g, 128, 96, 111, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    clear_inventory(&g);
+    for (int i = 0; i < MAX_MOBS; i++) g.mobs[i].active = false;
+    g.tick_rate = 0;
+    ItemId bucket = item_id("bucket");
+    int s = w->surface_y, px = g.player.feet.x;
+
+    /* A bucket: 3 iron ingots at a tier 2 metalwork bench. It holds 8 eighths and starts empty. */
+    const Recipe *r = find_recipe(tile_id("metalwork_bench_2"), "bucket");
+    CHECK(bucket > 0 && r && r->level == 2 && costs(r, "iron_ingot", 3, NULL, 0));
+    CHECK(item_def(bucket)->holds_water && item_def(bucket)->meter_max == 8 && item_def(bucket)->category >= 0);
+    CHECK(recipe_locked(tile_id("metalwork_bench"), r) && !recipe_locked(tile_id("metalwork_bench_2"), r));
+    inventory_add(inv, bucket, 1);
+    inventory_select(inv, 0, -1);
+    CHECK(inventory_meter(inv, &inv->slots[0]) == 0 && inv->slots[0].container == 0);
+    CHECK(inventory_meter(inv, &inv->slots[1]) == -1);
+
+    /* Two puddles in pits, each 5/8 deep. */
+    int a = px + 3, b = px + 5;
+    world_set(w, a, s, TILE_AIR);
+    world_set(w, b, s, TILE_AIR);
+    world_set_water(w, a, s, 5);
+    world_set_water(w, b, s, 5);
+    long total = water_total(w);
+    /* Scooping one up takes just what is there: the bucket is 5/8 full. */
+    CHECK(game_click_tile(&g, a, s));
+    run(&g, 3.0f);
+    CHECK(world_water(w, a, s) == 0 && inventory_meter(inv, &inv->slots[0]) == 5 && inv->slots[0].container != 0);
+    /* The second fills it, and leaves behind the 2/8 it had no room for. */
+    CHECK(game_click_tile(&g, b, s));
+    run(&g, 3.0f);
+    CHECK(world_water(w, b, s) == 2 && inventory_meter(inv, &inv->slots[0]) == 8);
+    CHECK(water_total(w) == total - 8);
+    /* Full, it pours: onto a square with room, as much as fits there. */
+    CHECK(game_click_tile(&g, b, s));
+    run(&g, 3.0f);
+    CHECK(world_water(w, b, s) == 8 && inventory_meter(inv, &inv->slots[0]) == 2 && water_total(w) == total - 2);
+    CHECK(game_click_tile(&g, a, s));
+    run(&g, 3.0f);
+    CHECK(world_water(w, a, s) == 2 && inventory_meter(inv, &inv->slots[0]) == 0 && water_total(w) == total);
+    CHECK(inv->slots[0].container == 0); /* empty again, it is as new */
+    /* With nothing in it and no water there, a click is an ordinary click. */
+    CHECK(game_click_tile(&g, px + 8, s - 1) && g.queue[g.queue_count - 1].type == ACTION_MOVE);
+    run(&g, 3.0f);
+
+    /* Stacks. Buckets stack whatever they hold; the one on top is the one used. */
+    clear_inventory(&g);
+    inventory_add(inv, bucket, 4);
+    CHECK(inv->slots[0].count == 4 && inv->slots[1].count == 0);
+    CHECK(inventory_set_meter(inv, &inv->slots[0], 6));
+    CHECK(inventory_meter(inv, &inv->slots[0]) == 6 && inv->slots[0].count == 4);
+    /* Taking some off takes them from the top down: the top two go, the full one among them. */
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 0, 0 }, (SlotRef){ SLOT_BAR, 1, 0 }, 2));
+    CHECK(inv->slots[0].count == 2 && inv->slots[1].count == 2);
+    CHECK(inventory_meter(inv, &inv->slots[1]) == 6 && inventory_meter(inv, &inv->slots[0]) == 0);
+    /* Put the rest back on top of them and the part-full one is in the
+     * middle of the stack, with an empty one on top - and that is what is used. */
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 0, 0 }, (SlotRef){ SLOT_BAR, 1, 0 }, MAX_STACK));
+    CHECK(inv->slots[0].count == 0 && inv->slots[1].count == 4 && inventory_meter(inv, &inv->slots[1]) == 0);
+    ItemStack off;
+    CHECK(inventory_split(inv, &inv->slots[1], 2, &off) && inventory_meter(inv, &off) == 0 && off.container == 0);
+    CHECK(inventory_meter(inv, &inv->slots[1]) == 6 && inv->slots[1].count == 2);
+    CHECK(inventory_split(inv, &inv->slots[1], 1, &off) && inventory_meter(inv, &off) == 6);
+    CHECK(inv->slots[1].count == 1 && inventory_meter(inv, &inv->slots[1]) == 0 && inv->slots[1].container == 0);
+    container_free(inv, off.container);
+
+    /* One picked up joins a stack of its kind, on top, whatever it holds. */
+    clear_inventory(&g);
+    inventory_add(inv, bucket, 2);
+    ItemStack full = { (uint8_t)bucket, 1, 0 };
+    inventory_set_meter(inv, &full, 8);
+    CHECK(inventory_add_stack(inv, full) == 0 && inv->slots[0].count == 3 && inv->slots[1].count == 0);
+    CHECK(inventory_meter(inv, &inv->slots[0]) == 8);
+    /* Dropped and picked up again, it still holds what it held. */
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 1) == 1 && inventory_meter(inv, &inv->slots[0]) == 0);
+    for (int i = 0; i < MAX_DROPS; i++)
+        if (g.drops[i].active) CHECK(game_click_drop(&g, i));
+    run(&g, 2.0f);
+    CHECK(inv->slots[0].count == 3 && inventory_meter(inv, &inv->slots[0]) == 8);
+    /* Into a chest and out again, the same. */
+    uint16_t box = container_alloc(inv);
+    CHECK(inventory_quick_move(inv, (SlotRef){ SLOT_BAR, 0, 0 }, box, 16) == 3 && inv->slots[0].count == 0);
+    CHECK(inventory_meter(inv, &inv->containers[box].slots[0]) == 8 && inv->containers[box].slots[0].count == 3);
+    CHECK(inventory_quick_move(inv, (SlotRef){ SLOT_CONTAINER, box, 0 }, box, 16) == 3);
+    CHECK(inv->slots[0].count == 3 && inventory_meter(inv, &inv->slots[0]) == 8);
+    container_free(inv, box);
+    /* And through a save. */
+    Game loaded;
+    CHECK(save_game(&g, "build/test_bucket.world") && load_game(&loaded, "build/test_bucket.world"));
+    CHECK(loaded.inventory.slots[0].count == 3 && inventory_meter(&loaded.inventory, &loaded.inventory.slots[0]) == 8);
+    ItemStack top;
+    CHECK(inventory_split(&loaded.inventory, &loaded.inventory.slots[0], 1, &top));
+    CHECK(inventory_meter(&loaded.inventory, &loaded.inventory.slots[0]) == 0);
+    game_free(&loaded);
+    remove("build/test_bucket.world");
+
+    /* Tools stack too. One that wears is used from the top of its stack, and
+     * gone when it is worn out. (None of the tools that come with the game wear.) */
+    ItemId pick = item_id("stone_pickaxe");
+    CHECK(item_def(pick)->max_stack > 1 && item_def(pick)->meter_max == 0);
+    clear_inventory(&g);
+    content.items[pick].meter_max = content.items[pick].meter_start = 3; /* as "durability": 3 would make it */
+    inventory_add(inv, pick, 2);
+    CHECK(inv->slots[0].count == 2 && inventory_meter(inv, &inv->slots[0]) == 3);
+    inventory_wear_tool(inv, item_def(pick)->tool_class);
+    inventory_wear_tool(inv, item_def(pick)->tool_class);
+    CHECK(inv->slots[0].count == 2 && inventory_meter(inv, &inv->slots[0]) == 1);
+    inventory_wear_tool(inv, item_def(pick)->tool_class);
+    CHECK(inv->slots[0].count == 1 && inventory_meter(inv, &inv->slots[0]) == 3 && inv->slots[0].container == 0);
+    /* Mining a block of its kind is what wears it. */
+    world_set(w, g.player.feet.x + 1, g.player.feet.y, TILE_STONE);
+    CHECK(game_queue_action(&g, ACTION_MINE, g.player.feet.x + 1, g.player.feet.y));
+    run(&g, 3.0f);
+    CHECK(inventory_meter(inv, &inv->slots[0]) == 2);
+    content.items[pick].meter_max = content.items[pick].meter_start = 0;
+    game_free(&g);
+
+    /* Swimming goes straight to where it is going, not along and then up. */
+    game_init(&g, 128, 96, 112, WORLD_FLAT);
+    w = &g.world;
+    s = w->surface_y;
+    g.tick_rate = 0;
+    for (int i = 0; i < MAX_MOBS; i++) g.mobs[i].active = false;
+    clear_inventory(&g);
+    int cx = g.player.feet.x + 30;
+    for (int y = s - 30; y < s; y++) {
+        world_set(w, cx - 21, y, TILE_STONE);
+        world_set(w, cx + 21, y, TILE_STONE);
+        for (int x = cx - 20; x <= cx + 20; x++) world_set_water(w, x, y, WATER_FULL);
+    }
+    settle(w);
+    TilePos from = { cx - 12, s - 5 }, to = { cx + 12, s - 17 }; /* 24 across, 12 up */
+    g.player.feet = g.player.step_to = from;
+    g.player.climbing = true;
+    CHECK(game_click_tile(&g, to.x, to.y));
+    int steps = 0, slant = 0;
+    float worst = 0.0f;
+    TilePos last = from;
+    for (int i = 0; i < 60 * 20 && !(is_idle(&g) && g.player.feet.x == to.x); i++) {
+        game_update(&g, 1.0f / 60.0f);
+        float x, y;
+        game_player_visual_pos(&g, &x, &y);
+        /* How far the player is from the straight line between the two places. */
+        float off = fabsf((x - from.x) * (to.y - from.y) - (y - from.y) * (to.x - from.x)) /
+                    sqrtf((float)((to.x - from.x) * (to.x - from.x) + (to.y - from.y) * (to.y - from.y)));
+        if (off > worst) worst = off;
+        if (g.player.feet.x != last.x || g.player.feet.y != last.y) {
+            steps++;
+            slant += g.player.feet.x != last.x && g.player.feet.y != last.y;
+            last = g.player.feet;
+        }
+    }
+    CHECK(g.player.feet.x == to.x && (g.player.feet.y == to.y || g.player.feet.y == to.y + 1));
+    /* As few steps as the longer way is long, the rise spread evenly along
+     * it, and never more than about a square off the line. */
+    CHECK(steps <= 24 && slant >= 10 && worst < 1.2f);
+
+    /* Round something in the way, it still gets there. */
+    for (int y = s - 20; y <= s - 3; y++) world_set(w, cx, y, TILE_STONE);
+    settle(w);
+    g.player.feet = g.player.step_to = from;
+    g.player.climbing = true;
+    CHECK(game_click_tile(&g, to.x, to.y));
+    run(&g, 20.0f);
+    CHECK(g.player.feet.x == to.x && is_idle(&g));
+    game_free(&g);
+}
+
 static void test_tools(void)
 {
     Game g;
@@ -4689,6 +4864,7 @@ int main(void)
     test_dodo_tree();
     test_water();
     test_basket_pickup();
+    test_buckets_and_stacks();
     test_remote_benches_and_teleport();
     test_decay_and_golden_chests();
     test_mobs();

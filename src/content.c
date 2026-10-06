@@ -401,6 +401,12 @@ static bool read_items(Reader *r, const cJSON *root)
         it->crystals = (int)num(e, "crystals", 0);
         if (tool && (it->tool_class < 0 || it->tool_speed <= 0.0f))
             return fail(r, "item \"%s\": a tool needs a \"class\" and a \"speed\" above 0", it->name);
+        /* "holds_water": how many eighths; "durability": how many uses. */
+        it->holds_water = cJSON_IsNumber(field(e, "holds_water"));
+        it->meter_max = (int)num(e, it->holds_water ? "holds_water" : "durability", 0);
+        it->meter_start = it->holds_water ? 0 : it->meter_max;
+        if (it->meter_max < 0 || it->meter_max > 250)
+            return fail(r, "item \"%s\": a meter reads at most 250", it->name);
         it->places = TILE_AIR;
         if (!tile_ref(r, e, "places", &it->places)) return false;
         it->sows = TILE_AIR;
