@@ -4,7 +4,7 @@
       "texture": "tiles/dirt.png", "shade": 12 },
     { "name": "workbench", "label": "Workbench", "solid": true, "removable": true,
       "mine_time": 0.35, "drop": "workbench", "texture": "tiles/workbench.png",
-      "bench": true, "bench_kind": "workbench", "bench_level": 1,
+      "bench": true, "bench_kind": "workbench", "bench_level": 1, "popup_name": "bench",
       "upgrade": { "to": "workbench_2", "cost": [ { "item": "stone", "count": 5 } ] } },
     { "name": "spawn_portal", "label": "Spawn portal", "bench": true, "bench_kind": "spawn_portal",
       "front": true, "pulse": 0.12,
@@ -33,8 +33,9 @@
       "texture": "tiles/spawn_portal_top.png" },
     { "name": "workbench_2", "label": "Workbench", "solid": true, "removable": true,
       "mine_time": 0.35, "drop": "workbench_2", "texture": "tiles/workbench_2.png",
-      "bench": true, "bench_kind": "workbench", "bench_level": 2 },
+      "bench": true, "bench_kind": "workbench", "bench_level": 2, "popup_name": "bench" },
     { "name": "chest", "label": "Chest", "solid": true, "removable": true, "mine_time": 0.5,
-      "drop": "chest", "texture": "tiles/chest.png" }
+      "drop": "chest", "texture": "tiles/chest.png",
+      "storage": { "columns": 4, "rows": 4 } }
   ]
 }

@@ -4,7 +4,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 2u
+#define SAVE_VERSION 3u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -19,6 +19,56 @@ typedef struct {
     uint32_t rng, next_drop_id;
     uint32_t inventory_size, drops_size;
 } SaveHeader;
+
+/* How the inventory and drops were laid out before version 3, when a
+ * container had four slots and a drop could not carry contents. */
+typedef struct {
+    bool used;
+    ItemStack slots[4];
+} OldContainer;
+
+typedef struct {
+    ItemStack slots[INVENTORY_SLOTS];
+    ItemStack armor[ARMOR_SLOTS];
+    OldContainer containers[MAX_CONTAINERS];
+    int sel_slot, sel_inner;
+} OldInventory;
+
+typedef struct {
+    bool active;
+    uint8_t item;
+    int x;
+    float y;
+    float age;
+    float collect;
+    bool attached;
+    int ttl;
+    uint32_t id;
+} OldDrop;
+
+/* Reads the inventory and drops of a version 1 or 2 save into today's layout. */
+static bool read_old_state(FILE *f, Game *g)
+{
+    static OldInventory inv;
+    static OldDrop drops[MAX_DROPS];
+    if (fread(&inv, sizeof inv, 1, f) != 1 || fread(drops, sizeof drops, 1, f) != 1) return false;
+
+    memset(&g->inventory, 0, sizeof g->inventory);
+    memcpy(g->inventory.slots, inv.slots, sizeof inv.slots);
+    memcpy(g->inventory.armor, inv.armor, sizeof inv.armor);
+    g->inventory.sel_slot = inv.sel_slot;
+    g->inventory.sel_inner = inv.sel_inner;
+    for (int i = 0; i < MAX_CONTAINERS; i++) {
+        g->inventory.containers[i].used = inv.containers[i].used;
+        memcpy(g->inventory.containers[i].slots, inv.containers[i].slots, sizeof inv.containers[i].slots);
+    }
+    for (int i = 0; i < MAX_DROPS; i++) {
+        const OldDrop *d = &drops[i];
+        g->drops[i] = (Drop){ d->active, d->item, d->x, d->y, d->age, d->collect, d->attached, d->ttl,
+                              d->id, 0 };
+    }
+    return true;
+}
 
 /* Version 1 saves predate the data files and have no name tables: their ids
  * were these, in this order. Trees stood in the foreground. */
@@ -101,7 +151,8 @@ bool save_game(const Game *g, const char *path)
     for (int layer = 0; layer < LAYER_COUNT && ok; layer++)
         ok = fwrite(w->layers[layer], 1, cells, f) == cells;
     ok = ok && fwrite(&g->inventory, sizeof g->inventory, 1, f) == 1 &&
-         fwrite(g->drops, sizeof g->drops, 1, f) == 1;
+         fwrite(g->drops, sizeof g->drops, 1, f) == 1 &&
+         fwrite(g->storages, sizeof g->storages, 1, f) == 1;
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
         remove(tmp);
@@ -119,8 +170,9 @@ bool load_game(Game *g, const char *path)
     SaveHeader h;
     uint8_t tiles[256], items[256];
     bool ok = fread(&h, sizeof h, 1, f) == 1 && h.magic == SAVE_MAGIC &&
-              (h.version == 1 || h.version == SAVE_VERSION) &&
-              h.inventory_size == sizeof g->inventory && h.drops_size == sizeof g->drops &&
+              h.version >= 1 && h.version <= SAVE_VERSION &&
+              h.inventory_size == (h.version < 3 ? sizeof(OldInventory) : sizeof g->inventory) &&
+              h.drops_size == (h.version < 3 ? sizeof(OldDrop) * MAX_DROPS : sizeof g->drops) &&
               h.width > 0 && h.height > 0 && h.width <= 1 << 16 && h.height <= 1 << 12;
     if (ok && h.version == 1) {
         legacy_names(tiles, legacy_tiles, (int)(sizeof legacy_tiles / sizeof legacy_tiles[0]), tile_id);
@@ -135,8 +187,13 @@ bool load_game(Game *g, const char *path)
         size_t cells = (size_t)w->width * w->height;
         for (int layer = 0; layer < LAYER_COUNT && ok; layer++)
             ok = fread(w->layers[layer], 1, cells, f) == cells;
-        ok = ok && fread(&g->inventory, sizeof g->inventory, 1, f) == 1 &&
-             fread(g->drops, sizeof g->drops, 1, f) == 1;
+        if (ok && h.version < 3) {
+            ok = read_old_state(f, g);
+        } else {
+            ok = ok && fread(&g->inventory, sizeof g->inventory, 1, f) == 1 &&
+                 fread(g->drops, sizeof g->drops, 1, f) == 1 &&
+                 fread(g->storages, sizeof g->storages, 1, f) == 1;
+        }
 
         /* Turn the save's ids into this run's. */
         for (int layer = 0; layer < LAYER_COUNT && ok; layer++)
@@ -146,7 +203,8 @@ bool load_game(Game *g, const char *path)
             for (int i = 0; i < INVENTORY_SLOTS; i++) remap_stack(&inv->slots[i], items);
             for (int i = 0; i < ARMOR_SLOTS; i++) remap_stack(&inv->armor[i], items);
             for (int i = 0; i < MAX_CONTAINERS; i++)
-                for (int j = 0; j < BASKET_SLOTS; j++) remap_stack(&inv->containers[i].slots[j], items);
+                for (int j = 0; j < CONTAINER_MAX_SLOTS; j++)
+                    remap_stack(&inv->containers[i].slots[j], items);
             for (int i = 0; i < MAX_DROPS; i++) {
                 g->drops[i].item = items[g->drops[i].item];
                 if (g->drops[i].item == ITEM_NONE) g->drops[i].active = false;

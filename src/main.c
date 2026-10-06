@@ -69,6 +69,15 @@ static Vector2 player_center(const Game *g)
     return (Vector2){ (view_near_x(&view, x) + 0.5f) * TILE_SIZE, y * TILE_SIZE };
 }
 
+static void sync_storage_slots(const Game *g, Hud *hud)
+{
+    Rectangle rects[HUD_MAX_EXTRA_SLOTS];
+    uint16_t container;
+    hud->extra_count = benchui_storage_slots(g, &view, rects, HUD_MAX_EXTRA_SLOTS, &container);
+    for (int i = 0; i < hud->extra_count; i++)
+        hud->extra[i] = (HudSlot){ rects[i], { SLOT_CONTAINER, container, i } };
+}
+
 static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, const Keybinds *keys)
 {
     const int *k = keys->keys;
@@ -84,6 +93,9 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, cons
                         (int)IsKeyDown(k[BIND_DOWN]) - (int)IsKeyDown(k[BIND_UP]));
 
     if (IsKeyPressed(k[BIND_FOLLOW])) cam->follow = true;
+
+    /* The slots of an open chest join the inventory's, so items drag between them. */
+    sync_storage_slots(g, hud);
 
     /* A press that starts on the inventory never reaches the world. */
     if (hud_handle_input(hud, &g->inventory)) return;
@@ -112,14 +124,15 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, cons
             TilePos t = tile_at_screen(cam, mouse);
             t.x = world_wrap_x(&g->world, t.x);
             const TileDef *def = tile_def(world_get(&g->world, t.x, t.y));
-            /* An item under the cursor comes before the tile behind it. */
+            bool opens = def->bench || def->storage_columns > 0;
             int drop = game_drop_at(g, (mouse.x - view.origin.x) / TILE_SIZE,
                                     (mouse.y - view.origin.y) / TILE_SIZE);
+            /* An item under the cursor comes before the tile behind it.
+             * Something that opens offers a choice if it can also be removed;
+             * otherwise it just opens. */
             if (drop >= 0) game_queue_collect(g, drop);
-            else
-            /* A bench offers a choice if it can be removed; otherwise it just opens. */
-            if (def->bench && def->removable) benchui_show_popup(bench, t);
-            else if (def->bench) game_queue_action(g, ACTION_USE, t.x, t.y);
+            else if (opens && def->removable) benchui_show_popup(bench, t);
+            else if (opens) game_queue_action(g, ACTION_USE, t.x, t.y);
             else game_click_tile(g, t.x, t.y);
         }
         cam->pressed = false;
@@ -393,6 +406,7 @@ static void session_draw(Session *s)
         DrawRectangleLinesEx(tile_rect(origin, tile_at_screen(&s->cam, GetMousePosition())), 1.0f,
                              Fade(WHITE, 0.5f));
     benchui_draw(&s->bench, g, &view);
+    sync_storage_slots(g, &s->hud);
     draw_hud(g, &s->cam);
     hud_draw(&s->hud, &g->inventory);
 }

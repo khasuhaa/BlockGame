@@ -432,7 +432,7 @@ static void test_drops(void)
     CHECK(!g.drops[0].active && count_item(&g, ITEM_DIRT) == 1);
 
     /* Out of reach it stays put until the player walks up to it. */
-    g.drops[0] = (Drop){ true, (uint8_t)ITEM_DIRT, start.x + 6, (float)(s - 5), 0.0f, 0.0f, false, 0, 1 };
+    g.drops[0] = (Drop){ true, (uint8_t)ITEM_DIRT, start.x + 6, (float)(s - 5), 0.0f, 0.0f, false, 0, 1, 0 };
     run(&g, 2.0f);
     CHECK(g.drops[0].active && g.drops[0].y == (float)(s - 1));
     CHECK(game_click_tile(&g, start.x + 5, start.y));
@@ -442,7 +442,7 @@ static void test_drops(void)
     /* With no room, it is left on the ground. */
     inventory_add(&g.inventory, ITEM_DIRT, 99 * 12);
     int before = count_item(&g, ITEM_DIRT);
-    g.drops[0] = (Drop){ true, (uint8_t)ITEM_DIRT, g.player.feet.x, (float)g.player.feet.y, 0.0f, 0.0f, false, 0, 2 };
+    g.drops[0] = (Drop){ true, (uint8_t)ITEM_DIRT, g.player.feet.x, (float)g.player.feet.y, 0.0f, 0.0f, false, 0, 2, 0 };
     run(&g, 2.0f);
     CHECK(g.drops[0].active && count_item(&g, ITEM_DIRT) == before);
     game_free(&g);
@@ -854,7 +854,7 @@ static void test_ticks(void)
         if (g.drops[i].active) continue;
         TilePos at = low < 0 ? (TilePos){ tx - 1, top + 2 } : (TilePos){ tx, top - 1 };
         g.drops[i] = (Drop){ true, (uint8_t)ITEM_ACORN, at.x, (float)at.y, 0.0f, 0.0f, true, FRUIT_TICKS,
-                             ++g.next_drop_id };
+                             ++g.next_drop_id, 0 };
         if (low < 0) low = i;
         else high = i;
     }
@@ -1050,6 +1050,127 @@ static void test_planting(void)
     game_free(&g);
 }
 
+static ItemStack *chest_slot(Game *g, int i)
+{
+    return inventory_slot(&g->inventory, (SlotRef){ SLOT_CONTAINER, game_open_storage(g), i });
+}
+
+static int used_containers(const Game *g)
+{
+    int n = 0;
+    for (int i = 1; i < MAX_CONTAINERS; i++) n += g->inventory.containers[i].used;
+    return n;
+}
+
+static void test_chests(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 20, WORLD_FLAT);
+    Inventory *inv = &g.inventory;
+    TilePos start = g.player.feet;
+    int s = g.world.surface_y, cx = start.x + 3;
+    SlotRef bar1 = { SLOT_BAR, 1, 0 }, bar2 = { SLOT_BAR, 2, 0 }, bar3 = { SLOT_BAR, 3, 0 };
+    TileType chest_tile = tile_id("chest");
+
+    /* Baskets never stack; empty chests do. */
+    CHECK(item_def(ITEM_BASKET)->max_stack == 1 && item_def(ITEM_CHEST)->max_stack > 1);
+    inventory_add(inv, ITEM_BASKET, 1);
+    CHECK(inv->slots[0].count == 1 && inv->slots[1].id == ITEM_BASKET && inv->slots[1].count == 1);
+    CHECK(inventory_move(inv, bar1, (SlotRef){ SLOT_BAR, 0, 0 }, MAX_STACK));
+    CHECK(inv->slots[0].count == 1 && inv->slots[1].count == 1);
+    inv->slots[1] = (ItemStack){ 0 };
+    inventory_add(inv, ITEM_CHEST, 2);
+    inventory_add(inv, ITEM_WOOD, 20);
+    CHECK(inv->slots[1].id == ITEM_CHEST && inv->slots[1].count == 2 && inv->slots[1].container == 0);
+    CHECK(inv->slots[2].id == ITEM_WOOD && inv->slots[2].count == 20);
+
+    /* A placed chest opens onto 16 slots, and takes what is dragged into it. */
+    inventory_select(inv, 1, -1);
+    CHECK(game_click_tile(&g, cx, s - 1) && g.queue[0].type == ACTION_PLACE);
+    CHECK(game_queue_action(&g, ACTION_USE, cx, s - 1));
+    run(&g, 3.0f);
+    CHECK(world_get(&g.world, cx, s - 1) == chest_tile && g.bench_open && inv->slots[1].count == 1);
+    CHECK(tile_def(chest_tile)->storage_columns == 4 && tile_def(chest_tile)->storage_rows == 4);
+    CHECK(game_open_storage(&g) != 0 && chest_slot(&g, 15) != NULL && chest_slot(&g, 16) == NULL);
+    CHECK(inventory_move(inv, bar2, (SlotRef){ SLOT_CONTAINER, game_open_storage(&g), 5 }, 5));
+    CHECK(chest_slot(&g, 5)->id == ITEM_WOOD && chest_slot(&g, 5)->count == 5 && inv->slots[2].count == 15);
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_CONTAINER, game_open_storage(&g), 5 },
+                         (SlotRef){ SLOT_CONTAINER, game_open_storage(&g), 0 }, MAX_STACK));
+    /* A basket goes in with what it holds. */
+    CHECK(inventory_move(inv, bar2, (SlotRef){ SLOT_BASKET, 0, 1 }, 3));
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 0, 0 }, (SlotRef){ SLOT_CONTAINER, game_open_storage(&g), 9 }, 1));
+    CHECK(chest_slot(&g, 9)->id == ITEM_BASKET && inv->slots[0].count == 0);
+    CHECK(inv->containers[chest_slot(&g, 9)->container].slots[1].count == 3);
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_CONTAINER, game_open_storage(&g), 9 }, (SlotRef){ SLOT_BAR, 0, 0 }, 1));
+    CHECK(inventory_slot(inv, (SlotRef){ SLOT_BASKET, 0, 1 })->count == 3);
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BASKET, 0, 1 }, bar2, MAX_STACK) && inv->slots[2].count == 15);
+
+    /* Removing the chest gives a chest item carrying what was inside. */
+    CHECK(game_queue_action(&g, ACTION_MINE, cx, s - 1));
+    run(&g, 3.0f);
+    CHECK(world_get(&g.world, cx, s - 1) == TILE_AIR && !g.bench_open && game_open_storage(&g) == 0);
+    CHECK(inv->slots[1].id == ITEM_CHEST && inv->slots[1].count == 1 && inv->slots[1].container == 0);
+    CHECK(inv->slots[3].id == ITEM_CHEST && inv->slots[3].count == 1 && inv->slots[3].container != 0);
+    CHECK(inv->containers[inv->slots[3].container].slots[0].count == 5);
+
+    /* It does not stack with an empty chest, nor with one holding something else... */
+    CHECK(inventory_move(inv, bar3, bar1, MAX_STACK));
+    CHECK(inv->slots[1].container != 0 && inv->slots[3].container == 0 && inv->slots[1].count == 1);
+    uint16_t other = container_alloc(inv);
+    inv->containers[other].slots[0] = (ItemStack){ (uint8_t)ITEM_WOOD, 4, 0 };
+    inv->slots[3].container = other;
+    CHECK(!containers_equal(inv, inv->slots[1].container, other));
+    CHECK(inventory_move(inv, bar3, bar1, MAX_STACK) && inv->slots[1].count == 1 && inv->slots[3].count == 1);
+    /* ...but two chests with 5 wood in each are the same, and stack. */
+    other = (inv->slots[1].container == other) ? inv->slots[1].container : inv->slots[3].container;
+    inv->containers[other].slots[0].count = 5;
+    CHECK(containers_equal(inv, inv->slots[1].container, inv->slots[3].container));
+    int before = used_containers(&g);
+    CHECK(inventory_move(inv, bar3, bar1, MAX_STACK));
+    CHECK(inv->slots[1].count == 2 && inv->slots[3].count == 0 && used_containers(&g) == before - 1);
+
+    /* Taking one off the stack gives it its own copy of the contents. */
+    CHECK(inventory_move(inv, bar1, bar3, 1));
+    CHECK(inv->slots[1].count == 1 && inv->slots[3].count == 1);
+    CHECK(inv->slots[3].container != 0 && inv->slots[3].container != inv->slots[1].container);
+    CHECK(containers_equal(inv, inv->slots[1].container, inv->slots[3].container));
+    CHECK(inventory_move(inv, bar3, bar1, MAX_STACK) && inv->slots[1].count == 2);
+
+    /* Placing one of the two puts 5 wood in the block and leaves 5 in the item. */
+    inventory_select(inv, 1, -1);
+    CHECK(game_click_tile(&g, cx, s - 1));
+    CHECK(game_queue_action(&g, ACTION_USE, cx, s - 1));
+    run(&g, 3.0f);
+    CHECK(g.bench_open && chest_slot(&g, 0)->id == ITEM_WOOD && chest_slot(&g, 0)->count == 5);
+    CHECK(inv->slots[1].count == 1 && inv->containers[inv->slots[1].container].slots[0].count == 5);
+    CHECK(game_open_storage(&g) != inv->slots[1].container);
+
+    /* A chest cannot be put inside itself by way of something it holds, and
+     * emptied out it is a plain chest again. */
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_CONTAINER, game_open_storage(&g), 0 }, bar2, MAX_STACK));
+    CHECK(inv->slots[2].count == 20);
+    CHECK(game_queue_action(&g, ACTION_MINE, cx, s - 1));
+    run(&g, 3.0f);
+    int empties = 0;
+    for (int i = 0; i < INVENTORY_SLOTS; i++)
+        if (inv->slots[i].id == ITEM_CHEST && inv->slots[i].container == 0) empties += inv->slots[i].count;
+    CHECK(empties == 1);
+
+    /* Contents survive saving, in the item and in the block. */
+    inventory_select(inv, 1, -1);
+    CHECK(inv->slots[1].container != 0 && game_click_tile(&g, cx + 2, s - 1));
+    run(&g, 3.0f);
+    CHECK(world_get(&g.world, cx + 2, s - 1) == chest_tile && save_game(&g, "build/test_chest.world"));
+    Game loaded;
+    CHECK(load_game(&loaded, "build/test_chest.world"));
+    CHECK(game_queue_action(&loaded, ACTION_USE, cx + 2, s - 1));
+    run(&loaded, 3.0f);
+    CHECK(loaded.bench_open && chest_slot(&loaded, 0)->id == ITEM_WOOD && chest_slot(&loaded, 0)->count == 5);
+    game_free(&loaded);
+    remove("build/test_chest.world");
+    game_free(&g);
+}
+
 static void write_file(const char *path, const char *text)
 {
     FILE *f = fopen(path, "w");
@@ -1150,6 +1271,7 @@ int main(void)
     test_save();
     test_background_trees();
     test_planting();
+    test_chests();
     test_content();
     if (failures) {
         printf("%d check(s) failed\n", failures);

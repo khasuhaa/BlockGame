@@ -11,6 +11,7 @@
 #define MAX_MOVES 8
 #define MAX_DROPS 2048
 #define MAX_TICK_RATE 100
+#define MAX_STORAGES 256
 
 /* The pace of the game comes from the rules data; these are shorthands. */
 #define WALK_TIME (content.rules.walk_time)
@@ -108,7 +109,15 @@ typedef struct {
     bool attached; /* growing on a leaf */
     int ttl;       /* ticks until it disappears; 0 lasts forever */
     uint32_t id;   /* unique, so a queued action can tell if its drop is gone */
+    uint16_t container; /* what is inside the item, as in an ItemStack */
 } Drop;
+
+/* The contents of a storage block placed in the world, such as a chest. */
+typedef struct {
+    bool used;
+    int x, y;
+    uint16_t container;
+} Storage;
 
 typedef struct {
     World world;
@@ -116,6 +125,7 @@ typedef struct {
     Inventory inventory;
     Drop drops[MAX_DROPS];
     uint32_t next_drop_id;
+    Storage storages[MAX_STORAGES];
 
     /* World time. Movement runs in real time; ticks drive the day, tree
      * growth and fruit. */
@@ -139,7 +149,8 @@ typedef struct {
 
     Denial denials[MAX_DENIALS];
 
-    /* The bench the player has open, and the crafting run going on at it. */
+    /* The bench or storage block the player has open, and the crafting run
+     * going on at it. */
     bool bench_open;
     TilePos bench_pos;
     const Recipe *craft_recipe;
@@ -190,6 +201,9 @@ bool game_craft(Game *g, const Recipe *r, int count);
 /* Upgrades the open bench in place, paying its cost. False if it cannot be
  * upgraded or the cost is not held. */
 bool game_upgrade_bench(Game *g);
+/* The container of the storage block that is open, or 0 if what is open is
+ * not one. Its slots are reached with SLOT_CONTAINER. */
+uint16_t game_open_storage(const Game *g);
 /* Closes the open bench and abandons the rest of its crafting run. */
 void game_close_bench(Game *g);
 

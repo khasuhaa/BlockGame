@@ -42,6 +42,10 @@ void benchui_show_popup(BenchUi *ui, TilePos tile);
 /* Dismisses the popup and closes the open bench. */
 void benchui_close(BenchUi *ui, Game *g);
 bool benchui_mouse_over(const BenchUi *ui, const Game *g, const View *v);
+/* Where the slots of the open storage block are on screen, in order. Fills
+ * `rects` and the container they belong to; returns how many, 0 if what is
+ * open is not a storage block. */
+int benchui_storage_slots(const Game *g, const View *v, Rectangle *rects, int max, uint16_t *container);
 void benchui_draw(const BenchUi *ui, const Game *g, const View *v);
 
 #endif

@@ -25,7 +25,7 @@ static Rectangle cell_rect(int col, int row)
 static bool is_basket(const Inventory *inv, int slot)
 {
     const ItemStack *s = &inv->slots[slot];
-    return s->count > 0 && item_def(s->id)->container;
+    return s->count > 0 && item_def(s->id)->opens_in_bar;
 }
 
 static bool basket_shown(const Hud *hud, const Inventory *inv, int slot)
@@ -56,6 +56,11 @@ static bool hit_test(const Hud *hud, const Inventory *inv, Vector2 p, bool *head
             }
             return false;
         }
+    }
+    for (int i = 0; i < hud->extra_count; i++) {
+        if (!CheckCollisionPointRec(p, hud->extra[i].rect)) continue;
+        *slot = hud->extra[i].ref;
+        return true;
     }
     return false;
 }
@@ -229,6 +234,12 @@ void hud_draw(const Hud *hud, const Inventory *inv)
                                    ? inventory_slot(lookup, hud->press_slot) : NULL;
     int picked = dragged && hud->picked < dragged->count ? hud->picked
                  : dragged ? dragged->count : 0;
+
+    for (int i = 0; i < hud->extra_count; i++) {
+        const ItemStack *s = inventory_slot(lookup, hud->extra[i].ref);
+        draw_box(hud->extra[i].rect, false);
+        draw_stack(s, hud->extra[i].rect, s == dragged ? picked : 0);
+    }
 
     draw_box(cell_rect(0, 0), hud->armor_open);
     draw_head_icon(cell_rect(0, 0));

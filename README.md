@@ -19,8 +19,8 @@ Everything the game contains is defined in `data/`, not in the code, so it can b
 
 | File | Defines |
 | --- | --- |
-| `tiles.json` | Blocks: whether they are solid, climbable or minable, how long they take to mine, what they drop, their textures, and for benches their kind, level and upgrade |
-| `items.json` | Items: label, stack size, whether they hold other items, what block they place, what tree they plant, and their texture |
+| `tiles.json` | Blocks: whether they are solid, climbable or minable, how long they take to mine, what they drop, their textures, for benches their kind, level and upgrade, and for storage blocks their grid of slots |
+| `items.json` | Items: label, stack size, how many slots they hold inside them and whether those open from the bar, what block they place, what tree they plant, and their texture |
 | `recipes.json` | What each kind of bench makes, from what, and at what bench level |
 | `trees.json` | Tree kinds: their blocks, fruit, full height, the shape of the crown row by row, which layer they grow in, and what they can be planted on |
 | `worldgen.json` | World size, the plains, the mountains and valleys (any number of kinds), soil layers, the spawn and its portal, and how trees are scattered |
@@ -35,7 +35,7 @@ The loader can read a second directory on top of the first, adding new definitio
 
 The game opens on a main menu listing the saved worlds. Pick one to join it, or choose "New world", give it a name, and a fresh world is generated from a random seed.
 
-Worlds are saved in `saves/<name>.world`, next to where the game is run from. A save records its blocks and items by name, so it still loads after the data files change; anything that no longer exists is removed from it. A world is saved when it is created, every two minutes while playing, on "Save and quit to menu", and when the window is closed. Actions still queued at that moment are not kept.
+Worlds are saved in `saves/<name>.world`, next to where the game is run from. A save records its blocks and items by name, so it still loads after the data files change; anything that no longer exists is removed from it. Saves made by earlier versions of the game still load. A world is saved when it is created, every two minutes while playing, on "Save and quit to menu", and when the window is closed. Actions still queued at that moment are not kept.
 
 `Esc` opens the pause menu, which stops the world and offers:
 
@@ -52,7 +52,7 @@ Worlds are saved in `saves/<name>.world`, next to where the game is run from. A 
 | Click a ground tile | Queue walking next to that tile and mining it |
 | Click air beside a block, holding a block | Queue walking next to that tile and placing the block |
 | Click dirt or grass, holding an acorn or cherry | Queue walking next to it and planting a tree on top |
-| Click a bench | Open it, or choose between opening and removing it |
+| Click a bench or a chest | Open it, or choose between opening and removing it |
 | Click a dropped item or a fruit | Queue walking up to it and picking it up |
 | `Esc` | Pause menu |
 | Drag | Pan the map |
@@ -119,7 +119,7 @@ The bar along the bottom has a head button followed by 8 slots. Stacks hold up t
 - Tap the head button to open the 4 armor slots (head, chest, legs, boots) and every basket at once.
 - Press and hold on a stack to pick items up from it: 1 after a moment, then 2, 3 … 10, then 15, 20, 25 … up to one fewer than the stack holds. The count stops rising once the cursor leaves the slot. Release over an empty slot or an equal stack to put them there; release anywhere else to put them back.
 - Drag a stack away without waiting to move all of it: equal stacks merge, anything else swaps.
-- A basket can be put inside another basket and keeps its contents, but only baskets sitting in the bar can be opened.
+- A basket can be put inside another basket and keeps its contents, but only baskets sitting in the bar can be opened. Baskets never stack.
 - Clicking or dragging the world, or pressing a movement key, closes everything.
 
 A mined block drops as an item where it was. It is collected when the player is on or next to its tile, a moment after it drops, as long as there is room in the bar or in a basket in the bar.
@@ -145,7 +145,13 @@ A bench can have levels. The workbench's menu shows its level and an Upgrade but
 | Workbench | Basket | 10 sticks |
 | Workbench, level 2 (upgrade: 5 stone) | Chest | 1 wood |
 
-The chest is a block that can be placed and removed; it does not store anything yet.
+## Chests
+
+Clicking a placed chest offers "Open chest" and "Remove chest". Opening it (the player walks up first) shows its 16 slots in a 4×4 grid beside it. Items are dragged between the chest and the inventory bar exactly as they are within the bar, including picking up part of a stack by holding. A basket put in a chest keeps what it holds.
+
+Removing a chest gives a chest item that still holds everything that was in it, and placing that item puts it all back.
+
+What an item holds is part of the item, and two stacks only merge if they hold the same things. So two chests with 5 wood in each stack together, and neither stacks with an empty chest. Taking one off such a stack gives it its own copy of the contents. Baskets never stack.
 
 ## Layout
 

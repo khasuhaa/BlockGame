@@ -1,6 +1,7 @@
 {
   "items": [
-    { "name": "basket", "label": "Basket", "max_stack": 1, "container": true,
+    { "name": "basket", "label": "Basket", "max_stack": 1,
+      "container": { "slots": 4, "open_in_inventory": true },
       "texture": "items/basket.png" },
     { "name": "dirt", "label": "Dirt", "places": "dirt", "texture": "items/dirt.png" },
     { "name": "workbench", "label": "Workbench", "places": "workbench",
@@ -12,6 +13,7 @@
     { "name": "cherry", "label": "Cherry", "plants": "cherry", "texture": "items/cherry.png" },
     { "name": "workbench_2", "label": "Workbench II", "places": "workbench_2",
       "texture": "items/workbench_2.png" },
-    { "name": "chest", "label": "Chest", "places": "chest", "texture": "items/chest.png" }
+    { "name": "chest", "label": "Chest", "places": "chest", "container": { "slots": 16 },
+      "texture": "items/chest.png" }
   ]
 }

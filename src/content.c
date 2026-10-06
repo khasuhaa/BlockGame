@@ -2,6 +2,7 @@
 
 #include "../third_party/cjson/cJSON.h"
 
+#include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -193,6 +194,12 @@ static bool read_tiles(Reader *r, const cJSON *root)
         copy_name(t->bench_kind, sizeof t->bench_kind,
                   str(e, "bench_kind") ? str(e, "bench_kind") : t->name);
         t->bench_level = (int)num(e, "bench_level", 1);
+        copy_name(t->popup_name, sizeof t->popup_name,
+                  str(e, "popup_name") ? str(e, "popup_name") : t->label);
+        if (!str(e, "popup_name"))
+            for (char *c = t->popup_name; *c; c++) *c = (char)tolower((unsigned char)*c);
+        t->storage_columns = (int)num(field(e, "storage"), "columns", 0);
+        t->storage_rows = (int)num(field(e, "storage"), "rows", 0);
         t->upgrade_to = TILE_AIR;
         t->upgrade_cost_count = 0;
         const cJSON *upgrade = field(e, "upgrade"), *cost;
@@ -231,9 +238,16 @@ static bool read_items(Reader *r, const cJSON *root)
         it->max_stack = (int)num(e, "max_stack", 99);
         if (it->max_stack < 1 || it->max_stack > 255)
             return fail(r, "item \"%s\": max_stack must be 1 to 255", it->name);
-        it->container = flag(e, "container", false);
-        if (it->container && it->max_stack != 1)
-            return fail(r, "item \"%s\": a container cannot stack", it->name);
+        /* "container" is true for a plain four-slot one, or says how many
+         * slots and whether they open from the inventory bar. */
+        const cJSON *box = field(e, "container");
+        it->container_slots = cJSON_IsTrue(box) ? 4 : (int)num(box, "slots", 0);
+        it->opens_in_bar = cJSON_IsTrue(box) || flag(box, "open_in_inventory", false);
+        if (it->container_slots < 0 || it->container_slots > 16)
+            return fail(r, "item \"%s\": a container has at most 16 slots", it->name);
+        if (it->opens_in_bar && it->max_stack != 1)
+            return fail(r, "item \"%s\": a container that opens in the inventory cannot stack",
+                        it->name);
         copy_name(it->texture, sizeof it->texture, str(e, "texture"));
         it->places = TILE_AIR;
         if (!tile_ref(r, e, "places", &it->places)) return false;
@@ -499,6 +513,15 @@ static bool validate(Reader *r)
         if (it->plants_name[0] && it->plants < 0)
             return fail(r, "item \"%s\" plants a tree called \"%s\", which does not exist", it->name,
                         it->plants_name);
+    }
+    for (int i = 0; i < content.tile_count; i++) {
+        const TileDef *t = &content.tiles[i];
+        int slots = t->storage_columns * t->storage_rows;
+        if (slots == 0) continue;
+        /* What is in it has to survive being picked up. */
+        if (slots < 0 || slots > 16 || item_def(t->drop)->container_slots < slots)
+            return fail(r, "tile \"%s\" stores items, so it must drop an item with at least as many "
+                           "container slots (16 at most)", t->name);
     }
     for (int i = 0; i < content.recipe_count; i++) {
         bool found = false;

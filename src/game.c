@@ -265,7 +265,7 @@ static bool target_valid(const World *w, Action a)
         return t == TILE_AIR && item_def((ItemId)a.item)->places != TILE_AIR &&
                beside_block(w, a.target);
     case ACTION_PLANT: return can_plant(w, (ItemId)a.item, a.target);
-    case ACTION_USE: return tile_def(t)->bench;
+    case ACTION_USE: return tile_def(t)->bench || tile_def(t)->storage_columns > 0;
     default: return !tile_def(t)->solid;
     }
 }
@@ -485,19 +485,79 @@ bool game_click_tile(Game *g, int tx, int ty)
 
 /* ---- simulation -------------------------------------------------------- */
 
-/* Leaves an item lying in a tile. With no room for another drop it goes
- * straight to the inventory instead. */
-static Drop *spawn_drop(Game *g, ItemId item, TilePos at)
+/* Leaves an item lying in a tile, with whatever is inside it. With no room
+ * for another drop it goes straight to the inventory instead. */
+static Drop *spawn_drop_stack(Game *g, ItemStack one, TilePos at)
 {
-    if (item == ITEM_NONE) return NULL;
+    if (one.id == ITEM_NONE) return NULL;
     for (int i = 0; i < MAX_DROPS; i++) {
         if (g->drops[i].active) continue;
-        g->drops[i] = (Drop){ true, (uint8_t)item, at.x, (float)at.y, 0.0f, 0.0f, false, 0,
-                              ++g->next_drop_id };
+        g->drops[i] = (Drop){ true, one.id, at.x, (float)at.y, 0.0f, 0.0f, false, 0,
+                              ++g->next_drop_id, one.container };
         return &g->drops[i];
     }
-    inventory_add(&g->inventory, item, 1);
+    one.count = 1;
+    if (inventory_add_stack(&g->inventory, one) != 0) container_free(&g->inventory, one.container);
     return NULL;
+}
+
+static Drop *spawn_drop(Game *g, ItemId item, TilePos at)
+{
+    return spawn_drop_stack(g, (ItemStack){ (uint8_t)item, 1, 0 }, at);
+}
+
+/* Puts a drop in the inventory, contents and all, if there is room. */
+static bool collect_drop(Game *g, Drop *d)
+{
+    if (inventory_add_stack(&g->inventory, (ItemStack){ d->item, 1, d->container }) != 0) return false;
+    d->container = 0;
+    d->collect = 0.001f;
+    return true;
+}
+
+/* ---- storage blocks ---------------------------------------------------- */
+
+static Storage *storage_at(Game *g, TilePos t)
+{
+    for (int i = 0; i < MAX_STORAGES; i++)
+        if (g->storages[i].used && g->storages[i].x == t.x && g->storages[i].y == t.y)
+            return &g->storages[i];
+    return NULL;
+}
+
+/* Gives a newly placed storage block the contents of the item it came from. */
+static bool storage_create(Game *g, TilePos t, ItemStack from)
+{
+    for (int i = 0; i < MAX_STORAGES; i++) {
+        if (g->storages[i].used) continue;
+        uint16_t c = from.container ? from.container : container_alloc(&g->inventory);
+        if (c == 0) return false;
+        g->storages[i] = (Storage){ true, t.x, t.y, c };
+        return true;
+    }
+    return false;
+}
+
+/* Takes the contents out of a storage block that is being removed: the
+ * container to hand to its item, or 0 if there was nothing in it. */
+static uint16_t storage_release(Game *g, TilePos t)
+{
+    Storage *st = storage_at(g, t);
+    if (!st) return 0;
+    uint16_t c = st->container;
+    st->used = false;
+    if (container_is_empty(&g->inventory, c)) {
+        container_free(&g->inventory, c);
+        c = 0;
+    }
+    return c;
+}
+
+uint16_t game_open_storage(const Game *g)
+{
+    if (!g->bench_open) return 0;
+    Storage *st = storage_at((Game *)g, g->bench_pos);
+    return st ? st->container : 0;
 }
 
 static void update_drops(Game *g, float dt)
@@ -522,7 +582,7 @@ static void update_drops(Game *g, float dt)
         /* Collected from the tiles the player occupies or touches. */
         int dx = world_dx(&g->world, feet.x, d->x), dy = (int)(d->y + 0.5f) - feet.y;
         if (d->age < DROP_PICKUP_DELAY || dx < -1 || dx > 1 || dy < -2 || dy > 1) continue;
-        if (inventory_add(&g->inventory, (ItemId)d->item, 1) == 0) d->collect = 0.001f;
+        collect_drop(g, d);
     }
 }
 
@@ -562,19 +622,33 @@ static void finish_activity(Game *g)
         TilePos t = g->current.target;
         int layer = mine_layer(&g->world, t);
         if (layer >= 0) {
-            spawn_drop(g, tile_def(world_get_at(&g->world, layer, t.x, t.y))->drop, t);
+            /* A storage block's contents go into the item it leaves behind. */
+            const TileDef *def = tile_def(world_get_at(&g->world, layer, t.x, t.y));
+            uint16_t inside = layer == LAYER_FOREGROUND ? storage_release(g, t) : 0;
+            spawn_drop_stack(g, (ItemStack){ (uint8_t)def->drop, 1, inside }, t);
             world_set_at(&g->world, layer, t.x, t.y, TILE_AIR);
         }
         g->has_current = false;
     } else if (p->activity == ACTIVITY_PLACING) {
         TilePos t = g->current.target;
         ItemId item = (ItemId)g->current.item;
-        if (inventory_remove(&g->inventory, item, 1) != 1)
+        TileType tile = item_def(item)->places;
+        ItemStack one;
+        if (!inventory_take_one(&g->inventory, item, &one)) {
             deny(g, t);
-        else if (g->current.type == ACTION_PLANT)
+        } else if (g->current.type == ACTION_PLANT) {
+            container_free(&g->inventory, one.container);
             tree_plant(&g->world, t.x, t.y - 1, item_def(item)->plants);
-        else
-            world_set(&g->world, t.x, t.y, item_def(item)->places);
+        } else if (tile_def(tile)->storage_columns == 0) {
+            container_free(&g->inventory, one.container);
+            world_set(&g->world, t.x, t.y, tile);
+        } else if (storage_create(g, t, one)) {
+            /* What was inside the item is now inside the block. */
+            world_set(&g->world, t.x, t.y, tile);
+        } else {
+            inventory_add_stack(&g->inventory, one);
+            deny(g, t);
+        }
         g->has_current = false;
     }
     p->activity = ACTIVITY_IDLE;
@@ -621,10 +695,8 @@ static bool start_next_activity(Game *g)
                     Drop *d = &g->drops[g->current.drop];
                     bool there = d->active && d->id == g->current.drop_id && d->collect == 0.0f;
                     /* Someone else's hands, or a despawn, is not worth a complaint. */
-                    if (there && (!in_use_range(w, p->feet, drop_tile(d)) ||
-                                  inventory_add(&g->inventory, (ItemId)d->item, 1) != 0))
+                    if (there && (!in_use_range(w, p->feet, drop_tile(d)) || !collect_drop(g, d)))
                         break;
-                    if (there) d->collect = 0.001f;
                     g->has_current = false;
                     continue;
                 }
@@ -700,9 +772,9 @@ void game_close_bench(Game *g)
 static void update_bench(Game *g, float dt)
 {
     if (!g->bench_open) return;
-    /* The bench shuts if it is removed or the player leaves it. */
-    TileType t = world_get(&g->world, g->bench_pos.x, g->bench_pos.y);
-    if (!tile_def(t)->bench || !in_use_range(&g->world, g->player.feet, g->bench_pos)) {
+    /* It shuts if it is removed or the player leaves it. */
+    const TileDef *open = tile_def(world_get(&g->world, g->bench_pos.x, g->bench_pos.y));
+    if ((!open->bench && open->storage_columns == 0) || !in_use_range(&g->world, g->player.feet, g->bench_pos)) {
         game_close_bench(g);
         return;
     }

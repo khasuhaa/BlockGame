@@ -3,6 +3,7 @@
 #include "hud.h"
 
 #include <stddef.h>
+#include <stdio.h>
 
 #define MENU_WIDTH 300.0f
 #define MENU_HEIGHT 236.0f
@@ -10,9 +11,11 @@
 #define MENU_PAD 10.0f
 #define LIST_CELL 48.0f
 #define LIST_GAP 4.0f
-#define POPUP_WIDTH 136.0f
+#define POPUP_WIDTH 176.0f
 #define POPUP_BUTTON_HEIGHT 26.0f
 #define UI_DRAG_THRESHOLD 6.0f
+#define STORAGE_SLOT 52.0f
+#define STORAGE_GAP 4.0f
 #define WHEEL_SCROLL 30.0f
 
 static const Color panel_color = { 28, 30, 38, 240 };
@@ -21,11 +24,39 @@ static const Color button_color = { 70, 130, 80, 255 };
 
 /* ---- layout ------------------------------------------------------------ */
 
+static TileType open_bench(const Game *g)
+{
+    return world_get(&g->world, g->bench_pos.x, g->bench_pos.y);
+}
+
+/* The panel flying out of the open block: sized for crafting, or for a
+ * storage block's grid of slots. */
 static Rectangle menu_rect(const Game *g, const View *v)
 {
+    const TileDef *def = tile_def(open_bench(g));
+    float w = MENU_WIDTH, h = MENU_HEIGHT;
+    if (def->storage_columns > 0) {
+        w = 2 * MENU_PAD + def->storage_columns * (STORAGE_SLOT + STORAGE_GAP) - STORAGE_GAP;
+        h = MENU_HEADER + 2 * MENU_PAD + def->storage_rows * (STORAGE_SLOT + STORAGE_GAP) - STORAGE_GAP;
+    }
     Vector2 tile = view_tile_pos(v, (float)g->bench_pos.x, (float)g->bench_pos.y);
-    return (Rectangle){ tile.x + v->tile_size + 14.0f, tile.y + v->tile_size - MENU_HEIGHT,
-                        MENU_WIDTH, MENU_HEIGHT };
+    return (Rectangle){ tile.x + v->tile_size + 14.0f, tile.y + v->tile_size - h, w, h };
+}
+
+int benchui_storage_slots(const Game *g, const View *v, Rectangle *rects, int max, uint16_t *container)
+{
+    *container = game_open_storage(g);
+    if (*container == 0) return 0;
+    const TileDef *def = tile_def(open_bench(g));
+    Rectangle menu = menu_rect(g, v);
+    int n = 0;
+    for (int row = 0; row < def->storage_rows; row++) {
+        for (int col = 0; col < def->storage_columns && n < max; col++)
+            rects[n++] = (Rectangle){ menu.x + MENU_PAD + col * (STORAGE_SLOT + STORAGE_GAP),
+                                      menu.y + MENU_HEADER + MENU_PAD + row * (STORAGE_SLOT + STORAGE_GAP),
+                                      STORAGE_SLOT, STORAGE_SLOT };
+    }
+    return n;
 }
 
 static Rectangle list_rect(Rectangle menu)
@@ -49,11 +80,6 @@ static Rectangle craft_rect(Rectangle menu)
 static Rectangle upgrade_rect(Rectangle menu)
 {
     return (Rectangle){ menu.x + menu.width - MENU_PAD - 132, menu.y + 7, 132, 26 };
-}
-
-static TileType open_bench(const Game *g)
-{
-    return world_get(&g->world, g->bench_pos.x, g->bench_pos.y);
 }
 
 static Rectangle popup_rect(const BenchUi *ui, const View *v)
@@ -120,6 +146,7 @@ static BenchPress press_target(const BenchUi *ui, const Game *g, const View *v, 
     if (!g->bench_open) return BENCH_PRESS_NONE;
     Rectangle menu = menu_rect(g, v);
     if (!CheckCollisionPointRec(m, menu)) return BENCH_PRESS_NONE;
+    if (tile_def(open_bench(g))->storage_columns > 0) return BENCH_PRESS_PANEL;
     if (tile_def(open_bench(g))->upgrade_to != TILE_AIR &&
         CheckCollisionPointRec(m, upgrade_rect(menu)))
         return BENCH_PRESS_UPGRADE;
@@ -221,9 +248,13 @@ static void draw_centered(const char *text, Rectangle r, int size, Color c)
              (int)(r.y + (r.height - size) / 2), size, c);
 }
 
-static void draw_popup(const BenchUi *ui, const View *v)
+static void draw_popup(const BenchUi *ui, const Game *g, const View *v)
 {
-    static const char *labels[2] = { "Open bench", "Remove bench" };
+    /* The block's own word for itself: "Open bench", "Remove chest". */
+    const char *name = tile_def(world_get(&g->world, ui->popup_tile.x, ui->popup_tile.y))->popup_name;
+    char labels[2][2 * CONTENT_NAME_LEN];
+    snprintf(labels[0], sizeof labels[0], "Open %s", name);
+    snprintf(labels[1], sizeof labels[1], "Remove %s", name);
     Rectangle popup = popup_rect(ui, v);
     Vector2 m = GetMousePosition();
     DrawRectangleRec(popup, panel_color);
@@ -355,7 +386,7 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
 
 void benchui_draw(const BenchUi *ui, const Game *g, const View *v)
 {
-    if (ui->popup && !g->bench_open) draw_popup(ui, v);
+    if (ui->popup && !g->bench_open) draw_popup(ui, g, v);
     if (!g->bench_open) return;
 
     const Recipe *recipes[MAX_BENCH_RECIPES];
@@ -370,6 +401,9 @@ void benchui_draw(const BenchUi *ui, const Game *g, const View *v)
     DrawRectangleLinesEx(menu, 2.0f, edge_color);
 
     draw_header(g, menu);
+    /* A storage block is just its name: the inventory draws the slots, so
+     * that items can be dragged between them and the bar. */
+    if (tile_def(open_bench(g))->storage_columns > 0) return;
     draw_list(ui, g, recipes, count, list_rect(menu));
     /* Until input has caught up with a newly opened bench, show no selection. */
     bool current = ui->was_open && ui->shown.x == g->bench_pos.x && ui->shown.y == g->bench_pos.y;

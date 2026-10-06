@@ -4,10 +4,22 @@
 #include "inventory.h"
 #include "raylib.h"
 
+#define HUD_MAX_EXTRA_SLOTS 16
+
+/* A slot drawn somewhere other than the bar, such as one of an open chest's. */
+typedef struct {
+    Rectangle rect;
+    SlotRef ref;
+} HudSlot;
+
 /* On-screen inventory: a head button followed by the bar of slots along the
  * bottom of the window. The head button and each basket in the bar can extend
  * a column of slots upward. */
 typedef struct {
+    /* Slots outside the bar that take part in dragging this frame. */
+    HudSlot extra[HUD_MAX_EXTRA_SLOTS];
+    int extra_count;
+
     bool armor_open;
     bool basket_open[INVENTORY_SLOTS];
 

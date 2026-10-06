@@ -67,6 +67,8 @@ typedef struct {
      * level of the same kind. */
     char bench_kind[CONTENT_NAME_LEN];
     int bench_level;
+    char popup_name[CONTENT_NAME_LEN]; /* what "Open ..." and "Remove ..." call it */
+    int storage_columns, storage_rows; /* grid of item slots it holds; 0 for none */
     TileType upgrade_to; /* TILE_AIR if it cannot be upgraded */
     RecipeItem upgrade_cost[RECIPE_MAX_INPUTS];
     int upgrade_cost_count;
@@ -84,7 +86,8 @@ typedef struct {
     char name[CONTENT_NAME_LEN];
     char label[CONTENT_NAME_LEN]; /* shown to the player */
     int max_stack;
-    bool container;  /* carries item slots of its own */
+    int container_slots; /* item slots it carries inside it; 0 for none */
+    bool opens_in_bar;   /* those slots can be opened from the inventory bar */
     EquipSlot equip; /* armor slot it can be worn in, or EQUIP_NONE */
     TileType places; /* block it becomes when placed, or TILE_AIR */
     int plants;      /* tree it grows into when planted, or -1 */
