@@ -4,6 +4,7 @@
 #include "craft.h"
 #include "inventory.h"
 #include "tree.h"
+#include "water.h"
 #include "world.h"
 
 #define MAX_QUEUED_ACTIONS 32
@@ -113,7 +114,8 @@ typedef struct {
     float saturation; /* ticks for which a full stomach holds hunger off */
     float meditation; /* progress toward the next thing meditating brings, 0..1 */
     int32_t rest;     /* a Rest */
-    int32_t reserved[4];
+    float oxygen;     /* breath left, which runs down with the head under water */
+    int32_t reserved[3];
 } Vitals;
 
 /* Fading marker shown on a tile whose action was refused. */
@@ -305,6 +307,10 @@ bool game_can_eat(const Game *g, ItemId id);
 /* Eats one of the selected item. It fills hunger and mends a little health;
  * eaten on a full stomach it holds hunger off for a while instead. */
 bool game_eat(Game *g);
+/* True while the player's head is under water. */
+bool game_player_underwater(const Game *g);
+/* True while the player is afloat: in water, with nothing under their feet. */
+bool game_player_swimming(const Game *g);
 /* True while a full stomach is holding hunger off. */
 bool game_saturated(const Game *g);
 /* Whether a bar is as good as full. */

@@ -1,5 +1,7 @@
 #include "world.h"
 
+#include "water.h"
+
 #include "tree.h"
 
 #include <math.h>
@@ -352,12 +354,6 @@ static void assign_biomes(World *w, const int *level, int *biome, float *share_o
     }
 }
 
-bool world_is_water(const World *w, int x, int y)
-{
-    return w->sea_row >= 0 && y > w->sea_row && y < w->height && !world_is_solid(w, x, y) &&
-           world_get_at(w, LAYER_WALL, x, y) == TILE_AIR;
-}
-
 /* Here and there a biome has something buried in it: at the very bottom of
  * its soil, resting on the rock, with soil over it. */
 static void bury(World *w, const int *level, const int *biome)
@@ -535,6 +531,8 @@ static bool generate_terrain(World *w)
     }
     place_veins(w, level, &rng);
     bury(w, level, biome);
+    /* The sea, before anything that only grows under it is planted. */
+    water_fill_sea(w);
     plant_world(w, level, biome, &rng);
     free(biome);
 
@@ -573,7 +571,9 @@ bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind)
         }
     }
     w->biome = calloc((size_t)width, 1);
-    if (!w->biome) {
+    w->water = calloc((size_t)width, (size_t)height);
+    w->water_awake = calloc((size_t)width, 1);
+    if (!w->biome || !w->water || !w->water_awake) {
         world_free(w);
         return false;
     }
@@ -598,6 +598,11 @@ bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind)
     for (int i = 0; i < gen->portal_height; i++)
         world_set_at(w, tile_def(gen->portal_body)->layer, w->spawn_x, w->spawn_y - i,
                      i == gen->portal_height - 1 ? gen->portal_top : gen->portal_body);
+    /* A new world's water has already found its level: the sea has run into
+     * whatever caves open on it, and is full and at rest. */
+    if (kind == WORLD_TERRAIN) water_make_sea(w);
+    memset(w->water_awake, 0, (size_t)w->width);
+    w->water_stirring = false;
     return true;
 }
 
@@ -605,6 +610,8 @@ void world_free(World *w)
 {
     for (int i = 0; i < LAYER_COUNT; i++) free(w->layers[i]);
     free(w->biome);
+    free(w->water);
+    free(w->water_awake);
     memset(w, 0, sizeof *w);
 }
 
@@ -672,6 +679,10 @@ void world_set_at(World *w, int layer, int x, int y, TileType t)
 {
     if (!world_in_bounds(w, x, y)) return;
     w->layers[layer][(size_t)y * w->width + world_wrap_x(w, x)] = (uint8_t)t;
+    if (layer != LAYER_FOREGROUND || !w->water) return;
+    /* A block where there was water pushes it out; one taken away lets it in. */
+    if (tile_def(t)->solid) water_displace(w, x, y);
+    else water_wake(w, x);
 }
 
 TileType world_get(const World *w, int x, int y)

@@ -32,6 +32,7 @@
   },
   "fog": { "enabled": true, "radius": 20, "fade": 8 },
   "view": { "zoom": [48, 40, 32, 24, 16, 6, 4, 2], "start": 32, "map_from": 12, "map_to": 8 },
-  "water": { "color": [38, 110, 190, 110] },
+  "water": { "color": [38, 110, 190, 110], "flow": 4, "swim_time": 0.18,
+             "oxygen_ticks": 300, "oxygen_refill_ticks": 40, "drown_ticks": 300 },
   "interface": { "denial_time": 0.6 }
 }

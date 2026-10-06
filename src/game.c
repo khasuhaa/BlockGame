@@ -40,9 +40,17 @@ static bool can_cling_side(const World *w, TilePos feet, int d)
     return world_is_solid(w, feet.x + d, feet.y) || world_is_solid(w, feet.x + d, feet.y - 1);
 }
 
-/* Something climbable behind the player's body, such as a tree. */
+/* Deep enough water round the body to swim in. */
+static bool in_water(const World *w, TilePos feet)
+{
+    return world_is_water(w, feet.x, feet.y) || world_is_water(w, feet.x, feet.y - 1);
+}
+
+/* Something climbable behind the player's body, such as a tree - or water,
+ * which holds a swimmer up the same way wherever they are in it. */
 static bool can_hold(const World *w, TilePos feet)
 {
+    if (in_water(w, feet)) return true;
     for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
         if (tile_def(world_get_at(w, layer, feet.x, feet.y))->climbable ||
             tile_def(world_get_at(w, layer, feet.x, feet.y - 1))->climbable)
@@ -515,6 +523,8 @@ static Pose sim_pending(Game *g)
 {
     const Player *p = &g->player;
     g->sim.sea_row = g->world.sea_row;
+    /* (The plan takes the water as it lies now.) */
+    memcpy(g->sim.water, g->world.water, (size_t)g->world.width * g->world.height);
     for (int layer = 0; layer < LAYER_COUNT; layer++)
         memcpy(g->sim.layers[layer], g->world.layers[layer],
                (size_t)g->world.width * g->world.height);
@@ -989,7 +999,10 @@ static void begin_step(Game *g, Step s)
     p->step_hop = hop;
     p->step_to = (TilePos){ p->feet.x + s.dx, p->feet.y + s.dy };
     p->timer = 0.0f;
+    bool swim = in_water(&g->world, p->feet) && in_water(&g->world, to) && !is_supported(&g->world, to) &&
+                content.rules.swim_time > 0.0f;
     if (hop) p->duration = HOP_TIME;
+    else if (swim) p->duration = content.rules.swim_time;
     else if (s.climb || p->climbing) p->duration = CLIMB_TIME;
     else if (s.dy > 0) p->duration = FALL_TIME;
     else p->duration = crawl ? CRAWL_TIME : WALK_TIME;
@@ -1389,6 +1402,19 @@ bool game_is_food(ItemId id)
     return item_def(id)->food > 0.0f;
 }
 
+bool game_player_underwater(const Game *g)
+{
+    const Player *p = &g->player;
+    bool low = world_is_solid(&g->world, p->feet.x, p->feet.y - 1); /* crawling: the head is down at the feet */
+    return world_is_water(&g->world, p->feet.x, low ? p->feet.y : p->feet.y - 1);
+}
+
+bool game_player_swimming(const Game *g)
+{
+    const Player *p = &g->player;
+    return in_water(&g->world, p->feet) && !is_supported(&g->world, p->feet);
+}
+
 bool game_saturated(const Game *g)
 {
     return g->vitals.saturation > 0.0f;
@@ -1396,7 +1422,10 @@ bool game_saturated(const Game *g)
 
 bool game_can_eat(const Game *g, ItemId id)
 {
-    return game_is_food(id) && !game_saturated(g);
+    if (!game_is_food(id)) return false;
+    /* Something that gives breath can always be eaten for that, when breath is short. */
+    if (item_def(id)->food_oxygen > 0.0f && g->vitals.oxygen < 1.0f) return true;
+    return !game_saturated(g);
 }
 
 bool game_eat(Game *g)
@@ -1409,6 +1438,7 @@ bool game_eat(Game *g)
     if (!inventory_take_one(&g->inventory, held->id, &eaten)) return false;
     container_free(&g->inventory, eaten.container);
 
+    v->oxygen = clamp01(v->oxygen + def->food_oxygen);
     /* On a full stomach it does not fill the bar; it keeps it full. */
     if (game_bar_full(v->hunger)) v->saturation += def->food * (float)content.rules.saturation_ticks;
     v->hunger = clamp01(v->hunger + def->food);
@@ -1518,6 +1548,18 @@ static void vitals_tick(Game *g)
         v->health = clamp01(v->health + 1.0f / (float)u->health_regen_ticks);
     }
 
+    /* Breath: it runs down with the head under water and comes back in the
+     * air. With none left, health goes instead. */
+    if (u->oxygen_ticks > 0 && game_player_underwater(g)) {
+        v->oxygen = clamp01(v->oxygen - 1.0f / (float)u->oxygen_ticks);
+        if (v->oxygen <= 0.0f && u->drown_ticks > 0) {
+            v->health = clamp01(v->health - 1.0f / (float)u->drown_ticks);
+            game_wake(g);
+        }
+    } else {
+        v->oxygen = u->oxygen_refill_ticks > 0 ? clamp01(v->oxygen + 1.0f / (float)u->oxygen_refill_ticks) : 1.0f;
+    }
+
     if (v->rest == REST_SLEEP) {
         if (u->sleep_ticks > 0) v->energy = clamp01(v->energy + 1.0f / (float)u->sleep_ticks);
         if (v->energy >= 1.0f || u->sleep_ticks <= 0) game_wake(g);
@@ -1549,6 +1591,7 @@ void game_tick(Game *g)
     }
 
     mobs_tick(g);
+    water_step(w);
     vitals_tick(g);
 
     /* Fuel burns down whether or not anything is being made. */
@@ -1723,7 +1766,7 @@ bool game_init(Game *g, int width, int height, uint32_t seed, WorldKind kind)
         game_free(g);
         return false;
     }
-    g->vitals = (Vitals){ .health = 1.0f, .hunger = 1.0f, .energy = 1.0f };
+    g->vitals = (Vitals){ .health = 1.0f, .hunger = 1.0f, .energy = 1.0f, .oxygen = 1.0f };
     g->fog = content.rules.fog_enabled;
     game_reveal(g, g->player.feet.x, g->player.feet.y - 1);
     g->player.step_to = g->player.feet;

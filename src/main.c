@@ -337,12 +337,17 @@ static void draw_world(const Game *g, Vector2 origin)
                 if (!tile_def(behind)->front) draw_block(g, LAYER_BACKGROUND, behind, x, y, px, py, BACKGROUND_DIM);
             }
             if (!tile_def(t)->front) draw_block(g, LAYER_FOREGROUND, t, x, y, px, py, 0.0f);
-            if (world_is_water(w, x, y)) {
-                /* Water tints what is in it; its surface is a lighter line. */
+            int wet = world_water(w, x, y);
+            if (wet > 0) {
+                /* Water tints what is in it. A square with water over it is
+                 * drawn full; the top one stands as high as it holds, with a
+                 * lighter line along its surface. */
                 const int *c = content.rules.water_color;
                 Color water = { (unsigned char)c[0], (unsigned char)c[1], (unsigned char)c[2], (unsigned char)c[3] };
-                DrawRectangle((int)px, (int)py, TILE_SIZE, TILE_SIZE, water);
-                if (y == w->sea_row + 1) DrawRectangle((int)px, (int)py, TILE_SIZE, 3, Fade(WHITE, 0.35f));
+                bool top = world_water(w, x, y - 1) == 0;
+                float depth = top ? (float)TILE_SIZE * (float)wet / WATER_FULL : (float)TILE_SIZE;
+                DrawRectangleRec((Rectangle){ px, py + TILE_SIZE - depth, TILE_SIZE, depth }, water);
+                if (top) DrawRectangleRec((Rectangle){ px, py + TILE_SIZE - depth, TILE_SIZE, 3 }, Fade(WHITE, 0.35f));
             }
         }
     }
@@ -771,6 +776,11 @@ static void draw_player(const Game *g, Vector2 origin)
     float t = p->activity != ACTIVITY_IDLE && p->duration > 0.0f ? p->timer / p->duration : 0.0f;
     float swing = walking ? sinf(t * PI * 2.0f) : 0.0f;
     float bob = walking ? fabsf(sinf(t * PI * 2.0f)) * 1.5f : 0.0f;
+    /* Afloat: kicking, and riding up and down a little. */
+    if (game_player_swimming(g) && grip == 0) {
+        swing = sinf((float)GetTime() * 7.0f) * 0.7f;
+        bob = sinf((float)GetTime() * 2.5f) * 1.5f;
+    }
     if (p->activity == ACTIVITY_MINING || p->activity == ACTIVITY_PLACING) bob = -fabsf(sinf((float)GetTime() * 9.0f)) * 1.5f;
     float legs = 11.0f, body_w = TILE_SIZE - 2 * inset, leg_w = body_w / 2 - 1;
     float top = py - bob;

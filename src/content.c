@@ -387,6 +387,7 @@ static bool read_items(Reader *r, const cJSON *root)
         it->food = cJSON_IsNumber(food) ? (float)food->valuedouble : (float)num(food, "hunger", 0.0);
         it->food_health = (float)num(food, "health", -1.0);
         it->food_energy = (float)num(food, "energy", 0.0);
+        it->food_oxygen = (float)num(food, "oxygen", 0.0);
         if (it->food < 0.0f || it->food > 1.0f)
             return fail(r, "item \"%s\": \"food\" is a share of the hunger bar, 0 to 1", it->name);
         /* The category is matched to the trade file once that has been read. */
@@ -764,6 +765,13 @@ static bool read_rules(Reader *r, const cJSON *root)
         u->drop_collect_time = (float)num(drops, "collect_time", u->drop_collect_time);
     }
     if (ui) u->denial_time = (float)num(ui, "denial_time", u->denial_time);
+    if (field(root, "water")) {
+        u->water_flow = (int)num(field(root, "water"), "flow", u->water_flow);
+        u->oxygen_ticks = (int)num(field(root, "water"), "oxygen_ticks", u->oxygen_ticks);
+        u->oxygen_refill_ticks = (int)num(field(root, "water"), "oxygen_refill_ticks", u->oxygen_refill_ticks);
+        u->drown_ticks = (int)num(field(root, "water"), "drown_ticks", u->drown_ticks);
+        u->swim_time = (float)num(field(root, "water"), "swim_time", u->swim_time);
+    }
     const cJSON *water = field(field(root, "water"), "color");
     for (int i = 0; i < 4 && cJSON_GetArraySize(water) == 4; i++)
         u->water_color[i] = (int)cJSON_GetArrayItem(water, i)->valuedouble;

@@ -27,6 +27,11 @@ typedef struct {
     int sea_row;      /* row of sea level: open sky below it is water; -1 for a world with no sea */
     uint8_t *layers[LAYER_COUNT];
     uint8_t *biome;   /* which of content.biomes each column is */
+    /* Water: eighths of it in every square (see water.h), and which columns
+     * have water that may still be on the move. */
+    uint8_t *water;
+    uint8_t *water_awake;
+    bool water_stirring; /* any column is awake */
 } World;
 
 /* Allocates the grid and generates terrain from the seed. */
@@ -54,8 +59,8 @@ void world_set_at(World *w, int layer, int x, int y, TileType t);
 /* The foreground. */
 TileType world_get(const World *w, int x, int y);
 void world_set(World *w, int x, int y, TileType t);
-/* Water is not a block. It is wherever the sky is open - nothing solid, and no
- * backwall - below sea level. */
+/* Whether a square is under water: at least half full of it. Water is not a
+ * block; see water.h. */
 bool world_is_water(const World *w, int x, int y);
 
 /* Some blocks stand several tiles tall and are one thing. Given any tile of

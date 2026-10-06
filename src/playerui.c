@@ -25,7 +25,7 @@ static Rectangle small_bar(int row)
 
 static Rectangle panel_rect(void)
 {
-    float h = PANEL_PAD * 2 + ROW_HEIGHT * 3 + 8.0f + ACTION_HEIGHT;
+    float h = PANEL_PAD * 2 + ROW_HEIGHT * 4 + 8.0f + ACTION_HEIGHT;
     return (Rectangle){ BUTTON_X + BUTTON_SIZE + 10.0f, BUTTON_Y, PANEL_WIDTH, h };
 }
 
@@ -47,7 +47,7 @@ bool playerui_mouse_over(const PlayerUi *ui)
 {
     Vector2 m = GetMousePosition();
     Rectangle whole = button_rect();
-    whole.height += 2 * (SMALL_BAR_HEIGHT + SMALL_BAR_GAP);
+    whole.height += 3 * (SMALL_BAR_HEIGHT + SMALL_BAR_GAP);
     return ui->pressed || CheckCollisionPointRec(m, whole) || (ui->open && CheckCollisionPointRec(m, panel_rect()));
 }
 
@@ -73,12 +73,14 @@ bool playerui_handle_input(PlayerUi *ui, Game *g)
     return true;
 }
 
-void playerui_draw_bar(Rectangle r, float value, bool golden)
+void playerui_draw_bar(Rectangle r, float value, BarColor color)
 {
     value = value < 0.0f ? 0.0f : value > 1.0f ? 1.0f : value;
     DrawRectangleRec(r, (Color){ 96, 22, 28, 255 });
-    Color fill = golden ? (Color){ 244, 196, 48, 255 } : (Color){ 76, 190, 84, 255 };
-    Color shine = golden ? (Color){ 255, 232, 130, 255 } : (Color){ 140, 226, 140, 255 };
+    Color fill = color == BAR_GOLD ? (Color){ 244, 196, 48, 255 } : color == BAR_BLUE ? (Color){ 70, 160, 236, 255 }
+                                                                                      : (Color){ 76, 190, 84, 255 };
+    Color shine = color == BAR_GOLD ? (Color){ 255, 232, 130, 255 } : color == BAR_BLUE ? (Color){ 160, 214, 255, 255 }
+                                                                                        : (Color){ 140, 226, 140, 255 };
     Rectangle full = { r.x, r.y, r.width * value, r.height };
     DrawRectangleRec(full, fill);
     if (full.width >= 1.0f && r.height >= 6.0f)
@@ -86,12 +88,13 @@ void playerui_draw_bar(Rectangle r, float value, bool golden)
     DrawRectangleLinesEx((Rectangle){ r.x - 1, r.y - 1, r.width + 2, r.height + 2 }, 1.0f, (Color){ 14, 15, 20, 255 });
 }
 
-static void draw_row(Rectangle panel, int row, const char *label, float value, bool golden)
+static void draw_row(Rectangle panel, int row, const char *label, float value, BarColor color)
 {
+    bool golden = color == BAR_GOLD;
     float y = panel.y + PANEL_PAD + row * ROW_HEIGHT;
     DrawText(label, (int)(panel.x + PANEL_PAD), (int)y + 1, 16, RAYWHITE);
     Rectangle bar = { panel.x + PANEL_PAD + 70.0f, y + 2.0f, panel.width - PANEL_PAD * 2 - 70.0f - 44.0f, 14.0f };
-    playerui_draw_bar(bar, value, golden);
+    playerui_draw_bar(bar, value, color);
     const char *text = golden ? "full" : TextFormat("%d%%", (int)(value * 100.0f + 0.5f));
     DrawText(text, (int)(panel.x + panel.width - PANEL_PAD) - MeasureText(text, 14), (int)y + 2, 14,
              golden ? (Color){ 244, 196, 48, 255 } : LIGHTGRAY);
@@ -115,8 +118,10 @@ void playerui_draw(const PlayerUi *ui, const Game *g)
     DrawRectangleRec(b, (Color){ 34, 36, 44, 225 });
     DrawRectangleLinesEx(b, ui->open ? 3.0f : 2.0f, ui->open ? RAYWHITE : (Color){ 120, 122, 134, 255 });
     hud_draw_head_icon(b);
-    playerui_draw_bar(small_bar(0), v->health, false);
-    playerui_draw_bar(small_bar(1), v->hunger, game_saturated(g));
+    playerui_draw_bar(small_bar(0), v->health, BAR_GREEN);
+    playerui_draw_bar(small_bar(1), v->hunger, game_saturated(g) ? BAR_GOLD : BAR_GREEN);
+    /* Breath only shows while it is short. */
+    if (v->oxygen < 1.0f) playerui_draw_bar(small_bar(2), v->oxygen, BAR_BLUE);
     if (!ui->open) return;
 
     Rectangle p = panel_rect();
@@ -125,9 +130,10 @@ void playerui_draw(const PlayerUi *ui, const Game *g)
     /* The panel points back at the button it came out of. */
     DrawTriangle((Vector2){ p.x, p.y + 16 }, (Vector2){ p.x - 8, p.y + 26 }, (Vector2){ p.x, p.y + 36 },
                  (Color){ 120, 122, 134, 255 });
-    draw_row(p, 0, "Health", v->health, false);
-    draw_row(p, 1, "Hunger", v->hunger, game_saturated(g));
-    draw_row(p, 2, "Energy", v->energy, false);
+    draw_row(p, 0, "Health", v->health, BAR_GREEN);
+    draw_row(p, 1, "Hunger", v->hunger, game_saturated(g) ? BAR_GOLD : BAR_GREEN);
+    draw_row(p, 2, "Energy", v->energy, BAR_GREEN);
+    draw_row(p, 3, "Oxygen", v->oxygen, BAR_BLUE);
     draw_action(action_rect(0), v->rest == REST_SLEEP ? "Wake up" : "Sleep", can_sleep(g), v->rest == REST_SLEEP);
     draw_action(action_rect(1), v->rest == REST_MEDITATE ? "Stop" : "Meditate", true, v->rest == REST_MEDITATE);
 }

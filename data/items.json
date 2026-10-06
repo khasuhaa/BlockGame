@@ -87,7 +87,7 @@
     {"name": "coffee_bean", "label": "Coffee bean", "texture": "items/coffee_bean.png", "category": "food", "plants": "coffee", "food": {"hunger": 0.04, "health": 0.02, "energy": 0.2}},
     {"name": "fur", "label": "Fur", "texture": "items/fur.png", "category": "materials"},
     {"name": "prickly_pear", "label": "Prickly pear", "texture": "items/prickly_pear.png", "category": "food", "plants": "cactus", "food": 0.12},
-    {"name": "kelp", "label": "Kelp", "texture": "items/kelp.png", "category": "food", "food": 0.08},
+    {"name": "kelp", "label": "Kelp", "texture": "items/kelp.png", "category": "food", "food": {"hunger": 0.08, "oxygen": 0.5}},
     {"name": "carrot", "label": "Carrot", "texture": "items/carrot.png", "category": "food", "sows": "carrot_0", "food": 0.15},
     {"name": "flax_seeds", "label": "Flax seeds", "texture": "items/flax_seeds.png", "category": "materials", "sows": "flax_0"},
     {"name": "flax", "label": "Flax", "texture": "items/flax.png", "category": "materials"},

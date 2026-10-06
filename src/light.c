@@ -52,7 +52,10 @@ void light_compute(const Game *g, int x0, int y0, int width, int height, uint8_t
                 v = sky; /* open air with nothing behind it */
             /* Under water the sky is dimmer the deeper it is. */
             if (v == sky && u->light_water_depth > 0 && world_is_water(w, x, y)) {
-                v = sky - (y - w->sea_row) / u->light_water_depth;
+                /* (How deep: the water standing over this square.) */
+                int over = 1;
+                while (over < sky * u->light_water_depth && world_is_water(w, x, y - over)) over++;
+                v = sky - over / u->light_water_depth;
                 if (v < 0) v = 0;
             }
             if (y >= 0 && y < w->height) {

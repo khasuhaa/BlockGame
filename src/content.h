@@ -189,6 +189,7 @@ typedef struct {
     float food;      /* share of the hunger bar eating one fills; 0 if it cannot be eaten */
     float food_health; /* share of the health bar it mends; below 0 for the usual share of `food` */
     float food_energy; /* share of the energy bar it gives back */
+    float food_oxygen; /* share of the oxygen bar it gives back */
     int category;    /* where it is listed for trading, or -1 if it is not traded */
     char category_name[CONTENT_NAME_LEN];
     int price;       /* what one costs, in the smallest currency; 0 for the default */
@@ -382,6 +383,11 @@ typedef struct {
     int light_minimum; /* the least anything is ever lit, so the dark is not blind */
     int light_water_depth; /* blocks of water that cost one level of sky light */
     int water_color[4];    /* red, green, blue, alpha of the tint drawn over water */
+    int water_flow;        /* eighths of water a level stretch moves sideways in one tick */
+    float swim_time;       /* seconds per step, swimming */
+    int oxygen_ticks;      /* ticks under water for a full oxygen bar to run out; 0 to need no air */
+    int oxygen_refill_ticks; /* ticks in the air for it to fill again */
+    int drown_ticks;       /* ticks for health to run down with no oxygen left */
 
     /* Fog of war: the world is dark until the player has been near it. */
     bool fog_enabled; /* whether a new world starts with it */

@@ -101,12 +101,25 @@ The land is plains broken up by mountains and valleys, always with a stretch of 
 - **Plains** are the ordinary country: grass over dirt, with oaks, and carrots and flax growing wild.
 - Each kind of tree keeps to its own country, so like grows with like: a **cherry grove** where it is cold, an **orchard** of apple trees where it is mild and damp, and the **tropics** - coffee and orange trees - where it is hot and damp. All three are grass over dirt like the plains. Which biome a column is is recorded with the world; a world saved before that has it worked out from its climate and the lie of the land, so there the name may not match the trees that were generated.
 - **Desert** is where it is both hot and dry: sand instead of grass and dirt, and cacti instead of trees. The spawn is always on plains. Where a desert or a beach meets other country its sand does not stop at a line or break into stripes: it thins to a skin one block deep over the ordinary dirt at the edge, and deepens inward.
-- **Ocean** is everything below Y 0. Its bed is sand, kelp and coral grow on it, and the open space above it is water up to Y 0. Valleys reach below Y 0, so every valley is a sea.
+- **Ocean** is everything below Y 0. Its bed is sand, kelp and coral grow on it, and it is filled with water up to Y 0. Valleys reach below Y 0, so every valley is a sea.
 - **Beach** is the land within nine columns of a sea: sand, more of it the nearer the water.
 
 One biome gives way to another gradually: toward the edge fewer and fewer columns belong to it, so the ground changes over a stretch rather than at a line.
 
-**Water** is not a block: it is wherever the sky is open below sea level, with nothing solid and no backwall. There is no swimming; the player walks the sea bed and climbs kelp. Sunlight fades with depth. A hole dug into the sea bed has a backwall, so it stays dry.
+**Water** is real, and there is always the same amount of it. Every square of the world holds so many eighths of water, from none to 8. It is never made or lost by moving:
+
+- it **falls** into any open square beneath it;
+- on anything that holds it up - ground, or a square already full - it **levels out**: along each level stretch, the lowest square takes an eighth from the nearest one standing two or more eighths higher, a few times a tick, until the whole stretch is within an eighth of flat;
+- where the floor stops, it **runs over the edge**;
+- a block put down in it **pushes it aside**, upward first.
+
+So breaking a block out of the sea bed makes the water above dip into the hole and then flatten out again, leaving the block's worth of water missing as one eighth from each of eight squares of the surface over the hole. There is no pressure: water does not rise up the far side of a U-bend. A new world's seas start full and still, having already run into whatever caves open on them. Only the columns where something has just changed are worked on, so water at rest costs nothing; a world saved before there was real water gets its seas filled in the same way when it is first opened. How much a stretch moves each tick is `flow` under `water` in `rules.json`.
+
+A square at least half full counts as under water: kelp and coral need that, creatures keep out of it, and sunlight fades with the depth of water overhead.
+
+**Swimming.** In water the player is afloat: it holds them up wherever they are in it, and the movement keys or a click take them up, down and sideways through it, as through the crown of a tree. With ground under their feet they walk the bottom as before. At the surface they can pull out onto the side.
+
+**Oxygen** is a fourth bar, blue, in the player's panel, and shows under the player's button whenever it is not full. It runs down while the player's head is under water - a full bar lasts 300 ticks - and comes back quickly in the air. With none left, health runs down instead, and a sleeper wakes. Eating kelp gives half a bar back, and can be done for that even on a full stomach.
 
 **Caves** wander through the stone, mostly sideways. They are carved out of stone and nothing else: a cave stops dead at the dirt, so none opens onto the plains, but where a mountain is bare stone a cave can break out through its side. Set into the caves, against a wall or on the floor:
 
@@ -388,6 +401,7 @@ Under a beach, now and then - about one column in thirty - a golden chest lies b
 - `data/` — all game content (see Data above)
 - `src/content.c` — loads the data files into the tables the engine reads
 - `src/world.c` — the wrapping tile grid and terrain generation
+- `src/water.c` — the water in each square and how it moves
 - `src/tree.c` — tree shapes and growth
 - `src/inventory.c` — stacks, baskets and the rules for moving them
 - `src/craft.c` — crafting from the recipes

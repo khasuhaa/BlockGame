@@ -2765,15 +2765,20 @@ static void test_plants(void)
 
     /* A little sea: coral is planted on sand under water, and only grows there. */
     int ox = start.x - 8;
-    w->sea_row = s - 6;
+    for (int y = s - 5; y <= s - 1; y++) {
+        world_set(w, ox - 3, y, TILE_STONE); /* a tank, five deep, with sand on the bottom */
+        world_set(w, ox + 3, y, TILE_STONE);
+    }
     for (int cx = ox - 2; cx <= ox + 2; cx++) {
-        for (int y = s - 5; y <= s - 1; y++) world_set_at(w, LAYER_WALL, cx, y, TILE_AIR);
+        for (int y = s - 5; y <= s - 1; y++) world_set_water(w, cx, y, WATER_FULL);
         world_set(w, cx, s, sand);
     }
+    long tank = water_total(w);
+    for (int i = 0; i < 50; i++) water_step(w);
     CHECK(world_is_water(w, ox, s - 1) && world_is_water(w, ox, s - 5) && !world_is_water(w, ox, s - 6));
-    /* Not in the ground, and not where there is a backwall: that is indoors. */
-    world_set_at(w, LAYER_WALL, x + 3, s - 1, TILE_DIRT);
-    CHECK(!world_is_water(w, ox, s) && !world_is_water(w, x + 3, s - 1));
+    /* It stays in the tank, all of it; and there is none in the ground or out in the open. */
+    CHECK(water_total(w) == tank && tank == 5 * 5 * WATER_FULL);
+    CHECK(!world_is_water(w, ox, s) && !world_is_water(w, x + 3, s - 1) && !world_is_water(w, ox - 4, s - 1));
     clear_inventory(&g);
     inventory_add(inv, item_id("coral"), 1);
     inventory_select(inv, 0, -1);
@@ -3949,6 +3954,185 @@ static void test_dodo_tree(void)
     game_free(&g);
 }
 
+/* Lets the water run until it is still; returns how many steps that took. */
+static int settle(World *w)
+{
+    int steps = 0;
+    while (w->water_stirring && steps < 5000) water_step(w), steps++;
+    return steps;
+}
+
+static void test_water(void)
+{
+    Game g;
+    game_init(&g, 256, 96, 91, WORLD_FLAT);
+    World *w = &g.world;
+    int s = w->surface_y, left = 60, right = 119, depth = 6, top = s - depth; /* a tank 60 wide and 6 deep */
+    for (int i = 0; i < MAX_MOBS; i++) g.mobs[i].active = false;
+    g.tick_rate = 0;
+    CHECK(content.rules.water_flow > 0 && WATER_FULL == 8);
+
+    for (int y = top; y < s; y++) {
+        world_set(w, left - 1, y, TILE_STONE);
+        world_set(w, right + 1, y, TILE_STONE);
+        for (int x = left; x <= right; x++) world_set_water(w, x, y, WATER_FULL);
+    }
+    long total = water_total(w);
+    CHECK(total == 60L * depth * WATER_FULL);
+    /* Full to the brim and level, it is at rest: nothing moves, and soon nothing is looked at. */
+    int moved = 0;
+    for (int i = 0; i < 10; i++) moved += water_step(w);
+    CHECK(moved == 0 && !w->water_stirring && water_step(w) == 0);
+
+    /* Break a block out of the bottom. The water above dips into the hole... */
+    int hx = 90;
+    world_set(w, hx, s, TILE_AIR);
+    CHECK(w->water_stirring);
+    int lowest = WATER_FULL, steps = 0;
+    while (w->water_stirring && steps < 500) {
+        water_step(w);
+        steps++;
+        if (world_water(w, hx, top) < lowest) lowest = world_water(w, hx, top);
+        CHECK(water_total(w) == total); /* never any more or any less of it */
+    }
+    CHECK(lowest < 7 && steps < 100);
+    /* ...and then flattens out: the hole is full, and the block's worth that
+     * went into it is missing as one eighth from each of eight squares of
+     * the surface, side by side over the hole. Everything else is full. */
+    CHECK(world_water(w, hx, s) == WATER_FULL);
+    int sevens = 0, first = -1, last = -1, wrong = 0;
+    for (int x = left; x <= right; x++) {
+        int level = world_water(w, x, top);
+        if (level == 7) {
+            sevens++;
+            if (first < 0) first = x;
+            last = x;
+        } else if (level != WATER_FULL) {
+            wrong++;
+        }
+        for (int y = top + 1; y < s; y++) wrong += world_water(w, x, y) != WATER_FULL;
+    }
+    CHECK(sevens == 8 && wrong == 0 && last - first == 7 && first <= hx && hx <= last);
+    CHECK(water_total(w) == total && !w->water_stirring);
+
+    /* A block put into water pushes it out of the way, not out of the world. */
+    world_set(w, hx - 20, s - 2, TILE_STONE);
+    CHECK(world_water(w, hx - 20, s - 2) == 0 && water_total(w) == total);
+    settle(w);
+    CHECK(water_total(w) == total);
+    world_set(w, hx - 20, s - 2, TILE_AIR);
+    settle(w);
+    CHECK(water_total(w) == total && world_water(w, hx - 20, s - 2) == WATER_FULL);
+
+    /* Water falls, and runs over an edge: take a wall away and the tank
+     * empties out across the ground, every eighth of it still somewhere. */
+    for (int y = top; y < s; y++) world_set(w, right + 1, y, TILE_AIR);
+    int ran = settle(w);
+    CHECK(ran > 10 && ran < 5000 && !w->water_stirring && water_total(w) == total);
+    CHECK(world_water(w, right + 30, s - 1) > 0 && world_water(w, right + 5, top) == 0);
+    int highest = 0;
+    for (int x = 0; x < w->width; x++)
+        for (int y = 0; y < s - 1; y++)
+            if (world_water(w, x, y) > 0 && s - y > highest) highest = s - y;
+    CHECK(highest < depth); /* lower than it stood in the tank */
+    /* Nowhere is it left standing in a step two eighths or more high on level ground. */
+    int steep = 0;
+    for (int x = right + 2; x < right + 40; x++)
+        if (abs(world_water(w, x, s - 1) - world_water(w, x + 1, s - 1)) > 1 && world_water(w, x, s - 2) == 0 &&
+            world_water(w, x + 1, s - 2) == 0)
+            steep++;
+    CHECK(steep == 0);
+    game_free(&g);
+
+    /* Swimming. A deep tank: the player stays afloat wherever they are in it,
+     * and gets about up, down and sideways. */
+    game_init(&g, 128, 96, 92, WORLD_FLAT);
+    w = &g.world;
+    s = w->surface_y;
+    for (int i = 0; i < MAX_MOBS; i++) g.mobs[i].active = false;
+    clear_inventory(&g);
+    int px = g.player.feet.x + 10;
+    for (int y = s - 8; y < s; y++) {
+        world_set(w, px - 6, y, TILE_STONE);
+        world_set(w, px + 6, y, TILE_STONE);
+        for (int x = px - 5; x <= px + 5; x++) world_set_water(w, x, y, WATER_FULL);
+    }
+    settle(w);
+    Vitals *v = &g.vitals;
+    g.tick_rate = 0; /* breath is counted out by hand below */
+    g.player.feet = g.player.step_to = (TilePos){ px, s - 4 };
+    g.player.climbing = true;
+    run(&g, 1.0f);
+    CHECK(g.player.feet.y == s - 4 && g.player.feet.x == px && game_player_swimming(&g) && game_player_underwater(&g));
+    CHECK(game_click_tile(&g, px + 3, s - 6));
+    run(&g, 3.0f);
+    CHECK(g.player.feet.x == px + 3 && (g.player.feet.y == s - 6 || g.player.feet.y == s - 5) && game_player_swimming(&g));
+    CHECK(game_click_tile(&g, px - 3, s - 2));
+    run(&g, 3.0f);
+    CHECK(g.player.feet.x == px - 3 && game_player_swimming(&g));
+    /* Standing on the bottom is standing, not swimming - but still under water. */
+    g.player.feet = g.player.step_to = (TilePos){ px, s - 1 };
+    run(&g, 0.5f);
+    CHECK(!game_player_swimming(&g) && game_player_underwater(&g) && g.player.feet.y == s - 1);
+
+    /* Under water, breath runs out; with none left, health goes. */
+    const RulesDef *u = &content.rules;
+    CHECK(u->oxygen_ticks > 0 && v->oxygen == 1.0f);
+    for (int i = 0; i < u->oxygen_ticks / 2; i++) game_tick(&g);
+    CHECK(near(v->oxygen, 0.5f) && v->health == 1.0f);
+    /* Kelp gives some back, even on a full stomach. */
+    ItemId kelp = item_id("kelp");
+    inventory_add(&g.inventory, kelp, 3);
+    inventory_select(&g.inventory, 0, -1);
+    CHECK(item_def(kelp)->food_oxygen > 0.0f);
+    v->saturation = 100.0f;
+    float before = v->oxygen;
+    CHECK(game_can_eat(&g, kelp) && game_eat(&g) && near(v->oxygen, before + item_def(kelp)->food_oxygen));
+    v->oxygen = 1.0f;
+    CHECK(!game_can_eat(&g, kelp)); /* with breath to spare it is only food */
+    v->saturation = 0.0f;
+    for (int i = 0; i < u->oxygen_ticks + 50; i++) game_tick(&g);
+    CHECK(v->oxygen == 0.0f && v->health < 1.0f && v->health > 0.5f);
+    /* Head out of the water, it comes back. */
+    g.player.feet = g.player.step_to = (TilePos){ px, s - 8 };
+    g.player.climbing = true;
+    CHECK(!game_player_underwater(&g) && game_player_swimming(&g));
+    float hurt = v->health;
+    for (int i = 0; i < u->oxygen_refill_ticks; i++) game_tick(&g);
+    CHECK(game_bar_full(v->oxygen) && v->health >= hurt);
+    /* Afloat at the surface the player can get out onto the side. */
+    CHECK(game_click_tile(&g, px + 6, s - 9));
+    run(&g, 4.0f);
+    CHECK(g.player.feet.x == px + 6 && g.player.feet.y == s - 9 && !game_player_swimming(&g));
+
+    /* The water is saved as it stands, moving or not. */
+    world_set(w, px, s, TILE_AIR);
+    water_step(w);
+    Game loaded;
+    CHECK(save_game(&g, "build/test_water.world") && load_game(&loaded, "build/test_water.world"));
+    CHECK(water_total(&loaded.world) == water_total(w) && loaded.world.water_stirring == w->water_stirring);
+    int differ = 0;
+    for (int y = 0; y < w->height; y++)
+        for (int x = 0; x < w->width; x++) differ += world_water(w, x, y) != world_water(&loaded.world, x, y);
+    CHECK(differ == 0 && near(loaded.vitals.oxygen, v->oxygen));
+    settle(&loaded.world);
+    CHECK(world_water(&loaded.world, px, s) == WATER_FULL);
+    game_free(&loaded);
+    remove("build/test_water.world");
+    game_free(&g);
+
+    /* A generated world's seas are full and at rest, and stay so however long they are left. */
+    World t;
+    CHECK(world_init(&t, 2048, 401, 3, WORLD_TERRAIN));
+    long sea = water_total(&t);
+    CHECK(sea > 1000 && !t.water_stirring);
+    for (int x = 0; x < t.width; x++) water_wake(&t, x);
+    int stirred = 0;
+    for (int i = 0; i < 50; i++) stirred += water_step(&t);
+    CHECK(stirred == 0 && water_total(&t) == sea && !t.water_stirring);
+    world_free(&t);
+}
+
 static void test_tools(void)
 {
     Game g;
@@ -4311,6 +4495,7 @@ int main(void)
     test_discard();
     test_coffee_and_dropbears();
     test_dodo_tree();
+    test_water();
     test_decay_and_golden_chests();
     test_mobs();
     test_biomes();

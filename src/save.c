@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 11u
+#define SAVE_VERSION 12u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -230,7 +230,8 @@ bool save_game(const Game *g, const char *path)
          fwrite(g->mobs, sizeof g->mobs, 1, f) == 1 && fwrite(&g->next_mob_id, sizeof g->next_mob_id, 1, f) == 1 &&
          fwrite(g->explored, 1, cells, f) == cells && fwrite(&g->vitals, sizeof g->vitals, 1, f) == 1 &&
          write_names(f, content.biome_count, content.biomes[0].name, sizeof content.biomes[0]) &&
-         fwrite(w->biome, 1, (size_t)w->width, f) == (size_t)w->width;
+         fwrite(w->biome, 1, (size_t)w->width, f) == (size_t)w->width &&
+         fwrite(w->water, 1, cells, f) == cells && fwrite(w->water_awake, 1, (size_t)w->width, f) == (size_t)w->width;
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
         remove(tmp);
@@ -310,6 +311,16 @@ bool load_game(Game *g, const char *path)
             for (int x = 0; ok && x < w->width; x++) w->biome[x] = kinds[w->biome[x]];
             biomes_read = ok;
         }
+        /* The water, from version 12. Before that it was not kept: it was
+         * simply wherever the sky was open below sea level, and is put there. */
+        bool water_read = false;
+        if (ok && h.version >= 12) {
+            ok = fread(w->water, 1, cells, f) == cells && fread(w->water_awake, 1, (size_t)w->width, f) == (size_t)w->width;
+            for (int x = 0; ok && x < w->width; x++) w->water_stirring = w->water_stirring || w->water_awake[x];
+            water_read = ok;
+        } else {
+            g->vitals.oxygen = 1.0f;
+        }
         g->vitals.rest = REST_NONE;
         g->vitals.meditation = 0.0f;
 
@@ -362,6 +373,7 @@ bool load_game(Game *g, const char *path)
         w->sea_row = extra.sea_row;
         /* An older world did not record its biomes: they are worked out from the land. */
         if (ok && !biomes_read) world_guess_biomes(w);
+        if (ok && !water_read) water_make_sea(w);
         if (extra.fog != 0) g->fog = extra.fog == 1;
         w->spawn_x = h.spawn_x;
         w->spawn_y = h.spawn_y;

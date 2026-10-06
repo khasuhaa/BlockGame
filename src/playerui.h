@@ -16,8 +16,13 @@ typedef struct {
 bool playerui_handle_input(PlayerUi *ui, Game *g);
 bool playerui_mouse_over(const PlayerUi *ui);
 void playerui_draw(const PlayerUi *ui, const Game *g);
-/* A bar of one of the player's needs: green on dark red, or gold when
- * `golden`. `value` runs from 0 to 1. */
-void playerui_draw_bar(Rectangle r, float value, bool golden);
+/* A bar of one of the player's needs, on dark red: green, gold for a full
+ * stomach, or blue for breath. `value` runs from 0 to 1. */
+typedef enum {
+    BAR_GREEN,
+    BAR_GOLD,
+    BAR_BLUE
+} BarColor;
+void playerui_draw_bar(Rectangle r, float value, BarColor color);
 
 #endif
