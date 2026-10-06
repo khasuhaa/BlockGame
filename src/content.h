@@ -20,10 +20,11 @@
 #define MAX_VEINS 48
 #define MAX_DECOR 16
 #define MAX_BIOMES 16
-#define MAX_MOB_KINDS 16
+#define MAX_MOB_KINDS 48
 #define MAX_MOB_DROPS 4
 #define MAX_MOB_SPAWN_TILES 4
 #define MAX_MOB_TREES 8
+#define MAX_MOB_NEXT 4
 #define MAX_BIOME_TREES 8
 #define MAX_BIOME_PLANTS 8
 #define MAX_TILE_SOILS 4
@@ -443,10 +444,16 @@ typedef struct {
     int seek_radius;    /* columns it can see a tree from, and will chase the player over */
     TileType lays;      /* what it leaves where it stands now and then, or TILE_AIR */
     float lay_chance;   /* chance each tick */
+    /* Breeding on. Now and then what it lays is not its own egg but that of
+     * one of the kinds that come after it, each as likely as the others. */
+    int lay_next[MAX_MOB_NEXT];
+    int lay_next_count;
+    float lay_next_chance; /* share of its eggs that are a next kind's */
     int baby_ticks;     /* how long a young one takes to grow up */
     struct {
         ItemId item;
         int min, max;
+        float chance; /* chance it leaves this at all; usually 1 */
     } drops[MAX_MOB_DROPS]; /* what a grown one leaves when killed */
     int drop_count;
 } MobDef;

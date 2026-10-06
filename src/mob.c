@@ -136,6 +136,7 @@ void mob_kill(Game *g, int mob)
     Mob *m = &g->mobs[mob];
     const MobDef *def = &content.mobs[m->kind];
     for (int i = 0; !m->baby && i < def->drop_count; i++) {
+        if (def->drops[i].chance < 1.0f && chance(g) >= def->drops[i].chance) continue;
         int span = def->drops[i].max - def->drops[i].min + 1;
         int n = def->drops[i].min + (span > 1 ? (int)(game_random(g) % (uint32_t)span) : 0);
         for (int k = 0; k < n; k++) game_drop_item(g, def->drops[i].item, m->x, m->y);
@@ -319,9 +320,16 @@ void mobs_tick(Game *g)
         }
         /* Now and then a grown one leaves an egg where it stands, if nothing is there. */
         if (!m->baby && def->lays != TILE_AIR && chance(g) < def->lay_chance &&
-            world_get(w, m->x, m->y) == TILE_AIR &&
-            world_get_at(w, tile_def(def->lays)->layer, m->x, m->y) == TILE_AIR)
-            world_set_at(w, tile_def(def->lays)->layer, m->x, m->y, def->lays);
+            world_get(w, m->x, m->y) == TILE_AIR) {
+            /* Mostly its own egg; sometimes that of a kind it breeds on into. */
+            TileType egg = def->lays;
+            if (def->lay_next_count > 0 && chance(g) < def->lay_next_chance) {
+                TileType other = content.mobs[def->lay_next[game_random(g) % (uint32_t)def->lay_next_count]].lays;
+                if (other != TILE_AIR) egg = other;
+            }
+            if (world_get_at(w, tile_def(egg)->layer, m->x, m->y) == TILE_AIR)
+                world_set_at(w, tile_def(egg)->layer, m->x, m->y, egg);
+        }
     }
 }
 

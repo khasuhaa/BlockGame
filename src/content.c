@@ -893,7 +893,21 @@ static bool read_mobs(Reader *r, const cJSON *root)
             if (!str(one, "item") || !item_ref(r, one, "item", &item)) return fail(r, "mob \"%s\": a drop needs an \"item\"", name);
             m->drops[m->drop_count].item = item;
             m->drops[m->drop_count].min = (int)num(one, "min", 1);
+            m->drops[m->drop_count].chance = (float)num(one, "chance", 1.0);
             m->drops[m->drop_count++].max = (int)num(one, "max", num(one, "min", 1));
+        }
+    }
+    /* What each kind breeds on into, now that every kind in the file is known. */
+    cJSON_ArrayForEach(e, field(root, "mobs")) {
+        const cJSON *lays = field(e, "lays"), *next = field(lays, "next");
+        if (!next) continue;
+        MobDef *m = &content.mobs[mob_id(str(e, "name"))];
+        m->lay_next_chance = (float)num(lays, "next_chance", 0.25);
+        cJSON_ArrayForEach(one, next) {
+            int kind = cJSON_IsString(one) ? mob_id(one->valuestring) : -1;
+            if (kind < 0 || m->lay_next_count >= MAX_MOB_NEXT)
+                return fail(r, "mob \"%s\": \"next\" lists at most %d mobs that exist", m->name, MAX_MOB_NEXT);
+            m->lay_next[m->lay_next_count++] = kind;
         }
     }
     return true;

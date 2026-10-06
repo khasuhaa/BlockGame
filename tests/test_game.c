@@ -2988,6 +2988,8 @@ static void test_mobs(void)
     /* A grown dodo lays an egg where it stands, unless something is there already. */
     clear_mobs(&g);
     def->lay_chance = 1.0f;
+    float bred_on = def->lay_next_chance;
+    def->lay_next_chance = 0.0f; /* its own egg, for now: breeding on has a test of its own */
     int layer = mob_spawn(&g, dodo, start.x + 2, s - 1, false, false);
     int chick = mob_spawn(&g, dodo, start.x + 4, s - 1, false, true);
     int crowded = mob_spawn(&g, dodo, start.x + 6, s - 1, false, false);
@@ -2998,6 +3000,7 @@ static void test_mobs(void)
     CHECK(world_get_at(w, BG, start.x + 6, s - 1) == tile_id("torch"));
     (void)layer; (void)chick; (void)crowded;
     def->lay_chance = 0.0f;
+    def->lay_next_chance = bred_on;
     clear_mobs(&g);
 
     /* A natural egg hatches into a wild chick, which grows up in 600 ticks. */
@@ -3806,6 +3809,146 @@ static void test_decay_and_golden_chests(void)
     CHECK(gem->choices[0].item == item_id("amethyst") && gem->choices[3].item == item_id("ruby"));
 }
 
+/* The kinds a kind of creature breeds on into, by name, in any order. */
+static bool breeds_into(const char *kind, const char *a, const char *b)
+{
+    const MobDef *def = &content.mobs[mob_id(kind)];
+    int want = (a != NULL) + (b != NULL);
+    if (def->lay_next_count != want) return false;
+    for (int i = 0; i < def->lay_next_count; i++) {
+        const char *name = content.mobs[def->lay_next[i]].name;
+        if (!(a && strcmp(name, a) == 0) && !(b && strcmp(name, b) == 0)) return false;
+    }
+    return want == 0 || def->lay_next_chance == 0.25f;
+}
+
+static void test_dodo_tree(void)
+{
+    /* The tree: each kind, what it leaves and how often, and what it breeds on into. */
+    static const struct {
+        const char *kind, *item;
+        float chance;
+        const char *next_a, *next_b;
+    } tree[] = {
+        { "stone_dodo", "stone", 1.0f, "amethyst_dodo", "copper_dodo" },
+        { "dirt_dodo", "dirt", 1.0f, "wood_dodo", "flint_dodo" },
+        { "wood_dodo", "wood", 0.5f, NULL, NULL },
+        { "flint_dodo", "flint", 0.5f, NULL, NULL },
+        { "copper_dodo", "copper_ore", 0.5f, "tin_dodo", NULL },
+        { "tin_dodo", "tin_ore", 0.5f, "iron_dodo", NULL },
+        { "iron_dodo", "iron_ore", 0.33f, "gold_dodo", NULL },
+        { "gold_dodo", "gold_ore", 0.33f, "titanium_dodo", NULL },
+        { "titanium_dodo", "titanium_ore", 0.2f, "platinum_dodo", NULL },
+        { "platinum_dodo", "platinum_ore", 0.1f, NULL, NULL },
+        { "amethyst_dodo", "amethyst", 0.5f, "sapphire_dodo", NULL },
+        { "sapphire_dodo", "sapphire", 0.33f, "emerald_dodo", NULL },
+        { "emerald_dodo", "emerald", 0.25f, "ruby_dodo", NULL },
+        { "ruby_dodo", "ruby", 0.2f, "diamond_dodo", NULL },
+        { "diamond_dodo", "diamond", 0.1f, NULL, NULL },
+    };
+    int kinds = (int)(sizeof tree / sizeof tree[0]);
+    CHECK(breeds_into("dodo", "stone_dodo", "dirt_dodo") && content.mobs[mob_id("dodo")].drop_count == 2);
+    for (int i = 0; i < kinds; i++) {
+        int kind = mob_id(tree[i].kind);
+        CHECK(kind >= 0);
+        if (kind < 0) continue;
+        const MobDef *def = &content.mobs[kind];
+        char name[64];
+        /* Meat and feathers as ever, and its own thing on top, some of the time. */
+        CHECK(def->drop_count == 3 && def->drops[0].item == item_id("dodo_meat") && def->drops[0].chance == 1.0f);
+        CHECK(def->drops[1].item == item_id("feather") && def->drops[2].item == item_id(tree[i].item));
+        CHECK(def->drops[2].chance == tree[i].chance && def->drops[2].min == 1 && def->drops[2].max == 1);
+        CHECK(breeds_into(tree[i].kind, tree[i].next_a, tree[i].next_b));
+        /* It has an egg of its own, which hatches into it, wild or the player's, and can be traded. */
+        snprintf(name, sizeof name, "%s_egg", tree[i].kind);
+        TileType egg = tile_id(name);
+        ItemId egg_item = item_id(name);
+        snprintf(name, sizeof name, "%s_egg_placed", tree[i].kind);
+        TileType placed = tile_id(name);
+        CHECK(egg > 0 && placed > 0 && egg_item > 0 && def->lays == egg);
+        CHECK(tile_def(egg)->hatches == kind && !tile_def(egg)->hatch_owned);
+        CHECK(tile_def(placed)->hatches == kind && tile_def(placed)->hatch_owned);
+        CHECK(item_def(egg_item)->places == placed && tile_def(egg)->drop == egg_item && item_def(egg_item)->category >= 0);
+        /* None of them turns up in the wild: they are bred. */
+        CHECK(def->spawn_above_count == 0 && !def->perches);
+    }
+
+    Game g;
+    game_init(&g, 128, 64, 81, WORLD_FLAT);
+    World *w = &g.world;
+    int ground = w->surface_y - 1, x = g.player.feet.x + 4;
+    g.tick_rate = 0;
+
+    /* What a kind lays, counted over many layings. */
+    struct {
+        const char *kind, *own, *next_a, *next_b;
+    } lays[] = { { "dodo", "dodo_egg", "stone_dodo_egg", "dirt_dodo_egg" },
+                 { "stone_dodo", "stone_dodo_egg", "amethyst_dodo_egg", "copper_dodo_egg" },
+                 { "copper_dodo", "copper_dodo_egg", "tin_dodo_egg", NULL },
+                 { "diamond_dodo", "diamond_dodo_egg", NULL, NULL } };
+    for (int k = 0; k < 4; k++) {
+        MobDef *def = &content.mobs[mob_id(lays[k].kind)];
+        float usual = def->lay_chance, moves = def->move_chance;
+        def->lay_chance = 1.0f;
+        def->move_chance = 0.0f;
+        clear_mobs(&g);
+        mob_spawn(&g, mob_id(lays[k].kind), x, ground, true, false);
+        int own = 0, a = 0, b = 0, other = 0, trials = 4000;
+        for (int i = 0; i < trials; i++) {
+            world_set_at(w, BG, x, ground, TILE_AIR);
+            mobs_tick(&g);
+            TileType laid = world_get_at(w, BG, x, ground);
+            if (laid == tile_id(lays[k].own)) own++;
+            else if (lays[k].next_a && laid == tile_id(lays[k].next_a)) a++;
+            else if (lays[k].next_b && laid == tile_id(lays[k].next_b)) b++;
+            else other++;
+        }
+        world_set_at(w, BG, x, ground, TILE_AIR);
+        def->lay_chance = usual;
+        def->move_chance = moves;
+        CHECK(other == 0 && own + a + b == trials);
+        if (!lays[k].next_a) {
+            CHECK(own == trials); /* the end of its line: only ever its own */
+        } else {
+            /* Three in four its own; the rest shared equally between what comes next. */
+            CHECK(own > trials * 72 / 100 && own < trials * 78 / 100);
+            if (lays[k].next_b) CHECK(a > trials * 10 / 100 && a < trials * 15 / 100 && b > trials * 10 / 100 && b < trials * 15 / 100);
+            else CHECK(a > trials * 22 / 100 && a < trials * 28 / 100);
+        }
+    }
+
+    /* An egg of a kind hatches into that kind. */
+    clear_mobs(&g);
+    world_set_at(w, BG, x, ground, tile_id("gold_dodo_egg_placed"));
+    CHECK(mobs_try_hatch(&g, x, ground));
+    int hatched = -1;
+    for (int i = 0; i < MAX_MOBS; i++)
+        if (g.mobs[i].active) hatched = i;
+    CHECK(hatched >= 0 && g.mobs[hatched].kind == mob_id("gold_dodo") && g.mobs[hatched].baby && g.mobs[hatched].owned);
+
+    /* Killed, each leaves its own thing as often as it should, with the meat and feathers every time. */
+    for (int i = 0; i < kinds; i++) {
+        int got = 0, trials = 1500, meatless = 0;
+        ItemId item = item_id(tree[i].item), meat = item_id("dodo_meat"), feather = item_id("feather");
+        for (int n = 0; n < trials; n++) {
+            for (int d = 0; d < MAX_DROPS; d++) g.drops[d].active = false;
+            clear_mobs(&g);
+            mob_kill(&g, mob_spawn(&g, mob_id(tree[i].kind), x, ground, true, false));
+            int count = count_drops(&g, item);
+            if (count > 1) got += 1000000; /* never more than one */
+            got += count;
+            if (count_drops(&g, meat) < 1 || count_drops(&g, feather) < 1) meatless++;
+        }
+        float share = (float)got / (float)trials;
+        CHECK(meatless == 0 && share > tree[i].chance - 0.05f && share < tree[i].chance + 0.05f);
+    }
+    /* A chick of any kind leaves nothing. */
+    for (int d = 0; d < MAX_DROPS; d++) g.drops[d].active = false;
+    mob_kill(&g, mob_spawn(&g, mob_id("stone_dodo"), x, ground, true, true));
+    CHECK(count_drops(&g, ITEM_STONE) == 0);
+    game_free(&g);
+}
+
 static void test_tools(void)
 {
     Game g;
@@ -4167,6 +4310,7 @@ int main(void)
     test_vitals();
     test_discard();
     test_coffee_and_dropbears();
+    test_dodo_tree();
     test_decay_and_golden_chests();
     test_mobs();
     test_biomes();

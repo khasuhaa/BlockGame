@@ -175,6 +175,29 @@ The world has four layers from back to front: the backwall; the background layer
 - **Hunting.** Clicking a dodo queues going after it, marked with a red ring; the player follows it as it moves and kills it on reaching it. Clicking it again calls that off. A grown dodo leaves 1 or 2 dodo meat and 1 or 2 feathers; a chick leaves nothing. A campfire cooks dodo meat.
 - **How they move.** A dodo strides through its walking frames and bobs as it goes, setting off and stopping gently. Up a step it hops up and then forward, and down one it walks off and then drops, so it goes round the corner of a block and never through it. The frames and the height of the bob are in `mobs.json`.
 
+**The dodo's family tree.** A dodo does not always lay its own egg. Three times in four it does; the fourth time it lays the egg of one of the kinds that come next after it, each of those as likely as the other. Every kind has an egg of its own colour that hatches into that kind, and only the ordinary dodo ever turns up in the wild: the rest are bred.
+
+| Kind | Breeds on into | Leaves, besides meat and feathers | How often |
+|---|---|---|---|
+| Dodo | Stone dodo or Dirt dodo | — | — |
+| Dirt dodo | Wood dodo or Flint dodo | 1 dirt | always |
+| Wood dodo | — | 1 wood | 50% |
+| Flint dodo | — | 1 flint | 50% |
+| Stone dodo | Amethyst dodo or Copper dodo | 1 stone | always |
+| Copper dodo | Tin dodo | 1 copper ore | 50% |
+| Tin dodo | Iron dodo | 1 tin ore | 50% |
+| Iron dodo | Gold dodo | 1 iron ore | 33% |
+| Gold dodo | Titanium dodo | 1 gold ore | 33% |
+| Titanium dodo | Platinum dodo | 1 titanium ore | 20% |
+| Platinum dodo | — | 1 platinum ore | 10% |
+| Amethyst dodo | Sapphire dodo | 1 amethyst | 50% |
+| Sapphire dodo | Emerald dodo | 1 sapphire | 33% |
+| Emerald dodo | Ruby dodo | 1 emerald | 25% |
+| Ruby dodo | Diamond dodo | 1 ruby | 20% |
+| Diamond dodo | — | 1 diamond | 10% |
+
+A kind at the end of its line only ever lays its own egg. All of this is in `mobs.json`: what a kind breeds on into is `"next"` under its `"lays"`, and how often it leaves a thing is the `"chance"` on that drop.
+
 **Dropbears** live at the top of trees. A random event on the trunk of a tree near the player can bring one, at most three near the player at once and one to a tree.
 
 - **Ambush.** When the player comes within two columns of its tree, below it, it runs down the trunk, runs at them and bites - 15% of the health bar, and enough to wake a sleeper - then runs back up. It then leaves the player alone for 150 ticks. If the player gets away for long enough it gives up and goes home.

@@ -31,6 +31,150 @@
       },
       "lays": {
         "tile": "dodo_egg",
+        "chance": 0.0004,
+        "next": [
+          "stone_dodo",
+          "dirt_dodo"
+        ],
+        "next_chance": 0.25
+      },
+      "baby_ticks": 600,
+      "drops": [
+        {
+          "item": "dodo_meat",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "feather",
+          "min": 1,
+          "max": 2
+        }
+      ]
+    },
+    {
+      "name": "stone_dodo",
+      "label": "Stone dodo",
+      "texture": "mobs/stone_dodo.png",
+      "texture_baby": "mobs/stone_dodo_baby.png",
+      "walk": [
+        "mobs/stone_dodo_walk_0.png",
+        "mobs/stone_dodo.png",
+        "mobs/stone_dodo_walk_1.png",
+        "mobs/stone_dodo.png"
+      ],
+      "walk_baby": [
+        "mobs/stone_dodo_baby_walk_0.png",
+        "mobs/stone_dodo_baby.png",
+        "mobs/stone_dodo_baby_walk_1.png",
+        "mobs/stone_dodo_baby.png"
+      ],
+      "hop": 0.1,
+      "step_ticks": 4,
+      "move_chance": 0.2,
+      "turn_chance": 0.25,
+      "lays": {
+        "tile": "stone_dodo_egg",
+        "chance": 0.0004,
+        "next": [
+          "amethyst_dodo",
+          "copper_dodo"
+        ],
+        "next_chance": 0.25
+      },
+      "baby_ticks": 600,
+      "drops": [
+        {
+          "item": "dodo_meat",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "feather",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "stone",
+          "min": 1,
+          "max": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "name": "dirt_dodo",
+      "label": "Dirt dodo",
+      "texture": "mobs/dirt_dodo.png",
+      "texture_baby": "mobs/dirt_dodo_baby.png",
+      "walk": [
+        "mobs/dirt_dodo_walk_0.png",
+        "mobs/dirt_dodo.png",
+        "mobs/dirt_dodo_walk_1.png",
+        "mobs/dirt_dodo.png"
+      ],
+      "walk_baby": [
+        "mobs/dirt_dodo_baby_walk_0.png",
+        "mobs/dirt_dodo_baby.png",
+        "mobs/dirt_dodo_baby_walk_1.png",
+        "mobs/dirt_dodo_baby.png"
+      ],
+      "hop": 0.1,
+      "step_ticks": 4,
+      "move_chance": 0.2,
+      "turn_chance": 0.25,
+      "lays": {
+        "tile": "dirt_dodo_egg",
+        "chance": 0.0004,
+        "next": [
+          "wood_dodo",
+          "flint_dodo"
+        ],
+        "next_chance": 0.25
+      },
+      "baby_ticks": 600,
+      "drops": [
+        {
+          "item": "dodo_meat",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "feather",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "dirt",
+          "min": 1,
+          "max": 1,
+          "chance": 1.0
+        }
+      ]
+    },
+    {
+      "name": "wood_dodo",
+      "label": "Wood dodo",
+      "texture": "mobs/wood_dodo.png",
+      "texture_baby": "mobs/wood_dodo_baby.png",
+      "walk": [
+        "mobs/wood_dodo_walk_0.png",
+        "mobs/wood_dodo.png",
+        "mobs/wood_dodo_walk_1.png",
+        "mobs/wood_dodo.png"
+      ],
+      "walk_baby": [
+        "mobs/wood_dodo_baby_walk_0.png",
+        "mobs/wood_dodo_baby.png",
+        "mobs/wood_dodo_baby_walk_1.png",
+        "mobs/wood_dodo_baby.png"
+      ],
+      "hop": 0.1,
+      "step_ticks": 4,
+      "move_chance": 0.2,
+      "turn_chance": 0.25,
+      "lays": {
+        "tile": "wood_dodo_egg",
         "chance": 0.0004
       },
       "baby_ticks": 600,
@@ -44,6 +188,588 @@
           "item": "feather",
           "min": 1,
           "max": 2
+        },
+        {
+          "item": "wood",
+          "min": 1,
+          "max": 1,
+          "chance": 0.5
+        }
+      ]
+    },
+    {
+      "name": "flint_dodo",
+      "label": "Flint dodo",
+      "texture": "mobs/flint_dodo.png",
+      "texture_baby": "mobs/flint_dodo_baby.png",
+      "walk": [
+        "mobs/flint_dodo_walk_0.png",
+        "mobs/flint_dodo.png",
+        "mobs/flint_dodo_walk_1.png",
+        "mobs/flint_dodo.png"
+      ],
+      "walk_baby": [
+        "mobs/flint_dodo_baby_walk_0.png",
+        "mobs/flint_dodo_baby.png",
+        "mobs/flint_dodo_baby_walk_1.png",
+        "mobs/flint_dodo_baby.png"
+      ],
+      "hop": 0.1,
+      "step_ticks": 4,
+      "move_chance": 0.2,
+      "turn_chance": 0.25,
+      "lays": {
+        "tile": "flint_dodo_egg",
+        "chance": 0.0004
+      },
+      "baby_ticks": 600,
+      "drops": [
+        {
+          "item": "dodo_meat",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "feather",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "flint",
+          "min": 1,
+          "max": 1,
+          "chance": 0.5
+        }
+      ]
+    },
+    {
+      "name": "copper_dodo",
+      "label": "Copper dodo",
+      "texture": "mobs/copper_dodo.png",
+      "texture_baby": "mobs/copper_dodo_baby.png",
+      "walk": [
+        "mobs/copper_dodo_walk_0.png",
+        "mobs/copper_dodo.png",
+        "mobs/copper_dodo_walk_1.png",
+        "mobs/copper_dodo.png"
+      ],
+      "walk_baby": [
+        "mobs/copper_dodo_baby_walk_0.png",
+        "mobs/copper_dodo_baby.png",
+        "mobs/copper_dodo_baby_walk_1.png",
+        "mobs/copper_dodo_baby.png"
+      ],
+      "hop": 0.1,
+      "step_ticks": 4,
+      "move_chance": 0.2,
+      "turn_chance": 0.25,
+      "lays": {
+        "tile": "copper_dodo_egg",
+        "chance": 0.0004,
+        "next": [
+          "tin_dodo"
+        ],
+        "next_chance": 0.25
+      },
+      "baby_ticks": 600,
+      "drops": [
+        {
+          "item": "dodo_meat",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "feather",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "copper_ore",
+          "min": 1,
+          "max": 1,
+          "chance": 0.5
+        }
+      ]
+    },
+    {
+      "name": "tin_dodo",
+      "label": "Tin dodo",
+      "texture": "mobs/tin_dodo.png",
+      "texture_baby": "mobs/tin_dodo_baby.png",
+      "walk": [
+        "mobs/tin_dodo_walk_0.png",
+        "mobs/tin_dodo.png",
+        "mobs/tin_dodo_walk_1.png",
+        "mobs/tin_dodo.png"
+      ],
+      "walk_baby": [
+        "mobs/tin_dodo_baby_walk_0.png",
+        "mobs/tin_dodo_baby.png",
+        "mobs/tin_dodo_baby_walk_1.png",
+        "mobs/tin_dodo_baby.png"
+      ],
+      "hop": 0.1,
+      "step_ticks": 4,
+      "move_chance": 0.2,
+      "turn_chance": 0.25,
+      "lays": {
+        "tile": "tin_dodo_egg",
+        "chance": 0.0004,
+        "next": [
+          "iron_dodo"
+        ],
+        "next_chance": 0.25
+      },
+      "baby_ticks": 600,
+      "drops": [
+        {
+          "item": "dodo_meat",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "feather",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "tin_ore",
+          "min": 1,
+          "max": 1,
+          "chance": 0.5
+        }
+      ]
+    },
+    {
+      "name": "iron_dodo",
+      "label": "Iron dodo",
+      "texture": "mobs/iron_dodo.png",
+      "texture_baby": "mobs/iron_dodo_baby.png",
+      "walk": [
+        "mobs/iron_dodo_walk_0.png",
+        "mobs/iron_dodo.png",
+        "mobs/iron_dodo_walk_1.png",
+        "mobs/iron_dodo.png"
+      ],
+      "walk_baby": [
+        "mobs/iron_dodo_baby_walk_0.png",
+        "mobs/iron_dodo_baby.png",
+        "mobs/iron_dodo_baby_walk_1.png",
+        "mobs/iron_dodo_baby.png"
+      ],
+      "hop": 0.1,
+      "step_ticks": 4,
+      "move_chance": 0.2,
+      "turn_chance": 0.25,
+      "lays": {
+        "tile": "iron_dodo_egg",
+        "chance": 0.0004,
+        "next": [
+          "gold_dodo"
+        ],
+        "next_chance": 0.25
+      },
+      "baby_ticks": 600,
+      "drops": [
+        {
+          "item": "dodo_meat",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "feather",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "iron_ore",
+          "min": 1,
+          "max": 1,
+          "chance": 0.33
+        }
+      ]
+    },
+    {
+      "name": "gold_dodo",
+      "label": "Gold dodo",
+      "texture": "mobs/gold_dodo.png",
+      "texture_baby": "mobs/gold_dodo_baby.png",
+      "walk": [
+        "mobs/gold_dodo_walk_0.png",
+        "mobs/gold_dodo.png",
+        "mobs/gold_dodo_walk_1.png",
+        "mobs/gold_dodo.png"
+      ],
+      "walk_baby": [
+        "mobs/gold_dodo_baby_walk_0.png",
+        "mobs/gold_dodo_baby.png",
+        "mobs/gold_dodo_baby_walk_1.png",
+        "mobs/gold_dodo_baby.png"
+      ],
+      "hop": 0.1,
+      "step_ticks": 4,
+      "move_chance": 0.2,
+      "turn_chance": 0.25,
+      "lays": {
+        "tile": "gold_dodo_egg",
+        "chance": 0.0004,
+        "next": [
+          "titanium_dodo"
+        ],
+        "next_chance": 0.25
+      },
+      "baby_ticks": 600,
+      "drops": [
+        {
+          "item": "dodo_meat",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "feather",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "gold_ore",
+          "min": 1,
+          "max": 1,
+          "chance": 0.33
+        }
+      ]
+    },
+    {
+      "name": "titanium_dodo",
+      "label": "Titanium dodo",
+      "texture": "mobs/titanium_dodo.png",
+      "texture_baby": "mobs/titanium_dodo_baby.png",
+      "walk": [
+        "mobs/titanium_dodo_walk_0.png",
+        "mobs/titanium_dodo.png",
+        "mobs/titanium_dodo_walk_1.png",
+        "mobs/titanium_dodo.png"
+      ],
+      "walk_baby": [
+        "mobs/titanium_dodo_baby_walk_0.png",
+        "mobs/titanium_dodo_baby.png",
+        "mobs/titanium_dodo_baby_walk_1.png",
+        "mobs/titanium_dodo_baby.png"
+      ],
+      "hop": 0.1,
+      "step_ticks": 4,
+      "move_chance": 0.2,
+      "turn_chance": 0.25,
+      "lays": {
+        "tile": "titanium_dodo_egg",
+        "chance": 0.0004,
+        "next": [
+          "platinum_dodo"
+        ],
+        "next_chance": 0.25
+      },
+      "baby_ticks": 600,
+      "drops": [
+        {
+          "item": "dodo_meat",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "feather",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "titanium_ore",
+          "min": 1,
+          "max": 1,
+          "chance": 0.2
+        }
+      ]
+    },
+    {
+      "name": "platinum_dodo",
+      "label": "Platinum dodo",
+      "texture": "mobs/platinum_dodo.png",
+      "texture_baby": "mobs/platinum_dodo_baby.png",
+      "walk": [
+        "mobs/platinum_dodo_walk_0.png",
+        "mobs/platinum_dodo.png",
+        "mobs/platinum_dodo_walk_1.png",
+        "mobs/platinum_dodo.png"
+      ],
+      "walk_baby": [
+        "mobs/platinum_dodo_baby_walk_0.png",
+        "mobs/platinum_dodo_baby.png",
+        "mobs/platinum_dodo_baby_walk_1.png",
+        "mobs/platinum_dodo_baby.png"
+      ],
+      "hop": 0.1,
+      "step_ticks": 4,
+      "move_chance": 0.2,
+      "turn_chance": 0.25,
+      "lays": {
+        "tile": "platinum_dodo_egg",
+        "chance": 0.0004
+      },
+      "baby_ticks": 600,
+      "drops": [
+        {
+          "item": "dodo_meat",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "feather",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "platinum_ore",
+          "min": 1,
+          "max": 1,
+          "chance": 0.1
+        }
+      ]
+    },
+    {
+      "name": "amethyst_dodo",
+      "label": "Amethyst dodo",
+      "texture": "mobs/amethyst_dodo.png",
+      "texture_baby": "mobs/amethyst_dodo_baby.png",
+      "walk": [
+        "mobs/amethyst_dodo_walk_0.png",
+        "mobs/amethyst_dodo.png",
+        "mobs/amethyst_dodo_walk_1.png",
+        "mobs/amethyst_dodo.png"
+      ],
+      "walk_baby": [
+        "mobs/amethyst_dodo_baby_walk_0.png",
+        "mobs/amethyst_dodo_baby.png",
+        "mobs/amethyst_dodo_baby_walk_1.png",
+        "mobs/amethyst_dodo_baby.png"
+      ],
+      "hop": 0.1,
+      "step_ticks": 4,
+      "move_chance": 0.2,
+      "turn_chance": 0.25,
+      "lays": {
+        "tile": "amethyst_dodo_egg",
+        "chance": 0.0004,
+        "next": [
+          "sapphire_dodo"
+        ],
+        "next_chance": 0.25
+      },
+      "baby_ticks": 600,
+      "drops": [
+        {
+          "item": "dodo_meat",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "feather",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "amethyst",
+          "min": 1,
+          "max": 1,
+          "chance": 0.5
+        }
+      ]
+    },
+    {
+      "name": "sapphire_dodo",
+      "label": "Sapphire dodo",
+      "texture": "mobs/sapphire_dodo.png",
+      "texture_baby": "mobs/sapphire_dodo_baby.png",
+      "walk": [
+        "mobs/sapphire_dodo_walk_0.png",
+        "mobs/sapphire_dodo.png",
+        "mobs/sapphire_dodo_walk_1.png",
+        "mobs/sapphire_dodo.png"
+      ],
+      "walk_baby": [
+        "mobs/sapphire_dodo_baby_walk_0.png",
+        "mobs/sapphire_dodo_baby.png",
+        "mobs/sapphire_dodo_baby_walk_1.png",
+        "mobs/sapphire_dodo_baby.png"
+      ],
+      "hop": 0.1,
+      "step_ticks": 4,
+      "move_chance": 0.2,
+      "turn_chance": 0.25,
+      "lays": {
+        "tile": "sapphire_dodo_egg",
+        "chance": 0.0004,
+        "next": [
+          "emerald_dodo"
+        ],
+        "next_chance": 0.25
+      },
+      "baby_ticks": 600,
+      "drops": [
+        {
+          "item": "dodo_meat",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "feather",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "sapphire",
+          "min": 1,
+          "max": 1,
+          "chance": 0.33
+        }
+      ]
+    },
+    {
+      "name": "emerald_dodo",
+      "label": "Emerald dodo",
+      "texture": "mobs/emerald_dodo.png",
+      "texture_baby": "mobs/emerald_dodo_baby.png",
+      "walk": [
+        "mobs/emerald_dodo_walk_0.png",
+        "mobs/emerald_dodo.png",
+        "mobs/emerald_dodo_walk_1.png",
+        "mobs/emerald_dodo.png"
+      ],
+      "walk_baby": [
+        "mobs/emerald_dodo_baby_walk_0.png",
+        "mobs/emerald_dodo_baby.png",
+        "mobs/emerald_dodo_baby_walk_1.png",
+        "mobs/emerald_dodo_baby.png"
+      ],
+      "hop": 0.1,
+      "step_ticks": 4,
+      "move_chance": 0.2,
+      "turn_chance": 0.25,
+      "lays": {
+        "tile": "emerald_dodo_egg",
+        "chance": 0.0004,
+        "next": [
+          "ruby_dodo"
+        ],
+        "next_chance": 0.25
+      },
+      "baby_ticks": 600,
+      "drops": [
+        {
+          "item": "dodo_meat",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "feather",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "emerald",
+          "min": 1,
+          "max": 1,
+          "chance": 0.25
+        }
+      ]
+    },
+    {
+      "name": "ruby_dodo",
+      "label": "Ruby dodo",
+      "texture": "mobs/ruby_dodo.png",
+      "texture_baby": "mobs/ruby_dodo_baby.png",
+      "walk": [
+        "mobs/ruby_dodo_walk_0.png",
+        "mobs/ruby_dodo.png",
+        "mobs/ruby_dodo_walk_1.png",
+        "mobs/ruby_dodo.png"
+      ],
+      "walk_baby": [
+        "mobs/ruby_dodo_baby_walk_0.png",
+        "mobs/ruby_dodo_baby.png",
+        "mobs/ruby_dodo_baby_walk_1.png",
+        "mobs/ruby_dodo_baby.png"
+      ],
+      "hop": 0.1,
+      "step_ticks": 4,
+      "move_chance": 0.2,
+      "turn_chance": 0.25,
+      "lays": {
+        "tile": "ruby_dodo_egg",
+        "chance": 0.0004,
+        "next": [
+          "diamond_dodo"
+        ],
+        "next_chance": 0.25
+      },
+      "baby_ticks": 600,
+      "drops": [
+        {
+          "item": "dodo_meat",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "feather",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "ruby",
+          "min": 1,
+          "max": 1,
+          "chance": 0.2
+        }
+      ]
+    },
+    {
+      "name": "diamond_dodo",
+      "label": "Diamond dodo",
+      "texture": "mobs/diamond_dodo.png",
+      "texture_baby": "mobs/diamond_dodo_baby.png",
+      "walk": [
+        "mobs/diamond_dodo_walk_0.png",
+        "mobs/diamond_dodo.png",
+        "mobs/diamond_dodo_walk_1.png",
+        "mobs/diamond_dodo.png"
+      ],
+      "walk_baby": [
+        "mobs/diamond_dodo_baby_walk_0.png",
+        "mobs/diamond_dodo_baby.png",
+        "mobs/diamond_dodo_baby_walk_1.png",
+        "mobs/diamond_dodo_baby.png"
+      ],
+      "hop": 0.1,
+      "step_ticks": 4,
+      "move_chance": 0.2,
+      "turn_chance": 0.25,
+      "lays": {
+        "tile": "diamond_dodo_egg",
+        "chance": 0.0004
+      },
+      "baby_ticks": 600,
+      "drops": [
+        {
+          "item": "dodo_meat",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "feather",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "diamond",
+          "min": 1,
+          "max": 1,
+          "chance": 0.1
         }
       ]
     },
