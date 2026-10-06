@@ -4723,22 +4723,23 @@ static void test_sea_and_combat(void)
     CHECK(costs(find_recipe(tile_id("campfire"), "cooked_fish"), "fish", 1, NULL, 0));
     CHECK(game_is_food(item_id("fish")) && item_def(item_id("cooked_fish"))->food > item_def(item_id("fish"))->food);
 
-    /* Sharks come in every length from 1 block to 8. */
+    /* Sharks are 1 block long or 2, and no longer. */
     const MobDef *sd = &content.mobs[shark];
-    CHECK(sd->hunts && sd->size_min == 1 && sd->size_max == 8 && sd->bite > 0.0f);
+    CHECK(sd->hunts && sd->size_min == 1 && sd->size_max == 2 && sd->bite > 0.0f);
     bool seen[9] = { false };
     for (int i = 0; i < 400; i++) {
         int k = mob_spawn(&g, shark, left + 20, top + 6, true, false);
-        CHECK(g.mobs[k].size >= 1 && g.mobs[k].size <= 8 && g.mobs[k].hp == 25);
+        CHECK(g.mobs[k].size >= 1 && g.mobs[k].size <= 2 && g.mobs[k].hp == 25);
         seen[g.mobs[k].size] = true;
         g.mobs[k].active = false;
     }
-    for (int n = 1; n <= 8; n++) CHECK(seen[n]);
+    CHECK(seen[1] && seen[2]);
+    for (int n = 3; n <= 8; n++) CHECK(!seen[n]);
 
     /* A shark leaves the player alone on the bank... */
     clear_mobs(&g);
     int k = mob_spawn(&g, shark, left + 12, top + 4, true, false);
-    g.mobs[k].size = 5;
+    g.mobs[k].size = 2;
     v->health = 1.0f;
     for (int t = 0; t < 300; t++) mobs_tick(&g);
     CHECK(v->health == 1.0f && world_is_water(w, g.mobs[k].x, g.mobs[k].y));
@@ -4785,7 +4786,7 @@ static void test_sea_and_combat(void)
     for (int i = 0; i < MAX_DROPS; i++) {
         if (!g.drops[i].active || g.drops[i].item != head) continue;
         ItemStack dropped = { (uint8_t)head, 1, g.drops[i].container };
-        CHECK(inventory_meter(inv, &dropped) == 5);
+        CHECK(inventory_meter(inv, &dropped) == 2);
     }
     for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
 

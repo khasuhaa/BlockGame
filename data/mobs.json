@@ -872,7 +872,7 @@
       "cap": 3,
       "size": [
         1,
-        8
+        2
       ],
       "spawn": {
         "water": true,

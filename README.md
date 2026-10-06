@@ -230,9 +230,9 @@ Creatures of the water are counted apart from those of the land: each has a cap 
 
 **Fish** turn up in the water of an ocean, up to eight near the player, and swim about in it without stopping, one square running on into the next; they never leave the water. One leaves a fish, which can be eaten raw or cooked at a campfire.
 
-**Sharks** turn up there too, far less often, and no more than three near the player. A shark is anything from 1 to 8 blocks long, and is drawn that long. It takes no notice of a player on land or on the sea bed's shore, but one who is in the water within 24 blocks it goes for: it swims straight at them, bites (a fifth of the health bar), makes off for a moment, and comes round again. Killed, it leaves 3 or 4 fish and its **head**.
+**Sharks** turn up there too, far less often, and no more than three near the player. A shark is 1 or 2 blocks long, and is drawn that long. It takes no notice of a player on land or on the sea bed's shore, but one who is in the water within 24 blocks it goes for: it swims straight at them, bites (a fifth of the health bar), makes off for a moment, and comes round again. Killed, it leaves 3 or 4 fish and its **head**.
 
-A **shark head** is a trophy the size of the shark it came from. It can be hung up like any background block, and is drawn bigger the bigger the shark was - from smaller than a block to two blocks across. Heads stack whatever their sizes; the one on top of the stack is the one shown, at its size, and the one that is put up. Taken down, a head comes back the size it was.
+A **shark head** is a trophy the size of the shark it came from. It can be hung up like any background block, and is drawn bigger the bigger the shark was. (Heads can be any of eight sizes; sharks now only come in the first two.) Heads stack whatever their sizes; the one on top of the stack is the one shown, at its size, and the one that is put up. Taken down, a head comes back the size it was.
 
 **Dropbears** live at the top of trees. A random event on the trunk of a tree near the player can bring one, at most three near the player at once and one to a tree.
 
