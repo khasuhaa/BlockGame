@@ -4616,6 +4616,11 @@ static void test_sea_and_combat(void)
     g.player.feet = g.player.step_to = (TilePos){ left - 3, top - 1 }; /* on the bank, dry */
     world_set(w, left - 3, top, TILE_STONE);
 
+    /* The water has a cap of its own, 10 like the land's: a full complement
+     * of dodos does not keep the fish out, nor fish the dodos. */
+    CHECK(content.mob_cap == 10 && content.mob_water_cap == 10);
+    for (int i = 0; i < 10; i++) mob_spawn(&g, dodo, g.player.feet.x - 5 + i, ground, false, false);
+    CHECK(mobs_near_player(&g) == 10 && mobs_near_player_in_water(&g) == 0);
     /* Fish turn up in it, and only in it; never more than their cap. */
     CHECK(content.mobs[fish].swims && content.mobs[fish].spawn_water && content.mobs[fish].spawn_biome == ocean);
     for (int i = 0; i < 4000; i++) {
@@ -4630,6 +4635,23 @@ static void test_sea_and_combat(void)
         if ((g.mobs[i].kind == fish || g.mobs[i].kind == shark) && !world_is_water(w, g.mobs[i].x, g.mobs[i].y)) strays++;
     }
     CHECK(fishes == content.mobs[fish].cap && sharks <= content.mobs[shark].cap && strays == 0);
+    CHECK(mobs_near_player(&g) == 10 && mobs_near_player_in_water(&g) == fishes + sharks);
+    /* With the water full, no more of its own turn up - but that is its own business. */
+    int kinds_cap = content.mobs[fish].cap;
+    content.mobs[fish].cap = 0; /* (no limit of its own: only the water's) */
+    for (int i = 0; i < 8000; i++) mobs_try_spawn(&g, left + (i * 7) % 40, top + (i * 5) % 12);
+    CHECK(mobs_near_player_in_water(&g) == 10 && mobs_near_player(&g) == 10);
+    content.mobs[fish].cap = kinds_cap;
+    for (int i = 0; i < MAX_MOBS; i++)
+        if (g.mobs[i].active && g.mobs[i].kind == dodo) g.mobs[i].active = false;
+    /* And with the water full, the land still fills. */
+    world_set(w, g.player.feet.x - 8, ground + 1, TILE_GRASS);
+    for (int i = 0; i < 400 && mobs_near_player(&g) == 0; i++) mobs_try_spawn(&g, g.player.feet.x - 8, ground);
+    CHECK(mobs_near_player(&g) == 1);
+    for (int i = 0; i < MAX_MOBS; i++)
+        if (g.mobs[i].active && g.mobs[i].kind == dodo) g.mobs[i].active = false;
+    for (int i = 0, kept = 0; i < MAX_MOBS; i++)
+        if (g.mobs[i].active && g.mobs[i].kind == fish && ++kept > kinds_cap) g.mobs[i].active = false;
     CHECK(content.mobs[shark].spawn_chance < content.mobs[fish].spawn_chance); /* sharks are the rarer */
     /* They swim about, and never leave the water. */
     int moved = 0;

@@ -225,6 +225,8 @@ A kind at the end of its line only ever lays its own egg. All of this is in `mob
 
 Dodos of every kind have 5 health, fish 5, dropbears 10 and sharks 25. A weapon is an item with a `"damage"`; a creature's `"health"` is in `mobs.json`.
 
+Creatures of the water are counted apart from those of the land: each has a cap of 10 near the player, so fish do not keep dodos from turning up, nor dodos fish.
+
 **Fish** turn up in the water of an ocean, up to four near the player, and swim about in it; they never leave the water. One leaves a fish, which can be eaten raw or cooked at a campfire.
 
 **Sharks** turn up there too, far less often, and one at a time. A shark is anything from 1 to 8 blocks long, and is drawn that long. It takes no notice of a player on land or on the sea bed's shore, but one who is in the water within 24 blocks it goes for: it swims straight at them, bites (a fifth of the health bar), makes off for a moment, and comes round again. Killed, it leaves 3 or 4 fish and its **head**.
@@ -290,7 +292,7 @@ All the numbers, what each food is worth (`"food"` in `items.json`) and the list
 
 ## The readout
 
-The top left corner shows, a line each: frames per second; the player's X and Y; the biome they are standing in; how many creatures are within range against the cap; and the time of day with the tick count and the rate ticks are going at. `F3` hides it and brings it back. The crystals are in the top right corner.
+The top left corner shows, a line each: frames per second; the player's X and Y; the biome they are standing in; how many creatures are within range against the cap, for the land and for the water separately; and the time of day with the tick count and the rate ticks are going at. `F3` hides it and brings it back. The crystals are in the top right corner.
 
 ## Fog of war and the world map
 

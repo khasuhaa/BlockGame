@@ -21,12 +21,24 @@ static bool in_range(const Game *g, int x, int y)
     return dx * dx + dy * dy <= r * r;
 }
 
-int mobs_near_player(const Game *g)
+/* Creatures of the land and of the water are counted apart: each has its own cap. */
+static int count_near(const Game *g, bool swimmers)
 {
     int n = 0;
     for (int i = 0; i < MAX_MOBS; i++)
-        if (g->mobs[i].active && in_range(g, g->mobs[i].x, g->mobs[i].y)) n++;
+        if (g->mobs[i].active && content.mobs[g->mobs[i].kind].swims == swimmers && in_range(g, g->mobs[i].x, g->mobs[i].y))
+            n++;
     return n;
+}
+
+int mobs_near_player(const Game *g)
+{
+    return count_near(g, false);
+}
+
+int mobs_near_player_in_water(const Game *g)
+{
+    return count_near(g, true);
 }
 
 int mob_spawn(Game *g, int kind, int x, int y, bool owned, bool baby)
@@ -103,7 +115,7 @@ static bool try_spawn_in_water(Game *g, int x, int y)
         const MobDef *def = &content.mobs[kind];
         if (!def->swims || !def->spawn_water) continue;
         if (def->spawn_biome >= 0 && world_biome(w, x) != def->spawn_biome) continue;
-        if (!in_range(g, x, y) || mobs_near_player(g) >= content.mob_cap) return false;
+        if (!in_range(g, x, y) || mobs_near_player_in_water(g) >= content.mob_water_cap) return false;
         if (def->cap > 0 && kind_near_player(g, kind) >= def->cap) continue;
         if (chance(g) >= def->spawn_chance) continue;
         return mob_spawn(g, kind, x, y, false, false) >= 0;

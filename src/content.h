@@ -534,7 +534,8 @@ typedef struct {
     MobDef mobs[MAX_MOB_KINDS];
     int mob_count;
     int mob_spawn_radius; /* creatures appear, and wild ones last, only this near the player */
-    int mob_cap;          /* no more appear while this many are that near */
+    int mob_cap;          /* no more creatures of the land appear while this many are that near */
+    int mob_water_cap;    /* and the same for creatures of the water, counted apart */
     /* Kinds of tool, such as "shovel". There is no fixed list: a kind exists
      * because some block or item names it. */
     char tool_classes[MAX_TOOL_CLASSES][CONTENT_NAME_LEN];

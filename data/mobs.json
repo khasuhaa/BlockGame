@@ -1,6 +1,7 @@
 {
   "spawn_radius": 50,
   "cap": 10,
+  "water_cap": 10,
   "mobs": [
     {
       "name": "dodo",

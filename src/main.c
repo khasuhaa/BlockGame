@@ -950,7 +950,8 @@ static void draw_hud(const Game *g, const MapCamera *cam)
     draw_readout_line(row++, TextFormat("%d fps", GetFPS()));
     draw_readout_line(row++, TextFormat("XY: %d / %d", g->player.feet.x, world_row_to_y(w, g->player.feet.y)));
     draw_readout_line(row++, TextFormat("Biome: %s", content.biomes[world_biome(w, g->player.feet.x)].label));
-    draw_readout_line(row++, TextFormat("Mobs: %d / %d", mobs_near_player(g), content.mob_cap));
+    draw_readout_line(row++, TextFormat("Mobs: %d / %d land, %d / %d water", mobs_near_player(g), content.mob_cap,
+                                        mobs_near_player_in_water(g), content.mob_water_cap));
     draw_readout_line(row++, TextFormat("%s %d%%   tick %llu at %d/s%s", day ? "Day" : "Night", (int)(phase * 100.0f),
                                         (unsigned long long)g->tick, game_tick_speed(g),
                                         cam->follow ? "" : "   camera free"));

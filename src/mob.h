@@ -22,8 +22,10 @@ bool mobs_try_hatch(Game *g, int x, int y);
 bool mob_hurt(Game *g, int mob, int damage);
 /* Kills a creature, leaving what a grown one leaves. */
 void mob_kill(Game *g, int mob);
-/* How many creatures are within spawning range of the player. */
+/* How many creatures of the land are within spawning range of the player. */
 int mobs_near_player(const Game *g);
+/* The same for the creatures of the water, which have a cap of their own. */
+int mobs_near_player_in_water(const Game *g);
 
 /* The creature under a point in tile space, or -1. */
 int game_mob_at(const Game *g, float x, float y);

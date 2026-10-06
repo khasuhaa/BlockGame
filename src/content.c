@@ -882,6 +882,7 @@ static bool read_mobs(Reader *r, const cJSON *root)
     const cJSON *e, *one;
     if (cJSON_IsNumber(field(root, "spawn_radius"))) content.mob_spawn_radius = (int)num(root, "spawn_radius", 50);
     if (cJSON_IsNumber(field(root, "cap"))) content.mob_cap = (int)num(root, "cap", 10);
+    if (cJSON_IsNumber(field(root, "water_cap"))) content.mob_water_cap = (int)num(root, "water_cap", 10);
     cJSON_ArrayForEach(e, field(root, "mobs")) {
         const char *name = str(e, "name");
         if (!name) return fail(r, "a mob has no \"name\"");
