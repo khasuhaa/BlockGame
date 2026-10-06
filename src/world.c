@@ -355,7 +355,7 @@ static void assign_biomes(World *w, const int *level, int *biome, float *share_o
 }
 
 /* Here and there a biome has something buried in it: at the very bottom of
- * its soil, resting on the rock, with soil over it. */
+ * its own ground, with some of that ground over it. */
 static void bury(World *w, const int *level, const int *biome)
 {
     for (int x = 0; x < w->width; x++) {
@@ -365,7 +365,8 @@ static void bury(World *w, const int *level, const int *biome)
         int top = world_y_to_row(w, level[x] - 1), y = top;
         while (y < w->height - 1 && (world_get(w, x, y) == b->surface || world_get(w, x, y) == b->soil)) y++;
         int lowest = y - 1;
-        if (lowest <= top || world_get(w, x, y) != content.worldgen.rock) continue;
+        /* (Under at least one block of its own ground, on whatever lies beneath that.) */
+        if (lowest <= top || !world_is_solid(w, x, y)) continue;
         world_set_at(w, tile_def(b->buried)->layer, x, lowest, b->buried);
     }
 }

@@ -187,7 +187,7 @@ The world has four layers from back to front: the backwall; the background layer
 - **Where they go.** A wild dodo that gets more than 50 blocks from the player is gone. One the player owns never is.
 - **Eggs.** A grown dodo has a small chance every tick of leaving a big blue egg where it stands, if nothing is there already. An egg is picked up by clicking it, like a gem, and can be put down again. A random event on an egg hatches it into a chick, which is full grown 600 ticks later.
 - **Whose they are.** A dodo that hatches from an egg the player put down is the player's. One from an egg a dodo laid is wild, whoever the parent belonged to - unless the player picked that egg up and put it down again. A wild egg waits to hatch while the cap of 10 is reached; the player's eggs hatch regardless.
-- **Hunting.** Clicking a dodo queues going after it, marked with a red ring; the player follows it as it moves and kills it on reaching it. Clicking it again calls that off. A grown dodo leaves 1 or 2 dodo meat and 1 or 2 feathers; a chick leaves nothing. A campfire cooks dodo meat.
+- **Hunting.** Clicking a creature queues going after it, marked with a red ring; the player follows it as it moves and, once within reach, hits it again and again until it is dead (see Fighting). Clicking it again calls that off. A grown dodo leaves 1 or 2 dodo meat and 1 or 2 feathers; a chick leaves nothing. A campfire cooks dodo meat.
 - **How they move.** A dodo strides through its walking frames and bobs as it goes, setting off and stopping gently. Up a step it hops up and then forward, and down one it walks off and then drops, so it goes round the corner of a block and never through it. The frames and the height of the bob are in `mobs.json`.
 
 **The dodo's family tree.** A dodo does not always lay its own egg. Three times in four it does; the fourth time it lays the egg of one of the kinds that come next after it, each of those as likely as the other. Every kind has an egg of its own colour that hatches into that kind, and only the ordinary dodo ever turns up in the wild: the rest are bred.
@@ -212,6 +212,24 @@ The world has four layers from back to front: the backwall; the background layer
 | Diamond dodo | — | 1 diamond | 10% |
 
 A kind at the end of its line only ever lays its own egg. All of this is in `mobs.json`: what a kind breeds on into is `"next"` under its `"lays"`, and how often it leaves a thing is the `"chance"` on that drop.
+
+**Fighting.** Every creature has health, and each blow takes some off: a blow every 0.35 seconds while the player is within reach. A creature that has been hurt shows a small red bar. What a blow does depends on what is in the player's hand:
+
+| In hand | A blow does | Made at the tool bench from |
+|---|---|---|
+| Anything else, or nothing | 2 | — |
+| Flint spear | 3 | 2 flint, 1 stick (tier 1) |
+| Bronze sword | 5 | 5 bronze ingots, 1 stick (tier 3) |
+| Iron sword | 10 | 5 iron ingots, 1 stick (tier 4) |
+| Titanium sword | 20 | 5 titanium ingots, 1 stick (tier 5) |
+
+Dodos of every kind have 5 health, fish 5, dropbears 10 and sharks 25. A weapon is an item with a `"damage"`; a creature's `"health"` is in `mobs.json`.
+
+**Fish** turn up in the water of an ocean, up to four near the player, and swim about in it; they never leave the water. One leaves a fish, which can be eaten raw or cooked at a campfire.
+
+**Sharks** turn up there too, far less often, and one at a time. A shark is anything from 1 to 8 blocks long, and is drawn that long. It takes no notice of a player on land or on the sea bed's shore, but one who is in the water within 24 blocks it goes for: it swims straight at them, bites (a fifth of the health bar), makes off for a moment, and comes round again. Killed, it leaves 3 or 4 fish and its **head**.
+
+A **shark head** is a trophy the size of the shark it came from. It can be hung up like any background block, and is drawn bigger the bigger the shark was - from smaller than a block to two blocks across. Heads stack whatever their sizes; the one on top of the stack is the one shown, at its size, and the one that is put up. Taken down, a head comes back the size it was.
 
 **Dropbears** live at the top of trees. A random event on the trunk of a tree near the player can bring one, at most three near the player at once and one to a tree.
 
@@ -331,7 +349,7 @@ A portal makes a workbench (1 dirt) and a trade portal (1 portal and 1 gold coin
 
 A gem pickaxe makes every ore block drop that many times over: the metal ores, coal, and time crystals. Like any tool it only has to be carried, and the best one counts.
 
-The **portal chest** (1 chest and 100 crystals, at a tier 6 portal) opens onto one store of 16 slots that belongs to the player: every portal chest, in every world, shows the same contents. It is kept with the crystals in `saves/profile.txt`. It takes only plain items - a basket or chest with something in it is refused - and taking the block down leaves the contents where they are.
+The **portal chest** (1 golden chest and 100 crystals, at a tier 6 portal) opens onto one store of 16 slots that belongs to the player: every portal chest, in every world, shows the same contents. It is kept with the crystals in `saves/profile.txt`. It takes only plain items - a basket or chest with something in it is refused - and taking the block down leaves the contents where they are.
 
 ### Money
 
@@ -404,7 +422,7 @@ Removing a chest gives a chest item that still holds everything that was in it, 
 What an item holds is part of the item, and two stacks only merge if they hold the same things. So two chests with 5 wood in each stack together, and neither stacks with an empty chest. Taking one off such a stack gives it its own copy of the contents. Baskets never stack.
 ### Golden chests
 
-Under a beach, now and then - about one column in thirty - a golden chest lies buried at the bottom of the sand, on the rock. It opens and is carried off like any chest. The first time it is opened or dug up it holds 1 to 5 gold coins, up to 3 gold ore, up to 3 iron ingots, perhaps a titanium ingot, and one gem: an amethyst most often, then sapphire, emerald, and a ruby least. What a block is found holding is its `"loot"` in `tiles.json`, and where it is buried is `"buried"` on a biome in `worldgen.json`; a golden chest the player puts down, or buys, holds only what they put in it.
+Under a beach, quite often - about one column in six, a dozen or more to a world - a golden chest lies buried at the bottom of the sand. A golden chest is what a portal chest is made from (with 100 crystals, at a tier 6 portal), and a tier 2 metalwork bench melts one down into a gold coin. It opens and is carried off like any chest. The first time it is opened or dug up it holds 1 to 5 gold coins, up to 3 gold ore, up to 3 iron ingots, perhaps a titanium ingot, and one gem: an amethyst most often, then sapphire, emerald, and a ruby least. What a block is found holding is its `"loot"` in `tiles.json`, and where it is buried is `"buried"` on a biome in `worldgen.json`; a golden chest the player puts down, or buys, holds only what they put in it.
 
 ## Layout
 

@@ -252,6 +252,7 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->drop_count = (int)num(e, "drop_count", 1);
         t->needs_water = flag(e, "needs_water", false);
         t->breaks_above = flag(e, "breaks_above", false);
+        t->drop_meter = (int)num(e, "drop_meter", 0);
         t->decays_into = TILE_AIR;
         if (!tile_ref(r, e, "decays_into", &t->decays_into)) return false;
         t->vanishes = flag(e, "vanishes", false);
@@ -407,8 +408,26 @@ static bool read_items(Reader *r, const cJSON *root)
         it->meter_start = it->holds_water ? 0 : it->meter_max;
         if (it->meter_max < 0 || it->meter_max > 250)
             return fail(r, "item \"%s\": a meter reads at most 250", it->name);
+        it->damage = (int)num(e, "damage", 0);
         it->places = TILE_AIR;
-        if (!tile_ref(r, e, "places", &it->places)) return false;
+        it->sized = false;
+        /* "places" is one block, or a list of them: the block for each size of a sized thing. */
+        const cJSON *places = field(e, "places"), *size;
+        if (cJSON_IsArray(places)) {
+            int sizes = 0;
+            cJSON_ArrayForEach(size, places) {
+                TileType t = cJSON_IsString(size) ? tile_id(size->valuestring) : -1;
+                if (t <= 0 || sizes >= MAX_ITEM_SIZES)
+                    return fail(r, "item \"%s\": \"places\" lists at most %d blocks that exist", it->name, MAX_ITEM_SIZES);
+                it->places_sized[sizes++] = t;
+            }
+            if (sizes == 0) return fail(r, "item \"%s\": \"places\" is empty", it->name);
+            it->sized = true;
+            it->holds_water = false;
+            it->meter_max = sizes;
+            it->meter_start = 1;
+            it->places = it->places_sized[0];
+        } else if (!tile_ref(r, e, "places", &it->places)) return false;
         it->sows = TILE_AIR;
         if (!tile_ref(r, e, "sows", &it->sows)) return false;
         /* Trees are read later; the name is matched to one once they are. */
@@ -815,6 +834,11 @@ static bool read_rules(Reader *r, const cJSON *root)
             if (u->loot[u->loot_count++].weight < 1) return fail(r, "what meditation brings needs a \"weight\" of 1 or more");
         }
     }
+    const cJSON *combat = field(root, "combat");
+    if (combat) {
+        u->hand_damage = (int)num(combat, "hand_damage", u->hand_damage);
+        u->attack_time = (float)num(combat, "attack_time", u->attack_time);
+    }
     const cJSON *teleport = field(root, "teleport");
     if (teleport) {
         copy_name(u->teleport_bench, sizeof u->teleport_bench, str(teleport, "bench"));
@@ -892,6 +916,22 @@ static bool read_mobs(Reader *r, const cJSON *root)
             if (m->spawn_above_count < MAX_MOB_SPAWN_TILES) m->spawn_above[m->spawn_above_count++] = t;
         }
         m->cap = (int)num(e, "cap", 0);
+        m->health = (int)num(e, "health", 1);
+        m->size_min = m->size_max = 1;
+        pair(e, "size", &m->size_min, &m->size_max);
+        if (m->size_min < 1 || m->size_max < m->size_min || m->size_max > MAX_ITEM_SIZES)
+            return fail(r, "mob \"%s\": \"size\" is a range within 1 to %d", name, MAX_ITEM_SIZES);
+        /* "swim": it lives in water. */
+        const cJSON *swim = field(e, "swim");
+        m->swims = cJSON_IsObject(swim);
+        m->hunts = flag(swim, "hunts", false);
+        m->sight = (int)num(swim, "sight", 12);
+        m->spawn_water = flag(field(e, "spawn"), "water", false);
+        m->spawn_biome = -1;
+        const char *where = str(field(e, "spawn"), "biome");
+        for (int i = 0; where && i < content.biome_count; i++)
+            if (strcmp(content.biomes[i].name, where) == 0) m->spawn_biome = i;
+        if (where && m->spawn_biome < 0) return fail(r, "mob \"%s\" spawns in a biome that does not exist", name);
         /* "perch": it lives in trees and comes down at the player. */
         const cJSON *perch = field(e, "perch");
         m->perches = cJSON_IsObject(perch);
@@ -906,6 +946,10 @@ static bool read_mobs(Reader *r, const cJSON *root)
         m->chase_ticks = (int)num(perch, "chase_ticks", 100);
         m->bite_rest = (int)num(perch, "rest_ticks", 100);
         m->seek_radius = (int)num(perch, "seek_radius", 24);
+        if (m->swims) {
+            m->bite = (float)num(swim, "bite", 0.0);
+            m->bite_rest = (int)num(swim, "rest_ticks", 40);
+        }
         const cJSON *lays = field(e, "lays");
         if (lays && !tile_ref(r, lays, "tile", &m->lays)) return false;
         m->lay_chance = (float)num(lays, "chance", 0.0);
@@ -916,6 +960,7 @@ static bool read_mobs(Reader *r, const cJSON *root)
             m->drops[m->drop_count].item = item;
             m->drops[m->drop_count].min = (int)num(one, "min", 1);
             m->drops[m->drop_count].chance = (float)num(one, "chance", 1.0);
+            m->drops[m->drop_count].sized = flag(one, "sized", false);
             m->drops[m->drop_count++].max = (int)num(one, "max", num(one, "min", 1));
         }
     }

@@ -286,7 +286,13 @@ static void draw_stack(const Inventory *inv, const ItemStack *s, Rectangle r, in
     /* A meter that is not as new shows as a bar under the item: the top one of the stack's. */
     const ItemDef *def = item_def(s->id);
     int reads = inventory_meter(inv, s);
-    if (reads >= 0 && reads != def->meter_start) {
+    /* Something that comes in sizes is drawn as big as the one on top is. */
+    Rectangle icon = { r.x + ICON_INSET, r.y + ICON_INSET, r.width - 2 * ICON_INSET, r.height - 2 * ICON_INSET };
+    if (def->sized && reads >= 1) {
+        float k = 0.45f + 0.55f * (float)reads / (float)def->meter_max;
+        icon = (Rectangle){ r.x + r.width * (1 - k) / 2, r.y + r.height * (1 - k) / 2, r.width * k, r.height * k };
+    }
+    if (reads >= 0 && reads != def->meter_start && !def->sized) {
         float share = (float)reads / (float)def->meter_max;
         Rectangle bar = { r.x + 6, r.y + r.height - 9, r.width - 12, 5 };
         Color fill = def->holds_water ? (Color){ 70, 160, 236, 255 }
@@ -295,8 +301,7 @@ static void draw_stack(const Inventory *inv, const ItemStack *s, Rectangle r, in
         DrawRectangleRec((Rectangle){ bar.x - 1, bar.y - 1, bar.width + 2, bar.height + 2 }, (Color){ 12, 13, 18, 255 });
         DrawRectangleRec((Rectangle){ bar.x, bar.y, bar.width * share, bar.height }, fill);
     }
-    hud_draw_item_icon((ItemId)s->id, (Rectangle){ r.x + ICON_INSET, r.y + ICON_INSET, r.width - 2 * ICON_INSET,
-                                                   r.height - 2 * ICON_INSET });
+    hud_draw_item_icon((ItemId)s->id, icon);
     if (count > 1) {
         const char *text = TextFormat("%d", count);
         int size = 18;

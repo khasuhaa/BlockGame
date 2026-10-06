@@ -103,7 +103,8 @@ typedef enum {
     ACTIVITY_IDLE,
     ACTIVITY_STEPPING,
     ACTIVITY_MINING,
-    ACTIVITY_PLACING
+    ACTIVITY_PLACING,
+    ACTIVITY_ATTACKING /* swinging at a creature */
 } Activity;
 
 /* The player is 1 tile wide and 2 tall: feet at (x, y), head at (x, y-1). */
@@ -178,7 +179,9 @@ typedef struct {
     int32_t state;  /* a MobState */
     int32_t home_x; /* the column of its tree */
     int32_t timer;  /* ticks left of the chase, or before it will come down again */
-    int32_t reserved[3];
+    int32_t hp;     /* what it can still take; 0 in a record from before creatures had any: full */
+    int32_t size;   /* blocks long; 0 or 1 for the ordinary size */
+    int32_t reserved[1];
 } Mob;
 
 typedef enum {
@@ -376,6 +379,13 @@ void game_random_event(Game *g, int x, int y);
  * the trunk above and the leaves that hung on it decay. */
 void game_decay_tree(Game *g, int x, int y);
 
+/* What a blow from the player takes off a creature: what is in their hand
+ * if that is a weapon, a bare hand's worth otherwise. */
+int game_attack_damage(const Game *g);
+/* True while any part of the player is in water. */
+bool game_player_in_water(const Game *g);
+/* Leaves one of a sized item lying in a tile, of a given size. */
+void game_drop_item_sized(Game *g, ItemId id, int x, int y, int size);
 /* Leaves one of an item lying in a tile. */
 void game_drop_item(Game *g, ItemId id, int x, int y);
 /* The world's own random numbers, saved with it. */

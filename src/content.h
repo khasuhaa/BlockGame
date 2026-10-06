@@ -39,6 +39,7 @@
 #define MAX_TILE_ALIASES 2
 #define MAX_TILE_JOINS 4
 #define MAX_TILE_LOOT 8
+#define MAX_ITEM_SIZES 8
 #define MAX_LOOT_CHOICES 6
 #define MAX_TREE_ROWS 12
 #define MAX_SWELLS 4
@@ -128,6 +129,7 @@ typedef struct {
     /* Decay. The trunk and leaves of a tree turn into `decays_into` when the
      * tree is cut through beneath them. A block that `vanishes` is taken away
      * by the first random event to land on it. */
+    int drop_meter;       /* what the meter of the item it leaves reads: the size of a trophy, say; 0 for as new */
     TileType decays_into; /* TILE_AIR if it does not decay */
     bool vanishes;
     float drop_chance; /* chance it leaves its drop when it goes, by whatever means; usually 1 */
@@ -197,6 +199,9 @@ typedef struct {
     int meter_max;     /* the most it reads; 0 if the item has no meter */
     int meter_start;   /* what a new one reads */
     bool holds_water;  /* the meter is eighths of water, scooped up and poured out */
+    bool sized;        /* the meter is how big the thing is: a trophy from a creature of that size */
+    TileType places_sized[MAX_ITEM_SIZES]; /* for a sized item, the block each size is put down as */
+    int damage;        /* what a blow with it in hand takes off a creature; 0 for no better than a bare hand */
     int category;    /* where it is listed for trading, or -1 if it is not traded */
     char category_name[CONTENT_NAME_LEN];
     int price;       /* what one costs, in the smallest currency; 0 for the default */
@@ -429,6 +434,8 @@ typedef struct {
     int teleport_cost;     /* crystals, up to teleport_free blocks away */
     int teleport_free;
     int teleport_per;      /* one crystal more for every this many blocks beyond */
+    int hand_damage;       /* what a blow with nothing better in hand takes off a creature */
+    float attack_time;     /* seconds a blow takes */
     float zoom[MAX_ZOOM_LEVELS];
     int zoom_count, zoom_start;
     float map_from, map_to;
@@ -450,6 +457,15 @@ typedef struct {
     int spawn_above_count;
     float spawn_chance; /* chance that a random event on such a spot brings one */
     int cap;            /* no more of this kind appear while this many are near; 0 for no limit of its own */
+    int health;         /* blows' worth of damage it takes to kill */
+    int size_min, size_max; /* how many blocks long one can be; it is drawn that big */
+    /* A creature of the water. It swims about and never leaves it. One that
+     * hunts goes for a player who is in the water, bites, makes off, and comes
+     * round again. */
+    bool swims, hunts;
+    bool spawn_water;   /* it turns up in water */
+    int spawn_biome;    /* and only in this biome; -1 for any */
+    int sight;          /* how far off it notices a swimmer */
     /* A creature that lives in trees. It turns up at the top of one and sits
      * there. When the player comes by underneath it runs down, bites them
      * and runs back up; if its tree goes, it looks for another. */
@@ -474,6 +490,7 @@ typedef struct {
         ItemId item;
         int min, max;
         float chance; /* chance it leaves this at all; usually 1 */
+        bool sized;   /* the item is a trophy the size of the creature */
     } drops[MAX_MOB_DROPS]; /* what a grown one leaves when killed */
     int drop_count;
 } MobDef;

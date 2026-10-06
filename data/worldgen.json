@@ -49,7 +49,7 @@
       "surface": "grass", "soil": "dirt", "tree_one_in": 7,
       "trees": [ { "tree": "coffee", "weight": 3 }, { "tree": "orange", "weight": 2 } ] },
     { "name": "beach", "label": "Beach", "near_sea": 9, "surface": "sand", "soil": "sand", "soil_depth": 3,
-      "buried": { "tile": "golden_chest", "one_in": 30 } },
+      "buried": { "tile": "golden_chest", "one_in": 6 } },
     { "name": "ocean", "label": "Ocean", "below_sea": true, "surface": "sand", "soil": "sand", "soil_depth": 3,
       "tree_one_in": 5, "tree_spacing": 2, "trees": [ { "tree": "kelp", "weight": 1 } ],
       "plants": [ { "tile": "coral_0", "one_in": 9 } ] }

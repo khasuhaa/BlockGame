@@ -703,7 +703,20 @@ static void draw_mobs(const Game *g, Vector2 origin)
             }
             if (m->to_x != m->x) r.y -= def->hop * TILE_SIZE * fabsf(sinf(stride * 2.0f * PI));
         }
+        /* A big one is drawn as long as it is, round the square it is in. */
+        if (m->size > 1) {
+            float side = (float)m->size * TILE_SIZE;
+            r = (Rectangle){ r.x + TILE_SIZE / 2.0f - side / 2, r.y + TILE_SIZE / 2.0f - side / 2, side, side };
+        }
         assets_draw_sprite(file, r, m->dir < 0);
+        /* One that has been hurt shows how much it has left. */
+        if (def->health > 1 && m->hp > 0 && m->hp < def->health) {
+            Rectangle bar = { r.x + r.width / 2 - 14, r.y + r.height / 2 - (m->size > 1 ? r.height / 4 : TILE_SIZE / 2.0f) - 7, 28, 4 };
+            DrawRectangleRec((Rectangle){ bar.x - 1, bar.y - 1, bar.width + 2, bar.height + 2 }, (Color){ 12, 13, 18, 255 });
+            DrawRectangleRec(bar, (Color){ 96, 22, 28, 255 });
+            DrawRectangleRec((Rectangle){ bar.x, bar.y, bar.width * (float)m->hp / (float)def->health, bar.height },
+                             (Color){ 226, 70, 70, 255 });
+        }
     }
 }
 
@@ -858,6 +871,8 @@ static void draw_player(const Game *g, Vector2 origin)
         bob = sinf((float)GetTime() * 2.5f) * 1.5f;
     }
     if (p->activity == ACTIVITY_MINING || p->activity == ACTIVITY_PLACING) bob = -fabsf(sinf((float)GetTime() * 9.0f)) * 1.5f;
+    /* A blow: the arm swings through with it. */
+    if (p->activity == ACTIVITY_ATTACKING) swing = (float)p->facing * sinf(t * PI) * 2.0f;
     float legs = 11.0f, body_w = TILE_SIZE - 2 * inset, leg_w = body_w / 2 - 1;
     float top = py - bob;
     /* Legs, the far one a shade darker. */

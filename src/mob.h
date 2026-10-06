@@ -18,6 +18,8 @@ void mobs_tick(Game *g);
  * what happened. */
 bool mobs_try_spawn(Game *g, int x, int y);
 bool mobs_try_hatch(Game *g, int x, int y);
+/* Takes so much off a creature. Returns true if that was the end of it. */
+bool mob_hurt(Game *g, int mob, int damage);
 /* Kills a creature, leaving what a grown one leaves. */
 void mob_kill(Game *g, int mob);
 /* How many creatures are within spawning range of the player. */

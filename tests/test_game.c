@@ -1005,8 +1005,8 @@ static void test_work_benches(void)
 
     /* Tool bench: wooden and flint tools at tier 1, stone tools at tier 2 (5 stone). */
     CHECK(place_and_open(&g, "tool_bench", x + 4));
-    const Recipe *list[16];
-    CHECK(bench_recipes(tool1, list, 16) == 14);
+    const Recipe *list[32];
+    CHECK(bench_recipes(tool1, list, 32) == 18);
     CHECK(costs(find_recipe(tool1, "wooden_pickaxe"), "wood", 1, "stick", 1));
     CHECK(costs(find_recipe(tool1, "wooden_shovel"), "wood", 1, "stick", 1));
     CHECK(costs(find_recipe(tool1, "flint_axe"), "flint", 2, "stick", 1));
@@ -2343,11 +2343,11 @@ static void test_portal_tiers(void)
     run(&g, 4.0f);
     CHECK(g.crystals == 45);
 
-    /* The portal chest: 1 chest and 100 crystals at a tier 6 portal. */
+    /* The portal chest: 1 golden chest and 100 crystals at a tier 6 portal. */
     const Recipe *pc = find_recipe(portal, "portal_chest");
-    CHECK(costs(pc, "chest", 1, NULL, 0) && pc->crystals == 100 && pc->level == 6);
+    CHECK(costs(pc, "golden_chest", 1, NULL, 0) && pc->crystals == 100 && pc->level == 6);
     CHECK(place_and_open(&g, "portal", x + 3));
-    inventory_add(inv, ITEM_CHEST, 1);
+    inventory_add(inv, item_id("golden_chest"), 1);
     g.crystals = 150;
     CHECK(!game_craft(&g, pc, 1));
     for (int i = 0; i < 5; i++) {
@@ -2357,7 +2357,7 @@ static void test_portal_tiers(void)
     CHECK(world_get_at(w, BG, x + 3, s - 1) == tile_id("portal_6") && !game_upgrade_bench(&g));
     CHECK(game_craft(&g, pc, 1));
     run(&g, 0.3f);
-    CHECK(count_item(&g, item_id("portal_chest")) == 1 && g.crystals == 50 && count_item(&g, ITEM_CHEST) == 0);
+    CHECK(count_item(&g, item_id("portal_chest")) == 1 && g.crystals == 50 && count_item(&g, item_id("golden_chest")) == 0);
     game_free(&g);
 }
 
@@ -3758,13 +3758,16 @@ static void test_decay_and_golden_chests(void)
                 if (world_get(tw, x, y) != chest) continue;
                 found++;
                 where = (TilePos){ x, y };
-                if (!beach || world_get(tw, x, y - 1) != sand || world_get(tw, x, y + 1) != TILE_STONE) misplaced++;
+                if (!beach || world_get(tw, x, y - 1) != sand || !world_is_solid(tw, x, y + 1)) misplaced++;
             }
         }
         if (seed < 6 || found == 0) game_free(&t);
     }
-    /* A small chance: a few to a world, not one under every beach. */
-    CHECK(found >= 3 && found * 12 < beach_columns && misplaced == 0);
+    /* Several to a world - about one beach column in eight - but not one under every column. */
+    CHECK(found >= 30 && found * 4 < beach_columns && misplaced == 0);
+    /* A golden chest can be melted down for a gold coin, at a tier 2 metalwork bench. */
+    const Recipe *melt = find_recipe_from(tile_id("metalwork_bench_2"), "gold_coin", "golden_chest");
+    CHECK(melt && melt->level == 2 && melt->output.count == 1 && melt->inputs[0].count == 1 && melt->input_count == 1);
     if (found == 0) return;
 
     /* Opened for the first time it holds its treasure: 1-5 gold coins, up to
@@ -4537,6 +4540,222 @@ static void test_buckets_and_stacks(void)
     game_free(&g);
 }
 
+static void test_sea_and_combat(void)
+{
+    Game g;
+    game_init(&g, 256, 96, 121, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    Vitals *v = &g.vitals;
+    clear_inventory(&g);
+    clear_mobs(&g);
+    g.tick_rate = 0;
+    int s = w->surface_y, ground = s - 1, px = g.player.feet.x;
+    int dodo = mob_id("dodo"), bear = mob_id("dropbear"), fish = mob_id("fish"), shark = mob_id("shark");
+
+    /* Health: dodos and fish 5, dropbears 10, sharks 25. */
+    CHECK(fish >= 0 && shark >= 0);
+    CHECK(content.mobs[dodo].health == 5 && content.mobs[fish].health == 5 && content.mobs[bear].health == 10 &&
+          content.mobs[shark].health == 25 && content.mobs[mob_id("gold_dodo")].health == 5);
+    /* Blows: a bare hand 2, flint spear 3, bronze sword 5, iron sword 10, titanium sword 20. */
+    const char *weapons[] = { "flint_spear", "bronze_sword", "iron_sword", "titanium_sword" };
+    int blows[] = { 3, 5, 10, 20 }, levels[] = { 1, 3, 4, 5 };
+    CHECK(content.rules.hand_damage == 2 && game_attack_damage(&g) == 2);
+    TileType bench = tile_id("tool_bench_5");
+    for (int i = 0; i < 4; i++) {
+        ItemId id = item_id(weapons[i]);
+        const Recipe *r = find_recipe(bench, weapons[i]);
+        CHECK(id > 0 && item_def(id)->damage == blows[i] && item_def(id)->category >= 0 && r && r->level == levels[i]);
+        clear_inventory(&g);
+        inventory_add(inv, id, 1);
+        inventory_select(inv, 0, -1);
+        CHECK(game_attack_damage(&g) == blows[i]);
+    }
+    /* Something that is not a weapon hits no harder than a hand. */
+    clear_inventory(&g);
+    inventory_add(inv, ITEM_DIRT, 1);
+    inventory_select(inv, 0, -1);
+    CHECK(game_attack_damage(&g) == 2);
+
+    /* A creature takes as many blows as its health needs: a dodo three by hand, one with an iron sword. */
+    clear_inventory(&g);
+    int m = mob_spawn(&g, dodo, px + 1, ground, true, false);
+    content.mobs[dodo].move_chance = 0.0f;
+    CHECK(g.mobs[m].hp == 5 && !mob_hurt(&g, m, 2) && g.mobs[m].hp == 3 && !mob_hurt(&g, m, 2) && g.mobs[m].active);
+    CHECK(mob_hurt(&g, m, 2) && !g.mobs[m].active);
+    m = mob_spawn(&g, dodo, px + 1, ground, true, false);
+    float blow = content.rules.attack_time;
+    CHECK(game_click_mob(&g, m));
+    run(&g, blow * 2.0f + 0.1f);
+    CHECK(g.mobs[m].active && g.mobs[m].hp == 1 && !is_idle(&g)); /* two blows in, one to go */
+    run(&g, blow + 0.2f);
+    CHECK(!g.mobs[m].active && is_idle(&g));
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    clear_inventory(&g);
+    inventory_add(inv, item_id("iron_sword"), 1);
+    inventory_select(inv, 0, -1);
+    m = mob_spawn(&g, dodo, px + 1, ground, true, false);
+    CHECK(game_click_mob(&g, m));
+    run(&g, blow + 0.1f);
+    CHECK(!g.mobs[m].active);
+    content.mobs[dodo].move_chance = 0.2f;
+    clear_mobs(&g);
+
+    /* A sea: 40 wide, 12 deep, in ocean country. */
+    int left = px + 20, right = px + 59, top = s - 12;
+    for (int y = top; y < s; y++) {
+        world_set(w, left - 1, y, TILE_STONE);
+        world_set(w, right + 1, y, TILE_STONE);
+        for (int x = left; x <= right; x++) world_set_water(w, x, y, WATER_FULL);
+    }
+    int ocean = -1;
+    for (int b = 0; b < content.biome_count; b++)
+        if (content.biomes[b].below_sea) ocean = b;
+    for (int x = left; x <= right; x++) w->biome[x] = (uint8_t)ocean;
+    settle(w);
+    g.player.feet = g.player.step_to = (TilePos){ left - 3, top - 1 }; /* on the bank, dry */
+    world_set(w, left - 3, top, TILE_STONE);
+
+    /* Fish turn up in it, and only in it; never more than their cap. */
+    CHECK(content.mobs[fish].swims && content.mobs[fish].spawn_water && content.mobs[fish].spawn_biome == ocean);
+    for (int i = 0; i < 4000; i++) {
+        mobs_try_spawn(&g, left + (i * 7) % 40, top + (i * 5) % 12);
+        mobs_try_spawn(&g, left - 10, ground); /* dry land */
+    }
+    int fishes = 0, sharks = 0, strays = 0;
+    for (int i = 0; i < MAX_MOBS; i++) {
+        if (!g.mobs[i].active) continue;
+        fishes += g.mobs[i].kind == fish;
+        sharks += g.mobs[i].kind == shark;
+        if ((g.mobs[i].kind == fish || g.mobs[i].kind == shark) && !world_is_water(w, g.mobs[i].x, g.mobs[i].y)) strays++;
+    }
+    CHECK(fishes == content.mobs[fish].cap && sharks <= content.mobs[shark].cap && strays == 0);
+    CHECK(content.mobs[shark].spawn_chance < content.mobs[fish].spawn_chance); /* sharks are the rarer */
+    /* They swim about, and never leave the water. */
+    int moved = 0;
+    TilePos was[MAX_MOBS];
+    for (int i = 0; i < MAX_MOBS; i++) was[i] = (TilePos){ g.mobs[i].x, g.mobs[i].y };
+    for (int t = 0; t < 600; t++) {
+        mobs_tick(&g);
+        for (int i = 0; i < MAX_MOBS; i++)
+            if (g.mobs[i].active && content.mobs[g.mobs[i].kind].swims && !world_is_water(w, g.mobs[i].x, g.mobs[i].y)) strays++;
+    }
+    for (int i = 0; i < MAX_MOBS; i++) moved += g.mobs[i].active && (g.mobs[i].x != was[i].x || g.mobs[i].y != was[i].y);
+    CHECK(strays == 0 && moved >= 3);
+    /* A fish leaves a fish, which a campfire cooks. */
+    clear_mobs(&g);
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    mob_kill(&g, mob_spawn(&g, fish, left + 5, top + 5, true, false));
+    CHECK(count_drops(&g, item_id("fish")) == 1);
+    CHECK(costs(find_recipe(tile_id("campfire"), "cooked_fish"), "fish", 1, NULL, 0));
+    CHECK(game_is_food(item_id("fish")) && item_def(item_id("cooked_fish"))->food > item_def(item_id("fish"))->food);
+
+    /* Sharks come in every length from 1 block to 8. */
+    const MobDef *sd = &content.mobs[shark];
+    CHECK(sd->hunts && sd->size_min == 1 && sd->size_max == 8 && sd->bite > 0.0f);
+    bool seen[9] = { false };
+    for (int i = 0; i < 400; i++) {
+        int k = mob_spawn(&g, shark, left + 20, top + 6, true, false);
+        CHECK(g.mobs[k].size >= 1 && g.mobs[k].size <= 8 && g.mobs[k].hp == 25);
+        seen[g.mobs[k].size] = true;
+        g.mobs[k].active = false;
+    }
+    for (int n = 1; n <= 8; n++) CHECK(seen[n]);
+
+    /* A shark leaves the player alone on the bank... */
+    clear_mobs(&g);
+    int k = mob_spawn(&g, shark, left + 12, top + 4, true, false);
+    g.mobs[k].size = 5;
+    v->health = 1.0f;
+    for (int t = 0; t < 300; t++) mobs_tick(&g);
+    CHECK(v->health == 1.0f && world_is_water(w, g.mobs[k].x, g.mobs[k].y));
+    /* ...but goes for a swimmer, bites, makes off, and comes round again. */
+    g.player.feet = g.player.step_to = (TilePos){ left + 4, top + 5 };
+    g.player.climbing = true;
+    g.mobs[k].x = g.mobs[k].to_x = left + 14;
+    g.mobs[k].y = g.mobs[k].to_y = top + 5;
+    g.mobs[k].step_left = 0;
+    CHECK(game_player_in_water(&g));
+    int bites = 0, furthest_after = 0;
+    float last_health = v->health;
+    for (int t = 0; t < 400 && bites < 2; t++) {
+        mobs_tick(&g);
+        if (v->health < last_health) {
+            bites++;
+            last_health = v->health;
+            CHECK(abs(world_dx(w, g.mobs[k].x, g.player.feet.x)) <= 1);
+        } else if (bites == 1) {
+            int away = abs(world_dx(w, g.mobs[k].x, g.player.feet.x)) + abs(g.mobs[k].y - g.player.feet.y);
+            if (away > furthest_after) furthest_after = away;
+        }
+    }
+    CHECK(bites == 2 && furthest_after >= 4 && near(v->health, 1.0f - 2.0f * sd->bite));
+    /* It wakes anyone it bites. (Nobody sleeps afloat, but a bite is a bite.) */
+    v->rest = REST_MEDITATE;
+    g.mobs[k].timer = 0;
+    g.mobs[k].x = g.mobs[k].to_x = g.player.feet.x + 1;
+    g.mobs[k].y = g.mobs[k].to_y = g.player.feet.y;
+    g.mobs[k].step_left = 0;
+    mobs_tick(&g);
+    CHECK(v->rest == REST_NONE);
+
+    /* Killed, it leaves 3 or 4 fish and its head - a head the size it was. */
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    clear_inventory(&g);
+    ItemId head = item_id("shark_head");
+    CHECK(head > 0 && item_def(head)->sized && item_def(head)->meter_max == 8 && item_def(head)->max_stack > 1);
+    g.player.feet = g.player.step_to = (TilePos){ left - 3, top - 1 };
+    g.player.climbing = false;
+    CHECK(!mob_hurt(&g, k, 24) && mob_hurt(&g, k, 1));
+    int meat = count_drops(&g, item_id("fish"));
+    CHECK((meat == 3 || meat == 4) && count_drops(&g, head) == 1);
+    for (int i = 0; i < MAX_DROPS; i++) {
+        if (!g.drops[i].active || g.drops[i].item != head) continue;
+        ItemStack dropped = { (uint8_t)head, 1, g.drops[i].container };
+        CHECK(inventory_meter(inv, &dropped) == 5);
+    }
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+
+    /* Heads stack whatever their size, and it is the top one that is put down - as a head of that size. */
+    clear_inventory(&g);
+    for (int size = 2; size <= 7; size += 5) {
+        ItemStack one = { (uint8_t)head, 1, 0 };
+        inventory_set_meter(inv, &one, size);
+        CHECK(inventory_add_stack(inv, one) == 0);
+    }
+    CHECK(inv->slots[0].count == 2 && inv->slots[1].count == 0 && inventory_meter(inv, &inv->slots[0]) == 7);
+    inventory_select(inv, 0, -1);
+    int hx = g.player.feet.x - 2, hy = g.player.feet.y;
+    world_set(w, hx, hy + 1, TILE_STONE);
+    world_set(w, hx + 1, hy + 1, TILE_STONE);
+    CHECK(game_click_tile(&g, hx, hy));
+    run(&g, 3.0f);
+    CHECK(world_get_at(w, BG, hx, hy) == tile_id("shark_head_7") && inv->slots[0].count == 1);
+    CHECK(inventory_meter(inv, &inv->slots[0]) == 2);
+    CHECK(game_click_tile(&g, hx + 1, hy));
+    run(&g, 3.0f);
+    CHECK(world_get_at(w, BG, hx + 1, hy) == tile_id("shark_head_2") && inv->slots[0].count == 0);
+    /* Taken down again, each comes back the size it was. */
+    CHECK(game_queue_action(&g, ACTION_MINE, hx, hy));
+    run(&g, 3.0f);
+    CHECK(world_get_at(w, BG, hx, hy) == TILE_AIR && count_item(&g, head) == 1);
+    CHECK(inventory_meter(inv, inventory_find(inv, head)) == 7);
+    for (int n = 1; n <= 8; n++) {
+        char name[32];
+        snprintf(name, sizeof name, "shark_head_%d", n);
+        CHECK(tile_id(name) > 0 && tile_def(tile_id(name))->drop == head && tile_def(tile_id(name))->drop_meter == n);
+        CHECK(item_def(head)->places_sized[n - 1] == tile_id(name));
+    }
+
+    /* A creature from a save made before creatures had health is as good as new. */
+    k = mob_spawn(&g, bear, px, ground, true, false);
+    g.mobs[k].hp = 0;
+    g.mobs[k].state = MOB_SEEK;
+    mobs_tick(&g);
+    CHECK(g.mobs[k].hp == 10);
+    game_free(&g);
+}
+
 static void test_tools(void)
 {
     Game g;
@@ -4901,6 +5120,7 @@ int main(void)
     test_dodo_tree();
     test_water();
     test_basket_pickup();
+    test_sea_and_combat();
     test_buckets_and_stacks();
     test_remote_benches_and_teleport();
     test_decay_and_golden_chests();

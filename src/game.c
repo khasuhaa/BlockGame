@@ -729,7 +729,8 @@ static bool unqueue(Game *g, bool (*match)(Action, TilePos, int), TilePos t, int
     if (!g->has_current || !match(g->current, t, drop)) return false;
     /* The one being carried out: a step already begun still finishes. */
     g->has_current = false;
-    if (g->player.activity == ACTIVITY_MINING || g->player.activity == ACTIVITY_PLACING)
+    if (g->player.activity == ACTIVITY_MINING || g->player.activity == ACTIVITY_PLACING ||
+        g->player.activity == ACTIVITY_ATTACKING)
         g->player.activity = ACTIVITY_IDLE;
     return true;
 }
@@ -877,6 +878,25 @@ void game_reveal(Game *g, int x, int y)
             if (level > *cell) *cell = (uint8_t)level;
         }
     }
+}
+
+int game_attack_damage(const Game *g)
+{
+    const ItemStack *held = inventory_selected(&g->inventory);
+    int with = held->count > 0 ? item_def(held->id)->damage : 0;
+    return with > content.rules.hand_damage ? with : content.rules.hand_damage;
+}
+
+bool game_player_in_water(const Game *g)
+{
+    return in_water(&g->world, g->player.feet);
+}
+
+void game_drop_item_sized(Game *g, ItemId id, int x, int y, int size)
+{
+    ItemStack one = { (uint8_t)id, 1, 0 };
+    if (item_def(id)->meter_max > 0) inventory_set_meter(&g->inventory, &one, size);
+    spawn_drop_stack(g, one, (TilePos){ world_wrap_x(&g->world, x), y });
 }
 
 void game_drop_item(Game *g, ItemId id, int x, int y)
@@ -1142,7 +1162,10 @@ static void drop_block_items(Game *g, const TileDef *def, TilePos at, uint16_t i
          * holds inside it is never lost that way.) */
         bool kept = def->drop_chance >= 1.0f || (i == 0 && inside != 0) ||
                     (float)(game_random(g) >> 8) / 16777216.0f < def->drop_chance;
-        if (kept) spawn_drop_stack(g, (ItemStack){ (uint8_t)def->drop, 1, i == 0 ? inside : 0 }, at);
+        if (!kept) continue;
+        /* (A block that is one size of a thing leaves that thing at that size.) */
+        if (def->drop_meter > 0 && inside == 0) game_drop_item_sized(g, def->drop, at.x, at.y, def->drop_meter);
+        else spawn_drop_stack(g, (ItemStack){ (uint8_t)def->drop, 1, i == 0 ? inside : 0 }, at);
     }
     for (int k = 0; k < def->extra_drop_count; k++)
         for (int i = 0; i < def->extra_drops[k].count; i++) spawn_drop(g, def->extra_drops[k].id, at);
@@ -1196,6 +1219,14 @@ static void finish_activity(Game *g)
             replace_block(&g->world, layer, t, TILE_AIR);
         }
         g->has_current = false;
+    } else if (p->activity == ACTIVITY_ATTACKING) {
+        /* The blow lands if the creature is still there to be hit. */
+        Mob *m = &g->mobs[g->current.drop];
+        if (g->has_current && g->current.type == ACTION_ATTACK && m->active && m->id == g->current.drop_id &&
+            in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y })) {
+            g->current.tries = 0;
+            if (mob_hurt(g, g->current.drop, game_attack_damage(g))) g->has_current = false;
+        }
     } else if (p->activity == ACTIVITY_PLACING) {
         TilePos t = g->current.target;
         ItemId item = (ItemId)g->current.item;
@@ -1207,6 +1238,10 @@ static void finish_activity(Game *g)
             container_free(&g->inventory, one.container);
             plant_item(&g->world, item, t);
         } else if (!needs_storage(tile_def(tile))) {
+            /* Something that comes in sizes goes down as the block of its size. */
+            int size = item_def(item)->sized ? inventory_meter(&g->inventory, &one) : 0;
+            if (size >= 1 && size <= MAX_ITEM_SIZES && item_def(item)->places_sized[size - 1] != TILE_AIR)
+                tile = item_def(item)->places_sized[size - 1];
             container_free(&g->inventory, one.container);
             place_tile(&g->world, t, tile);
         } else if (!storage_at(g, t) && storage_create(g, t, tile_def(tile), one)) {
@@ -1282,9 +1317,9 @@ static bool start_next_activity(Game *g)
                 }
                 TilePos at = { m->x, m->y };
                 if (in_use_range(w, p->feet, at)) {
-                    mob_kill(g, g->current.drop);
-                    g->has_current = false;
-                    continue;
+                    /* Within reach: a blow, and then another, until it is done for. */
+                    begin_work(g, ACTIVITY_ATTACKING, content.rules.attack_time > 0.0f ? content.rules.attack_time : 0.3f);
+                    return true;
                 }
                 g->current.target = at;
                 if (g->current.tries++ < MAX_ATTACK_TRIES &&
@@ -1903,7 +1938,8 @@ void game_cancel_actions(Game *g)
 {
     g->queue_count = 0;
     g->has_current = false;
-    if (g->player.activity == ACTIVITY_MINING || g->player.activity == ACTIVITY_PLACING)
+    if (g->player.activity == ACTIVITY_MINING || g->player.activity == ACTIVITY_PLACING ||
+        g->player.activity == ACTIVITY_ATTACKING)
         g->player.activity = ACTIVITY_IDLE;
 }
 

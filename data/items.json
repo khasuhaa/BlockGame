@@ -111,6 +111,13 @@
     {"name": "diamond_dodo_egg", "label": "Diamond dodo egg", "places": "diamond_dodo_egg_placed", "texture": "items/diamond_dodo_egg.png", "category": "food", "food": 0.2},
     {"name": "dodo_meat", "label": "Dodo meat", "texture": "items/dodo_meat.png", "category": "food", "food": 0.2},
     {"name": "cooked_dodo_meat", "label": "Cooked dodo meat", "texture": "items/cooked_dodo_meat.png", "category": "food", "food": 0.5},
+    {"name": "fish", "label": "Fish", "texture": "items/fish.png", "category": "food", "food": 0.15},
+    {"name": "cooked_fish", "label": "Cooked fish", "texture": "items/cooked_fish.png", "category": "food", "food": 0.4},
+    {"name": "shark_head", "label": "Shark head", "texture": "items/shark_head.png", "category": "blocks", "places": ["shark_head_1", "shark_head_2", "shark_head_3", "shark_head_4", "shark_head_5", "shark_head_6", "shark_head_7", "shark_head_8"]},
+    {"name": "flint_spear", "label": "Flint spear", "texture": "items/flint_spear.png", "category": "tools", "damage": 3},
+    {"name": "bronze_sword", "label": "Bronze sword", "texture": "items/bronze_sword.png", "category": "tools", "damage": 5},
+    {"name": "iron_sword", "label": "Iron sword", "texture": "items/iron_sword.png", "category": "tools", "damage": 10},
+    {"name": "titanium_sword", "label": "Titanium sword", "texture": "items/titanium_sword.png", "category": "tools", "damage": 20},
     {"name": "feather", "label": "Feather", "texture": "items/feather.png", "category": "materials"}
   ]
 }

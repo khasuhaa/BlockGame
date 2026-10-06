@@ -35,9 +35,13 @@ int mob_spawn(Game *g, int kind, int x, int y, bool owned, bool baby)
     for (int i = 0; i < MAX_MOBS; i++) {
         if (g->mobs[i].active) continue;
         x = world_wrap_x(&g->world, x);
+        const MobDef *def = &content.mobs[kind];
+        int span = def->size_max - def->size_min + 1;
         g->mobs[i] = (Mob){ .active = true, .kind = (uint8_t)kind, .owned = owned, .baby = baby,
                             .x = x, .y = y, .to_x = x, .to_y = y,
-                            .dir = (game_random(g) & 1) ? 1 : -1, .id = ++g->next_mob_id };
+                            .dir = (game_random(g) & 1) ? 1 : -1, .id = ++g->next_mob_id,
+                            .hp = def->health > 0 ? def->health : 1,
+                            .size = def->size_min + (span > 1 ? (int)(game_random(g) % (uint32_t)span) : 0) };
         return i;
     }
     return -1;
@@ -90,11 +94,29 @@ static bool try_spawn_in_tree(Game *g, int x, int y)
     return false;
 }
 
+/* A random event on a square of water can bring something that lives in it. */
+static bool try_spawn_in_water(Game *g, int x, int y)
+{
+    const World *w = &g->world;
+    if (!world_is_water(w, x, y)) return false;
+    for (int kind = 0; kind < content.mob_count; kind++) {
+        const MobDef *def = &content.mobs[kind];
+        if (!def->swims || !def->spawn_water) continue;
+        if (def->spawn_biome >= 0 && world_biome(w, x) != def->spawn_biome) continue;
+        if (!in_range(g, x, y) || mobs_near_player(g) >= content.mob_cap) return false;
+        if (def->cap > 0 && kind_near_player(g, kind) >= def->cap) continue;
+        if (chance(g) >= def->spawn_chance) continue;
+        return mob_spawn(g, kind, x, y, false, false) >= 0;
+    }
+    return false;
+}
+
 bool mobs_try_spawn(Game *g, int x, int y)
 {
     const World *w = &g->world;
     if (!world_in_bounds(w, x, y)) return false;
     if (try_spawn_in_tree(g, x, y)) return true;
+    if (try_spawn_in_water(g, x, y)) return true;
     if (world_get(w, x, y) != TILE_AIR) return false;
     if (world_get_at(w, LAYER_BACKGROUND, x, y) != TILE_AIR || world_is_water(w, x, y)) return false;
     TileType ground = world_get(w, x, y + 1);
@@ -103,7 +125,7 @@ bool mobs_try_spawn(Game *g, int x, int y)
         const MobDef *def = &content.mobs[kind];
         bool here = false;
         for (int i = 0; i < def->spawn_above_count; i++) here = here || def->spawn_above[i] == ground;
-        if (!here || def->perches) continue;
+        if (!here || def->perches || def->swims) continue;
         /* Only near the player, and only while there is room for more. */
         if (!in_range(g, x, y) || mobs_near_player(g) >= content.mob_cap) return false;
         if (def->cap > 0 && kind_near_player(g, kind) >= def->cap) return false;
@@ -130,6 +152,17 @@ bool mobs_try_hatch(Game *g, int x, int y)
     return false;
 }
 
+bool mob_hurt(Game *g, int mob, int damage)
+{
+    if (mob < 0 || mob >= MAX_MOBS || !g->mobs[mob].active) return false;
+    Mob *m = &g->mobs[mob];
+    if (m->hp <= 0) m->hp = content.mobs[m->kind].health; /* (from before creatures had any) */
+    m->hp -= damage;
+    if (m->hp > 0) return false;
+    mob_kill(g, mob);
+    return true;
+}
+
 void mob_kill(Game *g, int mob)
 {
     if (mob < 0 || mob >= MAX_MOBS || !g->mobs[mob].active) return;
@@ -139,7 +172,10 @@ void mob_kill(Game *g, int mob)
         if (def->drops[i].chance < 1.0f && chance(g) >= def->drops[i].chance) continue;
         int span = def->drops[i].max - def->drops[i].min + 1;
         int n = def->drops[i].min + (span > 1 ? (int)(game_random(g) % (uint32_t)span) : 0);
-        for (int k = 0; k < n; k++) game_drop_item(g, def->drops[i].item, m->x, m->y);
+        for (int k = 0; k < n; k++) {
+            if (def->drops[i].sized) game_drop_item_sized(g, def->drops[i].item, m->x, m->y, m->size > 0 ? m->size : 1);
+            else game_drop_item(g, def->drops[i].item, m->x, m->y);
+        }
     }
     m->active = false;
 }
@@ -280,6 +316,75 @@ static void perch_tick(Game *g, Mob *m, const MobDef *def)
     }
 }
 
+/* ---- creatures of the water --------------------------------------------- */
+
+static bool swimmable(const World *w, int x, int y)
+{
+    return world_in_bounds(w, x, y) && !world_is_solid(w, x, y) && world_is_water(w, x, y);
+}
+
+static bool swim_to(Game *g, Mob *m, int dx, int dy)
+{
+    const World *w = &g->world;
+    if ((dx == 0 && dy == 0) || !swimmable(w, m->x + dx, m->y + dy)) return false;
+    /* Not through the corner of a block on the slant. */
+    if (dx != 0 && dy != 0 && (world_is_solid(w, m->x + dx, m->y) || world_is_solid(w, m->x, m->y + dy))) return false;
+    m->to_x = world_wrap_x(w, m->x + dx);
+    m->to_y = m->y + dy;
+    m->step_total = m->step_left = content.mobs[m->kind].step_ticks;
+    if (dx != 0) m->dir = dx;
+    return true;
+}
+
+/* A step toward (or, with `away`, from) a place, the straightest the water allows. */
+static bool swim_toward(Game *g, Mob *m, int dx, int dy, bool away)
+{
+    int sx = dx > 0 ? 1 : dx < 0 ? -1 : 0, sy = dy > 0 ? 1 : dy < 0 ? -1 : 0;
+    if (away) sx = sx != 0 ? -sx : m->dir, sy = -sy;
+    return swim_to(g, m, sx, sy) || (abs(dx) >= abs(dy) ? swim_to(g, m, sx, 0) || swim_to(g, m, 0, sy)
+                                                         : swim_to(g, m, 0, sy) || swim_to(g, m, sx, 0));
+}
+
+static void swim_tick(Game *g, Mob *m, const MobDef *def)
+{
+    const World *w = &g->world;
+    const Player *p = &g->player;
+    if (!swimmable(w, m->x, m->y)) {
+        /* Out of its element: it drops to whatever is under it, and lies there. */
+        if (!world_is_solid(w, m->x, m->y + 1)) {
+            m->to_x = m->x;
+            m->to_y = m->y + 1;
+            m->step_total = m->step_left = 1;
+        }
+        return;
+    }
+    if (def->hunts) {
+        /* The nearer of the swimmer's two squares. */
+        int pdx = world_dx(w, m->x, p->feet.x), pdy = p->feet.y - m->y;
+        if (abs(pdy + (-1)) < abs(pdy)) pdy -= 1;
+        if (m->timer > 0) {
+            /* Just bitten: off it goes, before it comes round again. */
+            m->timer--;
+            if (swim_toward(g, m, pdx, pdy, true)) return;
+        } else if (game_player_in_water(g) && pdx * pdx + pdy * pdy <= def->sight * def->sight) {
+            if (abs(pdx) <= 1 && abs(pdy) <= 1) {
+                g->vitals.health -= def->bite;
+                if (g->vitals.health < 0.0f) g->vitals.health = 0.0f;
+                game_wake(g);
+                m->timer = def->bite_rest;
+                return;
+            }
+            if (swim_toward(g, m, pdx, pdy, false)) return;
+        }
+    }
+    /* Otherwise it idles about: mostly on the way it is going, sometimes up or down. */
+    if (chance(g) >= def->move_chance) return;
+    if (chance(g) < def->turn_chance) m->dir = -m->dir;
+    uint32_t roll = game_random(g) % 4u;
+    int dy = roll == 0 ? -1 : roll == 1 ? 1 : 0;
+    if (!swim_to(g, m, m->dir, dy) && !swim_to(g, m, m->dir, 0) && !swim_to(g, m, 0, dy)) m->dir = -m->dir;
+}
+
 void mobs_tick(Game *g)
 {
     World *w = &g->world;
@@ -300,6 +405,11 @@ void mobs_tick(Game *g)
                 m->x = m->to_x;
                 m->y = m->to_y;
             }
+            continue;
+        }
+        if (m->hp <= 0) m->hp = def->health > 0 ? def->health : 1; /* (from before creatures had any) */
+        if (def->swims) {
+            swim_tick(g, m, def);
             continue;
         }
         /* With the ground gone from under it, it falls - unless it has hold of a tree. */
@@ -348,6 +458,11 @@ void game_mob_pos(const Game *g, int mob, float *x, float *y)
     /* It sets off and comes to rest gently rather than all at once. */
     if (dy == 0) t = t * t * (3.0f - 2.0f * t);
     game_step_offset(dx, dy, dy < 0, t, &ox, &oy);
+    if (content.mobs[m->kind].swims) {
+        /* Through the water it goes straight, slant or no. */
+        ox = (float)dx * t;
+        oy = (float)dy * t;
+    }
     *x = (float)m->x + ox;
     *y = (float)m->y + oy;
 }
@@ -370,7 +485,9 @@ int game_mob_at(const Game *g, float x, float y)
         float mx, my;
         game_mob_pos(g, i, &mx, &my);
         float dx = (float)world_dx(&g->world, (int)floorf(mx), (int)floorf(x)) + (x - floorf(x)) - (mx - floorf(mx));
-        if (dx >= 0.0f && dx < 1.0f && y >= my && y < my + 1.0f) return i;
+        /* (A big one reaches out round its own square: half its length each way.) */
+        float half = g->mobs[i].size > 1 ? ((float)g->mobs[i].size - 1.0f) / 2.0f : 0.0f;
+        if (dx >= -half && dx < 1.0f + half && y >= my - half / 2.0f && y < my + 1.0f + half / 2.0f) return i;
     }
     return -1;
 }
