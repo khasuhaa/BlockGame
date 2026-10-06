@@ -185,7 +185,7 @@ static void test_queue(void)
      * becomes air to stand in, once the ones before have run. */
     CHECK(game_click_tile(&g, start.x + 3, s));
     CHECK(game_click_tile(&g, start.x + 3, s + 1));
-    CHECK(game_click_tile(&g, start.x + 3, s + 1));
+    CHECK(game_queue_action(&g, ACTION_MOVE, start.x + 3, s + 1));
     CHECK(g.queue_count == 3);
     CHECK(g.queue[2].type == ACTION_MOVE);
     run(&g, 6.0f);
@@ -244,6 +244,58 @@ static Trace run_traced(Game *g, float seconds)
         }
     }
     return tr;
+}
+
+/* Clicking a square that already has an action queued takes the action back. */
+static void test_unqueue(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 23, WORLD_FLAT);
+    TilePos start = g.player.feet;
+    int s = g.world.surface_y;
+
+    /* From the middle of the queue: the others stay, in order. */
+    CHECK(game_click_tile(&g, start.x + 4, s));
+    CHECK(game_click_tile(&g, start.x + 6, s));
+    CHECK(game_click_tile(&g, start.x + 8, s));
+    CHECK(g.queue_count == 3);
+    CHECK(game_click_tile(&g, start.x + 6, s));
+    CHECK(g.queue_count == 2 && g.queue[0].target.x == start.x + 4 && g.queue[1].target.x == start.x + 8);
+    run(&g, 6.0f);
+    CHECK(is_idle(&g));
+    CHECK(world_get(&g.world, start.x + 4, s) == TILE_AIR && world_get(&g.world, start.x + 8, s) == TILE_AIR);
+    CHECK(world_get(&g.world, start.x + 6, s) == TILE_DIRT);
+
+    /* The action being carried out can be taken back too: the walk stops
+     * after the step in hand, and mining stops with the block intact. */
+    TilePos at = g.player.feet;
+    CHECK(game_click_tile(&g, at.x - 6, s - 1));
+    run(&g, WALK_TIME * 1.5f);
+    CHECK(g.has_current && g.queue_count == 0);
+    CHECK(game_click_tile(&g, at.x - 6, s - 1));
+    CHECK(!g.has_current);
+    run(&g, 2.0f);
+    CHECK(is_idle(&g) && g.player.feet.x == at.x - 2);
+
+    CHECK(game_click_tile(&g, at.x - 3, s));
+    run(&g, tile_def(TILE_DIRT)->mine_time * 0.5f);
+    CHECK(g.player.activity == ACTIVITY_MINING);
+    CHECK(game_click_tile(&g, at.x - 3, s));
+    run(&g, 2.0f);
+    CHECK(is_idle(&g) && world_get(&g.world, at.x - 3, s) == TILE_DIRT);
+
+    /* A click on a square with nothing queued still queues, and one that
+     * could never work is refused as before. */
+    CHECK(!game_unqueue_tile(&g, at.x - 3, s));
+    CHECK(!game_click_tile(&g, at.x, s - 9) && g.queue_count == 0);
+
+    /* The same goes for an item on the ground. */
+    g.drops[0] = (Drop){ true, (uint8_t)ITEM_STONE, at.x + 9, (float)(s - 1), 0.0f, 0.0f, false, 0, 500, 0 };
+    CHECK(game_click_drop(&g, 0) && g.queue_count == 1 && g.queue[0].type == ACTION_COLLECT);
+    CHECK(game_click_drop(&g, 0) && g.queue_count == 0);
+    run(&g, 1.0f);
+    CHECK(g.drops[0].active && inventory_count(&g.inventory, ITEM_STONE) == 0);
+    game_free(&g);
 }
 
 static void test_hop_gap(void)
@@ -1252,9 +1304,11 @@ static void test_planting(void)
     CHECK(inventory_selected(&g.inventory)->id == ITEM_ACORN);
     CHECK(game_click_tile(&g, start.x + 4, s));
     CHECK(g.queue[0].type == ACTION_PLANT && g.queue[0].item == ITEM_ACORN);
-    /* The same spot cannot be planted twice, even while the first is only queued. */
-    CHECK(game_click_tile(&g, start.x + 4, s) && g.queue[1].type == ACTION_MINE);
-    game_cancel_actions(&g);
+    /* Clicking the soil again, or the square above it where the seed is
+     * shown, takes the planting back. */
+    CHECK(game_click_tile(&g, start.x + 4, s) && g.queue_count == 0);
+    CHECK(game_click_tile(&g, start.x + 4, s) && g.queue_count == 1);
+    CHECK(game_click_tile(&g, start.x + 4, s - 1) && g.queue_count == 0);
     CHECK(game_click_tile(&g, start.x + 4, s));
     run(&g, 3.0f);
     CHECK(is_idle(&g) && world_get(w, start.x + 4, s) == TILE_DIRT);
@@ -1688,6 +1742,7 @@ int main(void)
     test_click_move();
     test_click_mine();
     test_queue();
+    test_unqueue();
     test_hop_gap();
     test_climb_drop();
     test_wall_hop();

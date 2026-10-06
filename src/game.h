@@ -176,8 +176,20 @@ void game_update(Game *g, float dt);
 /* Queues the action a click on this tile stands for, judged against the world
  * as it will be once everything already queued has run: plant on a block the
  * selected item can grow a tree on, otherwise mine for a block, place for air
- * beside a block while a placeable item is selected, otherwise move. Returns false, and shows a denial, if it is unattainable. */
+ * beside a block while a placeable item is selected, otherwise move. Returns
+ * false, and shows a denial, if it is unattainable.
+ *
+ * A click on a tile that already has an action queued takes that action back
+ * instead (see game_unqueue_tile). */
 bool game_click_tile(Game *g, int tx, int ty);
+/* Takes back the most recently queued action on a tile, whether it is still
+ * waiting or already under way. A planting counts for both the soil and the
+ * square above it where its marker is drawn. Returns false if there is none. */
+bool game_unqueue_tile(Game *g, int tx, int ty);
+/* A click on a dropped item: queues collecting it, or takes that back if it
+ * is already queued. */
+bool game_click_drop(Game *g, int drop);
+
 /* Queues one specific action on a tile, with the same checks. Placing uses
  * the selected item. */
 bool game_queue_action(Game *g, ActionType type, int tx, int ty);

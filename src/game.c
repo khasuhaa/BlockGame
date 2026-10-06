@@ -467,8 +467,58 @@ int game_drop_at(const Game *g, float x, float y)
     return best;
 }
 
+/* Whether an action is the one marked on a tile. */
+static bool action_on_tile(Action a, TilePos t)
+{
+    if (a.type == ACTION_COLLECT) return false; /* marked on the item, not a tile */
+    if (a.target.x != t.x) return false;
+    return a.target.y == t.y || (a.type == ACTION_PLANT && a.target.y - 1 == t.y);
+}
+
+/* Drops whichever pending action `match` picks, latest first. */
+static bool unqueue(Game *g, bool (*match)(Action, TilePos, int), TilePos t, int drop)
+{
+    for (int i = g->queue_count - 1; i >= 0; i--) {
+        if (!match(g->queue[i], t, drop)) continue;
+        memmove(g->queue + i, g->queue + i + 1, sizeof(Action) * (size_t)(g->queue_count - i - 1));
+        g->queue_count--;
+        return true;
+    }
+    if (!g->has_current || !match(g->current, t, drop)) return false;
+    /* The one being carried out: a step already begun still finishes. */
+    g->has_current = false;
+    if (g->player.activity == ACTIVITY_MINING || g->player.activity == ACTIVITY_PLACING)
+        g->player.activity = ACTIVITY_IDLE;
+    return true;
+}
+
+static bool match_tile(Action a, TilePos t, int drop)
+{
+    (void)drop;
+    return action_on_tile(a, t);
+}
+
+static bool match_drop(Action a, TilePos t, int drop)
+{
+    (void)t;
+    return a.type == ACTION_COLLECT && a.drop == drop;
+}
+
+bool game_unqueue_tile(Game *g, int tx, int ty)
+{
+    return unqueue(g, match_tile, (TilePos){ world_wrap_x(&g->world, tx), ty }, 0);
+}
+
+bool game_click_drop(Game *g, int drop)
+{
+    if (unqueue(g, match_drop, (TilePos){ 0, 0 }, drop)) return true;
+    return game_queue_collect(g, drop);
+}
+
 bool game_click_tile(Game *g, int tx, int ty)
 {
+    if (game_unqueue_tile(g, tx, ty)) return true;
+
     Pose pos = sim_pending(g);
     tx = world_wrap_x(&g->world, tx);
     Action a = { .type = ACTION_MOVE, .target = { tx, ty } };

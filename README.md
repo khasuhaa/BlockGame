@@ -61,7 +61,7 @@ Worlds are saved in `saves/<name>.world`, next to where the game is run from. A 
 
 The movement keys and `Space` can be changed in the pause menu.
 
-Clicks queue up and run in order. A click that cannot be carried out is refused with a red cross on the tile. Pressing a movement key cancels the queue.
+Clicks queue up and run in order. Clicking a square that already has an action queued takes that action back, even if it has already started; the same goes for clicking an item again. A click that cannot be carried out is refused with a red cross on the tile. Pressing a movement key cancels the queue.
 
 ## Movement
 

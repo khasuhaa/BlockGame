@@ -130,7 +130,9 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, cons
             /* An item under the cursor comes before the tile behind it.
              * Something that opens offers a choice if it can also be removed;
              * otherwise it just opens. */
-            if (drop >= 0) game_queue_collect(g, drop);
+            if (drop >= 0) game_click_drop(g, drop);
+            /* A second click on a square with something queued takes it back. */
+            else if (game_unqueue_tile(g, t.x, t.y)) {}
             else if (opens && def->removable) benchui_show_popup(bench, t);
             else if (opens) game_queue_action(g, ACTION_USE, t.x, t.y);
             else game_click_tile(g, t.x, t.y);
