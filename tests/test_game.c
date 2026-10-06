@@ -1176,7 +1176,8 @@ static bool vein_in(TileType t, TileType host)
 
 static bool in_soil(TileType t)
 {
-    return t == TILE_DIRT || t == tile_id("sand") || vein_in(t, TILE_DIRT);
+    /* (A golden chest lies buried at the bottom of the sand, here and there.) */
+    return t == TILE_DIRT || t == tile_id("sand") || t == tile_id("golden_chest") || vein_in(t, TILE_DIRT);
 }
 
 static bool in_rock(TileType t)
@@ -3595,6 +3596,181 @@ static void test_coffee_and_dropbears(void)
     remove("build/test_biome.world");
 }
 
+static int count_tiles(const World *w, int layer, TileType t, int x0, int x1)
+{
+    int n = 0;
+    for (int y = 0; y < w->height; y++)
+        for (int x = x0; x <= x1; x++) n += world_get_at(w, layer, x, y) == t;
+    return n;
+}
+
+static void test_decay_and_golden_chests(void)
+{
+    Game g;
+    game_init(&g, 256, 64, 71, WORLD_FLAT);
+    World *w = &g.world;
+    clear_inventory(&g);
+    for (int i = 0; i < MAX_MOBS; i++) g.mobs[i].active = false;
+    int ground = w->surface_y - 1, tx = g.player.feet.x + 6;
+    g.tick_rate = 0; /* no random events but the ones landed by hand: nothing rots away mid-test */
+    TileType dead_log = tile_id("oak_log_decayed"), dead_leaves = tile_id("oak_leaves_decayed");
+    CHECK(dead_log > 0 && dead_leaves > 0 && tile_def(TILE_OAK_LOG)->decays_into == dead_log);
+    CHECK(tile_def(dead_log)->vanishes && tile_def(dead_log)->drop_chance == 0.75f);
+    CHECK(tile_def(dead_leaves)->vanishes && tile_def(dead_leaves)->drop_chance == 0.5f);
+    CHECK(tile_def(dead_log)->log_of < 0 && tile_def(dead_leaves)->leaves_of < 0 && tile_def(dead_log)->climbable);
+
+    /* Cut an oak through part-way up: the trunk above the cut decays and so
+     * do the leaves from there up; what is below the cut lives on. */
+    grow_tree(w, tx, "oak");
+    int top = tree_top(w, tx), cut = top + 1;
+    int logs = count_tiles(w, BG, TILE_OAK_LOG, tx - 4, tx + 4), leaves = count_tiles(w, BG, TILE_OAK_LEAVES, tx - 4, tx + 4);
+    int low_leaves = 0;
+    for (int y = cut + 1; y <= ground; y++)
+        for (int x = tx - 4; x <= tx + 4; x++) low_leaves += world_get_at(w, BG, x, y) == TILE_OAK_LEAVES;
+    CHECK(logs == ground - top + 1 && leaves > 8 && low_leaves > 0 && low_leaves < leaves);
+    CHECK(game_queue_action(&g, ACTION_MINE, tx, cut));
+    run(&g, 8.0f);
+    CHECK(world_get_at(w, BG, tx, cut) == TILE_AIR && count_item(&g, ITEM_WOOD) + count_drops(&g, ITEM_WOOD) == 1);
+    for (int y = top; y < cut; y++) CHECK(world_get_at(w, BG, tx, y) == dead_log);
+    for (int y = cut + 1; y <= ground; y++) CHECK(world_get_at(w, BG, tx, y) == TILE_OAK_LOG);
+    CHECK(count_tiles(w, BG, dead_log, tx - 4, tx + 4) == cut - top);
+    CHECK(count_tiles(w, BG, TILE_OAK_LEAVES, tx - 4, tx + 4) == low_leaves);
+    CHECK(count_tiles(w, BG, dead_leaves, tx - 4, tx + 4) == leaves - low_leaves);
+    /* The stump is still a tree; what is dead is not, and grows no more. */
+    CHECK(tree_trunk_at(w, tx, ground) == TREE_OAK && tree_trunk_at(w, tx, top) < 0 && tree_leaves_at(w, tx - 1, top) < 0);
+
+    /* Cut at the bottom and the whole tree goes. */
+    int t2 = tx + 12;
+    grow_tree(w, t2, "cherry");
+    int cherry_leaves = count_tiles(w, BG, TILE_CHERRY_LEAVES, t2 - 4, t2 + 4), cherry_top = tree_top(w, t2);
+    g.player.feet = g.player.step_to = (TilePos){ t2 - 1, ground };
+    CHECK(game_queue_action(&g, ACTION_MINE, t2, ground));
+    run(&g, 8.0f);
+    CHECK(count_tiles(w, BG, TILE_CHERRY_LOG, t2 - 4, t2 + 4) == 0 && count_tiles(w, BG, TILE_CHERRY_LEAVES, t2 - 4, t2 + 4) == 0);
+    CHECK(count_tiles(w, BG, tile_id("cherry_log_decayed"), t2 - 4, t2 + 4) == ground - cherry_top);
+    CHECK(count_tiles(w, BG, tile_id("cherry_leaves_decayed"), t2 - 4, t2 + 4) == cherry_leaves);
+
+    /* A random event on something decayed takes it away. Over many, about
+     * three logs in four leave wood and one leaf in two a stick. */
+    clear_inventory(&g);
+    int wood = 0, sticks = 0, trials = 2000;
+    g.player.feet = g.player.step_to = (TilePos){ 10, ground }; /* out of the way of the drops */
+    for (int i = 0; i < trials; i++) {
+        for (int k = 0; k < MAX_DROPS; k++) g.drops[k].active = false;
+        world_set_at(w, BG, 100, ground, dead_log);
+        world_set_at(w, BG, 102, ground, dead_leaves);
+        /* (game_tick lands its events at random; land one on each by hand.) */
+        game_random_event(&g, 100, ground);
+        game_random_event(&g, 102, ground);
+        CHECK(world_get_at(w, BG, 100, ground) == TILE_AIR && world_get_at(w, BG, 102, ground) == TILE_AIR);
+        wood += count_drops(&g, ITEM_WOOD);
+        sticks += count_drops(&g, ITEM_STICK);
+    }
+    CHECK(wood > trials * 70 / 100 && wood < trials * 80 / 100);
+    CHECK(sticks > trials * 45 / 100 && sticks < trials * 55 / 100);
+    /* Mined by hand they go by the same odds. */
+    int by_hand = 0;
+    for (int i = 0; i < 40; i++) {
+        for (int k = 0; k < MAX_DROPS; k++) g.drops[k].active = false;
+        clear_inventory(&g);
+        world_set_at(w, BG, 13, ground, dead_leaves);
+        CHECK(game_queue_action(&g, ACTION_MINE, 13, ground));
+        run(&g, 2.0f);
+        CHECK(world_get_at(w, BG, 13, ground) == TILE_AIR);
+        by_hand += count_item(&g, ITEM_STICK) + count_drops(&g, ITEM_STICK);
+    }
+    CHECK(by_hand > 8 && by_hand < 32);
+
+    /* A cactus dies the same way, arms and all. */
+    TileType sand = tile_id("sand"), cactus = tile_id("cactus"), arm = tile_id("cactus_arm");
+    int cx = 60;
+    world_set(w, cx, ground + 1, sand);
+    grow_tree(w, cx, "cactus");
+    CHECK(count_tiles(w, BG, arm, cx - 3, cx + 3) == 6);
+    game_decay_tree(&g, cx, ground);
+    CHECK(count_tiles(w, BG, arm, cx - 3, cx + 3) == 0 && count_tiles(w, BG, tile_id("cactus_arm_decayed"), cx - 3, cx + 3) == 6);
+    CHECK(world_get_at(w, BG, cx, ground) == cactus && world_get_at(w, BG, cx, ground - 1) == tile_id("cactus_decayed"));
+    game_free(&g);
+
+    /* Golden chests: buried under beaches, on the rock with sand over them. */
+    TileType chest = tile_id("golden_chest");
+    ItemId coin = item_id("gold_coin");
+    const TileDef *def = tile_def(chest);
+    CHECK(chest > 0 && def->loot_count == 5 && def->storage_columns == 4 && item_id("golden_chest") > 0);
+    int found = 0, beach_columns = 0, misplaced = 0;
+    Game t;
+    TilePos where = { 0, 0 };
+    for (uint32_t seed = 1; seed <= 6; seed++) {
+        CHECK(game_init(&t, 2048, 401, seed, WORLD_TERRAIN));
+        World *tw = &t.world;
+        for (int x = 0; x < tw->width; x++) {
+            bool beach = strcmp(content.biomes[world_biome(tw, x)].name, "beach") == 0;
+            beach_columns += beach;
+            for (int y = 1; y < tw->height - 1; y++) {
+                if (world_get(tw, x, y) != chest) continue;
+                found++;
+                where = (TilePos){ x, y };
+                if (!beach || world_get(tw, x, y - 1) != sand || world_get(tw, x, y + 1) != TILE_STONE) misplaced++;
+            }
+        }
+        if (seed < 6 || found == 0) game_free(&t);
+    }
+    /* A small chance: a few to a world, not one under every beach. */
+    CHECK(found >= 3 && found * 12 < beach_columns && misplaced == 0);
+    if (found == 0) return;
+
+    /* Opened for the first time it holds its treasure: 1-5 gold coins, up to
+     * 3 gold ore, up to 3 iron ingots, perhaps a titanium ingot, and one gem. */
+    World *tw = &t.world;
+    for (int i = 0; i < MAX_MOBS; i++) t.mobs[i].active = false;
+    clear_inventory(&t);
+    for (int y = where.y - 4; y < where.y; y++) world_set(tw, where.x, y, TILE_AIR), world_set(tw, where.x - 1, y, TILE_AIR);
+    world_set(tw, where.x - 1, where.y, sand);
+    t.player.feet = t.player.step_to = (TilePos){ where.x - 1, where.y - 1 };
+    CHECK(game_queue_action(&t, ACTION_USE, where.x, where.y));
+    run(&t, 2.0f);
+    uint16_t box = game_open_storage(&t);
+    CHECK(t.bench_open && box != 0);
+    int coins = 0, ore = 0, iron = 0, titanium = 0, gems = 0, other = 0;
+    for (int i = 0; box != 0 && i < CONTAINER_MAX_SLOTS; i++) {
+        const ItemStack *st = &t.inventory.containers[box].slots[i];
+        if (st->count == 0) continue;
+        const char *name = item_def(st->id)->name;
+        if (st->id == coin) coins += st->count;
+        else if (strcmp(name, "gold_ore") == 0) ore += st->count;
+        else if (strcmp(name, "iron_ingot") == 0) iron += st->count;
+        else if (strcmp(name, "titanium_ingot") == 0) titanium += st->count;
+        else if (strcmp(name, "amethyst") == 0 || strcmp(name, "sapphire") == 0 || strcmp(name, "emerald") == 0 ||
+                 strcmp(name, "ruby") == 0) gems += st->count;
+        else other += st->count;
+    }
+    CHECK(coins >= 1 && coins <= 5 && ore <= 3 && iron <= 3 && titanium <= 1 && gems == 1 && other == 0);
+    /* It is not filled twice. Dug up, the chest comes away with what is left in it. */
+    game_close_bench(&t);
+    CHECK(game_queue_action(&t, ACTION_USE, where.x, where.y));
+    run(&t, 1.0f);
+    CHECK(game_open_storage(&t) == box);
+    game_close_bench(&t);
+    CHECK(game_queue_action(&t, ACTION_MINE, where.x, where.y));
+    run(&t, 8.0f);
+    CHECK(world_get(tw, where.x, where.y) == TILE_AIR && count_item(&t, item_id("golden_chest")) == 1);
+    int kept = 0;
+    for (int i = 0; i < INVENTORY_SLOTS; i++) {
+        const ItemStack *st = &t.inventory.slots[i];
+        if (st->count == 0 || st->id != item_id("golden_chest") || st->container == 0) continue;
+        for (int k = 0; k < CONTAINER_MAX_SLOTS; k++)
+            if (t.inventory.containers[st->container].slots[k].id == coin) kept += t.inventory.containers[st->container].slots[k].count;
+    }
+    CHECK(kept == coins);
+    game_free(&t);
+
+    /* The gem is likelier to be a lesser one: each rarer than the last, and never a diamond. */
+    const LootDef *gem = &def->loot[4];
+    CHECK(gem->item == ITEM_NONE && gem->choice_count == 4);
+    for (int k = 1; k < gem->choice_count; k++) CHECK(gem->choices[k].weight < gem->choices[k - 1].weight);
+    CHECK(gem->choices[0].item == item_id("amethyst") && gem->choices[3].item == item_id("ruby"));
+}
+
 static void test_tools(void)
 {
     Game g;
@@ -3956,6 +4132,7 @@ int main(void)
     test_vitals();
     test_discard();
     test_coffee_and_dropbears();
+    test_decay_and_golden_chests();
     test_mobs();
     test_biomes();
     test_plants();

@@ -358,6 +358,22 @@ bool world_is_water(const World *w, int x, int y)
            world_get_at(w, LAYER_WALL, x, y) == TILE_AIR;
 }
 
+/* Here and there a biome has something buried in it: at the very bottom of
+ * its soil, resting on the rock, with soil over it. */
+static void bury(World *w, const int *level, const int *biome)
+{
+    for (int x = 0; x < w->width; x++) {
+        const BiomeDef *b = &content.biomes[biome[x]];
+        if (b->buried == TILE_AIR || b->buried_one_in <= 0) continue;
+        if (hash01(w->seed ^ 0x7EA5u, x) >= 1.0f / (float)b->buried_one_in) continue;
+        int top = world_y_to_row(w, level[x] - 1), y = top;
+        while (y < w->height - 1 && (world_get(w, x, y) == b->surface || world_get(w, x, y) == b->soil)) y++;
+        int lowest = y - 1;
+        if (lowest <= top || world_get(w, x, y) != content.worldgen.rock) continue;
+        world_set_at(w, tile_def(b->buried)->layer, x, lowest, b->buried);
+    }
+}
+
 static int pick_tree(const BiomeDef *b, uint32_t *rng)
 {
     int total = 0;
@@ -518,6 +534,7 @@ static bool generate_terrain(World *w)
         return false;
     }
     place_veins(w, level, &rng);
+    bury(w, level, biome);
     plant_world(w, level, biome, &rng);
     free(biome);
 

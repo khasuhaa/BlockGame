@@ -323,6 +323,12 @@ void game_step_offset(int dx, int dy, bool rise_first, float t, float *ox, float
  * enough not to be picked straight back up. Returns how many went. */
 int game_discard(Game *g, SlotRef from, int count);
 
+/* What a random event does when it lands on a tile; game_tick lands them. */
+void game_random_event(Game *g, int x, int y);
+/* Kills a tree from one block of its trunk upward, as cutting it there does:
+ * the trunk above and the leaves that hung on it decay. */
+void game_decay_tree(Game *g, int x, int y);
+
 /* Leaves one of an item lying in a tile. */
 void game_drop_item(Game *g, ItemId id, int x, int y);
 /* The world's own random numbers, saved with it. */

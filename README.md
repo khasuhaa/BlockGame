@@ -158,6 +158,8 @@ An **oak** grows to a 7-block trunk with a ball of leaves on top: rows 3, 5, 5 a
 
 Breaking a leaf drops a stick; breaking a trunk drops wood, which can be placed as an ordinary block.
 
+**Cutting a tree through kills what is above the cut.** Mining any block of a trunk turns every trunk block above it into a decayed trunk, and the leaves that hung on the trunk from the cut upward - the ones beside those blocks and beside the cut one, and any leaves reaching on from them sideways or upward - into decayed leaves. What is below the cut is untouched and goes on growing. Decayed blocks are no longer part of a tree: nothing grows or fruits on them, though they can still be climbed. A random event landing on one takes it away; a decayed trunk leaves its wood three times in four and a decayed leaf its stick one time in two, and mining them by hand goes by the same odds. Cacti die the same way, arms and all; kelp, as before, simply comes away above the cut. Which block a block decays into, that it `vanishes`, and its `drop_chance` are in `tiles.json`.
+
 Trees stand in the background layer. The player walks straight past them, but can hold on to them: `W` in front of a tree climbs it, and the movement keys go up, down and sideways through the crown. Clicking any part of a tree queues mining that block, and the player climbs the tree to get within reach. A block in the foreground is always mined before the tree behind it.
 
 The world has four layers from back to front: the backwall; the background layer, which holds the trees and the benches and is drawn slightly dimmed; the foreground layer, which holds the terrain and everything the player collides with; and the item layer, where dropped items and fruit are drawn in front of the blocks.
@@ -352,6 +354,9 @@ Clicking a placed chest offers "Open chest" and "Remove chest". Opening it (the 
 Removing a chest gives a chest item that still holds everything that was in it, and placing that item puts it all back.
 
 What an item holds is part of the item, and two stacks only merge if they hold the same things. So two chests with 5 wood in each stack together, and neither stacks with an empty chest. Taking one off such a stack gives it its own copy of the contents. Baskets never stack.
+### Golden chests
+
+Under a beach, now and then - about one column in thirty - a golden chest lies buried at the bottom of the sand, on the rock. It opens and is carried off like any chest. The first time it is opened or dug up it holds 1 to 5 gold coins, up to 3 gold ore, up to 3 iron ingots, perhaps a titanium ingot, and one gem: an amethyst most often, then sapphire, emerald, and a ruby least. What a block is found holding is its `"loot"` in `tiles.json`, and where it is buried is `"buried"` on a biome in `worldgen.json`; a golden chest the player puts down, or buys, holds only what they put in it.
 
 ## Layout
 

@@ -826,6 +826,100 @@ static bool storage_create(Game *g, TilePos t, const TileDef *def, ItemStack fro
     return false;
 }
 
+/* Puts so many of an item into a container, a stack to a slot, where there is room. */
+static void container_put(Inventory *inv, uint16_t c, ItemId item, int count)
+{
+    int most = item_def(item)->max_stack;
+    for (int i = 0; i < CONTAINER_MAX_SLOTS && count > 0; i++) {
+        ItemStack *s = &inv->containers[c].slots[i];
+        if (s->count > 0) continue;
+        int n = count < most ? count : most;
+        *s = (ItemStack){ (uint8_t)item, (uint8_t)n, 0 };
+        count -= n;
+    }
+}
+
+/* A storage block that the world came with has no record yet. The first time
+ * it is opened or dug up it gets one, holding whatever its kind is found with. */
+static void storage_ensure(Game *g, TilePos t, const TileDef *def)
+{
+    if (!needs_storage(def) || storage_at(g, t)) return;
+    if (!storage_create(g, t, def, (ItemStack){ 0 })) return;
+    uint16_t c = storage_at(g, t)->container;
+    for (int i = 0; c != 0 && i < def->loot_count; i++) {
+        const LootDef *l = &def->loot[i];
+        int count = l->min + (l->max > l->min ? (int)(game_random(g) % (uint32_t)(l->max - l->min + 1)) : 0);
+        ItemId item = l->item;
+        if (item == ITEM_NONE) {
+            int total = 0;
+            for (int k = 0; k < l->choice_count; k++) total += l->choices[k].weight;
+            int roll = total > 0 ? (int)(game_random(g) % (uint32_t)total) : 0;
+            for (int k = 0; k < l->choice_count && item == ITEM_NONE; k++) {
+                if (roll < l->choices[k].weight) item = l->choices[k].item;
+                roll -= l->choices[k].weight;
+            }
+        }
+        if (item != ITEM_NONE && count > 0) container_put(&g->inventory, c, item, count);
+    }
+}
+
+/* A tree cut through: every block of trunk above the cut decays, and so do
+ * the leaves that hung on the trunk from the cut upward - those beside it,
+ * and whatever leaves reach on from those sideways or upward. What is below
+ * the cut is left alone. */
+static void decay_tree(World *w, int layer, TilePos cut)
+{
+    TileType log = world_get_at(w, layer, cut.x, cut.y);
+    int kind = tile_def(log)->log_of;
+    if (kind < 0) return;
+    const TreeDef *tree = &content.trees[kind];
+    TileType leaves = tree->leaves, dead_log = tile_def(log)->decays_into;
+    TileType dead_leaves = leaves != TILE_AIR ? tile_def(leaves)->decays_into : TILE_AIR;
+    if (dead_log == TILE_AIR && dead_leaves == TILE_AIR) return;
+    /* No further out than this tree's own crown reaches. */
+    int reach = 1;
+    for (int i = 0; i < tree->row_count; i++) {
+        const TreeRow *row = &tree->rows[i];
+        if (row->left > reach) reach = row->left;
+        if (row->right > reach) reach = row->right;
+        for (int k = 0; k < row->cell_count; k++)
+            if (abs(row->cells[k]) > reach) reach = abs(row->cells[k]);
+    }
+
+    TilePos open[128];
+    int n = 0;
+#define DECAY_LEAF(px, py)                                                              \
+    do {                                                                                \
+        if (dead_leaves != TILE_AIR && abs((px) - cut.x) <= reach &&                    \
+            world_get_at(w, layer, (px), (py)) == leaves) {                             \
+            world_set_at(w, layer, (px), (py), dead_leaves);                            \
+            if (n < 128) open[n++] = (TilePos){ (px), (py) };                           \
+        }                                                                               \
+    } while (0)
+    int y = cut.y;
+    DECAY_LEAF(cut.x - 1, y);
+    DECAY_LEAF(cut.x + 1, y);
+    for (y = cut.y - 1; y >= 0 && world_get_at(w, layer, cut.x, y) == log; y--) {
+        if (dead_log != TILE_AIR) world_set_at(w, layer, cut.x, y, dead_log);
+        DECAY_LEAF(cut.x - 1, y);
+        DECAY_LEAF(cut.x + 1, y);
+    }
+    DECAY_LEAF(cut.x, y); /* the leaf that sat on top of the trunk */
+    while (n > 0) {
+        TilePos p = open[--n];
+        DECAY_LEAF(p.x - 1, p.y);
+        DECAY_LEAF(p.x + 1, p.y);
+        DECAY_LEAF(p.x, p.y - 1);
+    }
+#undef DECAY_LEAF
+}
+
+void game_decay_tree(Game *g, int x, int y)
+{
+    for (int layer = 0; layer < BLOCK_LAYERS; layer++)
+        if (tile_def(world_get_at(&g->world, layer, x, y))->log_of >= 0) decay_tree(&g->world, layer, (TilePos){ x, y });
+}
+
 /* Takes the contents out of a storage block that is being removed: the
  * container to hand to its item, or 0 if there was nothing in it. */
 static uint16_t storage_release(Game *g, TilePos t)
@@ -936,8 +1030,13 @@ static bool room_for(const World *w, TilePos t, TileType tile)
  * carrying `inside`, and whatever else it gives. */
 static void drop_block_items(Game *g, const TileDef *def, TilePos at, uint16_t inside, int count)
 {
-    for (int i = 0; i < count; i++)
-        spawn_drop_stack(g, (ItemStack){ (uint8_t)def->drop, 1, i == 0 ? inside : 0 }, at);
+    for (int i = 0; i < count; i++) {
+        /* Something rotten does not always leave anything. (What a block
+         * holds inside it is never lost that way.) */
+        bool kept = def->drop_chance >= 1.0f || (i == 0 && inside != 0) ||
+                    (float)(game_random(g) >> 8) / 16777216.0f < def->drop_chance;
+        if (kept) spawn_drop_stack(g, (ItemStack){ (uint8_t)def->drop, 1, i == 0 ? inside : 0 }, at);
+    }
     for (int k = 0; k < def->extra_drop_count; k++)
         for (int i = 0; i < def->extra_drops[k].count; i++) spawn_drop(g, def->extra_drops[k].id, at);
 }
@@ -967,6 +1066,7 @@ static void finish_activity(Game *g)
         } else if (layer >= 0) {
             /* A storage block's contents go into the item it leaves behind. */
             const TileDef *def = tile_def(world_get_at(&g->world, layer, t.x, t.y));
+            storage_ensure(g, t, def);
             uint16_t inside = needs_storage(def) ? storage_release(g, t) : 0;
             /* Ore comes out several times over with the right pickaxe. */
             int count = def->drop_count > 0 ? def->drop_count : 1;
@@ -981,6 +1081,8 @@ static void finish_activity(Game *g)
                 drop_block_items(g, def, (TilePos){ t.x, y }, 0, 1);
                 world_set_at(&g->world, layer, t.x, y, TILE_AIR);
             }
+            /* A tree cut through dies from the cut upward. */
+            decay_tree(&g->world, layer, t);
             drop_block_items(g, def, (TilePos){ t.x, bottom }, inside, count);
             replace_block(&g->world, layer, t, TILE_AIR);
         }
@@ -1085,6 +1187,7 @@ static bool start_next_activity(Game *g)
                     game_close_bench(g);
                     g->bench_open = true;
                     g->bench_pos = g->current.target;
+                    storage_ensure(g, g->bench_pos, tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y)));
                     /* fall through */
                 default:
                     g->has_current = false;
@@ -1225,7 +1328,7 @@ static Drop *attached_drop_at(Game *g, int x, int y)
 }
 
 /* Something happens to one block: a trunk grows its tree, a leaf bears fruit. */
-static void random_event(Game *g, int x, int y)
+void game_random_event(Game *g, int x, int y)
 {
     World *w = &g->world;
 
@@ -1240,6 +1343,15 @@ static void random_event(Game *g, int x, int y)
             if ((int)d->y < growth.top - 2 || (int)d->y > growth.top + MAX_TREE_ROWS) continue;
             if (tree_leaves_at(w, d->x, (int)d->y - 1) >= 0) d->y -= 1.0f;
         }
+        return;
+    }
+
+    /* Something rotten falls apart, leaving what it leaves if it leaves anything. */
+    for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
+        const TileDef *def = tile_def(world_get_at(w, layer, x, y));
+        if (!def->vanishes) continue;
+        drop_block_items(g, def, (TilePos){ x, y }, 0, def->drop_count > 0 ? def->drop_count : 1);
+        world_set_at(w, layer, x, y, TILE_AIR);
         return;
     }
 
@@ -1439,7 +1551,7 @@ void game_tick(Game *g)
         for (int n = 0; n < content.rules.random_events_per_chunk; n++) {
             uint32_t r = game_random(g);
             int x = chunk * CHUNK_WIDTH + (int)(r % (uint32_t)CHUNK_WIDTH);
-            if (x < w->width) random_event(g, x, (int)((r >> 8) % (uint32_t)w->height));
+            if (x < w->width) game_random_event(g, x, (int)((r >> 8) % (uint32_t)w->height));
         }
     }
 

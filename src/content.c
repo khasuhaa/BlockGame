@@ -252,6 +252,28 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->drop_count = (int)num(e, "drop_count", 1);
         t->needs_water = flag(e, "needs_water", false);
         t->breaks_above = flag(e, "breaks_above", false);
+        t->decays_into = TILE_AIR;
+        if (!tile_ref(r, e, "decays_into", &t->decays_into)) return false;
+        t->vanishes = flag(e, "vanishes", false);
+        t->drop_chance = (float)num(e, "drop_chance", 1.0);
+        t->loot_count = 0;
+        const cJSON *loot = field(e, "loot"), *entry, *choice;
+        cJSON_ArrayForEach(entry, loot) {
+            if (t->loot_count >= MAX_TILE_LOOT) return fail(r, "tile \"%s\" has more than %d kinds of loot", t->name, MAX_TILE_LOOT);
+            LootDef *l = &t->loot[t->loot_count++];
+            memset(l, 0, sizeof *l);
+            l->min = (int)num(entry, "min", 1);
+            l->max = (int)num(entry, "max", l->min);
+            if (str(entry, "item") && !item_ref(r, entry, "item", &l->item)) return false;
+            cJSON_ArrayForEach(choice, field(entry, "one_of")) {
+                if (l->choice_count >= MAX_LOOT_CHOICES || !str(choice, "item") ||
+                    !item_ref(r, choice, "item", &l->choices[l->choice_count].item))
+                    return fail(r, "tile \"%s\": \"one_of\" lists at most %d items that exist", t->name, MAX_LOOT_CHOICES);
+                l->choices[l->choice_count++].weight = (int)num(choice, "weight", 1);
+            }
+            if ((l->item == ITEM_NONE) == (l->choice_count == 0) || l->min < 0 || l->max < l->min)
+                return fail(r, "tile \"%s\": loot is an \"item\" or a \"one_of\", with \"min\" no more than \"max\"", t->name);
+        }
         /* Creatures are read later; the name is matched to one once they are. */
         copy_name(t->hatches_name, sizeof t->hatches_name, str(e, "hatches"));
         t->hatch_owned = flag(e, "hatch_owned", false);
@@ -566,6 +588,9 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         b->soil_depth = (float)num(e, "soil_depth", 0.0);
         b->below_sea = flag(e, "below_sea", false);
         b->near_sea = (int)num(e, "near_sea", 0);
+        b->buried = TILE_AIR;
+        if (field(e, "buried") && !tile_ref(r, field(e, "buried"), "tile", &b->buried)) return false;
+        b->buried_one_in = (int)num(field(e, "buried"), "one_in", 0);
         b->tree_one_in = (int)num(e, "tree_one_in", 0);
         b->tree_spacing = (int)num(e, "tree_spacing", 0);
         b->heat_min = b->dry_min = -2.0f;

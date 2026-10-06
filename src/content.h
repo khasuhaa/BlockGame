@@ -37,6 +37,8 @@
 #define MAX_TILE_TEXTURES 4
 #define MAX_TILE_ALIASES 2
 #define MAX_TILE_JOINS 4
+#define MAX_TILE_LOOT 8
+#define MAX_LOOT_CHOICES 6
 #define MAX_TREE_ROWS 12
 #define MAX_SWELLS 4
 #define MAX_START_ITEMS 8
@@ -76,6 +78,18 @@ typedef struct {
     int count;
 } RecipeItem;
 
+/* One thing a storage block may be found holding: so many of an item, or one
+ * picked from several by weight. */
+typedef struct {
+    ItemId item; /* ITEM_NONE when it is one of the choices instead */
+    int min, max;
+    struct {
+        ItemId item;
+        int weight;
+    } choices[MAX_LOOT_CHOICES];
+    int choice_count;
+} LootDef;
+
 typedef struct {
     char name[CONTENT_NAME_LEN];
     char label[CONTENT_NAME_LEN]; /* shown to the player */
@@ -110,6 +124,16 @@ typedef struct {
     int hatches;      /* kind of creature, or -1 */
     char hatches_name[CONTENT_NAME_LEN];
     bool hatch_owned; /* what comes out belongs to the player, and so never wanders off for good */
+    /* Decay. The trunk and leaves of a tree turn into `decays_into` when the
+     * tree is cut through beneath them. A block that `vanishes` is taken away
+     * by the first random event to land on it. */
+    TileType decays_into; /* TILE_AIR if it does not decay */
+    bool vanishes;
+    float drop_chance; /* chance it leaves its drop when it goes, by whatever means; usually 1 */
+    /* What one that the world was generated with holds when it is first
+     * opened or dug up. One the player put down holds only what they put in. */
+    LootDef loot[MAX_TILE_LOOT];
+    int loot_count;
     bool storage_shared; /* its slots are the one store shared by every such block, in every world */
     float mine_time; /* seconds to mine, with bare hands */
     int tool_class;  /* the kind of tool that mines it faster, or -1 */
@@ -271,6 +295,9 @@ typedef struct {
     float heat_min, heat_max, dry_min, dry_max;
     bool below_sea;    /* this is what land under sea level is */
     int near_sea;      /* this is the shore: it reaches this many columns from the sea */
+    /* Something buried here and there at the bottom of its soil, on the rock. */
+    TileType buried;
+    int buried_one_in; /* one column in this many has it */
     TileType surface, soil;
     float soil_depth;  /* a fixed depth of soil, or 0 for the usual rule */
     int tree_one_in, tree_spacing;

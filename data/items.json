@@ -78,6 +78,7 @@
     {"name": "torch", "label": "Torch", "places": "torch", "texture": "items/torch.png", "category": "blocks"},
     {"name": "campfire", "label": "Campfire", "places": "campfire", "texture": "items/campfire.png", "category": "benches"},
     {"name": "portal_chest", "label": "Portal chest", "places": "portal_chest", "texture": "items/portal_chest.png", "category": "blocks"},
+    {"name": "golden_chest", "label": "Golden chest", "places": "golden_chest", "container": {"slots": 16}, "texture": "items/golden_chest.png", "category": "blocks"},
     {"name": "time_crystal", "label": "Time crystal", "texture": "ui/crystal.png", "crystals": 1},
     {"name": "sand", "label": "Sand", "texture": "items/sand.png", "category": "blocks", "places": "sand"},
     {"name": "cactus", "label": "Cactus", "texture": "items/cactus.png", "category": "blocks", "places": "cactus"},
