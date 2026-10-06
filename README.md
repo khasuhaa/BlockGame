@@ -170,6 +170,8 @@ A bench can have tiers. Its menu shows its tier and, if it can go higher, an Upg
 | Craft bench | Workbench | 1 dirt | Basket (10 sticks) |
 | Kiln | Workbench tier 2 | 10 dirt, 1 stick | Charcoal (1 stick) |
 | Furnace | Workbench tier 2 | 5 stone, 1 stick | One ingot from one ore: copper and tin. Tier 2, for 5 iron ore: iron and gold. Tier 3, for 5 titanium ore: platinum and titanium |
+| Metalwork bench | Workbench tier 3 | 3 iron ingots, 1 stone | Coins (see Money) |
+| Trade portal | Spawn portal | 1 portal, 1 gold coin | Nothing: it is where things are bought and sold |
 
 ### Money
 
