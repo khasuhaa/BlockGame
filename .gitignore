@@ -1,0 +1,8 @@
+build/
+vendor/
+*.o
+*.dSYM/
+.DS_Store
+.env
+.vscode/
+.idea/

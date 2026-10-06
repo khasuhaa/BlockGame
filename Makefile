@@ -1,0 +1,43 @@
+RAYLIB_VERSION := 5.5
+RAYLIB_DIR := vendor/raylib-$(RAYLIB_VERSION)
+RAYLIB_LIB := $(RAYLIB_DIR)/src/libraylib.a
+
+CC ?= cc
+CFLAGS ?= -O2 -g
+CFLAGS += -std=c11 -Wall -Wextra
+
+ifeq ($(shell uname),Darwin)
+LDLIBS := -framework Cocoa -framework IOKit -framework CoreVideo -framework OpenGL
+else
+LDLIBS := -lGL -lm -lpthread -ldl -lrt -lX11
+endif
+
+ENGINE_SRC := src/world.c src/game.c
+HEADERS := $(wildcard src/*.h)
+
+.PHONY: all run test clean
+
+all: build/blockgame
+
+build/blockgame: src/main.c $(ENGINE_SRC) $(HEADERS) $(RAYLIB_LIB)
+	@mkdir -p build
+	$(CC) $(CFLAGS) -I$(RAYLIB_DIR)/src src/main.c $(ENGINE_SRC) $(RAYLIB_LIB) $(LDLIBS) -o $@
+
+build/test_game: tests/test_game.c $(ENGINE_SRC) $(HEADERS)
+	@mkdir -p build
+	$(CC) $(CFLAGS) tests/test_game.c $(ENGINE_SRC) -o $@
+
+run: build/blockgame
+	./build/blockgame
+
+test: build/test_game
+	./build/test_game
+
+# raylib is downloaded and built on first use; it is not checked in.
+$(RAYLIB_LIB):
+	@mkdir -p vendor
+	curl -sSL https://github.com/raysan5/raylib/archive/refs/tags/$(RAYLIB_VERSION).tar.gz | tar xz -C vendor
+	$(MAKE) -C $(RAYLIB_DIR)/src PLATFORM=PLATFORM_DESKTOP
+
+clean:
+	$(RM) -r build
