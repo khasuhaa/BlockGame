@@ -13,7 +13,7 @@ static bool is_empty(const ItemStack *s)
 
 uint16_t container_alloc(Inventory *inv)
 {
-    for (int i = 1; i < MAX_CONTAINERS; i++) {
+    for (int i = 1; i < SHARED_CONTAINER; i++) {
         if (inv->containers[i].used) continue;
         memset(&inv->containers[i], 0, sizeof inv->containers[i]);
         inv->containers[i].used = true;
@@ -146,6 +146,7 @@ ItemStack *inventory_slot(Inventory *inv, SlotRef ref)
         return &inv->containers[c].slots[ref.inner];
     }
     case SLOT_CONTAINER:
+        if (ref.index == SHARED_CONTAINER) inv->containers[ref.index].used = true;
         if (ref.index <= 0 || ref.index >= MAX_CONTAINERS || !inv->containers[ref.index].used)
             return NULL;
         if (ref.inner < 0 || ref.inner >= CONTAINER_MAX_SLOTS) return NULL;
@@ -268,6 +269,26 @@ float inventory_tool_speed(const Inventory *inv, int tool_class)
     return best;
 }
 
+int inventory_ore_multiplier(const Inventory *inv, int tool_class)
+{
+    int best = 1;
+    if (tool_class < 0) return best;
+    for (int i = 0; i < INVENTORY_SLOTS; i++) {
+        const ItemStack *s = &inv->slots[i];
+        if (is_empty(s)) continue;
+        const ItemDef *def = item_def(s->id);
+        if (def->tool_class == tool_class && def->ore_multiplier > best) best = def->ore_multiplier;
+        if (s->container == 0 || !def->opens_in_bar) continue;
+        for (int j = 0; j < BASKET_SLOTS; j++) {
+            const ItemStack *inner = &inv->containers[s->container].slots[j];
+            if (is_empty(inner)) continue;
+            const ItemDef *held = item_def(inner->id);
+            if (held->tool_class == tool_class && held->ore_multiplier > best) best = held->ore_multiplier;
+        }
+    }
+    return best;
+}
+
 static void take_from(Inventory *inv, ItemStack *s, ItemId id, int *want)
 {
     if (!s || is_empty(s) || s->id != id || *want <= 0) return;
@@ -327,6 +348,8 @@ static bool slot_accepts(Inventory *inv, SlotRef ref, const ItemStack *s)
 {
     if (is_empty(s)) return true;
     if (ref.kind == SLOT_ARMOR) return (int)item_def(s->id)->equip == ref.index;
+    /* The shared container takes only plain items. */
+    if (ref_container(inv, ref) == SHARED_CONTAINER && !container_is_empty(inv, s->container)) return false;
     /* A container cannot go inside itself, however deep. */
     return !holds(inv, s->container, ref_container(inv, ref), 0);
 }

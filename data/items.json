@@ -59,6 +59,25 @@
     {"name": "titanium_axe", "label": "Titanium axe", "max_stack": 1, "texture": "items/titanium_axe.png", "category": "tools", "tool": {"class": "axe", "speed": 8.0}},
     {"name": "tool_bench_3", "label": "Tool bench III", "places": "tool_bench_3", "texture": "items/tool_bench_3.png", "category": "benches"},
     {"name": "tool_bench_4", "label": "Tool bench IV", "places": "tool_bench_4", "texture": "items/tool_bench_4.png", "category": "benches"},
-    {"name": "tool_bench_5", "label": "Tool bench V", "places": "tool_bench_5", "texture": "items/tool_bench_5.png", "category": "benches"}
+    {"name": "tool_bench_5", "label": "Tool bench V", "places": "tool_bench_5", "texture": "items/tool_bench_5.png", "category": "benches"},
+    {"name": "amethyst", "label": "Amethyst", "places": "amethyst", "texture": "items/amethyst.png", "category": "gems"},
+    {"name": "amethyst_pickaxe", "label": "Amethyst pickaxe", "max_stack": 1, "texture": "items/amethyst_pickaxe.png", "category": "tools", "tool": {"class": "pickaxe", "speed": 9.0, "ore_multiplier": 2}},
+    {"name": "portal_2", "label": "Portal II", "places": "portal_2", "texture": "items/portal_2.png", "category": "blocks"},
+    {"name": "sapphire", "label": "Sapphire", "places": "sapphire", "texture": "items/sapphire.png", "category": "gems"},
+    {"name": "sapphire_pickaxe", "label": "Sapphire pickaxe", "max_stack": 1, "texture": "items/sapphire_pickaxe.png", "category": "tools", "tool": {"class": "pickaxe", "speed": 10.0, "ore_multiplier": 3}},
+    {"name": "portal_3", "label": "Portal III", "places": "portal_3", "texture": "items/portal_3.png", "category": "blocks"},
+    {"name": "emerald", "label": "Emerald", "places": "emerald", "texture": "items/emerald.png", "category": "gems"},
+    {"name": "emerald_pickaxe", "label": "Emerald pickaxe", "max_stack": 1, "texture": "items/emerald_pickaxe.png", "category": "tools", "tool": {"class": "pickaxe", "speed": 11.0, "ore_multiplier": 4}},
+    {"name": "portal_4", "label": "Portal IV", "places": "portal_4", "texture": "items/portal_4.png", "category": "blocks"},
+    {"name": "ruby", "label": "Ruby", "places": "ruby", "texture": "items/ruby.png", "category": "gems"},
+    {"name": "ruby_pickaxe", "label": "Ruby pickaxe", "max_stack": 1, "texture": "items/ruby_pickaxe.png", "category": "tools", "tool": {"class": "pickaxe", "speed": 12.5, "ore_multiplier": 5}},
+    {"name": "portal_5", "label": "Portal V", "places": "portal_5", "texture": "items/portal_5.png", "category": "blocks"},
+    {"name": "diamond", "label": "Diamond", "places": "diamond", "texture": "items/diamond.png", "category": "gems"},
+    {"name": "diamond_pickaxe", "label": "Diamond pickaxe", "max_stack": 1, "texture": "items/diamond_pickaxe.png", "category": "tools", "tool": {"class": "pickaxe", "speed": 14.0, "ore_multiplier": 6}},
+    {"name": "portal_6", "label": "Portal VI", "places": "portal_6", "texture": "items/portal_6.png", "category": "blocks"},
+    {"name": "torch", "label": "Torch", "places": "torch", "texture": "items/torch.png", "category": "blocks"},
+    {"name": "campfire", "label": "Campfire", "places": "campfire", "texture": "items/campfire.png", "category": "benches"},
+    {"name": "portal_chest", "label": "Portal chest", "places": "portal_chest", "texture": "items/portal_chest.png", "category": "blocks"},
+    {"name": "time_crystal", "label": "Time crystal", "texture": "ui/crystal.png", "crystals": 1}
   ]
 }

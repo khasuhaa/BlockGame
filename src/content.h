@@ -18,6 +18,7 @@
 #define MAX_TREES 32
 #define MAX_FEATURES 16
 #define MAX_VEINS 48
+#define MAX_DECOR 16
 #define MAX_TOOL_CLASSES 16
 #define MAX_CATEGORIES 16
 #define MAX_CURRENCIES 8
@@ -40,8 +41,10 @@ typedef int ItemId;
 enum {
     LAYER_FOREGROUND, /* blocks the player collides with */
     LAYER_BACKGROUND, /* blocks behind the player */
+    LAYER_WALL,       /* the backwall: what is left behind a block when it is removed */
     LAYER_COUNT
 };
+#define BLOCK_LAYERS 2 /* the layers that hold blocks, as opposed to backwall */
 
 /* Armor slots, top to bottom. */
 typedef enum {
@@ -66,6 +69,12 @@ typedef struct {
     bool trade;      /* can be opened to buy and sell */
     bool removable;  /* can be mined */
     bool climbable;  /* can be held on to by a player in front of it */
+    bool wall;       /* leaves a backwall of itself behind where it stands */
+    int light;       /* light it gives off, 0..15 */
+    bool light_needs_fuel; /* only while it has fuel burning */
+    bool ore;        /* what it drops is multiplied by an ore-multiplying tool */
+    int drop_count;  /* how many of its drop it leaves */
+    bool storage_shared; /* its slots are the one store shared by every such block, in every world */
     float mine_time; /* seconds to mine, with bare hands */
     int tool_class;  /* the kind of tool that mines it faster, or -1 */
     ItemId drop;     /* item left behind when mined */
@@ -106,6 +115,8 @@ typedef struct {
     int price;       /* what one costs, in the smallest currency; 0 for the default */
     int tool_class;  /* the kind of tool it is, or -1 */
     float tool_speed; /* how many times faster it mines blocks of its class */
+    int ore_multiplier; /* how many times over it makes ore blocks drop; 1 for no effect */
+    int crystals;    /* crystals it turns into when picked up; such an item is never held */
     int plants;      /* tree it grows into when planted, or -1 */
     char plants_name[CONTENT_NAME_LEN];
     char texture[CONTENT_PATH_LEN];
@@ -181,6 +192,15 @@ typedef struct {
     VeinShape shape;
 } VeinDef;
 
+/* Something set into the caves: a gem on a wall, a crystal on the floor. */
+typedef struct {
+    char name[CONTENT_NAME_LEN];
+    TileType tile;
+    float per_100_columns;
+    int min_depth, max_depth;
+    bool on_floor; /* only where there is a block directly beneath */
+} DecorDef;
+
 typedef struct {
     float amplitude;
     int wavelength;
@@ -203,6 +223,12 @@ typedef struct {
     int flat_radius, ease_radius; /* level ground round the spawn, and the slope down to it */
     TileType portal_base, portal_body, portal_top;
     int portal_height;
+
+    /* Caves: tunnels that wander through the rock and nothing else. */
+    float cave_per_100_columns;
+    int cave_min_length, cave_max_length;
+    float cave_min_radius, cave_max_radius;
+    int cave_min_depth, cave_max_depth;
 
     int tree_one_in, tree_spacing, tree_spawn_clearance;
     float tree_grown_chance; /* share of generated trees that start full grown */
@@ -227,6 +253,12 @@ typedef struct {
     float drop_pickup_delay; /* how long a fresh drop lies before it can be collected */
     float drop_collect_time; /* flight into the player once collected */
     float denial_time;       /* how long a refused action's marker shows */
+
+    /* Light, 0..15. Open sky is as bright as the sun or moon; light loses
+     * some with every tile it travels, more through a block. */
+    int light_sun, light_moon;
+    int light_air_falloff, light_solid_falloff;
+    int light_minimum; /* the least anything is ever lit, so the dark is not blind */
 } RulesDef;
 
 /* Buying and selling, and the money it is done with. */
@@ -261,6 +293,8 @@ typedef struct {
     int feature_count;
     VeinDef veins[MAX_VEINS];
     int vein_count;
+    DecorDef decor[MAX_DECOR];
+    int decor_count;
     /* Kinds of tool, such as "shovel". There is no fixed list: a kind exists
      * because some block or item names it. */
     char tool_classes[MAX_TOOL_CLASSES][CONTENT_NAME_LEN];

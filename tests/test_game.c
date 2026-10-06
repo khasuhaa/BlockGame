@@ -1,5 +1,6 @@
 /* Headless tests for the game rules: no window, just the simulation. */
 #include "../src/game.h"
+#include "../src/light.h"
 #include "../src/save.h"
 #include "../src/trade.h"
 
@@ -797,8 +798,11 @@ static const char *TextName2(const char *fmt, const char *arg)
 
 static void clear_inventory(Game *g)
 {
+    /* Everything the player is carrying; the shared chest is not that. */
+    Container shared = g->inventory.containers[SHARED_CONTAINER];
     memset(&g->inventory, 0, sizeof g->inventory);
     g->inventory.sel_inner = -1;
+    g->inventory.containers[SHARED_CONTAINER] = shared;
 }
 
 static void test_bench(void)
@@ -827,7 +831,7 @@ static void test_bench(void)
     /* The workbench makes the other benches: three at tier 1, two more at
      * tier 2 and one at tier 3, and a portal. */
     const Recipe *list[16];
-    CHECK(bench_recipes(TILE_WORKBENCH, list, 16) == 7 && bench_recipes(TILE_WORKBENCH_2, list, 16) == 7);
+    CHECK(bench_recipes(TILE_WORKBENCH, list, 16) == 8 && bench_recipes(TILE_WORKBENCH_2, list, 16) == 8);
     const Recipe *woodwork = find_recipe(TILE_WORKBENCH, "woodwork_bench");
     const Recipe *toolbench = find_recipe(TILE_WORKBENCH, "tool_bench");
     const Recipe *kiln = find_recipe(TILE_WORKBENCH, "kiln"), *furnace = find_recipe(TILE_WORKBENCH, "furnace");
@@ -1152,10 +1156,10 @@ static bool is_tree(TileType t)
 /* Feet level of a column: the height of its lowest air tile, ignoring trees. */
 static int column_level(const World *w, int x)
 {
+    /* The backwall records the ground as it was made, before any cave broke
+     * through it. */
     int row = 0;
-    while (row < w->height &&
-           (!tile_def(world_get(w, x, row))->solid || is_tree(world_get(w, x, row))))
-        row++;
+    while (row < w->height && world_get_at(w, LAYER_WALL, x, row) == TILE_AIR) row++;
     return world_row_to_y(w, row) + 1;
 }
 
@@ -1195,7 +1199,7 @@ static void test_terrain(void)
             CHECK(world_get(&w, w.spawn_x, w.spawn_y - i) == (i == 2 ? TILE_SPAWN_PORTAL_TOP : TILE_SPAWN_PORTAL));
         CHECK(world_get(&w, w.spawn_x, w.spawn_y - 3) == TILE_AIR);
 
-        int lo = 1000, hi = -1000, max_step = 0, bad = 0;
+        int lo = 1000, hi = -1000, max_step = 0, bad = 0, carved = 0;
         for (int x = 0; x < w.width; x++) {
             int level = column_level(&w, x);
             int step = abs(level - column_level(&w, x + 1)); /* x + 1 wraps at the seam */
@@ -1209,8 +1213,18 @@ static void test_terrain(void)
             int dirt = 0, y = top;
             if (world_get(&w, x, y) == TILE_GRASS || world_get(&w, x, y) == TILE_PORTAL_BASE) y++, dirt++;
             while (in_soil(world_get(&w, x, y))) y++, dirt++;
-            for (; y < w.height; y++)
-                if (!in_rock(world_get(&w, x, y))) bad++;
+            for (; y < w.height; y++) {
+                TileType t = world_get(&w, x, y);
+                /* Rock, or a cave: open space carved out of rock and nothing else. */
+                if (t == TILE_AIR ? world_get_at(&w, LAYER_WALL, x, y) != TILE_STONE : !in_rock(t)) bad++;
+                if (t == TILE_AIR) carved++;
+            }
+            /* Every block has a backwall of itself behind it; the open sky has none. */
+            for (int r = 0; r < w.height; r++) {
+                TileType t = world_get(&w, x, r), wall = world_get_at(&w, LAYER_WALL, x, r);
+                if (r < top ? wall != TILE_AIR : wall == TILE_AIR) bad++;
+                if (t == TILE_DIRT && wall != TILE_DIRT) bad++;
+            }
             if (dirt > 6) bad++;
             /* High peaks and deep floors are bare stone; the plains are not. */
             if ((level > 45 || level < -25) && dirt != 0) bad++;
@@ -1227,6 +1241,8 @@ static void test_terrain(void)
             }
         }
         CHECK(bad == 0);
+        /* There are caves, but the world is still mostly rock. */
+        CHECK(carved > 2000 && carved < w.width * w.height / 8);
         CHECK(lo >= -FEATURE_MAX_SIZE - 2 && hi <= PLAINS_MAX_LEVEL + FEATURE_MAX_SIZE + 2);
         CHECK(max_step <= 6);
         if (hi >= 40) saw_mountain = true;
@@ -1655,7 +1671,7 @@ static void test_veins(void)
         VeinStats fs = vein_stats(&w, flint, 10);
         CHECK(fs.groups > 20 && fs.smallest >= 4 && fs.largest <= 10 && fs.over == 0);
         flint_total += fs.blocks;
-        int exposed = 0, misplaced = 0;
+        int exposed = 0;
         for (int y = 1; y < w.height - 1; y++) {
             for (int x = 0; x < w.width; x++) {
                 TileType t = world_get(&w, x, y);
@@ -1664,12 +1680,9 @@ static void test_veins(void)
                         !world_is_solid(&w, x - 1, y) || !world_is_solid(&w, x, y + 1))
                         exposed++;
                 }
-                /* Nothing is left hanging in the air or sitting on the grass. */
-                if (vein_in(t, TILE_STONE) && !vein_in(t, TILE_DIRT) && world_get(&w, x, y + 1) == TILE_AIR)
-                    misplaced++;
             }
         }
-        CHECK(exposed == 0 && misplaced == 0);
+        CHECK(exposed == 0);
 
         /* Ores: every kind is somewhere in every world, in veins of its size. */
         for (int i = 0; i < 6; i++) {
@@ -1761,9 +1774,16 @@ static void test_crystals_and_coins(void)
 
     /* Crystals start at what the data says, and are not part of a world. */
     CHECK(content.trade.start_crystals == 1000 && g.crystals == 0);
-    CHECK(load_crystals("build/no_profile.txt") == 1000);
-    CHECK(save_crystals("build/test_profile.txt", 742) && load_crystals("build/test_profile.txt") == 742);
+    g.crystals = 5;
+    profile_load("build/no_profile.txt", &g);
+    CHECK(g.crystals == 1000);
+    g.crystals = 742;
+    CHECK(profile_save("build/test_profile.txt", &g));
+    g.crystals = 0;
+    profile_load("build/test_profile.txt", &g);
+    CHECK(g.crystals == 742);
     remove("build/test_profile.txt");
+    g.crystals = 0;
 
     /* A portal costs 1 stone and 100 crystals at the workbench. */
     const Recipe *portal = find_recipe(wb, "portal");
@@ -1851,7 +1871,8 @@ static void test_trade(void)
     CHECK(t->currencies[2].item == plat && t->currencies[2].value == 10000);
     int listed[MAX_CATEGORIES] = { 0 };
     for (int i = 1; i < content.item_count; i++) {
-        bool coin = i == copper || i == gold || i == plat;
+        /* (Nor the time crystal, which is never held: it turns into crystals.) */
+        bool coin = i == copper || i == gold || i == plat || content.items[i].crystals > 0;
         CHECK(coin ? trade_price(i) == 0 : (trade_price(i) == 1 && content.items[i].category >= 0));
         if (!coin) listed[content.items[i].category]++;
     }
@@ -1983,6 +2004,397 @@ static void test_metal_tools(void)
     CHECK(about(game_mine_time(&g, TILE_STONE),
                 tile_def(TILE_STONE)->mine_time / item_def(item_id("bronze_pickaxe"))->tool_speed));
     game_free(&g);
+}
+
+#define WALL LAYER_WALL
+
+static ItemStack *chest_slot(Game *g, int i);
+
+static int count_tile(const World *w, int layer, TileType t)
+{
+    int n = 0;
+    size_t cells = (size_t)w->width * w->height;
+    for (size_t i = 0; i < cells; i++) n += w->layers[layer][i] == t;
+    return n;
+}
+
+/* What is found in the caves. */
+static void test_caves(void)
+{
+    static const char *gems[] = { "amethyst", "sapphire", "emerald", "ruby", "diamond" };
+    int total[5] = { 0 }, crystals = 0;
+    for (uint32_t seed = 1; seed <= 8; seed++) {
+        World w;
+        CHECK(world_init(&w, 2048, 401, seed, WORLD_TERRAIN));
+        for (int i = 0; i < 5; i++) total[i] += count_tile(&w, BG, tile_id(gems[i]));
+        crystals += count_tile(&w, BG, tile_id("time_crystal"));
+
+        int bad = 0;
+        for (int y = 0; y < w.height - 1; y++) {
+            for (int x = 0; x < w.width; x++) {
+                const TileDef *def = tile_def(world_get_at(&w, BG, x, y));
+                if (def->light == 0 || def->log_of >= 0 || def->leaves_of >= 0) continue;
+                /* Gems and crystals sit in open cave, against a block; crystals on the floor. */
+                if (world_get(&w, x, y) != TILE_AIR || world_get_at(&w, WALL, x, y) != TILE_STONE) bad++;
+                bool held = world_is_solid(&w, x, y + 1) || world_is_solid(&w, x + 1, y) ||
+                            world_is_solid(&w, x - 1, y) || world_is_solid(&w, x, y - 1);
+                if (!held) bad++;
+                if (world_get_at(&w, BG, x, y) == tile_id("time_crystal") && !world_is_solid(&w, x, y + 1)) bad++;
+            }
+        }
+        CHECK(bad == 0);
+        world_free(&w);
+    }
+    /* Each gem is rarer than the one before it. */
+    for (int i = 0; i < 5; i++) CHECK(total[i] > 0 && (i == 0 || total[i] < total[i - 1]));
+    CHECK(crystals > 0);
+    for (int i = 0; i < 5; i++) {
+        const TileDef *def = tile_def(tile_id(gems[i]));
+        CHECK(def->light > 0 && def->light < tile_def(tile_id("torch"))->light && def->layer == LAYER_BACKGROUND);
+        CHECK(item_def(item_id(gems[i]))->places == tile_id(gems[i]) && trade_price(item_id(gems[i])) > 0);
+    }
+}
+
+static void test_backwall(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 31, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    TilePos start = g.player.feet;
+    int s = w->surface_y, x = start.x + 2;
+
+    /* Every block has a backwall of itself; the air above the ground has none. */
+    CHECK(world_get_at(w, WALL, x, s) == TILE_DIRT && world_get_at(w, WALL, x, s - 1) == TILE_AIR);
+
+    /* Mining a block leaves its backwall, and gives one item, not two. */
+    CHECK(game_click_tile(&g, x, s));
+    run(&g, 2.0f);
+    CHECK(world_get(w, x, s) == TILE_AIR && world_get_at(w, WALL, x, s) == TILE_DIRT);
+    CHECK(count_item(&g, ITEM_DIRT) == 1);
+
+    /* Placing a different block in front does not change the backwall... */
+    clear_inventory(&g);
+    inventory_add(inv, ITEM_STONE, 2);
+    inventory_select(inv, 0, -1);
+    CHECK(game_click_tile(&g, x, s));
+    run(&g, 2.0f);
+    CHECK(world_get(w, x, s) == TILE_STONE && world_get_at(w, WALL, x, s) == TILE_DIRT);
+    /* ...and a block placed where there was none brings its own. */
+    CHECK(game_click_tile(&g, x + 1, s - 1));
+    run(&g, 2.0f);
+    CHECK(world_get(w, x + 1, s - 1) == TILE_STONE && world_get_at(w, WALL, x + 1, s - 1) == TILE_STONE);
+
+    /* With no tool in hand, a click on bare backwall is just somewhere to go. */
+    clear_inventory(&g);
+    CHECK(game_queue_action(&g, ACTION_MINE, x, s) && game_queue_action(&g, ACTION_MINE, x + 1, s - 1));
+    run(&g, 4.0f);
+    clear_inventory(&g);
+    CHECK(world_get(w, x, s) == TILE_AIR && world_get_at(w, WALL, x, s) == TILE_DIRT);
+    CHECK(game_click_tile(&g, x, s) && g.queue[0].type == ACTION_MOVE);
+    game_cancel_actions(&g);
+
+    /* The wrong kind of tool does nothing to it either: dirt wants a shovel. */
+    inventory_add(inv, item_id("wooden_pickaxe"), 1);
+    inventory_add(inv, item_id("wooden_shovel"), 1);
+    inventory_select(inv, 0, -1);
+    CHECK(game_click_tile(&g, x, s) && g.queue[0].type == ACTION_MOVE);
+    game_cancel_actions(&g);
+    /* The right kind, in hand, takes the backwall down, and nothing drops. */
+    inventory_select(inv, 1, -1);
+    CHECK(game_click_tile(&g, x, s) && g.queue[0].type == ACTION_MINE && g.queue[0].wall);
+    run(&g, 3.0f);
+    CHECK(is_idle(&g) && world_get_at(w, WALL, x, s) == TILE_AIR && count_item(&g, ITEM_DIRT) == 0);
+    for (int i = 0; i < MAX_DROPS; i++) CHECK(!g.drops[i].active);
+    /* A stone backwall wants the pickaxe. */
+    CHECK(world_get_at(w, WALL, x + 1, s - 1) == TILE_STONE);
+    CHECK(game_click_tile(&g, x + 1, s - 1) && g.queue[0].type == ACTION_MOVE);
+    game_cancel_actions(&g);
+    inventory_select(inv, 0, -1);
+    CHECK(game_click_tile(&g, x + 1, s - 1) && g.queue[0].wall);
+    run(&g, 3.0f);
+    CHECK(world_get_at(w, WALL, x + 1, s - 1) == TILE_AIR);
+    /* A block in front is always mined before the wall behind it. */
+    CHECK(game_click_tile(&g, x + 3, s) && !g.queue[0].wall);
+    run(&g, 3.0f);
+    CHECK(world_get(w, x + 3, s) == TILE_AIR && world_get_at(w, WALL, x + 3, s) == TILE_DIRT);
+
+    /* A torch or a gem hangs on a backwall, with no block beside it. */
+    clear_inventory(&g);
+    for (int y = s - 6; y <= s - 2; y++) world_set_at(w, WALL, x + 6, y, TILE_STONE);
+    inventory_add(inv, item_id("torch"), 2);
+    inventory_add(inv, item_id("amethyst"), 1);
+    inventory_select(inv, 0, -1);
+    CHECK(!game_queue_action(&g, ACTION_PLACE, x + 8, s - 3)); /* open air, nothing to hang on */
+    CHECK(game_queue_action(&g, ACTION_PLACE, x + 6, s - 2));
+    run(&g, 3.0f);
+    CHECK(world_get_at(w, BG, x + 6, s - 2) == tile_id("torch") && world_get(w, x + 6, s - 2) == TILE_AIR);
+    CHECK(world_get_at(w, WALL, x + 6, s - 2) == TILE_STONE);
+    inventory_select(inv, 1, -1);
+    CHECK(game_queue_action(&g, ACTION_PLACE, x + 7, s - 1));
+    run(&g, 3.0f);
+    CHECK(world_get_at(w, BG, x + 7, s - 1) == tile_id("amethyst") && count_item(&g, item_id("amethyst")) == 0);
+    /* Tapping the gem again picks it up. */
+    CHECK(game_click_tile(&g, x + 7, s - 1) && g.queue[0].type == ACTION_MINE);
+    run(&g, 3.0f);
+    CHECK(world_get_at(w, BG, x + 7, s - 1) == TILE_AIR && count_item(&g, item_id("amethyst")) == 1);
+
+    /* Backwalls are saved with the world. */
+    CHECK(save_game(&g, "build/test_wall.world"));
+    Game loaded;
+    CHECK(load_game(&loaded, "build/test_wall.world"));
+    size_t cells = (size_t)w->width * w->height;
+    CHECK(memcmp(loaded.world.layers[WALL], w->layers[WALL], cells) == 0);
+    game_free(&loaded);
+    remove("build/test_wall.world");
+    game_free(&g);
+}
+
+static int light_at(const Game *g, int x, int y)
+{
+    uint8_t v;
+    light_compute(g, x, y, 1, 1, &v);
+    return v;
+}
+
+static void test_light(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 32, WORLD_FLAT);
+    World *w = &g.world;
+    TilePos start = g.player.feet;
+    int s = w->surface_y, x = start.x + 10;
+    const RulesDef *u = &content.rules;
+
+    /* Open sky is as bright as the sun by day and the moon by night. */
+    g.tick = (uint64_t)DAY_TICKS / 2;
+    CHECK(light_sky(&g) == u->light_sun && light_at(&g, x, s - 3) == u->light_sun);
+    g.tick = (uint64_t)DAY_TICKS + (uint64_t)NIGHT_TICKS / 2;
+    CHECK(light_sky(&g) == u->light_moon && light_at(&g, x, s - 3) == u->light_moon);
+    CHECK(u->light_moon < u->light_sun && u->light_moon > u->light_minimum);
+    g.tick = (uint64_t)DAY_TICKS / 2;
+
+    /* It fades going down into the ground, to the least there ever is. */
+    CHECK(light_at(&g, x, s) == u->light_sun - u->light_solid_falloff);
+    CHECK(light_at(&g, x, s + 1) < light_at(&g, x, s));
+    CHECK(light_at(&g, x, s + 12) == u->light_minimum);
+
+    /* A sealed room underground is dark... */
+    for (int cx = x - 2; cx <= x + 2; cx++)
+        for (int cy = s + 10; cy <= s + 12; cy++) world_set(w, cx, cy, TILE_AIR);
+    CHECK(light_at(&g, x, s + 11) == u->light_minimum);
+    /* ...until there is a torch in it, brightest where it hangs. */
+    world_set_at(w, BG, x, s + 11, tile_id("torch"));
+    int torch = tile_def(tile_id("torch"))->light;
+    CHECK(light_at(&g, x, s + 11) == torch && light_at(&g, x + 1, s + 11) == torch - u->light_air_falloff);
+    CHECK(light_at(&g, x + 2, s + 11) == torch - 2 * u->light_air_falloff);
+    /* It gets into the rock a little way, and no further. */
+    CHECK(light_at(&g, x + 3, s + 11) == torch - 2 * u->light_air_falloff - u->light_solid_falloff);
+    CHECK(light_at(&g, x + 12, s + 11) == u->light_minimum);
+    /* A gem gives less than a torch. */
+    world_set_at(w, BG, x, s + 11, tile_id("ruby"));
+    CHECK(light_at(&g, x, s + 11) == tile_def(tile_id("ruby"))->light && light_at(&g, x, s + 11) < torch);
+    world_set_at(w, BG, x, s + 11, TILE_AIR);
+
+    /* The sun beams straight down an open shaft, backwall or no. */
+    int sx = x + 8;
+    for (int cy = s; cy <= s + 12; cy++) world_set(w, sx, cy, TILE_AIR);
+    CHECK(world_get_at(w, WALL, sx, s + 12) == TILE_DIRT && light_at(&g, sx, s + 12) == u->light_sun);
+    /* A lid on the shaft cuts the beam off. */
+    world_set(w, sx, s, TILE_STONE);
+    CHECK(light_at(&g, sx, s + 12) == u->light_minimum);
+    world_set(w, sx, s, TILE_AIR);
+    /* Round a corner at the bottom it falls away a tile at a time. */
+    world_set(w, sx + 1, s + 12, TILE_AIR);
+    world_set(w, sx + 2, s + 12, TILE_AIR);
+    CHECK(light_at(&g, sx + 1, s + 12) == u->light_sun - u->light_air_falloff);
+    CHECK(light_at(&g, sx + 2, s + 12) == u->light_sun - 2 * u->light_air_falloff);
+    /* Open space with no backwall counts as outdoors even under a roof. */
+    world_set_at(w, WALL, sx + 2, s + 12, TILE_AIR);
+    CHECK(light_at(&g, sx + 2, s + 12) == u->light_sun);
+
+    /* A campfire only gives light while it is burning. */
+    CHECK(place_and_open(&g, "campfire", start.x + 3));
+    g.tick = (uint64_t)DAY_TICKS + (uint64_t)NIGHT_TICKS / 2;
+    int fire = tile_def(tile_id("campfire"))->light;
+    CHECK(fire > u->light_moon && light_at(&g, start.x + 3, s - 1) == u->light_moon);
+    inventory_add(&g.inventory, ITEM_STICK, 3);
+    CHECK(game_add_fuel(&g, ITEM_STICK) && light_at(&g, start.x + 3, s - 1) == fire);
+    /* And it makes torches, a stick each. */
+    const Recipe *torch_recipe = find_recipe(tile_id("campfire"), "torch");
+    CHECK(costs(torch_recipe, "stick", 1, NULL, 0) && costs(find_recipe(TILE_WORKBENCH, "campfire"), "stick", 10, NULL, 0));
+    CHECK(find_recipe(TILE_WORKBENCH, "campfire")->level == 1);
+    CHECK(game_craft(&g, torch_recipe, 2));
+    run(&g, 0.4f);
+    CHECK(count_item(&g, item_id("torch")) == 2 && count_item(&g, ITEM_STICK) == 0);
+
+    /* A lit region is the same whether worked out whole or a tile at a time. */
+    uint8_t block[9 * 7];
+    light_compute(&g, start.x - 2, s - 4, 9, 7, block);
+    int differ = 0;
+    for (int cy = 0; cy < 7; cy++)
+        for (int cx = 0; cx < 9; cx++)
+            if (block[cy * 9 + cx] != light_at(&g, start.x - 2 + cx, s - 4 + cy)) differ++;
+    CHECK(differ == 0);
+    game_free(&g);
+}
+
+static void test_portal_tiers(void)
+{
+    static const char *gems[] = { "amethyst", "sapphire", "emerald", "ruby", "diamond" };
+    Game g;
+    game_init(&g, 64, 48, 33, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    int s = w->surface_y, x = g.world.spawn_x + 4;
+    TileType portal = tile_id("portal");
+
+    /* A portal climbs a tier for one of each gem in turn, and each tier
+     * unlocks that gem's pickaxe, which multiplies ore: 2 times up to 6. */
+    TileType tier = portal;
+    for (int i = 0; i < 5; i++) {
+        const TileDef *def = tile_def(tier);
+        CHECK(def->bench && def->bench_level == i + 1 && def->upgrade_cost_count == 1);
+        CHECK(def->upgrade_cost[0].id == item_id(gems[i]) && def->upgrade_cost[0].count == 1);
+        tier = def->upgrade_to;
+        const Recipe *pick = find_recipe(portal, TextName("%s_pickaxe", gems[i]));
+        CHECK(pick && pick->level == i + 2);
+        const ItemDef *tool = item_def(pick->output.id);
+        CHECK(tool->tool_class == tool_class_id("pickaxe") && tool->ore_multiplier == i + 2);
+        CHECK(tool->tool_speed > item_def(item_id("titanium_pickaxe"))->tool_speed && trade_price(pick->output.id) > 0);
+    }
+    CHECK(tile_def(tier)->bench_level == 6 && tile_def(tier)->upgrade_to == TILE_AIR);
+    CHECK(costs(find_recipe(portal, "trade_portal"), "portal", 1, "gold_coin", 1));
+
+    /* Ore comes out multiplied; plain rock does not. */
+    clear_inventory(&g);
+    CHECK(inventory_ore_multiplier(inv, tool_class_id("pickaxe")) == 1);
+    inventory_add(inv, item_id("iron_pickaxe"), 1);
+    CHECK(inventory_ore_multiplier(inv, tool_class_id("pickaxe")) == 1);
+    inventory_add(inv, item_id("amethyst_pickaxe"), 1);
+    CHECK(inventory_ore_multiplier(inv, tool_class_id("pickaxe")) == 2);
+    g.player.feet = g.player.step_to = (TilePos){ x, s - 1 };
+    world_set(w, x + 1, s - 1, tile_id("iron_ore"));
+    world_set(w, x - 1, s - 1, TILE_STONE);
+    CHECK(game_queue_action(&g, ACTION_MINE, x + 1, s - 1) && game_queue_action(&g, ACTION_MINE, x - 1, s - 1));
+    run(&g, 4.0f);
+    CHECK(count_item(&g, item_id("iron_ore")) == 2 && count_item(&g, ITEM_STONE) == 1);
+    inventory_add(inv, item_id("diamond_pickaxe"), 1);
+    world_set(w, x + 1, s - 1, tile_id("coal_ore"));
+    CHECK(game_queue_action(&g, ACTION_MINE, x + 1, s - 1));
+    run(&g, 3.0f);
+    CHECK(count_item(&g, item_id("coal")) == 6);
+
+    /* A time crystal block gives 5 crystals - multiplied like ore - straight
+     * into the player's crystals, never the inventory. */
+    CHECK(tile_def(tile_id("time_crystal"))->ore && tile_def(tile_id("time_crystal"))->drop_count == 5);
+    clear_inventory(&g);
+    g.crystals = 10;
+    world_set_at(w, BG, x + 1, s - 1, tile_id("time_crystal"));
+    CHECK(game_click_tile(&g, x + 1, s - 1));
+    run(&g, 4.0f);
+    CHECK(g.crystals == 15 && count_item(&g, item_id("time_crystal")) == 0);
+    for (int i = 0; i < INVENTORY_SLOTS; i++) CHECK(inv->slots[i].count == 0);
+    inventory_add(inv, item_id("ruby_pickaxe"), 1);
+    world_set_at(w, BG, x + 1, s - 1, tile_id("time_crystal"));
+    CHECK(game_click_tile(&g, x + 1, s - 1));
+    run(&g, 4.0f);
+    CHECK(g.crystals == 15 + 25);
+    /* With no room in the inventory at all, crystals are still collected. */
+    clear_inventory(&g);
+    for (int i = 0; i < INVENTORY_SLOTS; i++) inv->slots[i] = (ItemStack){ (uint8_t)ITEM_BASKET, 1, 0 };
+    world_set_at(w, BG, x + 1, s - 1, tile_id("time_crystal"));
+    CHECK(game_click_tile(&g, x + 1, s - 1));
+    run(&g, 4.0f);
+    CHECK(g.crystals == 45);
+
+    /* The portal chest: 1 chest and 100 crystals at a tier 6 portal. */
+    const Recipe *pc = find_recipe(portal, "portal_chest");
+    CHECK(costs(pc, "chest", 1, NULL, 0) && pc->crystals == 100 && pc->level == 6);
+    CHECK(place_and_open(&g, "portal", x + 3));
+    inventory_add(inv, ITEM_CHEST, 1);
+    g.crystals = 150;
+    CHECK(!game_craft(&g, pc, 1));
+    for (int i = 0; i < 5; i++) {
+        inventory_add(inv, item_id(gems[i]), 1);
+        CHECK(game_upgrade_bench(&g));
+    }
+    CHECK(world_get_at(w, BG, x + 3, s - 1) == tile_id("portal_6") && !game_upgrade_bench(&g));
+    CHECK(game_craft(&g, pc, 1));
+    run(&g, 0.3f);
+    CHECK(count_item(&g, item_id("portal_chest")) == 1 && g.crystals == 50 && count_item(&g, ITEM_CHEST) == 0);
+    game_free(&g);
+}
+
+static void test_portal_chest(void)
+{
+    const char *profile = "build/test_shared.txt";
+    Game g;
+    game_init(&g, 64, 48, 34, WORLD_FLAT);
+    Inventory *inv = &g.inventory;
+    int x = g.world.spawn_x + 4;
+    remove(profile);
+    profile_load(profile, &g);
+
+    /* Two portal chests in one world open onto the same sixteen slots. */
+    CHECK(place_and_open(&g, "portal_chest", x));
+    uint16_t shared = game_open_storage(&g);
+    CHECK(shared == SHARED_CONTAINER && chest_slot(&g, 15) != NULL);
+    inventory_add(inv, ITEM_WOOD, 30);
+    inventory_add(inv, ITEM_STONE, 8);
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 0, 0 }, (SlotRef){ SLOT_CONTAINER, shared, 3 }, 20));
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 1, 0 }, (SlotRef){ SLOT_CONTAINER, shared, 9 }, 8));
+    ItemStack carried = inv->slots[0];
+    CHECK(place_and_open(&g, "portal_chest", x + 3));
+    CHECK(game_open_storage(&g) == shared && chest_slot(&g, 3)->id == ITEM_WOOD && chest_slot(&g, 3)->count == 20);
+    (void)carried;
+
+    /* Only plain items go in: a basket with something in it is turned away,
+     * an empty one is not. */
+    clear_inventory(&g);
+    inv->containers[SHARED_CONTAINER].used = true;
+    inventory_add(inv, ITEM_BASKET, 1);
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 0, 0 }, (SlotRef){ SLOT_CONTAINER, shared, 0 }, 1));
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_CONTAINER, shared, 0 }, (SlotRef){ SLOT_BAR, 0, 0 }, 1));
+    inventory_add(inv, ITEM_DIRT, 4);
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 1, 0 }, (SlotRef){ SLOT_BASKET, 0, 0 }, 4));
+    CHECK(!inventory_move(inv, (SlotRef){ SLOT_BAR, 0, 0 }, (SlotRef){ SLOT_CONTAINER, shared, 0 }, 1));
+
+    /* Taking the chest down does not take its contents with it. */
+    CHECK(game_queue_action(&g, ACTION_MINE, x + 3, g.world.surface_y - 1));
+    run(&g, 3.0f);
+    CHECK(count_item(&g, item_id("portal_chest")) == 1 && count_item(&g, ITEM_WOOD) == 0);
+    for (int i = 0; i < INVENTORY_SLOTS; i++)
+        if (inv->slots[i].id == item_id("portal_chest")) CHECK(inv->slots[i].container == 0);
+
+    /* What is in it, and the crystals, belong to the player: they are in the
+     * profile, and turn up in a different world. */
+    g.crystals = 321;
+    CHECK(profile_save(profile, &g) && save_game(&g, "build/test_shared.world"));
+    game_free(&g);
+
+    Game other;
+    game_init(&other, 64, 48, 99, WORLD_FLAT);
+    profile_load(profile, &other);
+    CHECK(other.crystals == 321);
+    CHECK(place_and_open(&other, "portal_chest", other.world.spawn_x + 4));
+    CHECK(chest_slot(&other, 3)->id == ITEM_WOOD && chest_slot(&other, 3)->count == 20);
+    CHECK(chest_slot(&other, 9)->id == ITEM_STONE && chest_slot(&other, 9)->count == 8 && chest_slot(&other, 0)->count == 0);
+    /* Emptied in this world, it is empty when the first one is opened again,
+     * whatever that world's own save remembers. */
+    CHECK(inventory_move(&other.inventory, (SlotRef){ SLOT_CONTAINER, SHARED_CONTAINER, 3 },
+                         (SlotRef){ SLOT_BAR, 3, 0 }, 255));
+    CHECK(profile_save(profile, &other));
+    game_free(&other);
+
+    Game back;
+    CHECK(load_game(&back, "build/test_shared.world"));
+    profile_load(profile, &back);
+    CHECK(back.inventory.containers[SHARED_CONTAINER].slots[3].count == 0);
+    CHECK(back.inventory.containers[SHARED_CONTAINER].slots[9].count == 8);
+    game_free(&back);
+    remove(profile);
+    remove("build/test_shared.world");
 }
 
 static void test_tools(void)
@@ -2296,6 +2708,11 @@ int main(void)
     test_bench();
     test_work_benches();
     test_tools();
+    test_caves();
+    test_backwall();
+    test_light();
+    test_portal_tiers();
+    test_portal_chest();
     test_metal_tools();
     test_crystals_and_coins();
     test_trade();

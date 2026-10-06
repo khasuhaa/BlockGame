@@ -210,6 +210,10 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->removable = flag(e, "removable", false);
         t->climbable = flag(e, "climbable", false);
         t->mine_time = (float)num(e, "mine_time", 0.35);
+        t->light = (int)num(e, "light", 0);
+        t->light_needs_fuel = flag(e, "light_needs_fuel", false);
+        t->ore = flag(e, "ore", false);
+        t->drop_count = (int)num(e, "drop_count", 1);
         t->shade = (int)num(e, "shade", 0);
         t->front = flag(e, "front", false);
         t->pulse = (float)num(e, "pulse", 0.0);
@@ -227,6 +231,9 @@ static bool read_tiles(Reader *r, const cJSON *root)
             for (char *c = t->popup_name; *c; c++) *c = (char)tolower((unsigned char)*c);
         t->storage_columns = (int)num(field(e, "storage"), "columns", 0);
         t->storage_rows = (int)num(field(e, "storage"), "rows", 0);
+        t->storage_shared = flag(field(e, "storage"), "shared", false);
+        /* A block in the foreground leaves a backwall unless it says not to. */
+        t->wall = flag(e, "wall", t->solid && t->layer == LAYER_FOREGROUND);
         t->fuel_capacity = (int)num(e, "fuel_capacity", 0);
         if (!tool_class_ref(r, str(e, "tool"), &t->tool_class)) return false;
         t->upgrade_to = TILE_AIR;
@@ -286,6 +293,8 @@ static bool read_items(Reader *r, const cJSON *root)
         const cJSON *tool = field(e, "tool");
         if (!tool_class_ref(r, str(tool, "class"), &it->tool_class)) return false;
         it->tool_speed = (float)num(tool, "speed", 1.0);
+        it->ore_multiplier = (int)num(tool, "ore_multiplier", 1);
+        it->crystals = (int)num(e, "crystals", 0);
         if (tool && (it->tool_class < 0 || it->tool_speed <= 0.0f))
             return fail(r, "item \"%s\": a tool needs a \"class\" and a \"speed\" above 0", it->name);
         it->places = TILE_AIR;
@@ -435,6 +444,38 @@ static bool read_worldgen(Reader *r, const cJSON *root)
             if (strcmp(profile, profiles[i]) == 0) f->profile = (FeatureProfile)i;
     }
 
+    const cJSON *caves = field(root, "caves");
+    if (caves) {
+        g->cave_per_100_columns = (float)num(caves, "per_100_columns", 0);
+        pair(caves, "length", &g->cave_min_length, &g->cave_max_length);
+        pair(caves, "depth", &g->cave_min_depth, &g->cave_max_depth);
+        const cJSON *radius = field(caves, "radius");
+        if (cJSON_GetArraySize(radius) == 2) {
+            g->cave_min_radius = (float)cJSON_GetArrayItem(radius, 0)->valuedouble;
+            g->cave_max_radius = (float)cJSON_GetArrayItem(radius, 1)->valuedouble;
+        }
+    }
+    cJSON_ArrayForEach(e, field(root, "cave_decor")) {
+        const char *name = str(e, "name");
+        if (!name) return fail(r, "a cave decoration has no \"name\"");
+        int id = -1;
+        for (int i = 0; i < content.decor_count; i++)
+            if (strcmp(content.decor[i].name, name) == 0) id = i;
+        if (id < 0) {
+            if (content.decor_count >= MAX_DECOR) return fail(r, "too many cave decorations");
+            id = content.decor_count++;
+        }
+        DecorDef *d = &content.decor[id];
+        memset(d, 0, sizeof *d);
+        copy_name(d->name, sizeof d->name, name);
+        if (!tile_ref(r, e, "tile", &d->tile)) return false;
+        if (d->tile == TILE_AIR) return fail(r, "cave decoration \"%s\" needs a \"tile\"", name);
+        d->per_100_columns = (float)num(e, "per_100_columns", 1.0);
+        d->max_depth = 1000;
+        pair(e, "depth", &d->min_depth, &d->max_depth);
+        d->on_floor = flag(e, "on_floor", false);
+    }
+
     cJSON_ArrayForEach(e, field(root, "veins")) {
         const char *name = str(e, "name");
         if (!name) return fail(r, "a vein has no \"name\"");
@@ -541,6 +582,14 @@ static bool read_rules(Reader *r, const cJSON *root)
         u->drop_collect_time = (float)num(drops, "collect_time", u->drop_collect_time);
     }
     if (ui) u->denial_time = (float)num(ui, "denial_time", u->denial_time);
+    const cJSON *light = field(root, "light");
+    if (light) {
+        u->light_sun = (int)num(light, "sun", u->light_sun);
+        u->light_moon = (int)num(light, "moon", u->light_moon);
+        u->light_air_falloff = (int)num(light, "air_falloff", u->light_air_falloff);
+        u->light_solid_falloff = (int)num(light, "solid_falloff", u->light_solid_falloff);
+        u->light_minimum = (int)num(light, "minimum", u->light_minimum);
+    }
     return true;
 }
 
@@ -636,7 +685,8 @@ static bool validate(Reader *r)
         bool money = false;
         for (int c = 0; c < content.trade.currency_count; c++)
             money = money || content.trade.currencies[c].item == i;
-        if (i > 0 && it->category < 0 && !money && content.trade.category_count > 0)
+        /* (Nor an item that turns into crystals the moment it is picked up.) */
+        if (i > 0 && it->category < 0 && !money && it->crystals == 0 && content.trade.category_count > 0)
             return fail(r, "item \"%s\" has no \"category\", so it could not be bought or sold; "
                            "give it one from trade.json", it->name);
         it->plants = it->plants_name[0] ? tree_id(it->plants_name) : -1;
@@ -649,7 +699,7 @@ static bool validate(Reader *r)
         if (t->layer == LAYER_BACKGROUND && t->solid)
             return fail(r, "tile \"%s\" is placed in the background, so it cannot be solid", t->name);
         int slots = t->storage_columns * t->storage_rows;
-        if (slots == 0) continue;
+        if (slots == 0 || t->storage_shared) continue;
         /* What is in it has to survive being picked up. */
         if (slots < 0 || slots > 16 || item_def(t->drop)->container_slots < slots)
             return fail(r, "tile \"%s\" stores items, so it must drop an item with at least as many "
@@ -674,6 +724,10 @@ static bool validate(Reader *r)
         return fail(r, "worldgen has a bad \"gap\" or spawn \"column\" range");
     if (u->tick_rate < 1 || u->day_ticks < 1 || u->night_ticks < 1 || u->chunk_width < 1)
         return fail(r, "rules need a tick rate, day and night length and chunk width");
+    /* Light that lost nothing as it went would never stop spreading. */
+    if (u->light_sun <= 0) content.rules.light_sun = 15;
+    if (u->light_air_falloff < 1) content.rules.light_air_falloff = 1;
+    if (u->light_solid_falloff < 1) content.rules.light_solid_falloff = 3;
     if (u->walk_time <= 0 || u->fall_time <= 0 || u->climb_time <= 0 || u->hop_time <= 0)
         return fail(r, "rules need positive player step times");
     return true;

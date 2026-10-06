@@ -23,9 +23,9 @@ Everything the game contains is defined in `data/`, not in the code, so it can b
 | `items.json` | Items: label, stack size, how many slots they hold inside them and whether those open from the bar, what block they place, what tree they plant, how long they burn as fuel, what kind of tool they are and how fast, their trade category and price, and their texture |
 | `recipes.json` | What each kind of bench makes, from what, for how many crystals, and at what bench tier |
 | `trees.json` | Tree kinds: their blocks, fruit, full height, the shape of the crown row by row, which layer they grow in, and what they can be planted on |
-| `worldgen.json` | World size, the plains, the mountains and valleys (any number of kinds), soil layers, veins (what, in what, how big, how deep, how common, what shape), the spawn and its portal, and how trees are scattered |
+| `worldgen.json` | World size, the plains, the mountains and valleys (any number of kinds), soil layers, caves and what is set into them, veins (what, in what, how big, how deep, how common, what shape), the spawn and its portal, and how trees are scattered |
 | `trade.json` | The categories items are sold in, the coins and what each is worth, the default price, and the crystals a new player starts with |
-| `rules.json` | Tick rate, day and night length, player step timings, starting items, and how drops behave |
+| `rules.json` | Tick rate, day and night length, how bright the sun and moon are and how fast light fades, player step timings, starting items, and how drops behave |
 | `textures/` | PNG images, 32 pixels to the block. A block can list several to vary between; one larger than a block overhangs it |
 
 Blocks and items refer to each other by name. A mistake, such as a recipe for an item that does not exist, stops the game at startup with a message naming the file and the problem.
@@ -90,6 +90,15 @@ The land is plains broken up by mountains and valleys, always with a stretch of 
 - **Steep valleys** drop 10 to 60 blocks down sheer walls to a flat floor.
 - **Smooth valleys** drop 10 to 60 blocks along a long, gentle slope.
 
+**Caves** wander through the stone, mostly sideways. They are carved out of stone and nothing else: a cave stops dead at the dirt, so none opens onto the plains, but where a mountain is bare stone a cave can break out through its side. Set into the caves, against a wall or on the floor:
+
+- **Gems** - amethyst, sapphire, emerald, ruby, diamond, each rarer and deeper than the one before. They glow, more faintly than a torch. Tap one to pick it up; with a gem selected, click a backwall to hang it there as decoration.
+- **Time crystals**, on cave floors. Mining one gives 5 crystals, which go straight to the player's crystals: they are never held in the inventory.
+
+**Backwalls.** Behind every block there is a backwall of the same kind. Mining the block leaves the backwall, which is what the inside of a cave or a tunnel shows, drawn darker. Placing a block where there is no backwall gives it one; placing a block in front of an existing backwall leaves that backwall as it was. To take a backwall down, select a tool of the kind that mines it - shovel for dirt, pickaxe for stone, axe for wood - and click it while nothing stands in front. It drops nothing. Without that tool in hand a click on bare backwall is a move, as on any empty tile.
+
+**Light.** Everything is lit from 0 to 15. The open sky is as bright as the sun by day (15) and the moon by night (5): it beams straight down every column until a block stops it, and fills any open space that has no backwall. Torches (14), a burning campfire (12), gems (6) and time crystals (4) give light of their own. From there light spreads, losing 1 with every tile of air and 2 with every block, so the ground is dark a few blocks down and a cave is dark until something lights it. A torch or a gem can be placed against a block or on a backwall.
+
 Veins of other blocks run through the ground:
 
 | Vein | Found in | Size | How common |
@@ -127,7 +136,7 @@ Breaking a leaf drops a stick; breaking a trunk drops wood, which can be placed 
 
 Trees stand in the background layer. The player walks straight past them, but can hold on to them: `W` in front of a tree climbs it, and the movement keys go up, down and sideways through the crown. Clicking any part of a tree queues mining that block, and the player climbs the tree to get within reach. A block in the foreground is always mined before the tree behind it.
 
-The world has three layers from back to front: the background layer, which holds the trees and the benches and is drawn slightly dimmed; the foreground layer, which holds the terrain and everything the player collides with; and the item layer, where dropped items and fruit are drawn in front of the blocks.
+The world has four layers from back to front: the backwall; the background layer, which holds the trees and the benches and is drawn slightly dimmed; the foreground layer, which holds the terrain and everything the player collides with; and the item layer, where dropped items and fruit are drawn in front of the blocks.
 
 ## Inventory
 
@@ -170,12 +179,29 @@ A bench can have tiers. Its menu shows its tier and, if it can go higher, an Upg
 | Craft bench | Workbench | 1 dirt | Basket (10 sticks) |
 | Kiln | Workbench tier 2 | 10 dirt, 1 stick | Charcoal (1 stick) |
 | Furnace | Workbench tier 2 | 5 stone, 1 stick | One ingot from one ore: copper and tin. Tier 2, for 5 iron ore: iron and gold. Tier 3, for 5 titanium ore: platinum and titanium |
+| Campfire | Workbench | 10 sticks | Torch (1 stick). Burns fuel like the kiln, and gives light while it does |
 | Metalwork bench | Workbench tier 3 | 3 iron ingots, 1 stone | Coins (see Money) |
 | Trade portal | Spawn portal | 1 portal, 1 gold coin | Nothing: it is where things are bought and sold |
 
+### Portals
+
+The portal made at the workbench is a bench of its own. It makes a trade portal (1 portal, 1 gold coin), and has six tiers, each bought with one gem and each unlocking that gem's pickaxe (3 of the gem and 1 stick):
+
+| Portal tier | Costs | Unlocks | Ore multiplier |
+| --- | --- | --- | --- |
+| 2 | 1 amethyst | Amethyst pickaxe | 2× |
+| 3 | 1 sapphire | Sapphire pickaxe | 3× |
+| 4 | 1 emerald | Emerald pickaxe | 4× |
+| 5 | 1 ruby | Ruby pickaxe | 5× |
+| 6 | 1 diamond | Diamond pickaxe, portal chest | 6× |
+
+A gem pickaxe makes every ore block drop that many times over: the metal ores, coal, and time crystals. Like any tool it only has to be carried, and the best one counts.
+
+The **portal chest** (1 chest and 100 crystals, at a tier 6 portal) opens onto one store of 16 slots that belongs to the player: every portal chest, in every world, shows the same contents. It is kept with the crystals in `saves/profile.txt`. It takes only plain items - a basket or chest with something in it is refused - and taking the block down leaves the contents where they are.
+
 ### Money
 
-**Crystals** belong to the player, not to a world: the same number is there in every world. They are shown in a box at the top right, kept in `saves/profile.txt`, and written as soon as they change. A new player starts with 1000. So far they are only spent, on the portal recipe.
+**Crystals** belong to the player, not to a world: the same number is there in every world. They are shown in a box at the top right, kept in `saves/profile.txt`, and written as soon as they change. A new player starts with 1000. They are spent on the portal and portal chest recipes, and gained by mining time crystals in caves.
 
 **Coins** are ordinary items, in stacks of up to 99: 100 copper coins are worth 1 gold coin, and 100 gold coins 1 platinum coin. The metalwork bench makes and exchanges them:
 
@@ -250,6 +276,7 @@ What an item holds is part of the item, and two stacks only merge if they hold t
 - `src/inventory.c` — stacks, baskets and the rules for moving them
 - `src/craft.c` — crafting from the recipes
 - `src/trade.c` — buying, selling and exchanging coins
+- `src/light.c` — how well lit each tile is
 - `src/game.c` — player, movement rules, path planning, action queue, item drops, crafting
 - `src/save.c` — saving and loading a world
 - `src/assets.c` — textures for blocks and items

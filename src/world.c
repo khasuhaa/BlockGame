@@ -196,6 +196,102 @@ static void place_veins(World *w, const int *level, uint32_t *rng)
     }
 }
 
+/* ---- backwalls and caves ------------------------------------------------ */
+
+/* Puts a backwall behind every block that leaves one. Done before anything
+ * is carved or changed, so the walls record the ground as it first was. */
+static void raise_walls(World *w)
+{
+    size_t cells = (size_t)w->width * w->height;
+    for (size_t i = 0; i < cells; i++) {
+        TileType t = w->layers[LAYER_FOREGROUND][i];
+        if (tile_def(t)->wall) w->layers[LAYER_WALL][i] = (uint8_t)t;
+    }
+}
+
+/* Carves one tunnel: a round brush that wanders, mostly sideways. Only rock
+ * is ever removed, so a cave stops dead at the soil and at the open air. */
+static void carve_cave(World *w, uint32_t *rng, int x, int y)
+{
+    const WorldGenDef *gen = &content.worldgen;
+    float fx = (float)x, fy = (float)y;
+    float angle = (rng_unit(rng) - 0.5f) * 1.6f + (rng_range(rng, 0, 1) ? 3.14159265f : 0.0f);
+    float radius = gen->cave_min_radius + rng_unit(rng) * (gen->cave_max_radius - gen->cave_min_radius);
+    int length = rng_range(rng, gen->cave_min_length, gen->cave_max_length);
+
+    for (int step = 0; step < length; step++) {
+        int reach = (int)ceilf(radius);
+        for (int dy = -reach; dy <= reach; dy++) {
+            for (int dx = -reach; dx <= reach; dx++) {
+                int cx = (int)floorf(fx + 0.5f) + dx, cy = (int)floorf(fy + 0.5f) + dy;
+                if ((float)(dx * dx + dy * dy) > radius * radius || cy < 1 || cy >= w->height - 2) continue;
+                if (world_get(w, cx, cy) == gen->rock) world_set(w, cx, cy, TILE_AIR);
+            }
+        }
+        angle += (rng_unit(rng) - 0.5f) * 0.7f;
+        radius += (rng_unit(rng) - 0.5f) * 0.5f;
+        if (radius < gen->cave_min_radius) radius = gen->cave_min_radius;
+        if (radius > gen->cave_max_radius) radius = gen->cave_max_radius;
+        fx += cosf(angle);
+        fy += sinf(angle) * 0.6f;
+    }
+}
+
+static void carve_caves(World *w, const int *level, uint32_t *rng)
+{
+    const WorldGenDef *gen = &content.worldgen;
+    if (gen->cave_per_100_columns <= 0.0f || gen->cave_max_radius <= 0.0f) return;
+    int count = (int)(gen->cave_per_100_columns * (float)w->width / 100.0f);
+    for (int i = 0; i < count; i++) {
+        /* A cave starts somewhere in rock; a few tries find some. */
+        for (int tries = 0; tries < 12; tries++) {
+            int x = rng_range(rng, 0, w->width - 1);
+            int y = world_y_to_row(w, level[x] - 1) + rng_range(rng, gen->cave_min_depth, gen->cave_max_depth);
+            if (y >= w->height - 2 || world_get(w, x, y) != gen->rock) continue;
+            carve_cave(w, rng, x, y);
+            break;
+        }
+    }
+}
+
+/* Sets gems, crystals and the like into the caves: in open space carved out
+ * of the rock, against a block to sit on or cling to. */
+static bool place_decor(World *w, const int *level, uint32_t *rng)
+{
+    const WorldGenDef *gen = &content.worldgen;
+    static const int dirs[4][2] = { { 0, 1 }, { 1, 0 }, { -1, 0 }, { 0, -1 } };
+    if (content.decor_count == 0) return true;
+
+    size_t cells = (size_t)w->width * w->height;
+    int *open = malloc(sizeof(int) * cells), open_count = 0;
+    if (!open) return false;
+    for (size_t i = 0; i < cells; i++)
+        if (w->layers[LAYER_FOREGROUND][i] == TILE_AIR && w->layers[LAYER_WALL][i] == gen->rock)
+            open[open_count++] = (int)i;
+
+    for (int k = 0; k < content.decor_count && open_count > 0; k++) {
+        const DecorDef *d = &content.decor[k];
+        int count = (int)(d->per_100_columns * (float)w->width / 100.0f + rng_unit(rng));
+        for (int i = 0; i < count; i++) {
+            for (int tries = 0; tries < 60; tries++) {
+                int cell = open[rng_range(rng, 0, open_count - 1)];
+                int x = cell % w->width, y = cell / w->width;
+                int depth = y - world_y_to_row(w, level[x] - 1);
+                if (depth < d->min_depth || depth > d->max_depth) continue;
+                if (world_get_at(w, LAYER_BACKGROUND, x, y) != TILE_AIR) continue;
+                bool held = false;
+                for (int n = 0; n < (d->on_floor ? 1 : 4); n++)
+                    held = held || tile_def(world_get(w, x + dirs[n][0], y + dirs[n][1]))->solid;
+                if (!held) continue;
+                world_set_at(w, LAYER_BACKGROUND, x, y, d->tile);
+                break;
+            }
+        }
+    }
+    free(open);
+    return true;
+}
+
 static int pick_tree(uint32_t *rng)
 {
     int total = 0;
@@ -286,6 +382,14 @@ static bool generate_terrain(World *w)
         }
     }
 
+    raise_walls(w);
+    carve_caves(w, level, &rng);
+    if (!place_decor(w, level, &rng)) {
+        free(c.level);
+        free(c.shape);
+        free(level);
+        return false;
+    }
     place_veins(w, level, &rng);
 
     /* Trees stand on the plains' surface, at every stage of growth from a
@@ -348,6 +452,7 @@ bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind)
     if (kind == WORLD_BLANK) return true;
     if (kind == WORLD_FLAT) {
         generate_flat(w);
+        raise_walls(w);
     } else if (!generate_terrain(w)) {
         world_free(w);
         return false;

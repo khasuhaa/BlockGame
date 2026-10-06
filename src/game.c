@@ -41,7 +41,7 @@ static bool can_cling_side(const World *w, TilePos feet, int d)
 /* Something climbable behind the player's body, such as a tree. */
 static bool can_hold(const World *w, TilePos feet)
 {
-    for (int layer = 0; layer < LAYER_COUNT; layer++) {
+    for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
         if (tile_def(world_get_at(w, layer, feet.x, feet.y))->climbable ||
             tile_def(world_get_at(w, layer, feet.x, feet.y - 1))->climbable)
             return true;
@@ -290,11 +290,27 @@ static int mine_layer(const World *w, TilePos t)
     return tile_def(world_get_at(w, LAYER_BACKGROUND, t.x, t.y))->removable ? LAYER_BACKGROUND : -1;
 }
 
+/* The backwall at a tile, if it is bare: nothing in front of it in either
+ * block layer. TILE_AIR otherwise. */
+static TileType bare_wall(const World *w, TilePos t)
+{
+    if (world_get(w, t.x, t.y) != TILE_AIR || world_get_at(w, LAYER_BACKGROUND, t.x, t.y) != TILE_AIR)
+        return TILE_AIR;
+    return world_get_at(w, LAYER_WALL, t.x, t.y);
+}
+
+/* The layer a particular mine action works on. */
+static int action_layer(const World *w, Action a)
+{
+    if (a.wall) return bare_wall(w, a.target) != TILE_AIR ? LAYER_WALL : -1;
+    return mine_layer(w, a.target);
+}
+
 /* The block at a position that can be opened - a bench or a storage block -
  * looking in front first, then behind. TILE_AIR if there is none. */
 static TileType usable_at(const World *w, int x, int y, int *layer)
 {
-    for (int l = 0; l < LAYER_COUNT; l++) {
+    for (int l = 0; l < BLOCK_LAYERS; l++) {
         TileType t = world_get_at(w, l, x, y);
         if (!tile_def(t)->bench && !tile_def(t)->trade && tile_def(t)->storage_columns == 0) continue;
         if (layer) *layer = l;
@@ -354,8 +370,13 @@ static bool target_valid(const World *w, Action a)
     if (a.type == ACTION_COLLECT) return true; /* the drop itself is checked on arrival */
     TileType t = world_get(w, a.target.x, a.target.y);
     switch (a.type) {
-    case ACTION_MINE: return mine_layer(w, a.target) >= 0;
+    case ACTION_MINE: return action_layer(w, a) >= 0;
     case ACTION_PLACE:
+        /* Something that hangs in the background can go up against a backwall. */
+        if (t == TILE_AIR && item_def((ItemId)a.item)->places != TILE_AIR &&
+            tile_def(item_def((ItemId)a.item)->places)->layer == LAYER_BACKGROUND &&
+            bare_wall(w, a.target) != TILE_AIR)
+            return true;
         /* Empty in front, and empty in the layer the block goes in. */
         return t == TILE_AIR && item_def((ItemId)a.item)->places != TILE_AIR &&
                world_get_at(w, tile_def(item_def((ItemId)a.item)->places)->layer, a.target.x,
@@ -396,7 +417,8 @@ static bool plan_action(Game *g, const World *w, Pose start, Action a,
     g->bfs_seen[start_idx] = gen;
     g->bfs_queue[tail++] = start_idx;
 
-    while (head < tail) {
+    /* A route this hard to find is as good as none; do not hold the game up. */
+    while (head < tail && head < MAX_SEARCH) {
         int idx = g->bfs_queue[head++];
         Pose pose = pose_at_index(w, idx);
         if (is_goal(w, pose, a)) {
@@ -431,7 +453,7 @@ static bool plan_action(Game *g, const World *w, Pose start, Action a,
 /* What a finished action does to the scratch world. */
 static Pose sim_effect(Game *g, Pose pose, Action a)
 {
-    int layer = mine_layer(&g->sim, a.target);
+    int layer = action_layer(&g->sim, a);
     if (a.type == ACTION_MINE && layer >= 0)
         world_set_at(&g->sim, layer, a.target.x, a.target.y, TILE_AIR);
     else if (a.type == ACTION_PLACE)
@@ -533,7 +555,7 @@ bool game_queue_collect(Game *g, int drop)
     if (drop < 0 || drop >= MAX_DROPS) return false;
     const Drop *d = &g->drops[drop];
     if (!d->active || d->collect > 0.0f) return false;
-    Action a = { ACTION_COLLECT, drop_tile(d), 0, drop, d->id };
+    Action a = { .type = ACTION_COLLECT, .target = drop_tile(d), .drop = drop, .drop_id = d->id };
     return queue_checked(g, sim_pending(g), a);
 }
 
@@ -629,6 +651,12 @@ bool game_click_tile(Game *g, int tx, int ty)
     } else if (world_in_bounds(&g->world, tx, ty) && mine_layer(&g->sim, a.target) >= 0) {
         /* A block here, in front or behind, is mined. */
         a.type = ACTION_MINE;
+    } else if (held->count > 0 && bare_wall(&g->sim, a.target) != TILE_AIR &&
+               item_def((ItemId)held->id)->tool_class >= 0 &&
+               item_def((ItemId)held->id)->tool_class == tile_def(bare_wall(&g->sim, a.target))->tool_class) {
+        /* Bare backwall, with the right kind of tool in hand: it is taken down. */
+        a.type = ACTION_MINE;
+        a.wall = true;
     } else if (held->count > 0 && item_def((ItemId)held->id)->places != TILE_AIR) {
         /* Holding a block: air beside a block is where it gets placed. */
         Action place = { .type = ACTION_PLACE, .target = a.target, .item = held->id };
@@ -663,6 +691,12 @@ static Drop *spawn_drop(Game *g, ItemId item, TilePos at)
 /* Puts a drop in the inventory, contents and all, if there is room. */
 static bool collect_drop(Game *g, Drop *d)
 {
+    /* Some things are never held: they turn straight into crystals. */
+    if (item_def(d->item)->crystals > 0) {
+        g->crystals += item_def(d->item)->crystals;
+        d->collect = 0.001f;
+        return true;
+    }
     if (inventory_add_stack(&g->inventory, (ItemStack){ d->item, 1, d->container }) != 0) return false;
     d->container = 0;
     d->collect = 0.001f;
@@ -688,7 +722,8 @@ static Storage *storage_at(Game *g, TilePos t)
 /* Whether a tile keeps anything a Storage record is needed for. */
 static bool needs_storage(const TileDef *def)
 {
-    return def->storage_columns > 0 || def->fuel_capacity > 0;
+    /* (A shared store keeps its contents with the player, not the block.) */
+    return (def->storage_columns > 0 && !def->storage_shared) || def->fuel_capacity > 0;
 }
 
 /* Sets up the record of a newly placed block. A storage block takes over the
@@ -728,6 +763,7 @@ static uint16_t storage_release(Game *g, TilePos t)
 uint16_t game_open_storage(const Game *g)
 {
     if (!g->bench_open) return 0;
+    if (tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y))->storage_shared) return SHARED_CONTAINER;
     Storage *st = storage_at((Game *)g, g->bench_pos);
     return st ? st->container : 0;
 }
@@ -778,6 +814,15 @@ static void begin_step(Game *g, Step s)
     if (s.dx != 0) p->facing = s.dx > 0 ? 1 : -1;
 }
 
+/* Puts a block in the world, with a backwall behind it if it leaves one and
+ * there is none there already. */
+static void place_tile(World *w, TilePos t, TileType tile)
+{
+    world_set_at(w, tile_def(tile)->layer, t.x, t.y, tile);
+    if (tile_def(tile)->wall && world_get_at(w, LAYER_WALL, t.x, t.y) == TILE_AIR)
+        world_set_at(w, LAYER_WALL, t.x, t.y, tile);
+}
+
 static void begin_work(Game *g, Activity activity, float duration)
 {
     g->player.activity = activity;
@@ -795,12 +840,19 @@ static void finish_activity(Game *g)
         p->climbing = p->step.climb;
     } else if (p->activity == ACTIVITY_MINING) {
         TilePos t = g->current.target;
-        int layer = mine_layer(&g->world, t);
-        if (layer >= 0) {
+        int layer = action_layer(&g->world, g->current);
+        if (layer == LAYER_WALL) {
+            /* Backwall comes away with nothing to show for it. */
+            world_set_at(&g->world, layer, t.x, t.y, TILE_AIR);
+        } else if (layer >= 0) {
             /* A storage block's contents go into the item it leaves behind. */
             const TileDef *def = tile_def(world_get_at(&g->world, layer, t.x, t.y));
             uint16_t inside = needs_storage(def) ? storage_release(g, t) : 0;
-            spawn_drop_stack(g, (ItemStack){ (uint8_t)def->drop, 1, inside }, t);
+            /* Ore comes out several times over with the right pickaxe. */
+            int count = def->drop_count > 0 ? def->drop_count : 1;
+            if (def->ore) count *= inventory_ore_multiplier(&g->inventory, def->tool_class);
+            for (int i = 0; i < count; i++)
+                spawn_drop_stack(g, (ItemStack){ (uint8_t)def->drop, 1, i == 0 ? inside : 0 }, t);
             world_set_at(&g->world, layer, t.x, t.y, TILE_AIR);
         }
         g->has_current = false;
@@ -816,11 +868,11 @@ static void finish_activity(Game *g)
             tree_plant(&g->world, t.x, t.y - 1, item_def(item)->plants);
         } else if (!needs_storage(tile_def(tile))) {
             container_free(&g->inventory, one.container);
-            world_set_at(&g->world, tile_def(tile)->layer, t.x, t.y, tile);
+            place_tile(&g->world, t, tile);
         } else if (!storage_at(g, t) && storage_create(g, t, tile_def(tile), one)) {
             /* What was inside the item is now inside the block. (One tile
              * keeps one record, so not where a block behind already has one.) */
-            world_set_at(&g->world, tile_def(tile)->layer, t.x, t.y, tile);
+            place_tile(&g->world, t, tile);
         } else {
             inventory_add_stack(&g->inventory, one);
             deny(g, t);
@@ -858,7 +910,7 @@ static bool start_next_activity(Game *g)
                 switch (g->current.type) {
                 case ACTION_MINE:
                     begin_work(g, ACTIVITY_MINING,
-                               game_mine_time(g, world_get_at(w, mine_layer(w, g->current.target),
+                               game_mine_time(g, world_get_at(w, action_layer(w, g->current),
                                                               g->current.target.x,
                                                               g->current.target.y)));
                     return true;
@@ -926,6 +978,12 @@ bool game_craft(Game *g, const Recipe *r, int count)
     g->craft_total = g->craft_remaining = count < max ? count : max;
     g->craft_timer = 0.0f;
     return true;
+}
+
+int game_fuel_at(const Game *g, int x, int y)
+{
+    Storage *st = storage_at((Game *)g, (TilePos){ world_wrap_x(&g->world, x), y });
+    return st ? st->fuel : 0;
 }
 
 int game_bench_fuel(const Game *g, int *capacity)

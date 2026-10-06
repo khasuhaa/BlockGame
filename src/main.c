@@ -2,6 +2,7 @@
 #include "benchui.h"
 #include "game.h"
 #include "hud.h"
+#include "light.h"
 #include "menu.h"
 #include "raylib.h"
 #include "save.h"
@@ -11,6 +12,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #define DATA_DIR "data"
@@ -20,6 +22,7 @@
 #define CAMERA_FOLLOW_SPEED 8.0f
 #define AUTOSAVE_SECONDS 120.0f
 #define BACKGROUND_DIM 0.18f /* how much darker the background layer is drawn */
+#define WALL_DIM 0.5f        /* and the backwall behind that */
 
 /* World-space pixel shown at the centre of the window. */
 typedef struct {
@@ -185,8 +188,9 @@ static void draw_sky(const Game *g, Vector2 origin)
     }
 }
 
-/* The two tile layers: the background, dimmed a little, wherever the
- * foreground does not hide it, then the foreground itself. */
+/* The tile layers, back to front: the backwall, well dimmed, and the
+ * background, dimmed a little, wherever the foreground does not hide them;
+ * then the foreground itself. */
 static void draw_world(const World *w, Vector2 origin)
 {
     /* Columns run past either end of the world: reads wrap round it. */
@@ -200,9 +204,11 @@ static void draw_world(const World *w, Vector2 origin)
             TileType t = world_get(w, x, y);
             int wx = world_wrap_x(w, x);
             float px = origin.x + (float)(x * TILE_SIZE), py = origin.y + (float)(y * TILE_SIZE);
-            if (!tile_def(t)->solid)
+            if (!tile_def(t)->solid) {
+                assets_draw_tile(world_get_at(w, LAYER_WALL, x, y), wx, y, px, py, TILE_SIZE, WALL_DIM);
                 assets_draw_tile(world_get_at(w, LAYER_BACKGROUND, x, y), wx, y, px, py, TILE_SIZE,
                                  BACKGROUND_DIM);
+            }
             if (!tile_def(t)->front) assets_draw_tile(t, wx, y, px, py, TILE_SIZE, 0.0f);
         }
     }
@@ -213,6 +219,45 @@ static void draw_world(const World *w, Vector2 origin)
             if (tile_def(t)->front)
                 assets_draw_tile(t, world_wrap_x(w, x), y, origin.x + (float)(x * TILE_SIZE),
                                  origin.y + (float)(y * TILE_SIZE), TILE_SIZE, 0.0f);
+        }
+    }
+}
+
+/* Darkens the world by how little light reaches each tile. The darkness of a
+ * tile's corner is the average of the tiles that meet there, so light fades
+ * smoothly instead of in squares. */
+static void draw_light(const Game *g, Vector2 origin)
+{
+    static uint8_t *light;
+    static int capacity;
+    int x0 = (int)floorf(-origin.x / TILE_SIZE) - 1, y0 = (int)floorf(-origin.y / TILE_SIZE) - 1;
+    int cols = GetScreenWidth() / TILE_SIZE + 4, rows = GetScreenHeight() / TILE_SIZE + 4;
+    if (cols * rows > capacity) {
+        uint8_t *bigger = realloc(light, (size_t)cols * rows);
+        if (!bigger) return;
+        light = bigger;
+        capacity = cols * rows;
+    }
+    light_compute(g, x0, y0, cols, rows, light);
+
+    for (int cy = 1; cy < rows - 1; cy++) {
+        for (int cx = 1; cx < cols - 1; cx++) {
+            Color corner[4]; /* top left, bottom left, bottom right, top right */
+            static const int at[4][2] = { { -1, -1 }, { -1, 0 }, { 0, 0 }, { 0, -1 } };
+            int darkest = 0;
+            for (int k = 0; k < 4; k++) {
+                int bx = cx + at[k][0], by = cy + at[k][1];
+                int sum = light[by * cols + bx] + light[by * cols + bx + 1] +
+                          light[(by + 1) * cols + bx] + light[(by + 1) * cols + bx + 1];
+                int dark = 255 - sum * 255 / (4 * LIGHT_MAX);
+                corner[k] = (Color){ 4, 5, 14, (unsigned char)dark };
+                if (dark > darkest) darkest = dark;
+            }
+            if (darkest == 0) continue;
+            Rectangle r = { origin.x + (float)((x0 + cx) * TILE_SIZE), origin.y + (float)((y0 + cy) * TILE_SIZE),
+                            TILE_SIZE, TILE_SIZE };
+            /* (raylib takes the corners anticlockwise from the top left.) */
+            DrawRectangleGradientEx(r, corner[0], corner[1], corner[2], corner[3]);
         }
     }
 }
@@ -379,7 +424,9 @@ typedef struct {
     Hud hud;
     BenchUi bench;
     TradeUi trade;
-    int saved_crystals; /* what the profile file holds */
+    /* What the profile file holds: the player's crystals and shared chest. */
+    int saved_crystals;
+    Container saved_shared;
     PauseMenu pause;
     bool paused;
     float since_save;
@@ -395,7 +442,9 @@ static void session_begin(Session *s, const MainMenu *menu)
     s->bench = (BenchUi){ .selected = -1, .amount = 1 };
     s->trade = (TradeUi){ 0 };
     /* Crystals come with the player into whichever world is opened. */
-    s->game.crystals = s->saved_crystals = load_crystals(PROFILE_PATH);
+    profile_load(PROFILE_PATH, &s->game);
+    s->saved_crystals = s->game.crystals;
+    s->saved_shared = s->game.inventory.containers[SHARED_CONTAINER];
     s->paused = false;
     s->since_save = 0.0f;
     s->cam = (MapCamera){ .follow = true };
@@ -403,11 +452,19 @@ static void session_begin(Session *s, const MainMenu *menu)
                                (float)s->game.player.feet.y * TILE_SIZE };
 }
 
+static void session_save_profile(Session *s)
+{
+    if (!DirectoryExists(SAVE_DIR)) MakeDirectory(SAVE_DIR);
+    if (!profile_save(PROFILE_PATH, &s->game)) return;
+    s->saved_crystals = s->game.crystals;
+    s->saved_shared = s->game.inventory.containers[SHARED_CONTAINER];
+}
+
 static void session_save(Session *s)
 {
     if (!DirectoryExists(SAVE_DIR)) MakeDirectory(SAVE_DIR);
     if (!save_game(&s->game, s->path)) fprintf(stderr, "could not save %s\n", s->path);
-    if (save_crystals(PROFILE_PATH, s->game.crystals)) s->saved_crystals = s->game.crystals;
+    session_save_profile(s);
     s->since_save = 0.0f;
 }
 
@@ -422,11 +479,11 @@ static void session_update(Session *s, const Keybinds *keys, float dt)
     }
     handle_input(&s->game, &s->cam, &s->hud, &s->bench, &s->trade, keys);
     game_update(&s->game, dt);
-    /* Crystals are written down as soon as they change, not only on a save. */
-    if (s->game.crystals != s->saved_crystals) {
-        if (!DirectoryExists(SAVE_DIR)) MakeDirectory(SAVE_DIR);
-        if (save_crystals(PROFILE_PATH, s->game.crystals)) s->saved_crystals = s->game.crystals;
-    }
+    /* What belongs to the player is written down as soon as it changes, not
+     * only when the world is saved. */
+    if (s->game.crystals != s->saved_crystals ||
+        memcmp(&s->saved_shared, &s->game.inventory.containers[SHARED_CONTAINER], sizeof s->saved_shared) != 0)
+        session_save_profile(s);
     update_camera(&s->game, &s->cam, dt);
 
     s->since_save += dt;
@@ -444,9 +501,8 @@ static void session_draw(Session *s)
     draw_world(&g->world, origin);
     draw_player(g, origin);
     draw_drops(g, origin);
-    /* Night falls over the world, but not over the interface. */
-    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(),
-                  Fade((Color){ 6, 8, 30, 255 }, 0.55f * (1.0f - game_daylight(g))));
+    /* Darkness falls over the world, but not over the interface. */
+    draw_light(g, origin);
     draw_actions(g, origin);
     if (!s->paused && !s->cam.dragging && IsCursorOnScreen() &&
         !hud_mouse_over(&s->hud, &g->inventory) && !benchui_mouse_over(&s->bench, g, &view) &&

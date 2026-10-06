@@ -4,7 +4,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 4u
+#define SAVE_VERSION 5u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -202,7 +202,9 @@ bool load_game(Game *g, const char *path)
     if (ok) {
         World *w = &g->world;
         size_t cells = (size_t)w->width * w->height;
-        for (int layer = 0; layer < LAYER_COUNT && ok; layer++)
+        /* Saves from before version 5 have no backwall layer. */
+        int saved_layers = h.version < 5 ? BLOCK_LAYERS : LAYER_COUNT;
+        for (int layer = 0; layer < saved_layers && ok; layer++)
             ok = fread(w->layers[layer], 1, cells, f) == cells;
         if (ok && h.version < 3) {
             ok = read_old_state(f, g);
@@ -238,6 +240,14 @@ bool load_game(Game *g, const char *path)
             w->layers[LAYER_FOREGROUND][i] = TILE_AIR;
         }
 
+        /* An old world gets a backwall behind every block still standing. What
+         * was already dug out stays open to the sky. */
+        for (size_t i = 0; ok && h.version < 5 && i < cells; i++)
+            if (tile_def(w->layers[LAYER_FOREGROUND][i])->wall)
+                w->layers[LAYER_WALL][i] = w->layers[LAYER_FOREGROUND][i];
+        /* The shared container belongs to the player, not this world. */
+        memset(&g->inventory.containers[SHARED_CONTAINER], 0, sizeof(Container));
+
         w->y_top = h.y_top;
         w->spawn_x = h.spawn_x;
         w->spawn_y = h.spawn_y;
@@ -257,21 +267,37 @@ bool load_game(Game *g, const char *path)
     return ok;
 }
 
-int load_crystals(const char *path)
+void profile_load(const char *path, Game *g)
 {
-    int crystals = content.trade.start_crystals;
+    Container *shared = &g->inventory.containers[SHARED_CONTAINER];
+    memset(shared, 0, sizeof *shared);
+    shared->used = true;
+    g->crystals = content.trade.start_crystals;
+
     FILE *f = fopen(path, "r");
-    if (!f) return crystals;
-    int read;
-    if (fscanf(f, "crystals %d", &read) == 1 && read >= 0) crystals = read;
+    if (!f) return;
+    char line[128], name[CONTENT_NAME_LEN];
+    int a, b;
+    while (fgets(line, sizeof line, f)) {
+        if (sscanf(line, "crystals %d", &a) == 1 && a >= 0) g->crystals = a;
+        /* Items are written by name; one that no longer exists is dropped. */
+        if (sscanf(line, "shared %d %31s %d", &a, name, &b) == 3 && a >= 0 && a < CONTAINER_MAX_SLOTS &&
+            b > 0 && b <= 255 && item_id(name) > 0)
+            shared->slots[a] = (ItemStack){ (uint8_t)item_id(name), (uint8_t)b, 0 };
+    }
     fclose(f);
-    return crystals;
 }
 
-bool save_crystals(const char *path, int crystals)
+bool profile_save(const char *path, const Game *g)
 {
     FILE *f = fopen(path, "w");
     if (!f) return false;
-    bool ok = fprintf(f, "crystals %d\n", crystals) > 0;
+    bool ok = fprintf(f, "crystals %d\n", g->crystals) > 0;
+    const Container *shared = &g->inventory.containers[SHARED_CONTAINER];
+    for (int i = 0; i < CONTAINER_MAX_SLOTS; i++) {
+        const ItemStack *s = &shared->slots[i];
+        if (s->id == ITEM_NONE || s->count == 0) continue;
+        ok = fprintf(f, "shared %d %s %d\n", i, item_def(s->id)->name, s->count) > 0 && ok;
+    }
     return fclose(f) == 0 && ok;
 }

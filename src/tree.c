@@ -13,7 +13,7 @@ void tree_plant(World *w, int x, int y, int kind)
 
 int tree_trunk_at(const World *w, int x, int y)
 {
-    for (int layer = 0; layer < LAYER_COUNT; layer++) {
+    for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
         int kind = tile_def(world_get_at(w, layer, x, y))->log_of;
         if (kind >= 0 && content.trees[kind].layer == layer) return kind;
     }
@@ -22,7 +22,7 @@ int tree_trunk_at(const World *w, int x, int y)
 
 int tree_leaves_at(const World *w, int x, int y)
 {
-    for (int layer = 0; layer < LAYER_COUNT; layer++) {
+    for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
         int kind = tile_def(world_get_at(w, layer, x, y))->leaves_of;
         if (kind >= 0 && content.trees[kind].layer == layer) return kind;
     }

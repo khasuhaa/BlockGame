@@ -8,6 +8,10 @@
 #define ARMOR_SLOTS 4
 #define CONTAINER_MAX_SLOTS 16
 #define MAX_CONTAINERS 256
+/* The one container shared by every world. It is never handed out for an
+ * item or a block, and nothing with contents of its own may go in it: what it
+ * holds is saved as plain items, outside any world. */
+#define SHARED_CONTAINER (MAX_CONTAINERS - 1)
 
 /* `container` is the item's metadata: which Inventory.containers entry holds
  * what is inside it, or 0 for nothing inside. It travels with the stack
@@ -69,6 +73,8 @@ int inventory_remove(Inventory *inv, ItemId id, int count);
 /* How much faster the best tool of a kind in the bar, or in a container open
  * in it, mines; 1 if there is none. */
 float inventory_tool_speed(const Inventory *inv, int tool_class);
+/* How many times over the best such tool makes an ore block drop; 1 if none does. */
+int inventory_ore_multiplier(const Inventory *inv, int tool_class);
 /* Takes a single item, selected stack first, along with what is inside it. */
 bool inventory_take_one(Inventory *inv, ItemId id, ItemStack *out);
 

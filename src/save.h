@@ -12,10 +12,10 @@ bool save_game(const Game *g, const char *path);
  * left empty. Actions that were queued when the game was saved are not kept. */
 bool load_game(Game *g, const char *path);
 
-/* Crystals belong to the player, not to a world: they are kept in a small
- * file of their own. A missing file is a new player, who starts with what the
- * data gives them. */
-int load_crystals(const char *path);
-bool save_crystals(const char *path, int crystals);
+/* What belongs to the player rather than to any one world: their crystals,
+ * and what is in the shared chest. It is kept in a small file of its own. A
+ * missing file is a new player, who starts with what the data gives them. */
+void profile_load(const char *path, Game *g);
+bool profile_save(const char *path, const Game *g);
 
 #endif

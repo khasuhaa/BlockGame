@@ -12,6 +12,7 @@
 #define MAX_DROPS 2048
 #define MAX_TICK_RATE 100
 #define MAX_STORAGES 256
+#define MAX_SEARCH 60000 /* poses a route search looks at before giving up */
 
 /* The pace of the game comes from the rules data; these are shorthands. */
 #define WALK_TIME (content.rules.walk_time)
@@ -51,6 +52,7 @@ typedef struct {
     ActionType type;
     TilePos target;
     uint8_t item; /* ACTION_PLACE, ACTION_PLANT: the item being used up */
+    bool wall;    /* ACTION_MINE: take the backwall, not a block */
     int drop;     /* ACTION_COLLECT: which drop, and the id it had when queued */
     uint32_t drop_id;
 } Action;
@@ -237,6 +239,8 @@ TileType game_bench_at(const Game *g, int x, int y);
 /* Fuel left in the open bench, in ticks, and how much it can hold; -1 if it
  * does not use fuel. A bench that uses fuel only crafts while it has some. */
 int game_bench_fuel(const Game *g, int *capacity);
+/* Fuel left in whatever block is at a position; 0 if there is none. */
+int game_fuel_at(const Game *g, int x, int y);
 /* Feeds one of an item to the open bench. False if the item is not fuel, none
  * is held, or the bench is full. */
 bool game_add_fuel(Game *g, ItemId item);

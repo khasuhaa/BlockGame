@@ -13,5 +13,6 @@
     ]
   },
   "drops": { "fall_speed": 12.0, "pickup_delay": 0.45, "collect_time": 0.15 },
+  "light": { "sun": 15, "moon": 5, "air_falloff": 1, "solid_falloff": 2, "minimum": 2 },
   "interface": { "denial_time": 0.6 }
 }

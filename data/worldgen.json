@@ -30,6 +30,17 @@
     "portal": { "base": "portal_base", "body": "spawn_portal", "top": "spawn_portal_top", "height": 3 }
   },
 
+  "caves": { "per_100_columns": 5, "length": [30, 140], "radius": [1.4, 3.0], "depth": [2, 190] },
+
+  "cave_decor": [
+    { "name": "amethyst", "tile": "amethyst", "per_100_columns": 5, "depth": [4, 190] },
+    { "name": "sapphire", "tile": "sapphire", "per_100_columns": 3.2, "depth": [20, 190] },
+    { "name": "emerald", "tile": "emerald", "per_100_columns": 2, "depth": [45, 190] },
+    { "name": "ruby", "tile": "ruby", "per_100_columns": 1.2, "depth": [75, 190] },
+    { "name": "diamond", "tile": "diamond", "per_100_columns": 0.7, "depth": [110, 190] },
+    { "name": "time_crystal", "tile": "time_crystal", "per_100_columns": 2.5, "depth": [4, 190], "on_floor": true }
+  ],
+
   "veins": [
     { "name": "flint", "tile": "flint", "in": ["dirt"], "size": [4, 10],
       "per_100_columns": 14, "depth": [1, 6], "buried": true },
