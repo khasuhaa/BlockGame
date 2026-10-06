@@ -2216,7 +2216,7 @@ static void test_content(void)
                " { \"name\": \"gem_block\", \"solid\": true, \"removable\": true, \"drop\": \"gem\" } ] }");
     write_file("build/mod/items.json",
                "{ \"items\": [ { \"name\": \"gem\", \"label\": \"Gem\", \"max_stack\": 20,"
-               " \"places\": \"gem_block\" } ] }");
+               " \"places\": \"gem_block\", \"category\": \"materials\", \"price\": 7 } ] }");
     write_file("build/mod/recipes.json",
                "{ \"recipes\": [ { \"bench\": \"workbench\", \"output\": { \"item\": \"gem\" },"
                " \"inputs\": [ { \"item\": \"stone\", \"count\": 4 } ] } ] }");
@@ -2227,6 +2227,8 @@ static void test_content(void)
     CHECK(tile_def(TILE_DIRT)->mine_time == 2.5f && tile_def(TILE_DIRT)->drop == item_id("gem"));
     CHECK(item_def(item_id("gem"))->max_stack == 20 && item_def(item_id("gem"))->places == tile_id("gem_block"));
     CHECK(content.rules.day_ticks == 500 && content.rules.night_ticks == 800);
+    /* The new item is on sale at once, at its own price. */
+    CHECK(item_def(item_id("gem"))->category == item_def(ITEM_STICK)->category && trade_price(item_id("gem")) == 7);
 
     /* The new content works in the game with no code written for it. */
     Game g;
@@ -2248,6 +2250,12 @@ static void test_content(void)
                "{ \"recipes\": [ { \"bench\": \"workbench\", \"output\": { \"item\": \"unobtainium\" } } ] }");
     CHECK(!content_load("build/mod", err, sizeof err));
     CHECK(strstr(err, "recipes.json") && strstr(err, "unobtainium"));
+    /* So is an item nobody could buy or sell. */
+    write_file("build/mod/recipes.json", "{ }");
+    write_file("build/mod/items.json", "{ \"items\": [ { \"name\": \"orphan\" } ] }");
+    CHECK(!content_load("build/mod", err, sizeof err));
+    CHECK(strstr(err, "orphan") && strstr(err, "category"));
+    write_file("build/mod/items.json", "{ }");
     write_file("build/mod/recipes.json", "{ not json");
     CHECK(!content_load("build/mod", err, sizeof err) && strstr(err, "not valid JSON"));
 

@@ -631,6 +631,14 @@ static bool validate(Reader *r)
         if (it->category_name[0] && it->category < 0)
             return fail(r, "item \"%s\" is in category \"%s\", which does not exist", it->name,
                         it->category_name);
+        /* Everything is for sale at a trade block except money itself, so an
+         * item left out of the categories is a mistake, not a choice. */
+        bool money = false;
+        for (int c = 0; c < content.trade.currency_count; c++)
+            money = money || content.trade.currencies[c].item == i;
+        if (i > 0 && it->category < 0 && !money && content.trade.category_count > 0)
+            return fail(r, "item \"%s\" has no \"category\", so it could not be bought or sold; "
+                           "give it one from trade.json", it->name);
         it->plants = it->plants_name[0] ? tree_id(it->plants_name) : -1;
         if (it->plants_name[0] && it->plants < 0)
             return fail(r, "item \"%s\" plants a tree called \"%s\", which does not exist", it->name,
