@@ -78,6 +78,8 @@
     {"name": "coral_0", "label": "Coral", "solid": false, "layer": "background", "removable": true, "texture": "tiles/coral_0.png", "mine_time": 0.1, "tool": "shovel", "drops": [{"item": "coral", "count": 1}], "soil": ["sand"], "needs_water": true, "grows_into": "coral_1"},
     {"name": "coral_1", "label": "Coral", "solid": false, "layer": "background", "removable": true, "texture": "tiles/coral_1.png", "mine_time": 0.1, "tool": "shovel", "drops": [{"item": "coral", "count": 1}], "soil": ["sand"], "needs_water": true, "grows_into": "coral_2"},
     {"name": "coral_2", "label": "Coral", "solid": false, "layer": "background", "removable": true, "texture": "tiles/coral_2.png", "mine_time": 0.1, "tool": "shovel", "drops": [{"item": "coral", "count": 2}], "soil": ["sand"], "needs_water": true, "grows_into": "coral_3"},
-    {"name": "coral_3", "label": "Coral", "solid": false, "layer": "background", "removable": true, "texture": "tiles/coral_3.png", "mine_time": 0.1, "tool": "shovel", "drops": [{"item": "coral", "count": 3}], "soil": ["sand"], "needs_water": true}
+    {"name": "coral_3", "label": "Coral", "solid": false, "layer": "background", "removable": true, "texture": "tiles/coral_3.png", "mine_time": 0.1, "tool": "shovel", "drops": [{"item": "coral", "count": 3}], "soil": ["sand"], "needs_water": true},
+    {"name": "dodo_egg", "label": "Dodo egg", "solid": false, "layer": "background", "removable": true, "mine_time": 0.1, "drop": "dodo_egg", "texture": "tiles/dodo_egg.png", "tool": "shovel", "hatches": "dodo"},
+    {"name": "dodo_egg_placed", "label": "Dodo egg", "solid": false, "layer": "background", "removable": true, "mine_time": 0.1, "drop": "dodo_egg", "texture": "tiles/dodo_egg.png", "tool": "shovel", "hatches": "dodo", "hatch_owned": true}
   ]
 }

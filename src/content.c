@@ -42,6 +42,13 @@ int tree_id(const char *name)
     return -1;
 }
 
+int mob_id(const char *name)
+{
+    for (int i = 0; i < content.mob_count; i++)
+        if (strcmp(content.mobs[i].name, name) == 0) return i;
+    return -1;
+}
+
 int tool_class_id(const char *name)
 {
     for (int i = 0; i < content.tool_class_count; i++)
@@ -65,6 +72,7 @@ void content_reset(void)
     snprintf(content.tiles[0].name, CONTENT_NAME_LEN, "air");
     content.tiles[0].log_of = content.tiles[0].leaves_of = -1;
     content.tiles[0].tool_class = -1;
+    content.tiles[0].hatches = -1;
     content.tile_count = 1;
     snprintf(content.items[0].name, CONTENT_NAME_LEN, "none");
     snprintf(content.items[0].label, CONTENT_NAME_LEN, "Nothing");
@@ -235,6 +243,9 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->drop_count = (int)num(e, "drop_count", 1);
         t->needs_water = flag(e, "needs_water", false);
         t->breaks_above = flag(e, "breaks_above", false);
+        /* Creatures are read later; the name is matched to one once they are. */
+        copy_name(t->hatches_name, sizeof t->hatches_name, str(e, "hatches"));
+        t->hatch_owned = flag(e, "hatch_owned", false);
         t->grows_into = TILE_AIR;
         if (!tile_ref(r, e, "grows_into", &t->grows_into)) return false;
         const cJSON *ground;
@@ -715,6 +726,52 @@ static bool read_rules(Reader *r, const cJSON *root)
     return true;
 }
 
+static bool read_mobs(Reader *r, const cJSON *root)
+{
+    const cJSON *e, *one;
+    if (cJSON_IsNumber(field(root, "spawn_radius"))) content.mob_spawn_radius = (int)num(root, "spawn_radius", 50);
+    if (cJSON_IsNumber(field(root, "cap"))) content.mob_cap = (int)num(root, "cap", 10);
+    cJSON_ArrayForEach(e, field(root, "mobs")) {
+        const char *name = str(e, "name");
+        if (!name) return fail(r, "a mob has no \"name\"");
+        int id = mob_id(name);
+        if (id < 0) {
+            if (content.mob_count >= MAX_MOB_KINDS) return fail(r, "too many kinds of mob");
+            id = content.mob_count++;
+        }
+        MobDef *m = &content.mobs[id];
+        memset(m, 0, sizeof *m);
+        copy_name(m->name, sizeof m->name, name);
+        copy_name(m->label, sizeof m->label, str(e, "label") ? str(e, "label") : name);
+        copy_name(m->texture, sizeof m->texture, str(e, "texture"));
+        copy_name(m->texture_baby, sizeof m->texture_baby,
+                  str(e, "texture_baby") ? str(e, "texture_baby") : str(e, "texture"));
+        m->step_ticks = (int)num(e, "step_ticks", 4);
+        if (m->step_ticks < 1) m->step_ticks = 1;
+        m->move_chance = (float)num(e, "move_chance", 0.2);
+        m->turn_chance = (float)num(e, "turn_chance", 0.25);
+        m->baby_ticks = (int)num(e, "baby_ticks", 600);
+        m->spawn_chance = (float)num(field(e, "spawn"), "chance", 0.0);
+        cJSON_ArrayForEach(one, field(field(e, "spawn"), "above")) {
+            TileType t = cJSON_IsString(one) ? tile_id(one->valuestring) : -1;
+            if (t < 0) return fail(r, "mob \"%s\": it spawns above a tile that does not exist", name);
+            if (m->spawn_above_count < MAX_MOB_SPAWN_TILES) m->spawn_above[m->spawn_above_count++] = t;
+        }
+        const cJSON *lays = field(e, "lays");
+        if (lays && !tile_ref(r, lays, "tile", &m->lays)) return false;
+        m->lay_chance = (float)num(lays, "chance", 0.0);
+        cJSON_ArrayForEach(one, field(e, "drops")) {
+            if (m->drop_count >= MAX_MOB_DROPS) return fail(r, "mob \"%s\" drops too many kinds of thing", name);
+            ItemId item = ITEM_NONE;
+            if (!str(one, "item") || !item_ref(r, one, "item", &item)) return fail(r, "mob \"%s\": a drop needs an \"item\"", name);
+            m->drops[m->drop_count].item = item;
+            m->drops[m->drop_count].min = (int)num(one, "min", 1);
+            m->drops[m->drop_count++].max = (int)num(one, "max", num(one, "min", 1));
+        }
+    }
+    return true;
+}
+
 static bool read_trade(Reader *r, const cJSON *root)
 {
     TradeDef *t = &content.trade;
@@ -817,6 +874,11 @@ static bool validate(Reader *r)
                         it->plants_name);
     }
     for (int i = 0; i < content.tile_count; i++) {
+        TileDef *egg = &content.tiles[i];
+        egg->hatches = egg->hatches_name[0] ? mob_id(egg->hatches_name) : -1;
+        if (egg->hatches_name[0] && egg->hatches < 0)
+            return fail(r, "tile \"%s\" hatches a mob called \"%s\", which does not exist", egg->name,
+                        egg->hatches_name);
         const TileDef *t = &content.tiles[i];
         if (t->layer == LAYER_BACKGROUND && t->solid)
             return fail(r, "tile \"%s\" is placed in the background, so it cannot be solid", t->name);
@@ -873,7 +935,7 @@ static bool validate(Reader *r)
 bool content_load(const char *dir, char *error, size_t error_size)
 {
     static const char *files[] = { "tiles.json", "items.json", "recipes.json", "trees.json",
-                                   "worldgen.json", "rules.json", "trade.json" };
+                                   "worldgen.json", "rules.json", "trade.json", "mobs.json" };
     enum { FILE_COUNT = sizeof files / sizeof files[0] };
     Reader r = { "", error, error_size, false };
     cJSON *roots[FILE_COUNT];
@@ -889,6 +951,7 @@ bool content_load(const char *dir, char *error, size_t error_size)
     }
     static bool (*const readers[FILE_COUNT])(Reader *, const cJSON *) = {
         read_tiles, read_items, read_recipes, read_trees, read_worldgen, read_rules, read_trade,
+        read_mobs,
     };
     for (int i = 0; i < FILE_COUNT && !r.failed; i++) {
         r.file = files[i];

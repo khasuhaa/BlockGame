@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 6u
+#define SAVE_VERSION 7u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -131,6 +131,17 @@ static bool read_names(FILE *f, uint8_t map[256], int (*lookup)(const char *))
     return true;
 }
 
+/* Which saved creature kinds still exist, filled in as their names are read. */
+static bool mob_id_by_saved_name[256];
+static int mob_names_read;
+
+static int mob_id_or_zero(const char *name)
+{
+    int id = mob_id(name);
+    if (mob_names_read < 256) mob_id_by_saved_name[mob_names_read++] = id >= 0;
+    return id > 0 ? id : 0;
+}
+
 static void legacy_names(uint8_t map[256], const char *const *names, int count,
                          int (*lookup)(const char *))
 {
@@ -178,7 +189,9 @@ bool save_game(const Game *g, const char *path)
         ok = fwrite(w->layers[layer], 1, cells, f) == cells;
     ok = ok && fwrite(&g->inventory, sizeof g->inventory, 1, f) == 1 &&
          fwrite(g->drops, sizeof g->drops, 1, f) == 1 &&
-         fwrite(g->storages, sizeof g->storages, 1, f) == 1;
+         fwrite(g->storages, sizeof g->storages, 1, f) == 1 &&
+         write_names(f, content.mob_count, content.mobs[0].name, sizeof content.mobs[0]) &&
+         fwrite(g->mobs, sizeof g->mobs, 1, f) == 1 && fwrite(&g->next_mob_id, sizeof g->next_mob_id, 1, f) == 1;
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
         remove(tmp);
@@ -226,6 +239,21 @@ bool load_game(Game *g, const char *path)
                  fread(g->drops, sizeof g->drops, 1, f) == 1 &&
                  (h.version == 3 ? read_old_storages(f, g)
                                  : fread(g->storages, sizeof g->storages, 1, f) == 1);
+        }
+        /* Creatures, from version 7: kinds by name, like blocks and items. */
+        if (ok && h.version >= 7) {
+            uint8_t kinds[256];
+            mob_names_read = 0;
+            memset(mob_id_by_saved_name, 0, sizeof mob_id_by_saved_name);
+            ok = read_names(f, kinds, mob_id_or_zero) && fread(g->mobs, sizeof g->mobs, 1, f) == 1 &&
+                 fread(&g->next_mob_id, sizeof g->next_mob_id, 1, f) == 1;
+            for (int i = 0; ok && i < MAX_MOBS; i++) {
+                /* (A kind that no longer exists maps to 0 like any other; a
+                 * creature of it is only kept if 0 really is its kind.) */
+                bool known = mob_id_by_saved_name[g->mobs[i].kind];
+                if (!known) g->mobs[i].active = false;
+                g->mobs[i].kind = kinds[g->mobs[i].kind];
+            }
         }
 
         /* Turn the save's ids into this run's. */

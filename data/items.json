@@ -88,6 +88,10 @@
     {"name": "carrot", "label": "Carrot", "texture": "items/carrot.png", "category": "food", "sows": "carrot_0"},
     {"name": "flax_seeds", "label": "Flax seeds", "texture": "items/flax_seeds.png", "category": "materials", "sows": "flax_0"},
     {"name": "flax", "label": "Flax", "texture": "items/flax.png", "category": "materials"},
-    {"name": "coral", "label": "Coral", "texture": "items/coral.png", "category": "materials", "sows": "coral_0"}
+    {"name": "coral", "label": "Coral", "texture": "items/coral.png", "category": "materials", "sows": "coral_0"},
+    {"name": "dodo_egg", "label": "Dodo egg", "places": "dodo_egg_placed", "texture": "items/dodo_egg.png", "category": "food"},
+    {"name": "dodo_meat", "label": "Dodo meat", "texture": "items/dodo_meat.png", "category": "food"},
+    {"name": "cooked_dodo_meat", "label": "Cooked dodo meat", "texture": "items/cooked_dodo_meat.png", "category": "food"},
+    {"name": "feather", "label": "Feather", "texture": "items/feather.png", "category": "materials"}
   ]
 }

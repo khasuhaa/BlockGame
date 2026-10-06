@@ -1,0 +1,38 @@
+{
+  "spawn_radius": 50,
+  "cap": 10,
+  "mobs": [
+    {
+      "name": "dodo",
+      "label": "Dodo",
+      "texture": "mobs/dodo.png",
+      "texture_baby": "mobs/dodo_baby.png",
+      "step_ticks": 4,
+      "move_chance": 0.2,
+      "turn_chance": 0.25,
+      "spawn": {
+        "above": [
+          "grass"
+        ],
+        "chance": 0.5
+      },
+      "lays": {
+        "tile": "dodo_egg",
+        "chance": 0.0008
+      },
+      "baby_ticks": 600,
+      "drops": [
+        {
+          "item": "dodo_meat",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "feather",
+          "min": 1,
+          "max": 2
+        }
+      ]
+    }
+  ]
+}

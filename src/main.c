@@ -4,6 +4,7 @@
 #include "hud.h"
 #include "light.h"
 #include "menu.h"
+#include "mob.h"
 #include "raylib.h"
 #include "save.h"
 #include "tradeui.h"
@@ -137,7 +138,11 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
             /* An item under the cursor comes before the tile behind it.
              * Something that opens offers a choice if it can also be removed;
              * otherwise it just opens. */
+            int mob = game_mob_at(g, (mouse.x - view.origin.x) / TILE_SIZE,
+                                  (mouse.y - view.origin.y) / TILE_SIZE);
             if (drop >= 0) game_click_drop(g, drop);
+            /* A creature under the cursor is hunted. */
+            else if (mob >= 0) game_click_mob(g, mob);
             /* A second click on a square with something queued takes it back. */
             else if (game_unqueue_tile(g, t.x, t.y)) {}
             else if (opens && def->removable) benchui_show_popup(bench, t);
@@ -294,6 +299,16 @@ static void draw_action_marker(const Game *g, Vector2 origin, Action a)
 {
     Rectangle r = tile_rect(origin, a.target);
     Color c = { 255, 255, 255, 255 };
+    if (a.type == ACTION_ATTACK) {
+        /* Rings the creature, wherever it has got to. */
+        const Mob *m = &g->mobs[a.drop];
+        if (!m->active || m->id != a.drop_id) return;
+        float mx, my;
+        game_mob_pos(g, a.drop, &mx, &my);
+        Vector2 at = { origin.x + (view_near_x(&view, mx) + 0.5f) * TILE_SIZE, origin.y + (my + 0.5f) * TILE_SIZE };
+        DrawRing(at, TILE_SIZE * 0.55f, TILE_SIZE * 0.55f + 2.5f, 0.0f, 360.0f, 32, (Color){ 235, 70, 70, 255 });
+        return;
+    }
     if (a.type == ACTION_COLLECT) {
         /* Rings the item itself, wherever in its tile it happens to be. */
         const Drop *d = &g->drops[a.drop];
@@ -344,6 +359,22 @@ static void draw_actions(const Game *g, Vector2 origin)
                    (Vector2){ r.x + r.width - 6, r.y + r.height - 6 }, 3.0f, c);
         DrawLineEx((Vector2){ r.x + r.width - 6, r.y + 6 },
                    (Vector2){ r.x + 6, r.y + r.height - 6 }, 3.0f, c);
+    }
+}
+
+/* Creatures, each drawn facing the way it is going. */
+static void draw_mobs(const Game *g, Vector2 origin)
+{
+    for (int i = 0; i < MAX_MOBS; i++) {
+        const Mob *m = &g->mobs[i];
+        if (!m->active) continue;
+        const MobDef *def = &content.mobs[m->kind];
+        float x, y;
+        game_mob_pos(g, i, &x, &y);
+        Rectangle r = { origin.x + view_near_x(&view, x) * TILE_SIZE, origin.y + y * TILE_SIZE, TILE_SIZE,
+                        TILE_SIZE };
+        if (r.x < -TILE_SIZE || r.x > GetScreenWidth()) continue;
+        assets_draw_sprite(m->baby ? def->texture_baby : def->texture, r, m->dir < 0);
     }
 }
 
@@ -515,6 +546,7 @@ static void session_draw(Session *s)
     ClearBackground((Color){ 20, 22, 28, 255 });
     draw_sky(g, origin);
     draw_world(&g->world, origin);
+    draw_mobs(g, origin);
     draw_player(g, origin);
     draw_drops(g, origin);
     /* Darkness falls over the world, but not over the interface. */

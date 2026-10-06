@@ -24,6 +24,7 @@ Everything the game contains is defined in `data/`, not in the code, so it can b
 | `recipes.json` | What each kind of bench makes, from what, for how many crystals, and at what bench tier |
 | `trees.json` | Tree kinds: their blocks, fruit, full height, the shape of the crown row by row or leaf by leaf, which layer they grow in, what they can be planted on, and whether they need water |
 | `worldgen.json` | World size, the plains, the mountains and valleys (any number of kinds), soil layers, sea level, the climate maps and the biomes (their ground, trees and plants), caves and what is set into them, veins (what, in what, how big, how deep, how common, what shape), the spawn and its portal, and how trees are scattered |
+| `mobs.json` | Creatures: how they move, where they turn up, what they lay, how long they take to grow up, what they leave, and the spawning range and cap |
 | `trade.json` | The categories items are sold in, the coins and what each is worth, the default price, and the crystals a new player starts with |
 | `rules.json` | Tick rate, day and night length, how bright the sun and moon are and how fast light fades, player step timings, starting items, and how drops behave |
 | `textures/` | PNG images, 32 pixels to the block. A block can list several to vary between; one larger than a block overhangs it |
@@ -55,6 +56,7 @@ Worlds are saved in `saves/<name>.world`, next to where the game is run from. A 
 | Click dirt or grass, holding an acorn or cherry | Queue walking next to it and planting a tree on top |
 | Click a bench or a chest | Open it, or choose between opening and removing it |
 | Click a dropped item or a fruit | Queue walking up to it and picking it up |
+| Click a creature | Queue hunting it |
 | `Esc` | Pause menu |
 | Drag | Pan the map |
 | `Space` | Make the camera follow the player again |
@@ -155,6 +157,16 @@ Trees stand in the background layer. The player walks straight past them, but ca
 
 The world has four layers from back to front: the backwall; the background layer, which holds the trees and the benches and is drawn slightly dimmed; the foreground layer, which holds the terrain and everything the player collides with; and the item layer, where dropped items and fruit are drawn in front of the blocks.
 
+## Creatures
+
+**Dodos** are the first creature. They walk about at random, along the level and up or down a step of one block; they will not cross a gap, drop further than one block, or go into water.
+
+- **Where they come from.** A random event on open air just above grass, within 50 blocks of the player, can bring a wild dodo. None come while there are already 10 creatures within that range.
+- **Where they go.** A wild dodo that gets more than 50 blocks from the player is gone. One the player owns never is.
+- **Eggs.** A grown dodo has a small chance every tick of leaving a big blue egg where it stands, if nothing is there already. An egg is picked up by clicking it, like a gem, and can be put down again. A random event on an egg hatches it into a chick, which is full grown 600 ticks later.
+- **Whose they are.** A dodo that hatches from an egg the player put down is the player's. One from an egg a dodo laid is wild, whoever the parent belonged to - unless the player picked that egg up and put it down again. A wild egg waits to hatch while the cap of 10 is reached; the player's eggs hatch regardless.
+- **Hunting.** Clicking a dodo queues going after it, marked with a red ring; the player follows it as it moves and kills it on reaching it. Clicking it again calls that off. A grown dodo leaves 1 or 2 dodo meat and 1 or 2 feathers; a chick leaves nothing. A campfire cooks dodo meat.
+
 ## Plants
 
 Carrots, flax and coral are single blocks that grow through four stages, one stage for each random event that lands on them. They can be pulled up at any stage, and give more the further they have grown.
@@ -208,7 +220,7 @@ A bench can have tiers. Its menu shows its tier and, if it can go higher, an Upg
 | Craft bench | Workbench | 1 dirt | Basket (10 sticks) |
 | Kiln | Workbench tier 2 | 10 dirt, 1 stick | Charcoal (1 stick) |
 | Furnace | Workbench tier 2 | 5 stone, 1 stick | One ingot from one ore: copper and tin. Tier 2, for 5 iron ore: iron and gold. Tier 3, for 5 titanium ore: platinum and titanium |
-| Campfire | Workbench | 10 sticks | Torch (1 stick). Burns fuel like the kiln, and gives light while it does |
+| Campfire | Workbench | 10 sticks | Torch (1 stick); cooked dodo meat (1 dodo meat). Burns fuel like the kiln, and gives light while it does |
 | Metalwork bench | Workbench tier 3 | 3 iron ingots, 1 stone | Coins (see Money) |
 | Trade portal | Any portal | 1 portal, 1 gold coin | Nothing: it is where things are bought and sold |
 
@@ -307,6 +319,7 @@ What an item holds is part of the item, and two stacks only merge if they hold t
 - `src/inventory.c` — stacks, baskets and the rules for moving them
 - `src/craft.c` — crafting from the recipes
 - `src/trade.c` — buying, selling and exchanging coins
+- `src/mob.c` — creatures: spawning, wandering, eggs and hunting
 - `src/light.c` — how well lit each tile is
 - `src/game.c` — player, movement rules, path planning, action queue, item drops, crafting
 - `src/save.c` — saving and loading a world

@@ -1,5 +1,7 @@
 #include "game.h"
 
+#include "mob.h"
+
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -334,7 +336,8 @@ static bool is_goal(const World *w, Pose p, Action a)
     case ACTION_PLACE:
     case ACTION_PLANT: return in_reach(w, p.feet, a.target);
     case ACTION_USE:
-    case ACTION_COLLECT: return in_use_range(w, p.feet, a.target);
+    case ACTION_COLLECT:
+    case ACTION_ATTACK: return in_use_range(w, p.feet, a.target);
     default: return on_body(p.feet, a.target);
     }
 }
@@ -392,7 +395,8 @@ static bool room_for(const World *w, TilePos t, TileType tile);
 static bool target_valid(const World *w, Action a)
 {
     if (!world_in_bounds(w, a.target.x, a.target.y)) return false;
-    if (a.type == ACTION_COLLECT) return true; /* the drop itself is checked on arrival */
+    /* A drop or a creature is checked on arrival, not here. */
+    if (a.type == ACTION_COLLECT || a.type == ACTION_ATTACK) return true;
     TileType t = world_get(w, a.target.x, a.target.y);
     switch (a.type) {
     case ACTION_MINE: return action_layer(w, a) >= 0;
@@ -647,6 +651,21 @@ static bool match_drop(Action a, TilePos t, int drop)
     return a.type == ACTION_COLLECT && a.drop == drop;
 }
 
+static bool match_mob(Action a, TilePos t, int mob)
+{
+    (void)t;
+    return a.type == ACTION_ATTACK && a.drop == mob;
+}
+
+bool game_click_mob(Game *g, int mob)
+{
+    if (mob < 0 || mob >= MAX_MOBS || !g->mobs[mob].active) return false;
+    if (unqueue(g, match_mob, (TilePos){ 0, 0 }, mob)) return true;
+    const Mob *m = &g->mobs[mob];
+    Action a = { .type = ACTION_ATTACK, .target = { m->x, m->y }, .drop = mob, .drop_id = m->id };
+    return queue_checked(g, sim_pending(g), a);
+}
+
 bool game_unqueue_tile(Game *g, int tx, int ty)
 {
     return unqueue(g, match_tile, (TilePos){ world_wrap_x(&g->world, tx), ty }, 0);
@@ -724,6 +743,11 @@ static bool collect_drop(Game *g, Drop *d)
     d->container = 0;
     d->collect = 0.001f;
     return true;
+}
+
+void game_drop_item(Game *g, ItemId id, int x, int y)
+{
+    spawn_drop(g, id, (TilePos){ world_wrap_x(&g->world, x), y });
 }
 
 void game_give_items(Game *g, ItemId id, int count)
@@ -970,6 +994,25 @@ static bool start_next_activity(Game *g)
                     begin_step(g, s);
                     return true;
                 }
+            } else if (g->current.type == ACTION_ATTACK) {
+                /* The quarry will not have stood still: go by where it is now. */
+                Mob *m = &g->mobs[g->current.drop];
+                if (!m->active || m->id != g->current.drop_id) {
+                    g->has_current = false;
+                    continue;
+                }
+                TilePos at = { m->x, m->y };
+                if (in_use_range(w, p->feet, at)) {
+                    mob_kill(g, g->current.drop);
+                    g->has_current = false;
+                    continue;
+                }
+                g->current.target = at;
+                if (g->current.tries++ < MAX_ATTACK_TRIES &&
+                    plan_action(g, w, pose, g->current, g->steps, &g->step_count, NULL) && g->step_count > 0) {
+                    g->step_index = 0;
+                    continue;
+                }
             } else if (target_valid(w, g->current) && is_goal(w, pose, g->current)) {
                 switch (g->current.type) {
                 case ACTION_MINE:
@@ -1117,7 +1160,7 @@ static void update_bench(Game *g, float dt)
 
 /* ---- world time -------------------------------------------------------- */
 
-static uint32_t game_random(Game *g)
+uint32_t game_random(Game *g)
 {
     uint32_t x = g->rng ? g->rng : 0x9E3779B9u;
     x ^= x << 13;
@@ -1140,6 +1183,7 @@ static void random_event(Game *g, int x, int y)
 {
     World *w = &g->world;
 
+    if (mobs_try_hatch(g, x, y) || mobs_try_spawn(g, x, y)) return;
     if (tree_trunk_at(w, x, y) >= 0) {
         TreeGrowth growth = tree_grow(w, x, y, &g->rng);
         if (!growth.extended) return;
@@ -1181,6 +1225,8 @@ void game_tick(Game *g)
             if (x < w->width) random_event(g, x, (int)((r >> 8) % (uint32_t)w->height));
         }
     }
+
+    mobs_tick(g);
 
     /* Fuel burns down whether or not anything is being made. */
     for (int i = 0; i < MAX_STORAGES; i++)

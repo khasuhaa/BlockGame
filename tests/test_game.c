@@ -1,6 +1,7 @@
 /* Headless tests for the game rules: no window, just the simulation. */
 #include "../src/game.h"
 #include "../src/light.h"
+#include "../src/mob.h"
 #include "../src/save.h"
 #include "../src/trade.h"
 
@@ -2819,6 +2820,208 @@ static void test_new_trees(void)
     game_free(&g);
 }
 
+static int count_mobs(const Game *g)
+{
+    int n = 0;
+    for (int i = 0; i < MAX_MOBS; i++) n += g->mobs[i].active;
+    return n;
+}
+
+static void clear_mobs(Game *g)
+{
+    for (int i = 0; i < MAX_MOBS; i++) g->mobs[i].active = false;
+}
+
+static void test_mobs(void)
+{
+    Game g;
+    game_init(&g, 256, 48, 38, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    TilePos start = g.player.feet;
+    int s = w->surface_y, dodo = mob_id("dodo");
+    MobDef *def = &content.mobs[dodo];
+    MobDef saved = *def;
+    TileType egg = tile_id("dodo_egg"), placed = tile_id("dodo_egg_placed");
+
+    CHECK(dodo >= 0 && content.mob_spawn_radius == 50 && content.mob_cap == 10);
+    CHECK(def->lays == egg && def->baby_ticks == 600 && def->drop_count == 2);
+    CHECK(def->drops[0].item == item_id("dodo_meat") && def->drops[0].min == 1 && def->drops[0].max == 2);
+    CHECK(def->drops[1].item == item_id("feather") && def->drops[1].min == 1 && def->drops[1].max == 2);
+    CHECK(tile_def(egg)->hatches == dodo && !tile_def(egg)->hatch_owned && tile_def(placed)->hatch_owned);
+    CHECK(item_def(item_id("dodo_egg"))->places == placed && tile_def(egg)->drop == item_id("dodo_egg"));
+    CHECK(costs(find_recipe(tile_id("campfire"), "cooked_dodo_meat"), "dodo_meat", 1, NULL, 0));
+
+    /* A dodo turns up on open air just above grass, near the player - not
+     * above bare dirt, not far away, not in the ground. */
+    for (int x = 0; x < w->width; x++) world_set(w, x, s, TILE_GRASS);
+    world_set(w, start.x + 5, s, TILE_DIRT);
+    def->spawn_chance = 1.0f;
+    CHECK(!mobs_try_spawn(&g, start.x + 5, s - 1));
+    CHECK(!mobs_try_spawn(&g, start.x + 3, s - 2) && !mobs_try_spawn(&g, start.x + 3, s));
+    CHECK(!mobs_try_spawn(&g, start.x + 51, s - 1) && !mobs_try_spawn(&g, start.x - 60, s - 1));
+    CHECK(mobs_try_spawn(&g, start.x + 3, s - 1) && count_mobs(&g) == 1);
+    CHECK(mobs_try_spawn(&g, start.x + 50, s - 1) && count_mobs(&g) == 2);
+    for (int i = 0; i < MAX_MOBS; i++)
+        if (g.mobs[i].active) CHECK(!g.mobs[i].owned && !g.mobs[i].baby && g.mobs[i].kind == dodo);
+    /* No more than ten near the player. */
+    for (int i = 0; i < 20; i++) mobs_try_spawn(&g, start.x - 20 + i, s - 1);
+    CHECK(count_mobs(&g) == 10 && mobs_near_player(&g) == 10);
+    CHECK(!mobs_try_spawn(&g, start.x + 9, s - 1));
+    /* Left to random events alone they also come, and stop at the cap. */
+    clear_mobs(&g);
+    for (int i = 0; i < 6000; i++) game_tick(&g);
+    CHECK(count_mobs(&g) > 0 && mobs_near_player(&g) <= 10);
+    /* (They will have left eggs about; clear those away for what follows.) */
+    int laid = 0;
+    for (int x = 0; x < w->width; x++) {
+        laid += world_get_at(w, BG, x, s - 1) == egg;
+        world_set_at(w, BG, x, s - 1, TILE_AIR);
+    }
+    CHECK(laid > 0);
+
+    /* They wander: along the level, up and down a step of one block, never
+     * across a gap or off a drop, and never into the ground. */
+    clear_mobs(&g);
+    def->spawn_chance = 0.0f;
+    def->lay_chance = 0.0f;
+    int px = start.x + 20;
+    for (int x = px - 6; x <= px + 6; x++) world_set(w, x, s, TILE_GRASS);
+    world_set(w, px + 2, s - 1, TILE_GRASS);                                   /* a step up */
+    world_set(w, px + 3, s - 1, TILE_GRASS);
+    world_set(w, px - 3, s, TILE_AIR);                                         /* a step down */
+    for (int y = s; y < s + 6; y++) world_set(w, px - 5, y, TILE_AIR);         /* a pit one wide */
+    for (int y = s - 3; y <= s - 1; y++) world_set(w, px + 6, y, TILE_STONE);  /* a wall */
+    int m = mob_spawn(&g, dodo, px, s - 1, true, false);
+    int lo = px, hi = px, top = s - 1, low = s - 1, in_ground = 0, jumps = 0;
+    for (int i = 0; i < 40000; i++) {
+        int before_x = g.mobs[m].x, before_y = g.mobs[m].y;
+        mobs_tick(&g);
+        const Mob *d = &g.mobs[m];
+        if (d->x < lo) lo = d->x;
+        if (d->x > hi) hi = d->x;
+        if (d->y < top) top = d->y;
+        if (d->y > low) low = d->y;
+        if (world_is_solid(w, d->x, d->y) || !world_is_solid(w, d->x, d->y + 1)) in_ground++;
+        if (abs(d->x - before_x) > 1 || abs(d->y - before_y) > 1) jumps++;
+    }
+    CHECK(g.mobs[m].active && in_ground == 0 && jumps == 0);
+    CHECK(top == s - 2 && low == s);       /* it has been up the step and down the other */
+    CHECK(lo == px - 4 && hi == px + 5);   /* stopped by the pit one way, the wall the other */
+
+    /* A wild one too far from the player is gone; the player's own stays. */
+    clear_mobs(&g);
+    int wild = mob_spawn(&g, dodo, start.x + 60, s - 1, false, false);
+    int pet = mob_spawn(&g, dodo, start.x + 62, s - 1, true, false);
+    def->move_chance = 0.0f;
+    mobs_tick(&g);
+    CHECK(!g.mobs[wild].active && g.mobs[pet].active);
+
+    /* A grown dodo lays an egg where it stands, unless something is there already. */
+    clear_mobs(&g);
+    def->lay_chance = 1.0f;
+    int layer = mob_spawn(&g, dodo, start.x + 2, s - 1, false, false);
+    int chick = mob_spawn(&g, dodo, start.x + 4, s - 1, false, true);
+    int crowded = mob_spawn(&g, dodo, start.x + 6, s - 1, false, false);
+    world_set_at(w, BG, start.x + 6, s - 1, tile_id("torch"));
+    mobs_tick(&g);
+    CHECK(world_get_at(w, BG, start.x + 2, s - 1) == egg);
+    CHECK(world_get_at(w, BG, start.x + 4, s - 1) == TILE_AIR); /* too young */
+    CHECK(world_get_at(w, BG, start.x + 6, s - 1) == tile_id("torch"));
+    (void)layer; (void)chick; (void)crowded;
+    def->lay_chance = 0.0f;
+    clear_mobs(&g);
+
+    /* A natural egg hatches into a wild chick, which grows up in 600 ticks. */
+    /* (Not while there are already ten about: then it waits.) */
+    for (int i = 0; i < 10; i++) mob_spawn(&g, dodo, start.x - 10 + i, s - 1, false, false);
+    CHECK(!mobs_try_hatch(&g, start.x + 2, s - 1) && world_get_at(w, BG, start.x + 2, s - 1) == egg);
+    clear_mobs(&g);
+    CHECK(mobs_try_hatch(&g, start.x + 2, s - 1) && world_get_at(w, BG, start.x + 2, s - 1) == TILE_AIR);
+    CHECK(count_mobs(&g) == 1);
+    int born = -1;
+    for (int i = 0; i < MAX_MOBS; i++)
+        if (g.mobs[i].active) born = i;
+    CHECK(g.mobs[born].baby && !g.mobs[born].owned && g.mobs[born].x == start.x + 2);
+    for (int i = 0; i < 599; i++) mobs_tick(&g);
+    CHECK(g.mobs[born].baby);
+    mobs_tick(&g);
+    CHECK(!g.mobs[born].baby);
+    CHECK(!mobs_try_hatch(&g, start.x + 2, s - 1));
+    clear_mobs(&g);
+
+    /* Picked up and put down again, an egg is the player's, and so is what hatches. */
+    world_set_at(w, BG, start.x + 2, s - 1, egg);
+    clear_inventory(&g);
+    CHECK(game_click_tile(&g, start.x + 2, s - 1) && g.queue[0].type == ACTION_MINE);
+    run(&g, 2.0f);
+    CHECK(world_get_at(w, BG, start.x + 2, s - 1) == TILE_AIR && count_item(&g, item_id("dodo_egg")) == 1);
+    inventory_select(inv, 0, -1);
+    CHECK(game_click_tile(&g, start.x + 3, s - 1) && g.queue[0].type == ACTION_PLACE);
+    run(&g, 2.0f);
+    CHECK(world_get_at(w, BG, start.x + 3, s - 1) == placed && count_item(&g, item_id("dodo_egg")) == 0);
+    /* The player's egg hatches even with ten wild ones about. */
+    for (int i = 0; i < 10; i++) mob_spawn(&g, dodo, start.x - 10 + i, s - 1, false, false);
+    CHECK(mobs_try_hatch(&g, start.x + 3, s - 1));
+    born = -1;
+    for (int i = 0; i < MAX_MOBS; i++) {
+        if (g.mobs[i].active && g.mobs[i].owned) born = i;
+        else g.mobs[i].active = false;
+    }
+    CHECK(g.mobs[born].baby && g.mobs[born].owned);
+    /* Its own eggs, though, are natural ones. */
+    for (int i = 0; i < 600; i++) mobs_tick(&g);
+    def->lay_chance = 1.0f;
+    mobs_tick(&g);
+    def->lay_chance = 0.0f;
+    CHECK(!g.mobs[born].baby && world_get_at(w, BG, g.mobs[born].x, g.mobs[born].y) == egg);
+    world_set_at(w, BG, g.mobs[born].x, g.mobs[born].y, TILE_AIR);
+
+    /* Clicking a dodo goes after it and kills it: 1 to 2 meat and 1 to 2 feathers. */
+    clear_inventory(&g);
+    def->move_chance = saved.move_chance;
+    g.mobs[born].x = g.mobs[born].to_x = start.x + 12;
+    float mx, my;
+    game_mob_pos(&g, born, &mx, &my);
+    CHECK(game_mob_at(&g, mx + 0.5f, my + 0.5f) == born && game_mob_at(&g, mx + 3.5f, my + 0.5f) == -1);
+    CHECK(game_click_mob(&g, born) && g.queue[0].type == ACTION_ATTACK);
+    CHECK(game_click_mob(&g, born) && g.queue_count == 0); /* a second click calls it off */
+    CHECK(game_click_mob(&g, born));
+    run(&g, 20.0f);
+    CHECK(!g.mobs[born].active && is_idle(&g));
+    int meat = count_item(&g, item_id("dodo_meat")), feathers = count_item(&g, item_id("feather"));
+    for (int i = 0; i < MAX_DROPS; i++) {
+        meat += g.drops[i].active && g.drops[i].item == item_id("dodo_meat");
+        feathers += g.drops[i].active && g.drops[i].item == item_id("feather");
+    }
+    CHECK(meat >= 1 && meat <= 2 && feathers >= 1 && feathers <= 2);
+    /* A chick gives nothing. */
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    clear_inventory(&g);
+    clear_mobs(&g);
+    def->move_chance = 0.0f;
+    int small = mob_spawn(&g, dodo, g.player.feet.x + 1, s - 1, false, true);
+    CHECK(game_click_mob(&g, small));
+    run(&g, 3.0f);
+    CHECK(!g.mobs[small].active);
+    for (int i = 0; i < MAX_DROPS; i++) CHECK(!g.drops[i].active);
+    for (int i = 0; i < INVENTORY_SLOTS; i++) CHECK(inv->slots[i].count == 0);
+
+    /* Creatures are saved with the world. */
+    int kept = mob_spawn(&g, dodo, g.player.feet.x + 2, s - 1, true, true);
+    g.mobs[kept].age = 123;
+    CHECK(save_game(&g, "build/test_mobs.world"));
+    Game loaded;
+    CHECK(load_game(&loaded, "build/test_mobs.world"));
+    CHECK(count_mobs(&loaded) == 1 && loaded.mobs[kept].active && loaded.mobs[kept].kind == dodo);
+    CHECK(loaded.mobs[kept].owned && loaded.mobs[kept].baby && loaded.mobs[kept].age == 123);
+    game_free(&loaded);
+    remove("build/test_mobs.world");
+
+    *def = saved;
+    game_free(&g);
+}
+
 static void test_tools(void)
 {
     Game g;
@@ -3176,6 +3379,7 @@ int main(void)
     test_bench();
     test_work_benches();
     test_tools();
+    test_mobs();
     test_biomes();
     test_plants();
     test_new_trees();

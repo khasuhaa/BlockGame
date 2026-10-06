@@ -20,6 +20,9 @@
 #define MAX_VEINS 48
 #define MAX_DECOR 16
 #define MAX_BIOMES 8
+#define MAX_MOB_KINDS 16
+#define MAX_MOB_DROPS 4
+#define MAX_MOB_SPAWN_TILES 4
 #define MAX_BIOME_TREES 8
 #define MAX_BIOME_PLANTS 8
 #define MAX_TILE_SOILS 4
@@ -96,6 +99,11 @@ typedef struct {
     int soil_count;
     bool needs_water;  /* only lives and grows under water */
     bool breaks_above; /* removing one removes every one of it stacked on top */
+
+    /* An egg: a random event on it turns it into a young creature. */
+    int hatches;      /* kind of creature, or -1 */
+    char hatches_name[CONTENT_NAME_LEN];
+    bool hatch_owned; /* what comes out belongs to the player, and so never wanders off for good */
     bool storage_shared; /* its slots are the one store shared by every such block, in every world */
     float mine_time; /* seconds to mine, with bare hands */
     int tool_class;  /* the kind of tool that mines it faster, or -1 */
@@ -324,6 +332,27 @@ typedef struct {
     int water_color[4];    /* red, green, blue, alpha of the tint drawn over water */
 } RulesDef;
 
+/* A creature. */
+typedef struct {
+    char name[CONTENT_NAME_LEN];
+    char label[CONTENT_NAME_LEN];
+    char texture[CONTENT_PATH_LEN], texture_baby[CONTENT_PATH_LEN]; /* drawn facing right */
+    int step_ticks;     /* ticks it takes to walk one block */
+    float move_chance;  /* chance each tick, standing still, that it sets off */
+    float turn_chance;  /* chance that it sets off the other way */
+    TileType spawn_above[MAX_MOB_SPAWN_TILES]; /* ground it turns up on, in the open air */
+    int spawn_above_count;
+    float spawn_chance; /* chance that a random event on such a spot brings one */
+    TileType lays;      /* what it leaves where it stands now and then, or TILE_AIR */
+    float lay_chance;   /* chance each tick */
+    int baby_ticks;     /* how long a young one takes to grow up */
+    struct {
+        ItemId item;
+        int min, max;
+    } drops[MAX_MOB_DROPS]; /* what a grown one leaves when killed */
+    int drop_count;
+} MobDef;
+
 /* Buying and selling, and the money it is done with. */
 typedef struct {
     struct {
@@ -360,6 +389,10 @@ typedef struct {
     int decor_count;
     BiomeDef biomes[MAX_BIOMES]; /* the first is the one a column is unless another claims it */
     int biome_count;
+    MobDef mobs[MAX_MOB_KINDS];
+    int mob_count;
+    int mob_spawn_radius; /* creatures appear, and wild ones last, only this near the player */
+    int mob_cap;          /* no more appear while this many are that near */
     /* Kinds of tool, such as "shovel". There is no fixed list: a kind exists
      * because some block or item names it. */
     char tool_classes[MAX_TOOL_CLASSES][CONTENT_NAME_LEN];
@@ -386,6 +419,7 @@ TileType tile_id_or_alias(const char *name);
 ItemId item_id(const char *name);
 int tree_id(const char *name);
 int tool_class_id(const char *name);
+int mob_id(const char *name);
 
 /* Out-of-range ids give the definition of nothing. */
 const TileDef *tile_def(TileType t);

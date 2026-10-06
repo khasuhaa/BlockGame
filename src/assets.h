@@ -28,5 +28,7 @@ TilePart assets_tile_part(TileType t, TileType above, TileType below);
 void assets_draw_item(ItemId id, Rectangle r);
 /* Draws any other image under `<dir>/textures`, loading it on first use. */
 void assets_draw_image(const char *file, Rectangle r);
+/* The same, optionally mirrored left to right. */
+void assets_draw_sprite(const char *file, Rectangle r, bool flip);
 
 #endif

@@ -12,6 +12,8 @@
 #define MAX_DROPS 2048
 #define MAX_TICK_RATE 100
 #define MAX_STORAGES 256
+#define MAX_MOBS 64
+#define MAX_ATTACK_TRIES 8 /* times a hunt re-plans after its quarry has moved */
 #define MAX_SEARCH 60000 /* poses a route search looks at before giving up */
 
 /* The pace of the game comes from the rules data; these are shorthands. */
@@ -45,7 +47,8 @@ typedef enum {
     ACTION_PLACE, /* walk next to the target tile, then put a block there */
     ACTION_PLANT, /* walk next to the target tile, then plant a tree on top of it */
     ACTION_USE,  /* walk up to the bench on the target tile, then open it */
-    ACTION_COLLECT /* walk up to a dropped item, then pick it up */
+    ACTION_COLLECT, /* walk up to a dropped item, then pick it up */
+    ACTION_ATTACK   /* go after a creature, and kill it */
 } ActionType;
 
 typedef struct {
@@ -53,8 +56,10 @@ typedef struct {
     TilePos target;
     uint8_t item; /* ACTION_PLACE, ACTION_PLANT: the item being used up */
     bool wall;    /* ACTION_MINE: take the backwall, not a block */
-    int drop;     /* ACTION_COLLECT: which drop, and the id it had when queued */
+    int drop;     /* ACTION_COLLECT, ACTION_ATTACK: which drop or creature, and the id it had
+                     when queued */
     uint32_t drop_id;
+    uint8_t tries; /* ACTION_ATTACK: how often the route has been planned again */
 } Action;
 
 /* One voluntary move. Standing: walk (+-1,0), hop a one-block gap (+-2,0),
@@ -115,6 +120,20 @@ typedef struct {
     uint16_t container; /* what is inside the item, as in an ItemStack */
 } Drop;
 
+/* A creature. It stands in one tile, and walks to the next over several ticks. */
+typedef struct {
+    bool active;
+    uint8_t kind;  /* which of content.mobs */
+    bool owned;    /* the player's: it does not go away with distance */
+    bool baby;
+    int x, y;      /* the tile it is in */
+    int to_x, to_y; /* the tile it is walking to */
+    int step_left, step_total; /* ticks of that walk to go, and in all */
+    int dir;       /* -1 or +1: which way it faces */
+    int age;       /* ticks since it was born */
+    uint32_t id;
+} Mob;
+
 /* What a block placed in the world keeps besides its tile: the contents of a
  * storage block such as a chest, the fuel left in a kiln or furnace. */
 typedef struct {
@@ -132,6 +151,8 @@ typedef struct {
     Drop drops[MAX_DROPS];
     uint32_t next_drop_id;
     Storage storages[MAX_STORAGES];
+    Mob mobs[MAX_MOBS];
+    uint32_t next_mob_id;
 
     /* World time. Movement runs in real time; ticks drive the day, tree
      * growth and fruit. */
@@ -228,6 +249,11 @@ bool game_craft(Game *g, const Recipe *r, int count);
 /* Upgrades the open bench in place, paying its cost. False if it cannot be
  * upgraded or the cost is not held. */
 bool game_upgrade_bench(Game *g);
+/* Leaves one of an item lying in a tile. */
+void game_drop_item(Game *g, ItemId id, int x, int y);
+/* The world's own random numbers, saved with it. */
+uint32_t game_random(Game *g);
+
 /* Hands the player items: into the inventory, or dropped at their feet if
  * there is no room. */
 void game_give_items(Game *g, ItemId id, int count);

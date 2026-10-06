@@ -118,7 +118,7 @@ void assets_draw_item(ItemId id, Rectangle r)
                    (Vector2){ 0, 0 }, 0.0f, WHITE);
 }
 
-void assets_draw_image(const char *file, Rectangle r)
+void assets_draw_sprite(const char *file, Rectangle r, bool flip)
 {
     int found = -1;
     for (int i = 0; i < image_count; i++)
@@ -133,6 +133,11 @@ void assets_draw_image(const char *file, Rectangle r)
         return;
     }
     Texture2D tex = images[found].texture;
-    DrawTexturePro(tex, (Rectangle){ 0, 0, (float)tex.width, (float)tex.height }, r, (Vector2){ 0, 0 },
-                   0.0f, WHITE);
+    DrawTexturePro(tex, (Rectangle){ 0, 0, flip ? -(float)tex.width : (float)tex.width, (float)tex.height }, r,
+                   (Vector2){ 0, 0 }, 0.0f, WHITE);
+}
+
+void assets_draw_image(const char *file, Rectangle r)
+{
+    assets_draw_sprite(file, r, false);
 }
