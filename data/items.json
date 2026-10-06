@@ -8,7 +8,10 @@
     { "name": "stone", "label": "Stone", "places": "stone", "texture": "items/stone.png" },
     { "name": "stick", "label": "Stick", "texture": "items/stick.png" },
     { "name": "wood", "label": "Wood", "places": "wood", "texture": "items/wood.png" },
-    { "name": "acorn", "label": "Acorn", "texture": "items/acorn.png" },
-    { "name": "cherry", "label": "Cherry", "texture": "items/cherry.png" }
+    { "name": "acorn", "label": "Acorn", "plants": "oak", "texture": "items/acorn.png" },
+    { "name": "cherry", "label": "Cherry", "plants": "cherry", "texture": "items/cherry.png" },
+    { "name": "workbench_2", "label": "Workbench II", "places": "workbench_2",
+      "texture": "items/workbench_2.png" },
+    { "name": "chest", "label": "Chest", "places": "chest", "texture": "items/chest.png" }
   ]
 }

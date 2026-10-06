@@ -5,7 +5,8 @@
 #include <stddef.h>
 
 #define MENU_WIDTH 300.0f
-#define MENU_HEIGHT 204.0f
+#define MENU_HEIGHT 236.0f
+#define MENU_HEADER 32.0f /* the bench's name, level and upgrade button */
 #define MENU_PAD 10.0f
 #define LIST_CELL 48.0f
 #define LIST_GAP 4.0f
@@ -29,19 +30,30 @@ static Rectangle menu_rect(const Game *g, const View *v)
 
 static Rectangle list_rect(Rectangle menu)
 {
-    return (Rectangle){ menu.x + MENU_PAD, menu.y + MENU_PAD, menu.width - 2 * MENU_PAD,
-                        LIST_CELL + 4.0f };
+    return (Rectangle){ menu.x + MENU_PAD, menu.y + MENU_HEADER + MENU_PAD,
+                        menu.width - 2 * MENU_PAD, LIST_CELL + 4.0f };
 }
 
 static Rectangle slider_rect(Rectangle menu)
 {
-    return (Rectangle){ menu.x + MENU_PAD + 6, menu.y + 124, menu.width - 2 * MENU_PAD - 62, 20 };
+    return (Rectangle){ menu.x + MENU_PAD + 6, menu.y + MENU_HEADER + 124,
+                        menu.width - 2 * MENU_PAD - 62, 20 };
 }
 
 static Rectangle craft_rect(Rectangle menu)
 {
     return (Rectangle){ menu.x + MENU_PAD, menu.y + menu.height - MENU_PAD - 34,
                         menu.width - 2 * MENU_PAD, 34 };
+}
+
+static Rectangle upgrade_rect(Rectangle menu)
+{
+    return (Rectangle){ menu.x + menu.width - MENU_PAD - 132, menu.y + 7, 132, 26 };
+}
+
+static TileType open_bench(const Game *g)
+{
+    return world_get(&g->world, g->bench_pos.x, g->bench_pos.y);
 }
 
 static Rectangle popup_rect(const BenchUi *ui, const View *v)
@@ -108,6 +120,9 @@ static BenchPress press_target(const BenchUi *ui, const Game *g, const View *v, 
     if (!g->bench_open) return BENCH_PRESS_NONE;
     Rectangle menu = menu_rect(g, v);
     if (!CheckCollisionPointRec(m, menu)) return BENCH_PRESS_NONE;
+    if (tile_def(open_bench(g))->upgrade_to != TILE_AIR &&
+        CheckCollisionPointRec(m, upgrade_rect(menu)))
+        return BENCH_PRESS_UPGRADE;
     if (CheckCollisionPointRec(m, list_rect(menu))) return BENCH_PRESS_LIST;
     if (ui->selected < 0) return BENCH_PRESS_PANEL;
     Rectangle slider = slider_rect(menu);
@@ -177,10 +192,14 @@ bool benchui_handle_input(BenchUi *ui, Game *g, const View *v)
     if (ui->press == BENCH_PRESS_LIST && !ui->dragged && released == BENCH_PRESS_LIST) {
         float offset = m.x - list.x + ui->scroll;
         int i = (int)(offset / (LIST_CELL + LIST_GAP));
-        if (i >= 0 && i < count && offset - i * (LIST_CELL + LIST_GAP) <= LIST_CELL) {
+        /* A recipe the bench is not yet good enough for cannot be picked. */
+        if (i >= 0 && i < count && offset - i * (LIST_CELL + LIST_GAP) <= LIST_CELL &&
+            !recipe_locked(open_bench(g), recipes[i])) {
             ui->selected = i;
             ui->amount = 1;
         }
+    } else if (ui->press == BENCH_PRESS_UPGRADE && released == BENCH_PRESS_UPGRADE) {
+        game_upgrade_bench(g);
     } else if (ui->press == BENCH_PRESS_CRAFT && released == BENCH_PRESS_CRAFT) {
         game_craft(g, recipes[ui->selected], ui->amount);
     } else if (ui->press == BENCH_PRESS_OPEN && released == BENCH_PRESS_OPEN) {
@@ -217,7 +236,44 @@ static void draw_popup(const BenchUi *ui, const View *v)
     }
 }
 
-static void draw_list(const BenchUi *ui, const Recipe **recipes, int count, Rectangle list)
+/* A padlock, for recipes that need a better bench. */
+static void draw_lock(Rectangle cell)
+{
+    Color metal = { 214, 190, 96, 255 }, dark = { 60, 52, 28, 255 };
+    float cx = cell.x + cell.width / 2, cy = cell.y + cell.height / 2 - 3;
+    DrawRing((Vector2){ cx, cy - 3 }, 4.5f, 7.5f, 180.0f, 360.0f, 16, metal);
+    DrawRectangleRec((Rectangle){ cx - 9, cy - 3, 18, 13 }, metal);
+    DrawRectangleRec((Rectangle){ cx - 1.5f, cy + 1, 3, 5 }, dark);
+}
+
+/* The bench's name and level, and the button that upgrades it. */
+static void draw_header(const Game *g, Rectangle menu)
+{
+    const TileDef *def = tile_def(open_bench(g));
+    bool levelled = def->upgrade_to != TILE_AIR || def->bench_level > 1;
+    DrawText(levelled ? TextFormat("%s  Lv %d", def->label, def->bench_level) : def->label,
+             (int)(menu.x + MENU_PAD), (int)menu.y + 12, 16, RAYWHITE);
+    if (def->upgrade_to == TILE_AIR) return;
+
+    Rectangle b = upgrade_rect(menu);
+    bool can = inventory_has_all(&g->inventory, def->upgrade_cost, def->upgrade_cost_count);
+    bool hot = can && CheckCollisionPointRec(GetMousePosition(), b);
+    DrawRectangleRec(b, !can ? (Color){ 54, 57, 70, 255 } : hot ? (Color){ 90, 160, 100, 255 } : button_color);
+    DrawText("Upgrade", (int)b.x + 6, (int)b.y + 6, 14, can ? RAYWHITE : GRAY);
+    /* What it costs, right-aligned: a count beside each item. */
+    float x = b.x + b.width - 4;
+    for (int i = def->upgrade_cost_count - 1; i >= 0; i--) {
+        const char *n = TextFormat("%d", def->upgrade_cost[i].count);
+        x -= 22;
+        hud_draw_item_icon(def->upgrade_cost[i].id, (Rectangle){ x, b.y + 2, 22, 22 });
+        x -= (float)MeasureText(n, 14) + 1;
+        DrawText(n, (int)x, (int)b.y + 6, 14, can ? RAYWHITE : (Color){ 235, 90, 90, 255 });
+        x -= 4;
+    }
+}
+
+static void draw_list(const BenchUi *ui, const Game *g, const Recipe **recipes, int count,
+                      Rectangle list)
 {
     bool scrolls = max_scroll(list, count) > 0.0f;
     if (scrolls) BeginScissorMode((int)list.x, (int)list.y, (int)list.width, (int)list.height);
@@ -228,6 +284,13 @@ static void draw_list(const BenchUi *ui, const Recipe **recipes, int count, Rect
         DrawRectangleLinesEx(cell, i == ui->selected ? 3.0f : 2.0f,
                              i == ui->selected ? RAYWHITE : edge_color);
         hud_draw_item_icon(recipes[i]->output.id, cell);
+        if (recipe_locked(open_bench(g), recipes[i])) {
+            DrawRectangleRec(cell, Fade((Color){ 20, 21, 27, 255 }, 0.72f));
+            draw_lock(cell);
+            const char *need = TextFormat("Lv %d", recipes[i]->level);
+            DrawText(need, (int)(cell.x + (cell.width - MeasureText(need, 10)) / 2),
+                     (int)(cell.y + cell.height - 13), 10, LIGHTGRAY);
+        }
     }
     if (scrolls) {
         EndScissorMode();
@@ -244,7 +307,7 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
     const float icon = 36.0f;
     int cap = recipe_max_crafts(&g->inventory, r);
     int amount = ui->amount;
-    float x = menu.x + MENU_PAD, y = menu.y + 72;
+    float x = menu.x + MENU_PAD, y = menu.y + MENU_HEADER + 72;
 
     /* Inputs with how many are held against how many are needed, then the output. */
     for (int i = 0; i < r->input_count; i++) {
@@ -306,13 +369,15 @@ void benchui_draw(const BenchUi *ui, const Game *g, const View *v)
     DrawRectangleRec(menu, panel_color);
     DrawRectangleLinesEx(menu, 2.0f, edge_color);
 
-    draw_list(ui, recipes, count, list_rect(menu));
+    draw_header(g, menu);
+    draw_list(ui, g, recipes, count, list_rect(menu));
     /* Until input has caught up with a newly opened bench, show no selection. */
     bool current = ui->was_open && ui->shown.x == g->bench_pos.x && ui->shown.y == g->bench_pos.y;
     if (current && ui->selected >= 0 && ui->selected < count) {
         draw_recipe(ui, g, recipes[ui->selected], menu);
     } else {
-        Rectangle rest = { menu.x, menu.y + 72, menu.width, menu.height - 72 };
+        float top = MENU_HEADER + 72;
+        Rectangle rest = { menu.x, menu.y + top, menu.width, menu.height - top };
         draw_centered("Select an item to craft", rest, 16, LIGHTGRAY);
     }
 }

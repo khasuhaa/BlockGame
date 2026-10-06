@@ -225,6 +225,14 @@ static void draw_action_marker(const Game *g, Vector2 origin, Action a)
     }
     if (a.type == ACTION_MINE) c = (Color){ 255, 160, 40, 255 };
     if (a.type == ACTION_USE) c = (Color){ 190, 140, 255, 255 };
+    if (a.type == ACTION_PLANT) {
+        /* The seed, shown where the tree will come up: on top of the soil. */
+        r.y -= TILE_SIZE;
+        hud_draw_item_icon((ItemId)a.item, r);
+        DrawRectangleRec(r, Fade(WHITE, 0.25f));
+        DrawRectangleLinesEx(r, 2.0f, (Color){ 110, 220, 120, 255 });
+        return;
+    }
     if (a.type == ACTION_PLACE) {
         /* A faded copy of the block that is going to be put here. */
         c = (Color){ 110, 220, 120, 255 };

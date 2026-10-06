@@ -221,7 +221,8 @@ static bool is_goal(const World *w, Pose p, Action a)
         /* A background block can be mined from right in front of it. */
         if (!world_is_solid(w, a.target.x, a.target.y)) return in_use_range(w, p.feet, a.target);
         return in_reach(w, p.feet, a.target);
-    case ACTION_PLACE: return in_reach(w, p.feet, a.target);
+    case ACTION_PLACE:
+    case ACTION_PLANT: return in_reach(w, p.feet, a.target);
     case ACTION_USE:
     case ACTION_COLLECT: return in_use_range(w, p.feet, a.target);
     default: return on_body(p.feet, a.target);
@@ -238,6 +239,20 @@ static bool beside_block(const World *w, TilePos t)
     return false;
 }
 
+/* Whether an item can be planted on a block: it grows a tree, the block is
+ * soil for that tree, and there is room above for the first trunk block. */
+static bool can_plant(const World *w, ItemId item, TilePos t)
+{
+    int kind = item_def(item)->plants;
+    if (kind < 0 || !world_in_bounds(w, t.x, t.y) || !world_in_bounds(w, t.x, t.y - 1)) return false;
+    const TreeDef *def = &content.trees[kind];
+    TileType ground = world_get(w, t.x, t.y);
+    bool soil = false;
+    for (int i = 0; i < def->soil_count; i++) soil = soil || def->soil[i] == ground;
+    return soil && world_get_at(w, def->layer, t.x, t.y - 1) == TILE_AIR &&
+           !world_is_solid(w, t.x, t.y - 1);
+}
+
 /* Whether the target tile is still something the action can be done to. */
 static bool target_valid(const World *w, Action a)
 {
@@ -249,6 +264,7 @@ static bool target_valid(const World *w, Action a)
     case ACTION_PLACE:
         return t == TILE_AIR && item_def((ItemId)a.item)->places != TILE_AIR &&
                beside_block(w, a.target);
+    case ACTION_PLANT: return can_plant(w, (ItemId)a.item, a.target);
     case ACTION_USE: return tile_def(t)->bench;
     default: return !tile_def(t)->solid;
     }
@@ -323,6 +339,8 @@ static Pose sim_effect(Game *g, Pose pose, Action a)
         world_set_at(&g->sim, layer, a.target.x, a.target.y, TILE_AIR);
     else if (a.type == ACTION_PLACE)
         world_set(&g->sim, a.target.x, a.target.y, item_def((ItemId)a.item)->places);
+    else if (a.type == ACTION_PLANT)
+        tree_plant(&g->sim, a.target.x, a.target.y - 1, item_def((ItemId)a.item)->plants);
     return pose_rest(&g->sim, pose);
 }
 
@@ -366,12 +384,17 @@ static Pose sim_pending(Game *g)
     return pos;
 }
 
-/* How many of an item the pending place actions will use up. */
+static bool uses_item(Action a)
+{
+    return a.type == ACTION_PLACE || a.type == ACTION_PLANT;
+}
+
+/* How many of an item the pending actions will use up. */
 static int pending_places(const Game *g, ItemId item)
 {
-    int n = g->has_current && g->current.type == ACTION_PLACE && g->current.item == item;
+    int n = g->has_current && uses_item(g->current) && g->current.item == item;
     for (int i = 0; i < g->queue_count; i++)
-        if (g->queue[i].type == ACTION_PLACE && g->queue[i].item == item) n++;
+        if (uses_item(g->queue[i]) && g->queue[i].item == item) n++;
     return n;
 }
 
@@ -379,7 +402,7 @@ static int pending_places(const Game *g, ItemId item)
 static bool queue_checked(Game *g, Pose pos, Action a)
 {
     bool ok = g->queue_count < MAX_QUEUED_ACTIONS;
-    if (ok && a.type == ACTION_PLACE)
+    if (ok && uses_item(a))
         ok = inventory_count(&g->inventory, (ItemId)a.item) > pending_places(g, (ItemId)a.item);
     if (!ok || !sim_action(g, &pos, a)) {
         deny(g, a.target);
@@ -392,7 +415,7 @@ static bool queue_checked(Game *g, Pose pos, Action a)
 bool game_queue_action(Game *g, ActionType type, int tx, int ty)
 {
     Action a = { .type = type, .target = { world_wrap_x(&g->world, tx), ty } };
-    if (type == ACTION_PLACE) a.item = inventory_selected(&g->inventory)->id;
+    if (uses_item(a)) a.item = inventory_selected(&g->inventory)->id;
     return queue_checked(g, sim_pending(g), a);
 }
 
@@ -445,7 +468,11 @@ bool game_click_tile(Game *g, int tx, int ty)
     Action a = { .type = ACTION_MOVE, .target = { tx, ty } };
     const ItemStack *held = inventory_selected(&g->inventory);
 
-    if (world_in_bounds(&g->world, tx, ty) && mine_layer(&g->sim, a.target) >= 0) {
+    Action plant = { .type = ACTION_PLANT, .target = a.target, .item = held->id };
+    if (held->count > 0 && can_plant(&g->sim, (ItemId)held->id, a.target)) {
+        /* Holding something that grows: soil with room above is where it is planted. */
+        a = plant;
+    } else if (world_in_bounds(&g->world, tx, ty) && mine_layer(&g->sim, a.target) >= 0) {
         /* A block here, in front or behind, is mined. */
         a.type = ACTION_MINE;
     } else if (held->count > 0 && item_def((ItemId)held->id)->places != TILE_AIR) {
@@ -542,10 +569,12 @@ static void finish_activity(Game *g)
     } else if (p->activity == ACTIVITY_PLACING) {
         TilePos t = g->current.target;
         ItemId item = (ItemId)g->current.item;
-        if (inventory_remove(&g->inventory, item, 1) == 1)
-            world_set(&g->world, t.x, t.y, item_def(item)->places);
-        else
+        if (inventory_remove(&g->inventory, item, 1) != 1)
             deny(g, t);
+        else if (g->current.type == ACTION_PLANT)
+            tree_plant(&g->world, t.x, t.y - 1, item_def(item)->plants);
+        else
+            world_set(&g->world, t.x, t.y, item_def(item)->places);
         g->has_current = false;
     }
     p->activity = ACTIVITY_IDLE;
@@ -584,6 +613,7 @@ static bool start_next_activity(Game *g)
                                    ->mine_time);
                     return true;
                 case ACTION_PLACE:
+                case ACTION_PLANT:
                     if (inventory_count(&g->inventory, (ItemId)g->current.item) < 1) break;
                     begin_work(g, ACTIVITY_PLACING, PLACE_TIME);
                     return true;
@@ -638,11 +668,26 @@ static bool start_next_activity(Game *g)
 bool game_craft(Game *g, const Recipe *r, int count)
 {
     if (!g->bench_open || g->craft_remaining > 0 || count < 1) return false;
+    /* Only what this bench makes, at the level it has reached. */
+    TileType bench = world_get(&g->world, g->bench_pos.x, g->bench_pos.y);
+    if (strcmp(r->bench, tile_def(bench)->bench_kind) != 0 || recipe_locked(bench, r)) return false;
     int max = recipe_max_crafts(&g->inventory, r);
     if (max < 1) return false;
     g->craft_recipe = r;
     g->craft_total = g->craft_remaining = count < max ? count : max;
     g->craft_timer = 0.0f;
+    return true;
+}
+
+bool game_upgrade_bench(Game *g)
+{
+    if (!g->bench_open) return false;
+    const TileDef *def = tile_def(world_get(&g->world, g->bench_pos.x, g->bench_pos.y));
+    if (def->upgrade_to == TILE_AIR ||
+        !inventory_has_all(&g->inventory, def->upgrade_cost, def->upgrade_cost_count))
+        return false;
+    inventory_remove_all(&g->inventory, def->upgrade_cost, def->upgrade_cost_count);
+    world_set(&g->world, g->bench_pos.x, g->bench_pos.y, def->upgrade_to);
     return true;
 }
 

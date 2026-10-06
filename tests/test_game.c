@@ -27,6 +27,8 @@
 #define ITEM_WOOD item_id("wood")
 #define ITEM_ACORN item_id("acorn")
 #define ITEM_CHERRY item_id("cherry")
+#define ITEM_CHEST item_id("chest")
+#define TILE_WORKBENCH_2 tile_id("workbench_2")
 #define TREE_OAK tree_id("oak")
 #define TREE_CHERRY tree_id("cherry")
 #define OAK_MAX_HEIGHT (content.trees[TREE_OAK].max_height)
@@ -508,12 +510,20 @@ static void test_bench(void)
 
     const Recipe *portal = NULL, *bench = NULL, *other = NULL;
     n = bench_recipes(TILE_SPAWN_PORTAL, &portal, 1);
-    CHECK(bench_recipes(TILE_SPAWN_PORTAL_TOP, &other, 1) == 1 && other->output.id == portal->output.id);
+    CHECK(bench_recipes(TILE_SPAWN_PORTAL_TOP, &other, 1) == 1 && other == portal);
     CHECK(bench_recipes(TILE_DIRT, &other, 1) == 0);
     CHECK(n == 1 && portal->output.id == ITEM_WORKBENCH && portal->inputs[0].id == ITEM_DIRT &&
           portal->inputs[0].count == 1);
-    n = bench_recipes(TILE_WORKBENCH, &bench, 1);
-    CHECK(n == 1 && bench->output.id == ITEM_BASKET && bench->inputs[0].id == ITEM_DIRT);
+    const Recipe *list[8];
+    n = bench_recipes(TILE_WORKBENCH, list, 8);
+    bench = list[0];
+    const Recipe *chest = list[1];
+    CHECK(n == 2 && bench_recipes(TILE_WORKBENCH_2, list, 8) == 2 && list[1] == chest);
+    CHECK(bench->output.id == ITEM_BASKET && bench->input_count == 1);
+    CHECK(bench->inputs[0].id == ITEM_STICK && bench->inputs[0].count == 10);
+    CHECK(chest->output.id == ITEM_CHEST && chest->inputs[0].id == ITEM_WOOD && chest->inputs[0].count == 1);
+    CHECK(chest->level == 2 && recipe_locked(TILE_WORKBENCH, chest) && !recipe_locked(TILE_WORKBENCH_2, chest));
+    CHECK(!recipe_locked(TILE_WORKBENCH, bench));
 
     /* Using the portal from afar walks back to it, then opens it. */
     CHECK(game_click_tile(&g, px + 8, s - 1));
@@ -550,15 +560,34 @@ static void test_bench(void)
     run(&g, 2.0f);
     CHECK(world_get(&g.world, px + 7, s - 1) == TILE_WORKBENCH && g.bench_open);
     CHECK(count_item(&g, ITEM_WORKBENCH) == 4);
-    inventory_add(&g.inventory, ITEM_DIRT, 2);
-    CHECK(game_craft(&g, bench, 2));
+    CHECK(!game_craft(&g, portal, 1)); /* not this bench's recipe */
+    inventory_add(&g.inventory, ITEM_STICK, 25);
+    CHECK(recipe_max_crafts(&g.inventory, bench) == 2);
+    CHECK(game_craft(&g, bench, 5));
     run(&g, 0.5f);
-    CHECK(count_item(&g, ITEM_BASKET) == 3 && count_item(&g, ITEM_DIRT) == 0);
+    CHECK(count_item(&g, ITEM_BASKET) == 3 && count_item(&g, ITEM_STICK) == 5);
+
+    /* The chest is on the list but locked until the bench is level 2, which
+     * costs 5 stone. */
+    inventory_add(&g.inventory, ITEM_WOOD, 3);
+    CHECK(!game_craft(&g, chest, 1) && count_item(&g, ITEM_CHEST) == 0);
+    CHECK(!game_upgrade_bench(&g));
+    inventory_add(&g.inventory, ITEM_STONE, 7);
+    CHECK(game_upgrade_bench(&g));
+    CHECK(world_get(&g.world, px + 7, s - 1) == TILE_WORKBENCH_2 && count_item(&g, ITEM_STONE) == 2);
+    CHECK(g.bench_open && !game_upgrade_bench(&g));
+    CHECK(game_craft(&g, chest, 2));
+    run(&g, 0.5f);
+    CHECK(count_item(&g, ITEM_CHEST) == 2 && count_item(&g, ITEM_WOOD) == 1);
+    CHECK(game_craft(&g, bench, 1) == false && count_item(&g, ITEM_STICK) == 5);
+    game_close_bench(&g);
+    CHECK(!game_upgrade_bench(&g));
 
     CHECK(game_queue_action(&g, ACTION_MINE, px + 7, s - 1));
     run(&g, 2.0f);
     CHECK(world_get(&g.world, px + 7, s - 1) == TILE_AIR && !g.bench_open);
-    CHECK(count_item(&g, ITEM_WORKBENCH) == 5);
+    /* The upgraded bench comes back as itself, level and all. */
+    CHECK(count_item(&g, ITEM_WORKBENCH) == 4 && count_item(&g, item_id("workbench_2")) == 1);
     game_free(&g);
 }
 
@@ -969,6 +998,58 @@ static void test_background_trees(void)
     game_free(&g);
 }
 
+static void test_planting(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 19, WORLD_FLAT);
+    World *w = &g.world;
+    TilePos start = g.player.feet;
+    int s = w->surface_y;
+
+    /* Clicking dirt with nothing special in hand mines it. */
+    CHECK(game_click_tile(&g, start.x + 2, s) && g.queue[0].type == ACTION_MINE);
+    game_cancel_actions(&g);
+
+    /* With an acorn it plants an oak: one trunk block on top of the dirt. */
+    inventory_add(&g.inventory, ITEM_ACORN, 2);
+    inventory_add(&g.inventory, ITEM_CHERRY, 1);
+    inventory_select(&g.inventory, 1, -1);
+    CHECK(inventory_selected(&g.inventory)->id == ITEM_ACORN);
+    CHECK(game_click_tile(&g, start.x + 4, s));
+    CHECK(g.queue[0].type == ACTION_PLANT && g.queue[0].item == ITEM_ACORN);
+    /* The same spot cannot be planted twice, even while the first is only queued. */
+    CHECK(game_click_tile(&g, start.x + 4, s) && g.queue[1].type == ACTION_MINE);
+    game_cancel_actions(&g);
+    CHECK(game_click_tile(&g, start.x + 4, s));
+    run(&g, 3.0f);
+    CHECK(is_idle(&g) && world_get(w, start.x + 4, s) == TILE_DIRT);
+    CHECK(world_get_at(w, BG, start.x + 4, s - 1) == TILE_OAK_LOG);
+    CHECK(world_get_at(w, BG, start.x + 4, s - 2) == TILE_AIR && count_item(&g, ITEM_ACORN) == 1);
+
+    /* It also takes on grass, and a cherry plants a cherry tree. */
+    world_set(w, start.x + 8, s, TILE_GRASS);
+    inventory_select(&g.inventory, 2, -1);
+    CHECK(game_click_tile(&g, start.x + 8, s) && g.queue[0].type == ACTION_PLANT);
+    run(&g, 3.0f);
+    CHECK(world_get_at(w, BG, start.x + 8, s - 1) == TILE_CHERRY_LOG && count_item(&g, ITEM_CHERRY) == 0);
+
+    /* Not on stone, and not where something is in the way: those are mined as usual. */
+    inventory_select(&g.inventory, 1, -1);
+    world_set(w, start.x + 10, s, TILE_STONE);
+    CHECK(game_click_tile(&g, start.x + 10, s) && g.queue[0].type == ACTION_MINE);
+    game_cancel_actions(&g);
+    CHECK(game_click_tile(&g, start.x + 12, s + 1) == false);
+    world_set(w, start.x + 13, s - 1, TILE_STONE);
+    CHECK(game_click_tile(&g, start.x + 13, s) == false || g.queue[0].type == ACTION_MINE);
+    game_cancel_actions(&g);
+
+    /* From there it grows by random events like any other tree. */
+    for (int i = 0; i < 150000; i++) game_tick(&g);
+    CHECK(trunk_height(w, start.x + 4, s - 1) == OAK_MAX_HEIGHT);
+    CHECK(trunk_height(w, start.x + 8, s - 1) == CHERRY_MAX_HEIGHT);
+    game_free(&g);
+}
+
 static void write_file(const char *path, const char *text)
 {
     FILE *f = fopen(path, "w");
@@ -1068,6 +1149,7 @@ int main(void)
     test_ticks();
     test_save();
     test_background_trees();
+    test_planting();
     test_content();
     if (failures) {
         printf("%d check(s) failed\n", failures);

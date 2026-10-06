@@ -1,10 +1,13 @@
 {
   "recipes": [
-    { "bench": ["spawn_portal", "spawn_portal_top"],
+    { "bench": "spawn_portal",
       "output": { "item": "workbench", "count": 1 },
       "inputs": [ { "item": "dirt", "count": 1 } ] },
     { "bench": "workbench",
       "output": { "item": "basket", "count": 1 },
-      "inputs": [ { "item": "dirt", "count": 1 } ] }
+      "inputs": [ { "item": "stick", "count": 10 } ] },
+    { "bench": "workbench", "level": 2,
+      "output": { "item": "chest", "count": 1 },
+      "inputs": [ { "item": "wood", "count": 1 } ] }
   ]
 }

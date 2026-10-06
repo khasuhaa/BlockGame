@@ -1,7 +1,7 @@
 {
   "trees": [
     { "name": "oak", "log": "oak_log", "leaves": "oak_leaves", "fruit": "acorn",
-      "fruit_ticks": 1800, "layer": "background", "max_height": 7, "weight": 1,
+      "fruit_ticks": 1800, "layer": "background", "soil": ["dirt", "grass"], "max_height": 7, "weight": 1,
       "rows": [
         { "offset": -1, "left": 1, "right": 1, "center": true },
         { "offset": 0, "left": 2, "right": 2 },
@@ -9,7 +9,7 @@
         { "offset": 2, "left": 1, "right": 1 }
       ] },
     { "name": "cherry", "log": "cherry_log", "leaves": "cherry_leaves", "fruit": "cherry",
-      "fruit_ticks": 1800, "layer": "background", "max_height": 8, "weight": 1,
+      "fruit_ticks": 1800, "layer": "background", "soil": ["dirt", "grass"], "max_height": 8, "weight": 1,
       "mirror_by_column": true,
       "rows": [
         { "offset": 0, "left": 1, "right": 1 },

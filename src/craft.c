@@ -1,11 +1,32 @@
 #include "craft.h"
 
+#include <string.h>
+
 int bench_recipes(TileType bench, const Recipe **out, int max)
 {
+    const TileDef *def = tile_def(bench);
     int n = 0;
+    if (!def->bench) return 0;
     for (int i = 0; i < content.recipe_count && n < max; i++)
-        if (content.recipes[i].bench == bench) out[n++] = &content.recipes[i];
+        if (strcmp(content.recipes[i].bench, def->bench_kind) == 0) out[n++] = &content.recipes[i];
     return n;
+}
+
+bool recipe_locked(TileType bench, const Recipe *r)
+{
+    return r->level > tile_def(bench)->bench_level;
+}
+
+bool inventory_has_all(const Inventory *inv, const RecipeItem *items, int count)
+{
+    for (int i = 0; i < count; i++)
+        if (inventory_count(inv, items[i].id) < items[i].count) return false;
+    return true;
+}
+
+void inventory_remove_all(Inventory *inv, const RecipeItem *items, int count)
+{
+    for (int i = 0; i < count; i++) inventory_remove(inv, items[i].id, items[i].count);
 }
 
 int recipe_max_crafts(const Inventory *inv, const Recipe *r)

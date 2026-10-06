@@ -2,9 +2,12 @@
   "tiles": [
     { "name": "dirt", "solid": true, "removable": true, "mine_time": 0.35, "drop": "dirt",
       "texture": "tiles/dirt.png", "shade": 12 },
-    { "name": "workbench", "solid": true, "removable": true, "mine_time": 0.35, "drop": "workbench",
-      "bench": true, "texture": "tiles/workbench.png" },
-    { "name": "spawn_portal", "bench": true, "front": true, "pulse": 0.12,
+    { "name": "workbench", "label": "Workbench", "solid": true, "removable": true,
+      "mine_time": 0.35, "drop": "workbench", "texture": "tiles/workbench.png",
+      "bench": true, "bench_kind": "workbench", "bench_level": 1,
+      "upgrade": { "to": "workbench_2", "cost": [ { "item": "stone", "count": 5 } ] } },
+    { "name": "spawn_portal", "label": "Spawn portal", "bench": true, "bench_kind": "spawn_portal",
+      "front": true, "pulse": 0.12,
       "texture": "tiles/spawn_portal.png" },
     { "name": "grass", "solid": true, "removable": true, "mine_time": 0.35, "drop": "dirt",
       "texture": "tiles/grass.png", "shade": 12 },
@@ -25,7 +28,13 @@
                   "tiles/cherry_leaves_3.png"], "shade": 12 },
     { "name": "wood", "solid": true, "removable": true, "mine_time": 0.5, "drop": "wood",
       "texture": "tiles/wood.png" },
-    { "name": "spawn_portal_top", "bench": true, "front": true, "pulse": 0.12,
-      "texture": "tiles/spawn_portal_top.png" }
+    { "name": "spawn_portal_top", "label": "Spawn portal", "bench": true,
+      "bench_kind": "spawn_portal", "front": true, "pulse": 0.12,
+      "texture": "tiles/spawn_portal_top.png" },
+    { "name": "workbench_2", "label": "Workbench", "solid": true, "removable": true,
+      "mine_time": 0.35, "drop": "workbench_2", "texture": "tiles/workbench_2.png",
+      "bench": true, "bench_kind": "workbench", "bench_level": 2 },
+    { "name": "chest", "label": "Chest", "solid": true, "removable": true, "mine_time": 0.5,
+      "drop": "chest", "texture": "tiles/chest.png" }
   ]
 }

@@ -19,10 +19,10 @@ Everything the game contains is defined in `data/`, not in the code, so it can b
 
 | File | Defines |
 | --- | --- |
-| `tiles.json` | Blocks: whether they are solid, climbable, a bench or minable, how long they take to mine, what they drop, and their textures |
-| `items.json` | Items: label, stack size, whether they hold other items, what block they place, and their texture |
-| `recipes.json` | What each kind of bench makes, and from what |
-| `trees.json` | Tree kinds: their blocks, fruit, full height, the shape of the crown row by row, and which layer they grow in |
+| `tiles.json` | Blocks: whether they are solid, climbable or minable, how long they take to mine, what they drop, their textures, and for benches their kind, level and upgrade |
+| `items.json` | Items: label, stack size, whether they hold other items, what block they place, what tree they plant, and their texture |
+| `recipes.json` | What each kind of bench makes, from what, and at what bench level |
+| `trees.json` | Tree kinds: their blocks, fruit, full height, the shape of the crown row by row, which layer they grow in, and what they can be planted on |
 | `worldgen.json` | World size, the plains, the mountains and valleys (any number of kinds), soil layers, the spawn and its portal, and how trees are scattered |
 | `rules.json` | Tick rate, day and night length, player step timings, starting items, and how drops behave |
 | `textures/` | PNG images, 32 pixels to the block. A block can list several to vary between; one larger than a block overhangs it |
@@ -51,6 +51,7 @@ Worlds are saved in `saves/<name>.world`, next to where the game is run from. A 
 | Click an air tile | Queue a move that puts the player's feet or head on that tile |
 | Click a ground tile | Queue walking next to that tile and mining it |
 | Click air beside a block, holding a block | Queue walking next to that tile and placing the block |
+| Click dirt or grass, holding an acorn or cherry | Queue walking next to it and planting a tree on top |
 | Click a bench | Open it, or choose between opening and removing it |
 | Click a dropped item or a fruit | Queue walking up to it and picking it up |
 | `Esc` | Pause menu |
@@ -99,6 +100,8 @@ Trees are generated on the plains at every stage of growth, and keep growing:
 - A random event on a **trunk** block makes its tree grow one step: either one new leaf, added outward from the trunk, or one more block of trunk. When the trunk extends, all the leaves move up a row with it; a leaf with a block in its way is lost.
 - A random event on a **leaf** hangs a fruit on it: an acorn on an oak, a cherry on a cherry tree. Fruit hovers on its leaf, never falls off by itself, and disappears after 1800 ticks. It is not collected by walking past; click it to queue picking it. If its leaf is broken it falls and can be collected like any other item.
 
+With an acorn or a cherry selected, clicking dirt or grass that has room above it queues planting: the player walks over and a single trunk block appears on top, which then grows by random events like any other tree. Where it cannot be planted (other blocks, or something in the way above), the click mines as usual.
+
 An **oak** grows to a 7-block trunk with a ball of leaves on top: rows 3, 5, 5 and 3 wide over 4 blocks of bare trunk. A **cherry** grows to an 8-block trunk with leaf rows 3, 3, 4, 4, 5 and 5 wide from the top down, over 2 blocks of bare trunk.
 
 Breaking a leaf drops a stick; breaking a trunk drops wood, which can be placed as an ordinary block.
@@ -134,10 +137,15 @@ An open bench shows a menu beside it in the world:
 
 Each item takes 100 ms to craft. Output that does not fit in the inventory is dropped at the player's feet. The bench closes when the world is clicked, a movement key is pressed, or the player moves out of reach, and that ends any crafting still running.
 
+A bench can have levels. The workbench's menu shows its level and an Upgrade button with the cost; upgrading happens in place and keeps the menu open. A recipe that needs a higher level is still shown in the row, darkened with a padlock and the level it needs, and cannot be selected. An upgraded workbench that is removed comes back as an upgraded workbench.
+
 | Bench | Makes | From |
 | --- | --- | --- |
 | Spawn portal | Workbench | 1 dirt |
-| Workbench | Basket | 1 dirt |
+| Workbench | Basket | 10 sticks |
+| Workbench, level 2 (upgrade: 5 stone) | Chest | 1 wood |
+
+The chest is a block that can be placed and removed; it does not store anything yet.
 
 ## Layout
 

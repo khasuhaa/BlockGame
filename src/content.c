@@ -51,6 +51,7 @@ void content_reset(void)
     snprintf(content.items[0].name, CONTENT_NAME_LEN, "none");
     snprintf(content.items[0].label, CONTENT_NAME_LEN, "Nothing");
     content.items[0].equip = EQUIP_NONE;
+    content.items[0].plants = -1;
     content.item_count = 1;
 }
 
@@ -166,6 +167,7 @@ static bool register_names(Reader *r, const cJSON *root)
         ItemDef *it = &content.items[content.item_count++];
         memset(it, 0, sizeof *it);
         copy_name(it->name, sizeof it->name, name);
+        it->plants = -1;
     }
     return true;
 }
@@ -185,6 +187,24 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->pulse = (float)num(e, "pulse", 0.0);
         t->drop = ITEM_NONE;
         if (!item_ref(r, e, "drop", &t->drop)) return false;
+        copy_name(t->label, sizeof t->label, str(e, "label") ? str(e, "label") : t->name);
+
+        /* A bench is of its own kind, at level 1, unless it says otherwise. */
+        copy_name(t->bench_kind, sizeof t->bench_kind,
+                  str(e, "bench_kind") ? str(e, "bench_kind") : t->name);
+        t->bench_level = (int)num(e, "bench_level", 1);
+        t->upgrade_to = TILE_AIR;
+        t->upgrade_cost_count = 0;
+        const cJSON *upgrade = field(e, "upgrade"), *cost;
+        if (upgrade) {
+            if (!str(upgrade, "to") || !tile_ref(r, upgrade, "to", &t->upgrade_to))
+                return fail(r, "tile \"%s\": an upgrade needs a \"to\" tile", t->name);
+            cJSON_ArrayForEach(cost, field(upgrade, "cost")) {
+                if (t->upgrade_cost_count >= RECIPE_MAX_INPUTS)
+                    return fail(r, "tile \"%s\": an upgrade costs too many kinds of item", t->name);
+                if (!stack_ref(r, cost, &t->upgrade_cost[t->upgrade_cost_count++])) return false;
+            }
+        }
 
         /* "texture" is one file, or a list to vary between. */
         const cJSON *tex = field(e, "texture"), *one;
@@ -217,6 +237,8 @@ static bool read_items(Reader *r, const cJSON *root)
         copy_name(it->texture, sizeof it->texture, str(e, "texture"));
         it->places = TILE_AIR;
         if (!tile_ref(r, e, "places", &it->places)) return false;
+        /* Trees are read later; the name is matched to one once they are. */
+        copy_name(it->plants_name, sizeof it->plants_name, str(e, "plants"));
         it->equip = EQUIP_NONE;
         const char *equip = str(e, "equip");
         for (int i = 0; equip && i < 4; i++)
@@ -240,28 +262,25 @@ static bool read_recipes(Reader *r, const cJSON *root)
             if (!stack_ref(r, in, &recipe.inputs[recipe.input_count++])) return false;
         }
 
-        /* "bench" is one tile, or a list of tiles that all offer the recipe. */
+        /* "bench" is one kind of bench, or a list of kinds that all offer the recipe. */
+        recipe.level = (int)num(e, "level", 1);
         const cJSON *bench = field(e, "bench"), *one;
-        cJSON *single = NULL;
+        int kinds = 0;
         if (cJSON_IsString(bench)) {
-            single = cJSON_CreateArray();
-            cJSON_AddItemToArray(single, cJSON_CreateString(bench->valuestring));
-            bench = single;
+            if (content.recipe_count >= MAX_RECIPES) return fail(r, "too many recipes");
+            copy_name(recipe.bench, sizeof recipe.bench, bench->valuestring);
+            content.recipes[content.recipe_count++] = recipe;
+            kinds++;
         }
-        bool ok = cJSON_GetArraySize(bench) > 0;
-        if (!ok) fail(r, "a recipe needs a \"bench\"");
-        cJSON_ArrayForEach(one, bench) {
-            if (!ok) break;
-            TileType t = cJSON_IsString(one) ? tile_id(one->valuestring) : -1;
-            if (t < 0) ok = fail(r, "recipe bench: there is no such tile");
-            else if (content.recipe_count >= MAX_RECIPES) ok = fail(r, "too many recipes");
-            else {
-                recipe.bench = t;
-                content.recipes[content.recipe_count++] = recipe;
-            }
+        const cJSON *list = cJSON_IsString(bench) ? NULL : bench;
+        cJSON_ArrayForEach(one, list) {
+            if (!cJSON_IsString(one)) continue;
+            if (content.recipe_count >= MAX_RECIPES) return fail(r, "too many recipes");
+            copy_name(recipe.bench, sizeof recipe.bench, one->valuestring);
+            content.recipes[content.recipe_count++] = recipe;
+            kinds++;
         }
-        cJSON_Delete(single);
-        if (!ok) return false;
+        if (kinds == 0) return fail(r, "a recipe needs a \"bench\"");
     }
     return true;
 }
@@ -291,6 +310,12 @@ static bool read_trees(Reader *r, const cJSON *root)
         t->mirror_by_column = flag(e, "mirror_by_column", false);
         const char *layer = str(e, "layer");
         t->layer = layer && strcmp(layer, "foreground") == 0 ? LAYER_FOREGROUND : LAYER_BACKGROUND;
+        const cJSON *soil;
+        cJSON_ArrayForEach(soil, field(e, "soil")) {
+            TileType tile = cJSON_IsString(soil) ? tile_id(soil->valuestring) : -1;
+            if (tile < 0) return fail(r, "tree \"%s\": \"soil\" names a tile that does not exist", name);
+            if (t->soil_count < MAX_TREE_SOILS) t->soil[t->soil_count++] = tile;
+        }
         cJSON_ArrayForEach(row, field(e, "rows")) {
             if (t->row_count >= MAX_TREE_ROWS) return fail(r, "tree \"%s\" has too many rows", name);
             t->rows[t->row_count++] = (TreeRow){ (int)num(row, "offset", 0), (int)num(row, "left", 0),
@@ -460,12 +485,29 @@ static cJSON *parse_file(Reader *r, const char *dir, const char *file)
     return root;
 }
 
-/* What the game cannot run without. */
+/* Ties up references that could not be settled while reading, then checks
+ * for what the game cannot run without. */
 static bool validate(Reader *r)
 {
     const WorldGenDef *g = &content.worldgen;
     const RulesDef *u = &content.rules;
     r->file = "data";
+
+    for (int i = 0; i < content.item_count; i++) {
+        ItemDef *it = &content.items[i];
+        it->plants = it->plants_name[0] ? tree_id(it->plants_name) : -1;
+        if (it->plants_name[0] && it->plants < 0)
+            return fail(r, "item \"%s\" plants a tree called \"%s\", which does not exist", it->name,
+                        it->plants_name);
+    }
+    for (int i = 0; i < content.recipe_count; i++) {
+        bool found = false;
+        for (int t = 0; t < content.tile_count && !found; t++)
+            found = content.tiles[t].bench && strcmp(content.tiles[t].bench_kind, content.recipes[i].bench) == 0;
+        if (!found)
+            return fail(r, "a recipe is for a bench of kind \"%s\", which no tile is",
+                        content.recipes[i].bench);
+    }
     if (g->width < 64 || g->height < 64 || g->width > 65536 || g->height > 4096)
         return fail(r, "worldgen needs a sensible \"width\" and \"height\"");
     if (g->soil == TILE_AIR || g->rock == TILE_AIR || g->surface == TILE_AIR)

@@ -22,6 +22,7 @@
 #define MAX_SWELLS 4
 #define MAX_START_ITEMS 8
 #define RECIPE_MAX_INPUTS 3
+#define MAX_TREE_SOILS 8
 
 /* Ids are positions in the tables below, fixed only for one run of the game.
  * 0 is always "nothing": empty space, or no item. */
@@ -46,7 +47,13 @@ typedef enum {
 } EquipSlot;
 
 typedef struct {
+    ItemId id;
+    int count;
+} RecipeItem;
+
+typedef struct {
     char name[CONTENT_NAME_LEN];
+    char label[CONTENT_NAME_LEN]; /* shown to the player */
     bool solid;      /* in the foreground: blocks movement and can be stood on */
     bool bench;      /* a workbench: can be opened to craft */
     bool removable;  /* can be mined */
@@ -54,6 +61,15 @@ typedef struct {
     float mine_time; /* seconds to mine */
     ItemId drop;     /* item left behind when mined */
     int log_of, leaves_of; /* tree this is the trunk / the leaves of, or -1 */
+
+    /* Benches. Recipes belong to a kind of bench and may need a level of it;
+     * a bench can be upgraded in place into another tile, usually the next
+     * level of the same kind. */
+    char bench_kind[CONTENT_NAME_LEN];
+    int bench_level;
+    TileType upgrade_to; /* TILE_AIR if it cannot be upgraded */
+    RecipeItem upgrade_cost[RECIPE_MAX_INPUTS];
+    int upgrade_cost_count;
 
     /* Looks. Textures are 32 pixels to the tile; a larger one overhangs its
      * tile, centred and resting on the tile's bottom edge. */
@@ -71,16 +87,14 @@ typedef struct {
     bool container;  /* carries item slots of its own */
     EquipSlot equip; /* armor slot it can be worn in, or EQUIP_NONE */
     TileType places; /* block it becomes when placed, or TILE_AIR */
+    int plants;      /* tree it grows into when planted, or -1 */
+    char plants_name[CONTENT_NAME_LEN];
     char texture[CONTENT_PATH_LEN];
 } ItemDef;
 
 typedef struct {
-    ItemId id;
-    int count;
-} RecipeItem;
-
-typedef struct {
-    TileType bench; /* the kind of bench that makes it */
+    char bench[CONTENT_NAME_LEN]; /* the kind of bench that makes it */
+    int level;                    /* lowest bench level that can */
     RecipeItem output;
     RecipeItem inputs[RECIPE_MAX_INPUTS];
     int input_count;
@@ -104,6 +118,8 @@ typedef struct {
     bool mirror_by_column; /* swap left and right on odd columns */
     TreeRow rows[MAX_TREE_ROWS];
     int row_count;
+    TileType soil[MAX_TREE_SOILS]; /* blocks it can be planted on */
+    int soil_count;
 } TreeDef;
 
 typedef enum {

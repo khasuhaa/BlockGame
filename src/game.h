@@ -40,6 +40,7 @@ typedef enum {
     ACTION_MINE, /* walk within reach of the target tile, then mine it: the foreground block,
                     or failing that the background block behind it */
     ACTION_PLACE, /* walk next to the target tile, then put a block there */
+    ACTION_PLANT, /* walk next to the target tile, then plant a tree on top of it */
     ACTION_USE,  /* walk up to the bench on the target tile, then open it */
     ACTION_COLLECT /* walk up to a dropped item, then pick it up */
 } ActionType;
@@ -47,7 +48,7 @@ typedef enum {
 typedef struct {
     ActionType type;
     TilePos target;
-    uint8_t item; /* ACTION_PLACE: the item being placed */
+    uint8_t item; /* ACTION_PLACE, ACTION_PLANT: the item being used up */
     int drop;     /* ACTION_COLLECT: which drop, and the id it had when queued */
     uint32_t drop_id;
 } Action;
@@ -159,9 +160,9 @@ void game_free(Game *g);
 void game_update(Game *g, float dt);
 
 /* Queues the action a click on this tile stands for, judged against the world
- * as it will be once everything already queued has run: mine for a block,
- * place for air beside a block while a placeable item is selected, otherwise
- * move. Returns false, and shows a denial, if it is unattainable. */
+ * as it will be once everything already queued has run: plant on a block the
+ * selected item can grow a tree on, otherwise mine for a block, place for air
+ * beside a block while a placeable item is selected, otherwise move. Returns false, and shows a denial, if it is unattainable. */
 bool game_click_tile(Game *g, int tx, int ty);
 /* Queues one specific action on a tile, with the same checks. Placing uses
  * the selected item. */
@@ -186,6 +187,9 @@ float game_day_phase(const Game *g, bool *is_day);
 /* Starts crafting `count` of a recipe at the open bench, one every
  * CRAFT_TIME. Anything that does not fit in the inventory is dropped. */
 bool game_craft(Game *g, const Recipe *r, int count);
+/* Upgrades the open bench in place, paying its cost. False if it cannot be
+ * upgraded or the cost is not held. */
+bool game_upgrade_bench(Game *g);
 /* Closes the open bench and abandons the rest of its crafting run. */
 void game_close_bench(Game *g);
 
