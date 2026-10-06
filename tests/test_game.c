@@ -277,16 +277,16 @@ static void test_unqueue(void)
     run(&g, 2.0f);
     CHECK(is_idle(&g) && g.player.feet.x == at.x - 2);
 
-    CHECK(game_click_tile(&g, at.x - 3, s));
+    CHECK(game_click_tile(&g, at.x - 1, s));
     run(&g, tile_def(TILE_DIRT)->mine_time * 0.5f);
     CHECK(g.player.activity == ACTIVITY_MINING);
-    CHECK(game_click_tile(&g, at.x - 3, s));
+    CHECK(game_click_tile(&g, at.x - 1, s));
     run(&g, 2.0f);
-    CHECK(is_idle(&g) && world_get(&g.world, at.x - 3, s) == TILE_DIRT);
+    CHECK(is_idle(&g) && world_get(&g.world, at.x - 1, s) == TILE_DIRT);
 
     /* A click on a square with nothing queued still queues, and one that
      * could never work is refused as before. */
-    CHECK(!game_unqueue_tile(&g, at.x - 3, s));
+    CHECK(!game_unqueue_tile(&g, at.x - 1, s));
     CHECK(!game_click_tile(&g, at.x, s - 9) && g.queue_count == 0);
 
     /* The same goes for an item on the ground. */
