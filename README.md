@@ -19,7 +19,7 @@ Everything the game contains is defined in `data/`, not in the code, so it can b
 
 | File | Defines |
 | --- | --- |
-| `tiles.json` | Blocks: whether they are solid, climbable or minable, how long they take to mine and with what kind of tool, what they drop, their textures, for benches their kind, tier, upgrade and how much fuel they hold, and for storage blocks their grid of slots |
+| `tiles.json` | Blocks: whether they are solid, climbable or minable, which layer they are placed in, how long they take to mine and with what kind of tool, what they drop, their textures, for benches their kind, tier, upgrade and how much fuel they hold, and for storage blocks their grid of slots |
 | `items.json` | Items: label, stack size, how many slots they hold inside them and whether those open from the bar, what block they place, what tree they plant, how long they burn as fuel, what kind of tool they are and how fast, and their texture |
 | `recipes.json` | What each kind of bench makes, from what, and at what bench level |
 | `trees.json` | Tree kinds: their blocks, fruit, full height, the shape of the crown row by row, which layer they grow in, and what they can be planted on |
@@ -126,7 +126,7 @@ Breaking a leaf drops a stick; breaking a trunk drops wood, which can be placed 
 
 Trees stand in the background layer. The player walks straight past them, but can hold on to them: `W` in front of a tree climbs it, and the movement keys go up, down and sideways through the crown. Clicking any part of a tree queues mining that block, and the player climbs the tree to get within reach. A block in the foreground is always mined before the tree behind it.
 
-The world has three layers from back to front: the background layer, which holds the trees and is drawn slightly dimmed; the foreground layer, which holds the terrain and everything the player collides with; and the item layer, where dropped items and fruit are drawn in front of the blocks.
+The world has three layers from back to front: the background layer, which holds the trees and the benches and is drawn slightly dimmed; the foreground layer, which holds the terrain and everything the player collides with; and the item layer, where dropped items and fruit are drawn in front of the blocks.
 
 ## Inventory
 
@@ -187,6 +187,8 @@ Every block that can be mined belongs to one kind of tool, and a tool of that ki
 | Stone pickaxe, stone shovel | 3× |
 
 Without the right tool a block takes its ordinary time. Tools do not stack and do not wear out.
+
+Benches are placed in the background layer, like trees: the player walks in front of them, and an ordinary block can be placed in front of one. Chests are still solid blocks.
 
 ### Fuel
 

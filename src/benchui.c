@@ -5,8 +5,8 @@
 #include <stddef.h>
 #include <stdio.h>
 
-#define MENU_WIDTH 300.0f
-#define MENU_HEIGHT 236.0f
+#define MENU_WIDTH 340.0f
+#define MENU_HEIGHT 262.0f
 #define MENU_HEADER 32.0f /* the bench's name, level and upgrade button */
 #define MENU_PAD 10.0f
 #define LIST_CELL 48.0f
@@ -28,7 +28,7 @@ static const Color button_color = { 70, 130, 80, 255 };
 
 static TileType open_bench(const Game *g)
 {
-    return world_get(&g->world, g->bench_pos.x, g->bench_pos.y);
+    return game_bench_at(g, g->bench_pos.x, g->bench_pos.y);
 }
 
 /* The panel flying out of the open block: sized for crafting, or for a
@@ -69,7 +69,7 @@ static Rectangle list_rect(Rectangle menu)
 
 static Rectangle slider_rect(Rectangle menu)
 {
-    return (Rectangle){ menu.x + MENU_PAD + 6, menu.y + MENU_HEADER + 124,
+    return (Rectangle){ menu.x + MENU_PAD + 6, menu.y + MENU_HEADER + 144,
                         menu.width - 2 * MENU_PAD - 62, 20 };
 }
 
@@ -131,7 +131,7 @@ static Rectangle popup_button(Rectangle popup, int i)
 
 static int open_recipes(const Game *g, const Recipe **out)
 {
-    return bench_recipes(world_get(&g->world, g->bench_pos.x, g->bench_pos.y), out, MAX_BENCH_RECIPES);
+    return bench_recipes(open_bench(g), out, MAX_BENCH_RECIPES);
 }
 
 /* The list only scrolls when its items are wider than the menu. */
@@ -305,7 +305,7 @@ static void draw_centered(const char *text, Rectangle r, int size, Color c)
 static void draw_popup(const BenchUi *ui, const Game *g, const View *v)
 {
     /* The block's own word for itself: "Open bench", "Remove chest". */
-    const char *name = tile_def(world_get(&g->world, ui->popup_tile.x, ui->popup_tile.y))->popup_name;
+    const char *name = tile_def(game_bench_at(g, ui->popup_tile.x, ui->popup_tile.y))->popup_name;
     char labels[2][2 * CONTENT_NAME_LEN];
     snprintf(labels[0], sizeof labels[0], "Open %s", name);
     snprintf(labels[1], sizeof labels[1], "Remove %s", name);
@@ -336,8 +336,13 @@ static void draw_header(const Game *g, Rectangle menu)
 {
     const TileDef *def = tile_def(open_bench(g));
     bool levelled = def->upgrade_to != TILE_AIR || def->bench_level > 1;
-    DrawText(levelled ? TextFormat("%s  Tier %d", def->label, def->bench_level) : def->label,
-             (int)(menu.x + MENU_PAD), (int)menu.y + 12, 16, RAYWHITE);
+    const char *name = levelled ? TextFormat("%s  Tier %d", def->label, def->bench_level) : def->label;
+    /* Shrink the name rather than let it run under the upgrade button. */
+    float space = (def->upgrade_to != TILE_AIR ? upgrade_rect(menu).x - 8 : menu.x + menu.width - MENU_PAD) -
+                  (menu.x + MENU_PAD);
+    int size = 16;
+    while (size > 10 && MeasureText(name, size) > space) size--;
+    DrawText(name, (int)(menu.x + MENU_PAD), (int)menu.y + 12 + (16 - size) / 2, size, RAYWHITE);
     if (def->upgrade_to == TILE_AIR) return;
 
     Rectangle b = upgrade_rect(menu);
@@ -389,26 +394,45 @@ static void draw_list(const BenchUi *ui, const Game *g, const Recipe **recipes, 
 
 static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Rectangle menu)
 {
-    const float icon = 36.0f;
     int cap = recipe_max_crafts(&g->inventory, r);
     int amount = ui->amount;
-    float x = menu.x + MENU_PAD, y = menu.y + MENU_HEADER + 72;
+    float left = menu.x + MENU_PAD, room = menu.width - 2 * MENU_PAD;
+    float y = menu.y + MENU_HEADER + 70;
 
-    /* Inputs with how many are held against how many are needed, then the output. */
+    /* What is being made, on a line of its own so a long name has room. */
+    DrawText(TextFormat("%s x%d", item_def(r->output.id)->label, r->output.count * amount),
+             (int)left, (int)y, 16, RAYWHITE);
+    y += 24;
+
+    /* Inputs with how many are held against how many are needed, then the
+     * output. If the row would run off the menu it is drawn smaller. */
+    static const struct {
+        float icon;
+        int font;
+    } sizes[] = { { 36, 16 }, { 30, 14 }, { 24, 12 }, { 20, 10 } };
+    float icon = sizes[0].icon;
+    int font = sizes[0].font;
+    for (int k = 0; k < 4; k++) {
+        icon = sizes[k].icon;
+        font = sizes[k].font;
+        float width = 24 + icon;
+        for (int i = 0; i < r->input_count; i++)
+            width += icon + 8 + MeasureText(TextFormat("%d/%d", inventory_count(&g->inventory, r->inputs[i].id),
+                                                       r->inputs[i].count * amount), font);
+        if (width <= room) break;
+    }
+    float x = left, text_y = y + (36 - font) / 2.0f, icon_y = y + (36 - icon) / 2.0f;
     for (int i = 0; i < r->input_count; i++) {
         int have = inventory_count(&g->inventory, r->inputs[i].id);
         int need = r->inputs[i].count * amount;
-        hud_draw_item_icon(r->inputs[i].id, (Rectangle){ x, y, icon, icon });
+        hud_draw_item_icon(r->inputs[i].id, (Rectangle){ x, icon_y, icon, icon });
         const char *text = TextFormat("%d/%d", have, need);
-        DrawText(text, (int)(x + icon + 2), (int)y + 11, 16,
+        DrawText(text, (int)(x + icon + 2), (int)text_y, font,
                  have >= need ? RAYWHITE : (Color){ 235, 90, 90, 255 });
-        x += icon + 8 + MeasureText(text, 16);
+        x += icon + 8 + MeasureText(text, font);
     }
-    DrawText(">", (int)x + 4, (int)y + 9, 20, LIGHTGRAY);
-    x += 24;
-    hud_draw_item_icon(r->output.id, (Rectangle){ x, y, icon, icon });
-    DrawText(TextFormat("x%d %s", r->output.count * amount, item_def(r->output.id)->label),
-             (int)(x + icon + 2), (int)y + 11, 16, RAYWHITE);
+    DrawText(">", (int)x + 4, (int)(y + 8), 20, LIGHTGRAY);
+    hud_draw_item_icon(r->output.id, (Rectangle){ x + 24, icon_y, icon, icon });
 
     /* Slider over 1..99; the part past what can be afforded is greyed out. */
     Rectangle s = slider_rect(menu);

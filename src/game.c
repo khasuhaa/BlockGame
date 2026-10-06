@@ -290,6 +290,24 @@ static int mine_layer(const World *w, TilePos t)
     return tile_def(world_get_at(w, LAYER_BACKGROUND, t.x, t.y))->removable ? LAYER_BACKGROUND : -1;
 }
 
+/* The block at a position that can be opened - a bench or a storage block -
+ * looking in front first, then behind. TILE_AIR if there is none. */
+static TileType usable_at(const World *w, int x, int y, int *layer)
+{
+    for (int l = 0; l < LAYER_COUNT; l++) {
+        TileType t = world_get_at(w, l, x, y);
+        if (!tile_def(t)->bench && tile_def(t)->storage_columns == 0) continue;
+        if (layer) *layer = l;
+        return t;
+    }
+    return TILE_AIR;
+}
+
+TileType game_bench_at(const Game *g, int x, int y)
+{
+    return usable_at(&g->world, x, y, NULL);
+}
+
 static bool is_goal(const World *w, Pose p, Action a)
 {
     switch (a.type) {
@@ -338,10 +356,13 @@ static bool target_valid(const World *w, Action a)
     switch (a.type) {
     case ACTION_MINE: return mine_layer(w, a.target) >= 0;
     case ACTION_PLACE:
+        /* Empty in front, and empty in the layer the block goes in. */
         return t == TILE_AIR && item_def((ItemId)a.item)->places != TILE_AIR &&
+               world_get_at(w, tile_def(item_def((ItemId)a.item)->places)->layer, a.target.x,
+                            a.target.y) == TILE_AIR &&
                beside_block(w, a.target);
     case ACTION_PLANT: return can_plant(w, (ItemId)a.item, a.target);
-    case ACTION_USE: return tile_def(t)->bench || tile_def(t)->storage_columns > 0;
+    case ACTION_USE: return usable_at(w, a.target.x, a.target.y, NULL) != TILE_AIR;
     default: return !tile_def(t)->solid;
     }
 }
@@ -414,7 +435,8 @@ static Pose sim_effect(Game *g, Pose pose, Action a)
     if (a.type == ACTION_MINE && layer >= 0)
         world_set_at(&g->sim, layer, a.target.x, a.target.y, TILE_AIR);
     else if (a.type == ACTION_PLACE)
-        world_set(&g->sim, a.target.x, a.target.y, item_def((ItemId)a.item)->places);
+        world_set_at(&g->sim, tile_def(item_def((ItemId)a.item)->places)->layer, a.target.x,
+                     a.target.y, item_def((ItemId)a.item)->places);
     else if (a.type == ACTION_PLANT)
         tree_plant(&g->sim, a.target.x, a.target.y - 1, item_def((ItemId)a.item)->plants);
     return pose_rest(&g->sim, pose);
@@ -771,7 +793,7 @@ static void finish_activity(Game *g)
         if (layer >= 0) {
             /* A storage block's contents go into the item it leaves behind. */
             const TileDef *def = tile_def(world_get_at(&g->world, layer, t.x, t.y));
-            uint16_t inside = layer == LAYER_FOREGROUND ? storage_release(g, t) : 0;
+            uint16_t inside = needs_storage(def) ? storage_release(g, t) : 0;
             spawn_drop_stack(g, (ItemStack){ (uint8_t)def->drop, 1, inside }, t);
             world_set_at(&g->world, layer, t.x, t.y, TILE_AIR);
         }
@@ -788,10 +810,11 @@ static void finish_activity(Game *g)
             tree_plant(&g->world, t.x, t.y - 1, item_def(item)->plants);
         } else if (!needs_storage(tile_def(tile))) {
             container_free(&g->inventory, one.container);
-            world_set(&g->world, t.x, t.y, tile);
-        } else if (storage_create(g, t, tile_def(tile), one)) {
-            /* What was inside the item is now inside the block. */
-            world_set(&g->world, t.x, t.y, tile);
+            world_set_at(&g->world, tile_def(tile)->layer, t.x, t.y, tile);
+        } else if (!storage_at(g, t) && storage_create(g, t, tile_def(tile), one)) {
+            /* What was inside the item is now inside the block. (One tile
+             * keeps one record, so not where a block behind already has one.) */
+            world_set_at(&g->world, tile_def(tile)->layer, t.x, t.y, tile);
         } else {
             inventory_add_stack(&g->inventory, one);
             deny(g, t);
@@ -888,7 +911,7 @@ bool game_craft(Game *g, const Recipe *r, int count)
 {
     if (!g->bench_open || g->craft_remaining > 0 || count < 1) return false;
     /* Only what this bench makes, at the level it has reached. */
-    TileType bench = world_get(&g->world, g->bench_pos.x, g->bench_pos.y);
+    TileType bench = game_bench_at(g, g->bench_pos.x, g->bench_pos.y);
     if (strcmp(r->bench, tile_def(bench)->bench_kind) != 0 || recipe_locked(bench, r)) return false;
     if (game_bench_fuel(g, NULL) == 0) return false; /* out of fuel */
     int max = recipe_max_crafts(&g->inventory, r);
@@ -902,7 +925,7 @@ bool game_craft(Game *g, const Recipe *r, int count)
 int game_bench_fuel(const Game *g, int *capacity)
 {
     if (!g->bench_open) return -1;
-    const TileDef *def = tile_def(world_get(&g->world, g->bench_pos.x, g->bench_pos.y));
+    const TileDef *def = tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y));
     Storage *st = storage_at((Game *)g, g->bench_pos);
     if (def->fuel_capacity <= 0 || !st) return -1;
     if (capacity) *capacity = def->fuel_capacity;
@@ -922,12 +945,13 @@ bool game_add_fuel(Game *g, ItemId item)
 bool game_upgrade_bench(Game *g)
 {
     if (!g->bench_open) return false;
-    const TileDef *def = tile_def(world_get(&g->world, g->bench_pos.x, g->bench_pos.y));
+    int layer = LAYER_FOREGROUND;
+    const TileDef *def = tile_def(usable_at(&g->world, g->bench_pos.x, g->bench_pos.y, &layer));
     if (def->upgrade_to == TILE_AIR ||
         !inventory_has_all(&g->inventory, def->upgrade_cost, def->upgrade_cost_count))
         return false;
     inventory_remove_all(&g->inventory, def->upgrade_cost, def->upgrade_cost_count);
-    world_set(&g->world, g->bench_pos.x, g->bench_pos.y, def->upgrade_to);
+    world_set_at(&g->world, layer, g->bench_pos.x, g->bench_pos.y, def->upgrade_to);
     return true;
 }
 
@@ -941,7 +965,7 @@ static void update_bench(Game *g, float dt)
 {
     if (!g->bench_open) return;
     /* It shuts if it is removed or the player leaves it. */
-    const TileDef *open = tile_def(world_get(&g->world, g->bench_pos.x, g->bench_pos.y));
+    const TileDef *open = tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y));
     if ((!open->bench && open->storage_columns == 0) || !in_use_range(&g->world, g->player.feet, g->bench_pos)) {
         game_close_bench(g);
         return;

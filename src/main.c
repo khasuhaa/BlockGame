@@ -123,7 +123,7 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, cons
         if (!cam->dragging) {
             TilePos t = tile_at_screen(cam, mouse);
             t.x = world_wrap_x(&g->world, t.x);
-            const TileDef *def = tile_def(world_get(&g->world, t.x, t.y));
+            const TileDef *def = tile_def(game_bench_at(g, t.x, t.y));
             bool opens = def->bench || def->storage_columns > 0;
             int drop = game_drop_at(g, (mouse.x - view.origin.x) / TILE_SIZE,
                                     (mouse.y - view.origin.y) / TILE_SIZE);

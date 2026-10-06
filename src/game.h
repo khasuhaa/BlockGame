@@ -221,6 +221,10 @@ bool game_craft(Game *g, const Recipe *r, int count);
 /* Upgrades the open bench in place, paying its cost. False if it cannot be
  * upgraded or the cost is not held. */
 bool game_upgrade_bench(Game *g);
+/* The bench or storage block at a position, whichever layer it is in, or
+ * TILE_AIR if there is nothing there to open. */
+TileType game_bench_at(const Game *g, int x, int y);
+
 /* Fuel left in the open bench, in ticks, and how much it can hold; -1 if it
  * does not use fuel. A bench that uses fuel only crafts while it has some. */
 int game_bench_fuel(const Game *g, int *capacity);

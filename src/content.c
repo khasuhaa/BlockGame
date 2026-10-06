@@ -201,6 +201,8 @@ static bool read_tiles(Reader *r, const cJSON *root)
     cJSON_ArrayForEach(e, field(root, "tiles")) {
         TileDef *t = &content.tiles[tile_id(str(e, "name"))];
         t->solid = flag(e, "solid", false);
+        t->layer = str(e, "layer") && strcmp(str(e, "layer"), "background") == 0 ? LAYER_BACKGROUND
+                                                                                  : LAYER_FOREGROUND;
         t->bench = flag(e, "bench", false);
         t->removable = flag(e, "removable", false);
         t->climbable = flag(e, "climbable", false);
@@ -581,6 +583,8 @@ static bool validate(Reader *r)
     }
     for (int i = 0; i < content.tile_count; i++) {
         const TileDef *t = &content.tiles[i];
+        if (t->layer == LAYER_BACKGROUND && t->solid)
+            return fail(r, "tile \"%s\" is placed in the background, so it cannot be solid", t->name);
         int slots = t->storage_columns * t->storage_rows;
         if (slots == 0) continue;
         /* What is in it has to survive being picked up. */

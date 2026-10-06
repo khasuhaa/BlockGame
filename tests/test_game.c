@@ -872,7 +872,7 @@ static void test_bench(void)
     CHECK(game_click_tile(&g, px + 7, s - 1));
     CHECK(game_queue_action(&g, ACTION_USE, px + 7, s - 1));
     run(&g, 2.0f);
-    CHECK(world_get(&g.world, px + 7, s - 1) == TILE_WORKBENCH && g.bench_open);
+    CHECK(world_get_at(&g.world, BG, px + 7, s - 1) == TILE_WORKBENCH && g.bench_open);
     CHECK(count_item(&g, ITEM_WORKBENCH) == 4);
     CHECK(!game_craft(&g, portal, 1)); /* not this bench's recipe */
     clear_inventory(&g);
@@ -898,7 +898,7 @@ static void test_bench(void)
     CHECK(!game_upgrade_bench(&g));
     inventory_add(&g.inventory, ITEM_STONE, 6);
     CHECK(game_upgrade_bench(&g));
-    CHECK(world_get(&g.world, px + 7, s - 1) == TILE_WORKBENCH_2 && count_item(&g, ITEM_STONE) == 5);
+    CHECK(world_get_at(&g.world, BG, px + 7, s - 1) == TILE_WORKBENCH_2 && count_item(&g, ITEM_STONE) == 5);
     CHECK(g.bench_open && !game_upgrade_bench(&g));
     CHECK(game_craft(&g, kiln, 1));
     run(&g, 0.3f);
@@ -911,7 +911,7 @@ static void test_bench(void)
 
     CHECK(game_queue_action(&g, ACTION_MINE, px + 7, s - 1));
     run(&g, 2.0f);
-    CHECK(world_get(&g.world, px + 7, s - 1) == TILE_AIR && !g.bench_open);
+    CHECK(world_get_at(&g.world, BG, px + 7, s - 1) == TILE_AIR && !g.bench_open);
     /* The upgraded bench comes back as itself, tier and all. */
     CHECK(count_item(&g, item_id("workbench_2")) == 1);
     game_free(&g);
@@ -942,6 +942,42 @@ static void test_work_benches(void)
 
     /* Woodwork bench: a chest for 1 wood. Craft bench: a basket for 10 sticks. */
     CHECK(place_and_open(&g, "woodwork_bench", x));
+
+    /* A bench stands behind the player: it is walked in front of, not round
+     * or over, and a block can be put in front of it. */
+    CHECK(world_get(&g.world, x, s - 1) == TILE_AIR);
+    CHECK(world_get_at(&g.world, BG, x, s - 1) == tile_id("woodwork_bench"));
+    CHECK(game_bench_at(&g, x, s - 1) == tile_id("woodwork_bench") && game_bench_at(&g, x + 1, s - 1) == TILE_AIR);
+    game_set_move_input(&g, 1, 0);
+    Trace walk = run_traced(&g, WALK_TIME * 4 + 0.05f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 0.5f);
+    CHECK(!walk.climbed && !walk.hopped && walk.deepest == s - 1 && g.player.feet.y == s - 1);
+    CHECK(g.player.feet.x >= x + 2 && !g.bench_open);
+    /* Standing right in front of it, it can still be opened. */
+    g.player.feet = g.player.step_to = (TilePos){ x, s - 1 };
+    CHECK(game_queue_action(&g, ACTION_USE, x, s - 1));
+    run(&g, 0.2f);
+    CHECK(g.bench_open && g.player.feet.x == x);
+    /* Another bench cannot go where one already is, but an ordinary block can. */
+    inventory_add(inv, item_id("craft_bench"), 1);
+    inventory_add(inv, ITEM_DIRT, 1);
+    inventory_select(inv, 0, -1);
+    CHECK(inventory_selected(inv)->id == item_id("craft_bench"));
+    g.player.feet = g.player.step_to = (TilePos){ x - 1, s - 1 };
+    CHECK(!game_queue_action(&g, ACTION_PLACE, x, s - 1));
+    inventory_select(inv, 1, -1);
+    CHECK(game_queue_action(&g, ACTION_PLACE, x, s - 1));
+    run(&g, 1.0f);
+    CHECK(world_get(&g.world, x, s - 1) == TILE_DIRT && world_get_at(&g.world, BG, x, s - 1) == tile_id("woodwork_bench"));
+    /* The block in front is what gets mined first; then the bench. */
+    CHECK(game_queue_action(&g, ACTION_MINE, x, s - 1));
+    run(&g, 2.0f);
+    CHECK(world_get(&g.world, x, s - 1) == TILE_AIR && world_get_at(&g.world, BG, x, s - 1) == tile_id("woodwork_bench"));
+    clear_inventory(&g);
+    CHECK(game_queue_action(&g, ACTION_USE, x, s - 1));
+    run(&g, 1.0f);
+    CHECK(g.bench_open);
     CHECK(costs(find_recipe(tile_id("woodwork_bench"), "chest"), "wood", 1, NULL, 0));
     inventory_add(inv, ITEM_WOOD, 2);
     CHECK(game_craft(&g, find_recipe(tile_id("woodwork_bench"), "chest"), 1));
@@ -977,7 +1013,7 @@ static void test_work_benches(void)
     CHECK(game_craft(&g, find_recipe(tool1, "flint_axe"), 1));
     run(&g, 0.3f);
     CHECK(!game_craft(&g, find_recipe(tool1, "stone_pickaxe"), 1));
-    CHECK(game_upgrade_bench(&g) && world_get(&g.world, x + 4, s - 1) == tool2);
+    CHECK(game_upgrade_bench(&g) && world_get_at(&g.world, BG, x + 4, s - 1) == tool2);
     CHECK(count_item(&g, ITEM_STONE) == 5 && !game_upgrade_bench(&g));
     CHECK(game_craft(&g, find_recipe(tool1, "stone_pickaxe"), 1));
     run(&g, 0.3f);
@@ -1043,7 +1079,7 @@ static void test_work_benches(void)
     CHECK(count_item(&g, item_id("tin_ingot")) == 2 && count_item(&g, item_id("tin_ore")) == 0);
     CHECK(!game_craft(&g, find_recipe(f1, "iron_ingot"), 1));
     int fuel = game_bench_fuel(&g, NULL);
-    CHECK(game_upgrade_bench(&g) && world_get(&g.world, x + 8, s - 1) == f2);
+    CHECK(game_upgrade_bench(&g) && world_get_at(&g.world, BG, x + 8, s - 1) == f2);
     CHECK(count_item(&g, item_id("iron_ore")) == 2);
     /* Upgrading keeps the fire in. */
     CHECK(game_bench_fuel(&g, NULL) == fuel);
@@ -1051,7 +1087,7 @@ static void test_work_benches(void)
     run(&g, 0.4f);
     CHECK(count_item(&g, item_id("iron_ingot")) == 2);
     CHECK(!game_craft(&g, find_recipe(f1, "titanium_ingot"), 1));
-    CHECK(game_upgrade_bench(&g) && world_get(&g.world, x + 8, s - 1) == f3);
+    CHECK(game_upgrade_bench(&g) && world_get_at(&g.world, BG, x + 8, s - 1) == f3);
     CHECK(count_item(&g, item_id("titanium_ore")) == 1 && !game_upgrade_bench(&g));
     CHECK(game_craft(&g, find_recipe(f1, "titanium_ingot"), 1));
     run(&g, 0.3f);

@@ -59,6 +59,7 @@ typedef struct {
     char name[CONTENT_NAME_LEN];
     char label[CONTENT_NAME_LEN]; /* shown to the player */
     bool solid;      /* in the foreground: blocks movement and can be stood on */
+    int layer;       /* the layer it goes in when placed */
     bool bench;      /* a workbench: can be opened to craft */
     bool removable;  /* can be mined */
     bool climbable;  /* can be held on to by a player in front of it */
