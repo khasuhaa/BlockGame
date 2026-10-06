@@ -1,5 +1,6 @@
 #include "game.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -193,7 +194,8 @@ static bool is_goal(const World *w, Pose p, Action a)
     switch (a.type) {
     case ACTION_MINE:
     case ACTION_PLACE: return in_reach(w, p.feet, a.target);
-    case ACTION_USE: return in_use_range(w, p.feet, a.target);
+    case ACTION_USE:
+    case ACTION_COLLECT: return in_use_range(w, p.feet, a.target);
     default: return on_body(p.feet, a.target);
     }
 }
@@ -212,6 +214,7 @@ static bool beside_block(const World *w, TilePos t)
 static bool target_valid(const World *w, Action a)
 {
     if (!world_in_bounds(w, a.target.x, a.target.y)) return false;
+    if (a.type == ACTION_COLLECT) return true; /* the drop itself is checked on arrival */
     TileType t = world_get(w, a.target.x, a.target.y);
     switch (a.type) {
     case ACTION_MINE: return tile_def(t)->solid && tile_def(t)->removable;
@@ -356,23 +359,65 @@ static bool queue_checked(Game *g, Pose pos, Action a)
 
 bool game_queue_action(Game *g, ActionType type, int tx, int ty)
 {
-    Action a = { type, { world_wrap_x(&g->world, tx), ty }, 0 };
+    Action a = { .type = type, .target = { world_wrap_x(&g->world, tx), ty } };
     if (type == ACTION_PLACE) a.item = inventory_selected(&g->inventory)->id;
     return queue_checked(g, sim_pending(g), a);
+}
+
+static TilePos drop_tile(const Drop *d)
+{
+    return (TilePos){ d->x, (int)(d->y + 0.5f) };
+}
+
+bool game_queue_collect(Game *g, int drop)
+{
+    if (drop < 0 || drop >= MAX_DROPS) return false;
+    const Drop *d = &g->drops[drop];
+    if (!d->active || d->collect > 0.0f) return false;
+    Action a = { ACTION_COLLECT, drop_tile(d), 0, drop, d->id };
+    return queue_checked(g, sim_pending(g), a);
+}
+
+void game_drop_center(const Game *g, int drop, float *x, float *y)
+{
+    const Drop *d = &g->drops[drop];
+    *x = (float)d->x + 0.5f;
+    /* Fruit hangs in the middle of its leaf; anything else rests on the ground. */
+    *y = d->y + (d->attached ? 0.5f : 0.7f);
+}
+
+int game_drop_at(const Game *g, float x, float y)
+{
+    int best = -1;
+    float best_d2 = 0.5f * 0.5f;
+    for (int i = 0; i < MAX_DROPS; i++) {
+        const Drop *d = &g->drops[i];
+        if (!d->active || d->collect > 0.0f) continue;
+        float cx, cy;
+        game_drop_center(g, i, &cx, &cy);
+        float dx = (float)world_dx(&g->world, 0, (int)floorf(x) - d->x) + (x - floorf(x)) - 0.5f;
+        float dy = y - cy;
+        float d2 = dx * dx + dy * dy;
+        if (d2 < best_d2) {
+            best_d2 = d2;
+            best = i;
+        }
+    }
+    return best;
 }
 
 bool game_click_tile(Game *g, int tx, int ty)
 {
     Pose pos = sim_pending(g);
     tx = world_wrap_x(&g->world, tx);
-    Action a = { ACTION_MOVE, { tx, ty }, 0 };
+    Action a = { .type = ACTION_MOVE, .target = { tx, ty } };
     const ItemStack *held = inventory_selected(&g->inventory);
 
     if (world_in_bounds(&g->world, tx, ty) && world_is_solid(&g->sim, tx, ty)) {
         a.type = ACTION_MINE;
     } else if (held->count > 0 && item_def((ItemId)held->id)->places != TILE_AIR) {
         /* Holding a block: air beside a block is where it gets placed. */
-        Action place = { ACTION_PLACE, a.target, held->id };
+        Action place = { .type = ACTION_PLACE, .target = a.target, .item = held->id };
         if (target_valid(&g->sim, place)) a = place;
     }
     return queue_checked(g, pos, a);
@@ -382,15 +427,17 @@ bool game_click_tile(Game *g, int tx, int ty)
 
 /* Leaves an item lying in a tile. With no room for another drop it goes
  * straight to the inventory instead. */
-static void spawn_drop(Game *g, ItemId item, TilePos at)
+static Drop *spawn_drop(Game *g, ItemId item, TilePos at)
 {
-    if (item == ITEM_NONE) return;
+    if (item == ITEM_NONE) return NULL;
     for (int i = 0; i < MAX_DROPS; i++) {
         if (g->drops[i].active) continue;
-        g->drops[i] = (Drop){ true, (uint8_t)item, at.x, (float)at.y, 0.0f, 0.0f };
-        return;
+        g->drops[i] = (Drop){ true, (uint8_t)item, at.x, (float)at.y, 0.0f, 0.0f, false, 0,
+                              ++g->next_drop_id };
+        return &g->drops[i];
     }
     inventory_add(&g->inventory, item, 1);
+    return NULL;
 }
 
 static void update_drops(Game *g, float dt)
@@ -405,6 +452,7 @@ static void update_drops(Game *g, float dt)
             continue;
         }
         d->age += dt;
+        if (d->attached) continue;
 
         int rest = (int)d->y;
         while (!world_is_solid(&g->world, d->x, rest + 1)) rest++;
@@ -500,6 +548,17 @@ static bool start_next_activity(Game *g)
                     if (inventory_count(&g->inventory, (ItemId)g->current.item) < 1) break;
                     begin_work(g, ACTIVITY_PLACING, PLACE_TIME);
                     return true;
+                case ACTION_COLLECT: {
+                    Drop *d = &g->drops[g->current.drop];
+                    bool there = d->active && d->id == g->current.drop_id && d->collect == 0.0f;
+                    /* Someone else's hands, or a despawn, is not worth a complaint. */
+                    if (there && (!in_use_range(w, p->feet, drop_tile(d)) ||
+                                  inventory_add(&g->inventory, (ItemId)d->item, 1) != 0))
+                        break;
+                    if (there) d->collect = 0.001f;
+                    g->has_current = false;
+                    continue;
+                }
                 case ACTION_USE:
                     game_close_bench(g);
                     g->bench_open = true;
@@ -578,10 +637,105 @@ static void update_bench(Game *g, float dt)
     }
 }
 
+/* ---- world time -------------------------------------------------------- */
+
+static uint32_t game_random(Game *g)
+{
+    uint32_t x = g->rng ? g->rng : 0x9E3779B9u;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    return g->rng = x;
+}
+
+static Drop *attached_drop_at(Game *g, int x, int y)
+{
+    for (int i = 0; i < MAX_DROPS; i++) {
+        Drop *d = &g->drops[i];
+        if (d->active && d->attached && d->x == x && (int)d->y == y) return d;
+    }
+    return NULL;
+}
+
+/* Something happens to one block: a trunk grows its tree, a leaf bears fruit. */
+static void random_event(Game *g, int x, int y)
+{
+    World *w = &g->world;
+    TileType t = world_get(w, x, y);
+
+    if (tree_kind_of_log(t) != TREE_NONE) {
+        TreeGrowth growth = tree_grow(w, x, y, &g->rng);
+        if (!growth.extended) return;
+        /* Fruit rides up with the leaf it hangs on. */
+        for (int i = 0; i < MAX_DROPS; i++) {
+            Drop *d = &g->drops[i];
+            if (!d->active || !d->attached || abs(world_dx(w, growth.x, d->x)) > 2) continue;
+            if ((int)d->y < growth.top - 1 || (int)d->y > growth.top + 6) continue;
+            if (tree_kind_of_leaves(world_get(w, d->x, (int)d->y - 1)) != TREE_NONE) d->y -= 1.0f;
+        }
+        return;
+    }
+
+    TreeKind leaves = tree_kind_of_leaves(t);
+    if (leaves == TREE_NONE || attached_drop_at(g, x, y)) return;
+    Drop *fruit = spawn_drop(g, leaves == TREE_OAK ? ITEM_ACORN : ITEM_CHERRY, (TilePos){ x, y });
+    if (!fruit) return;
+    fruit->attached = true;
+    fruit->ttl = FRUIT_TICKS;
+}
+
+void game_tick(Game *g)
+{
+    World *w = &g->world;
+    g->tick++;
+
+    for (int chunk = 0; chunk * CHUNK_WIDTH < w->width; chunk++) {
+        uint32_t r = game_random(g);
+        int x = chunk * CHUNK_WIDTH + (int)(r % CHUNK_WIDTH);
+        if (x < w->width) random_event(g, x, (int)((r >> 8) % (uint32_t)w->height));
+    }
+
+    for (int i = 0; i < MAX_DROPS; i++) {
+        Drop *d = &g->drops[i];
+        if (!d->active) continue;
+        /* Fruit whose leaf is gone falls like anything else. */
+        if (d->attached && tree_kind_of_leaves(world_get(w, d->x, (int)d->y)) == TREE_NONE)
+            d->attached = false;
+        if (d->ttl > 0 && --d->ttl == 0 && d->collect == 0.0f) d->active = false;
+    }
+}
+
+float game_day_phase(const Game *g, bool *is_day)
+{
+    int t = (int)(g->tick % (DAY_TICKS + NIGHT_TICKS));
+    if (is_day) *is_day = t < DAY_TICKS;
+    return t < DAY_TICKS ? (float)t / DAY_TICKS : (float)(t - DAY_TICKS) / NIGHT_TICKS;
+}
+
+float game_daylight(const Game *g)
+{
+    /* Dusk is centred on the end of the day, dawn on the end of the night. */
+    const float half = TWILIGHT_TICKS / 2.0f;
+    int cycle = DAY_TICKS + NIGHT_TICKS;
+    float t = (float)(g->tick % (uint64_t)cycle);
+    float night;
+    if (t < half) night = 0.5f - t / TWILIGHT_TICKS;
+    else if (t > (float)cycle - half) night = 0.5f + ((float)cycle - t) / TWILIGHT_TICKS;
+    else night = fminf(fmaxf((t - DAY_TICKS) / TWILIGHT_TICKS + 0.5f, 0.0f), 1.0f);
+    return 1.0f - night * night * (3.0f - 2.0f * night);
+}
+
 void game_update(Game *g, float dt)
 {
     Player *p = &g->player;
     float frame = dt;
+
+    g->tick_timer += dt * (float)g->tick_rate;
+    for (int n = 0; g->tick_timer >= 1.0f && n < MAX_TICK_RATE; n++) {
+        g->tick_timer -= 1.0f;
+        game_tick(g);
+    }
+    if (g->tick_timer > 1.0f) g->tick_timer = 0.0f;
 
     for (int i = 0; i < MAX_DENIALS; i++) {
         if (g->denials[i].ttl > 0.0f) g->denials[i].ttl -= dt;
@@ -661,6 +815,8 @@ bool game_init(Game *g, int width, int height, uint32_t seed, WorldKind kind)
     g->player.feet = (TilePos){ g->world.spawn_x, g->world.spawn_y };
     g->player.facing = 1;
     inventory_init(&g->inventory);
+    g->tick_rate = DEFAULT_TICK_RATE;
+    g->rng = seed ^ 0x5EED1E57u;
     g->player.step_to = g->player.feet;
     return true;
 }

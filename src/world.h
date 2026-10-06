@@ -12,6 +12,11 @@ typedef enum {
     TILE_GRASS,
     TILE_STONE,
     TILE_PORTAL_BASE,
+    TILE_OAK_LOG,
+    TILE_OAK_LEAVES,
+    TILE_CHERRY_LOG,
+    TILE_CHERRY_LEAVES,
+    TILE_WOOD,
     TILE_COUNT
 } TileType;
 
@@ -26,10 +31,12 @@ const TileDef *tile_def(TileType t);
 
 typedef enum {
     WORLD_FLAT,   /* level dirt, for tests */
-    WORLD_TERRAIN /* plains, mountains and valleys */
+    WORLD_TERRAIN, /* plains, mountains and valleys, with trees */
+    WORLD_BLANK   /* nothing at all: filled in from a save file */
 } WorldKind;
 
 /* Terrain limits, in blocks. */
+#define CHUNK_WIDTH 16 /* columns per chunk; each chunk gets its own random events */
 #define PORTAL_HEIGHT 3
 #define FEATURE_MIN_SIZE 10 /* shortest mountain / shallowest valley */
 #define FEATURE_MAX_SIZE 60 /* tallest mountain / deepest valley */
@@ -37,7 +44,12 @@ typedef enum {
 
 /* Tile grid that wraps around horizontally: column `width` is column 0 again.
  * Tile coordinates have x growing right and y growing down from the top row.
- * World "Y" is height: it grows upward and is 0 at the spawn point's feet. */
+ * World "Y" is height: it grows upward and is 0 at the spawn point's feet.
+ *
+ * There are two layers of tiles. The foreground is the one the player lives
+ * in: everything generated so far goes there, and every function below works
+ * on it. The background sits behind it and is only drawn. Dropped items form
+ * a third layer in front of both; they belong to the game, not the grid. */
 typedef struct {
     int width, height;
     uint32_t seed;
@@ -45,7 +57,8 @@ typedef struct {
     int spawn_x;      /* tile where the player's feet start */
     int spawn_y;
     int surface_y;    /* WORLD_FLAT only: row of the ground's top layer */
-    uint8_t *tiles;
+    uint8_t *tiles;      /* foreground */
+    uint8_t *background;
 } World;
 
 /* Allocates the grid and generates terrain from the seed. */

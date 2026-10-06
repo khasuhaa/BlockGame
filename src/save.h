@@ -1,0 +1,15 @@
+#ifndef SAVE_H
+#define SAVE_H
+
+#include "game.h"
+
+/* Writes the whole world and the player's state to a file. The file is
+ * written beside its destination first and renamed into place, so a failed
+ * save leaves the old one intact. */
+bool save_game(const Game *g, const char *path);
+
+/* Loads a save into `g`, which must not be initialised. On failure `g` is
+ * left empty. Actions that were queued when the game was saved are not kept. */
+bool load_game(Game *g, const char *path);
+
+#endif

@@ -12,16 +12,16 @@ else
 LDLIBS := -lGL -lm -lpthread -ldl -lrt -lX11
 endif
 
-ENGINE_SRC := src/world.c src/inventory.c src/craft.c src/game.c
+ENGINE_SRC := src/world.c src/tree.c src/inventory.c src/craft.c src/game.c src/save.c
 HEADERS := $(wildcard src/*.h)
 
 .PHONY: all run test clean
 
 all: build/blockgame
 
-build/blockgame: src/main.c src/hud.c src/benchui.c $(ENGINE_SRC) $(HEADERS) $(RAYLIB_LIB)
+build/blockgame: src/main.c src/hud.c src/benchui.c src/menu.c $(ENGINE_SRC) $(HEADERS) $(RAYLIB_LIB)
 	@mkdir -p build
-	$(CC) $(CFLAGS) -I$(RAYLIB_DIR)/src src/main.c src/hud.c src/benchui.c $(ENGINE_SRC) $(RAYLIB_LIB) $(LDLIBS) -o $@
+	$(CC) $(CFLAGS) -I$(RAYLIB_DIR)/src src/main.c src/hud.c src/benchui.c src/menu.c $(ENGINE_SRC) $(RAYLIB_LIB) $(LDLIBS) -o $@
 
 build/test_game: tests/test_game.c $(ENGINE_SRC) $(HEADERS)
 	@mkdir -p build

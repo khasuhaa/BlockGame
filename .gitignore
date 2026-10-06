@@ -1,5 +1,6 @@
 build/
 vendor/
+saves/
 *.o
 *.dSYM/
 .DS_Store

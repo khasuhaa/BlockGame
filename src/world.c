@@ -1,5 +1,7 @@
 #include "world.h"
 
+#include "tree.h"
+
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +14,11 @@ static const TileDef tile_defs[TILE_COUNT] = {
     [TILE_GRASS] = { true, false, true, 0.35f },
     [TILE_STONE] = { true, false, true, 0.7f },
     [TILE_PORTAL_BASE] = { true, false, false, 0.0f },
+    [TILE_OAK_LOG] = { true, false, true, 0.5f },
+    [TILE_OAK_LEAVES] = { true, false, true, 0.15f },
+    [TILE_CHERRY_LOG] = { true, false, true, 0.5f },
+    [TILE_CHERRY_LEAVES] = { true, false, true, 0.15f },
+    [TILE_WOOD] = { true, false, true, 0.5f },
 };
 
 const TileDef *tile_def(TileType t)
@@ -226,6 +233,20 @@ static bool generate_terrain(World *w)
         }
     }
 
+    /* Trees stand on the grass of the plains, at every stage of growth from a
+     * lone trunk block to full size. */
+    int last_tree = -100;
+    for (int x = 0; x < width; x++) {
+        int feet = world_y_to_row(w, level[x]);
+        if (c.shape[x] > 0.0f || world_get(w, x, feet + 1) != TILE_GRASS) continue;
+        if (x - last_tree < 7 || abs(world_dx(w, w->spawn_x, x)) < 8) continue;
+        if (rng_range(&rng, 0, 9) != 0) continue;
+        tree_plant(w, x, feet, rng_range(&rng, 0, 1) ? TREE_OAK : TREE_CHERRY);
+        int steps = rng_range(&rng, 0, 1) ? 100 : rng_range(&rng, 0, 20);
+        while (steps-- > 0 && tree_grow(w, x, feet, &rng).grew) {}
+        last_tree = x;
+    }
+
     free(c.level);
     free(c.shape);
     free(level);
@@ -254,13 +275,18 @@ bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind)
 {
     memset(w, 0, sizeof *w);
     if (width < 4 || height < 8) return false;
-    w->tiles = malloc((size_t)width * height);
-    if (!w->tiles) return false;
+    w->tiles = calloc((size_t)width, (size_t)height);
+    w->background = calloc((size_t)width, (size_t)height);
+    if (!w->tiles || !w->background) {
+        world_free(w);
+        return false;
+    }
     w->width = width;
     w->height = height;
     w->seed = seed;
     w->y_top = height / 2;
 
+    if (kind == WORLD_BLANK) return true;
     if (kind == WORLD_FLAT) {
         generate_flat(w);
     } else if (!generate_terrain(w)) {
@@ -278,6 +304,7 @@ bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind)
 void world_free(World *w)
 {
     free(w->tiles);
+    free(w->background);
     memset(w, 0, sizeof *w);
 }
 

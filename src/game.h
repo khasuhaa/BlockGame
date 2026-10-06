@@ -3,13 +3,21 @@
 
 #include "craft.h"
 #include "inventory.h"
+#include "tree.h"
 #include "world.h"
 
 #define MAX_QUEUED_ACTIONS 32
 #define MAX_DENIALS 8
 #define MAX_WALL_HOP 2 /* columns a wall-to-wall hop can cover */
 #define MAX_MOVES 8
-#define MAX_DROPS 256
+#define MAX_DROPS 2048
+
+#define DEFAULT_TICK_RATE 10 /* ticks per second */
+#define MAX_TICK_RATE 100
+#define DAY_TICKS 1000
+#define NIGHT_TICKS 800
+#define TWILIGHT_TICKS 80   /* length of the fade at dawn and dusk */
+#define FRUIT_TICKS 1800    /* how long a fruit lasts */
 
 #define WALK_TIME 0.12f
 #define FALL_TIME 0.07f
@@ -31,13 +39,16 @@ typedef enum {
     ACTION_MOVE, /* put one of the player's two blocks on the target tile */
     ACTION_MINE, /* walk next to the target tile, then mine it */
     ACTION_PLACE, /* walk next to the target tile, then put a block there */
-    ACTION_USE   /* walk up to the bench on the target tile, then open it */
+    ACTION_USE,  /* walk up to the bench on the target tile, then open it */
+    ACTION_COLLECT /* walk up to a dropped item, then pick it up */
 } ActionType;
 
 typedef struct {
     ActionType type;
     TilePos target;
     uint8_t item; /* ACTION_PLACE: the item being placed */
+    int drop;     /* ACTION_COLLECT: which drop, and the id it had when queued */
+    uint32_t drop_id;
 } Action;
 
 /* One voluntary move. Standing: walk (+-1,0), hop a one-block gap (+-2,0),
@@ -82,7 +93,9 @@ typedef struct {
     float ttl;
 } Denial;
 
-/* An item lying in the world, waiting to be walked up to. */
+/* An item in the item layer, in front of the blocks. It either lies in the
+ * world, falling until something holds it up, or is a fruit attached to a
+ * leaf, where it stays put and has to be picked by hand. */
 typedef struct {
     bool active;
     uint8_t item;
@@ -90,6 +103,9 @@ typedef struct {
     float y;       /* tile row; fractional while falling */
     float age;
     float collect; /* 0 while lying; otherwise 0..1 progress flying to the player */
+    bool attached; /* growing on a leaf */
+    int ttl;       /* ticks until it disappears; 0 lasts forever */
+    uint32_t id;   /* unique, so a queued action can tell if its drop is gone */
 } Drop;
 
 typedef struct {
@@ -97,6 +113,14 @@ typedef struct {
     Player player;
     Inventory inventory;
     Drop drops[MAX_DROPS];
+    uint32_t next_drop_id;
+
+    /* World time. Movement runs in real time; ticks drive the day, tree
+     * growth and fruit. */
+    uint64_t tick;
+    int tick_rate; /* ticks per second */
+    float tick_timer;
+    uint32_t rng;
 
     /* Action being carried out: walk `steps`, then mine if it is a mine. */
     bool has_current;
@@ -141,6 +165,22 @@ bool game_click_tile(Game *g, int tx, int ty);
 /* Queues one specific action on a tile, with the same checks. Placing uses
  * the selected item. */
 bool game_queue_action(Game *g, ActionType type, int tx, int ty);
+
+/* Queues walking up to a drop and picking it up. */
+bool game_queue_collect(Game *g, int drop);
+/* The drop whose centre is nearest a point in tile space and within reach of
+ * a tap, or -1. */
+int game_drop_at(const Game *g, float x, float y);
+/* Where a drop sits, in tile units. */
+void game_drop_center(const Game *g, int drop, float *x, float *y);
+
+/* Advances world time by one tick: a random event in every chunk, and fruit
+ * ageing. game_update calls this tick_rate times a second. */
+void game_tick(Game *g);
+/* 1 in full daylight, 0 at night, in between at dawn and dusk. */
+float game_daylight(const Game *g);
+/* Progress through the current day or night, 0..1, and which it is. */
+float game_day_phase(const Game *g, bool *is_day);
 
 /* Starts crafting `count` of a recipe at the open bench, one every
  * CRAFT_TIME. Anything that does not fit in the inventory is dropped. */

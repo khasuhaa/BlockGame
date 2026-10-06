@@ -8,6 +8,10 @@ static const ItemDef item_defs[ITEM_COUNT] = {
     [ITEM_DIRT] = { "Dirt", MAX_STACK, false, EQUIP_NONE, TILE_DIRT },
     [ITEM_WORKBENCH] = { "Workbench", MAX_STACK, false, EQUIP_NONE, TILE_WORKBENCH },
     [ITEM_STONE] = { "Stone", MAX_STACK, false, EQUIP_NONE, TILE_STONE },
+    [ITEM_STICK] = { "Stick", MAX_STACK, false, EQUIP_NONE, TILE_AIR },
+    [ITEM_WOOD] = { "Wood", MAX_STACK, false, EQUIP_NONE, TILE_WOOD },
+    [ITEM_ACORN] = { "Acorn", MAX_STACK, false, EQUIP_NONE, TILE_AIR },
+    [ITEM_CHERRY] = { "Cherry", MAX_STACK, false, EQUIP_NONE, TILE_AIR },
 };
 
 const ItemDef *item_def(ItemId id)
@@ -21,6 +25,11 @@ ItemId item_for_tile(TileType t)
     case TILE_DIRT:
     case TILE_GRASS: return ITEM_DIRT;
     case TILE_STONE: return ITEM_STONE;
+    case TILE_OAK_LOG:
+    case TILE_CHERRY_LOG:
+    case TILE_WOOD: return ITEM_WOOD;
+    case TILE_OAK_LEAVES:
+    case TILE_CHERRY_LEAVES: return ITEM_STICK;
     case TILE_WORKBENCH: return ITEM_WORKBENCH;
     default: return ITEM_NONE;
     }

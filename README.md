@@ -5,14 +5,24 @@ A small 2D block-based game engine in C, using [raylib](https://www.raylib.com) 
 ## Build and run
 
 ```sh
-make run          # build and start the game (random world)
-./build/blockgame 42   # start with a fixed seed
+make run          # build and start the game
 make test         # headless tests of the game rules
 ```
 
 The first build downloads raylib 5.5 into `vendor/` and compiles it.
 
 On an Apple Silicon Mac, if the shell is running under Rosetta the compiler may fail with an `xcrun` error; use `arch -arm64 make run` instead.
+
+## Menus and saves
+
+The game opens on a main menu listing the saved worlds. Pick one to join it, or choose "New world", give it a name, and a fresh world is generated from a random seed.
+
+Worlds are saved in `saves/<name>.world`, next to where the game is run from. A world is saved when it is created, every two minutes while playing, on "Save and quit to menu", and when the window is closed. Actions still queued at that moment are not kept.
+
+`Esc` opens the pause menu, which stops the world and offers:
+
+- **World settings** — the tick rate, from 1 to 60 ticks a second (10 by default). It is saved with the world.
+- **Keybinds** — the keys for moving left and right, climbing up and down, and making the camera follow the player. Click one, then press the new key; a key already in use swaps with the one it replaces. Bindings are shared by all worlds and kept in `saves/keybinds.txt`.
 
 ## Controls
 
@@ -24,9 +34,13 @@ On an Apple Silicon Mac, if the shell is running under Rosetta the compiler may 
 | Click a ground tile | Queue walking next to that tile and mining it |
 | Click air beside a block, holding a block | Queue walking next to that tile and placing the block |
 | Click a bench | Open it, or choose between opening and removing it |
+| Click a dropped item or a fruit | Queue walking up to it and picking it up |
+| `Esc` | Pause menu |
 | Drag | Pan the map |
 | `Space` | Make the camera follow the player again |
 | `1`–`8` | Select an inventory slot |
+
+The movement keys and `Space` can be changed in the pause menu.
 
 Clicks queue up and run in order. A click that cannot be carried out is refused with a red cross on the tile. Pressing a movement key cancels the queue.
 
@@ -53,6 +67,25 @@ The land is plains broken up by mountains and valleys, always with a stretch of 
 - **Smooth valleys** drop 10 to 60 blocks along a long, gentle slope.
 
 Columns are grass over dirt over stone. The dirt is 4 or 5 blocks deep on the plains and thins out gradually up a mountain or down a valley, so peaks and valley floors are bare stone. Stone takes twice as long to mine as dirt. Grass drops dirt.
+
+## Time
+
+World time runs in ticks, 10 a second unless the world's tick rate is changed. A day is 1000 ticks and a night 800, with the light fading over 80 ticks at dusk and dawn. Movement, mining and crafting run in real time and are not affected by the tick rate.
+
+Every tick, one random block in each 16-column chunk gets a random event. A chunk is the full height of the world, so any one block is hit about once every 6400 ticks.
+
+## Trees
+
+Trees are generated on the plains at every stage of growth, and keep growing:
+
+- A random event on a **trunk** block makes its tree grow one step: either one new leaf, added outward from the trunk, or one more block of trunk. When the trunk extends, all the leaves move up a row with it; a leaf with a block in its way is lost.
+- A random event on a **leaf** hangs a fruit on it: an acorn on an oak, a cherry on a cherry tree. Fruit hovers on its leaf, never falls off by itself, and disappears after 1800 ticks. It is not collected by walking past; click it to queue picking it. If its leaf is broken it falls and can be collected like any other item.
+
+An **oak** grows to a 7-block trunk with a ball of leaves on top: rows 3, 5, 5 and 3 wide over 4 blocks of bare trunk. A **cherry** grows to an 8-block trunk with leaf rows 3, 3, 4, 4, 5 and 5 wide from the top down, over 2 blocks of bare trunk.
+
+Breaking a leaf drops a stick; breaking a trunk drops wood, which can be placed as an ordinary block. Trees are solid like any other block, and can be climbed.
+
+The world has three layers from back to front: a background layer of blocks (empty for now, drawn dimmed), the foreground layer the player lives in, and the item layer, where dropped items and fruit are drawn in front of the blocks.
 
 ## Inventory
 
@@ -89,11 +122,14 @@ Each item takes 100 ms to craft. Output that does not fit in the inventory is dr
 ## Layout
 
 - `src/world.c` — tile kinds, the wrapping tile grid and terrain generation
+- `src/tree.c` — tree shapes and growth
 - `src/inventory.c` — items, stacks, baskets and the rules for moving them
 - `src/craft.c` — recipes for each kind of bench
 - `src/game.c` — player, movement rules, path planning, action queue, item drops, crafting
+- `src/save.c` — saving and loading a world
 - `src/hud.c` — the on-screen inventory bar
 - `src/benchui.c` — the bench popup and crafting menu
+- `src/menu.c` — main menu, pause menu and key bindings
 - `src/view.h` — placing the wrapping world on screen
 - `src/main.c` — window, input, camera and rendering
 - `tests/test_game.c` — tests for the rules, with no window

@@ -1,8 +1,10 @@
 /* Headless tests for the game rules: no window, just the simulation. */
 #include "../src/game.h"
+#include "../src/save.h"
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static int failures;
 
@@ -397,7 +399,7 @@ static void test_drops(void)
     CHECK(!g.drops[0].active && count_item(&g, ITEM_DIRT) == 1);
 
     /* Out of reach it stays put until the player walks up to it. */
-    g.drops[0] = (Drop){ true, ITEM_DIRT, start.x + 6, (float)(s - 5), 0.0f, 0.0f };
+    g.drops[0] = (Drop){ true, ITEM_DIRT, start.x + 6, (float)(s - 5), 0.0f, 0.0f, false, 0, 1 };
     run(&g, 2.0f);
     CHECK(g.drops[0].active && g.drops[0].y == (float)(s - 1));
     CHECK(game_click_tile(&g, start.x + 5, start.y));
@@ -407,7 +409,7 @@ static void test_drops(void)
     /* With no room, it is left on the ground. */
     inventory_add(&g.inventory, ITEM_DIRT, 99 * 12);
     int before = count_item(&g, ITEM_DIRT);
-    g.drops[0] = (Drop){ true, ITEM_DIRT, g.player.feet.x, (float)g.player.feet.y, 0.0f, 0.0f };
+    g.drops[0] = (Drop){ true, ITEM_DIRT, g.player.feet.x, (float)g.player.feet.y, 0.0f, 0.0f, false, 0, 2 };
     run(&g, 2.0f);
     CHECK(g.drops[0].active && count_item(&g, ITEM_DIRT) == before);
     game_free(&g);
@@ -556,17 +558,24 @@ static void test_wrap(void)
     game_free(&g);
 }
 
-/* Feet level of a column: the height of its lowest air tile. */
+static bool is_tree(TileType t)
+{
+    return tree_kind_of_log(t) != TREE_NONE || tree_kind_of_leaves(t) != TREE_NONE;
+}
+
+/* Feet level of a column: the height of its lowest air tile, ignoring trees. */
 static int column_level(const World *w, int x)
 {
     int row = 0;
-    while (row < w->height && !tile_def(world_get(w, x, row))->solid) row++;
+    while (row < w->height &&
+           (!tile_def(world_get(w, x, row))->solid || is_tree(world_get(w, x, row))))
+        row++;
     return world_row_to_y(w, row) + 1;
 }
 
 static void test_terrain(void)
 {
-    bool saw_mountain = false, saw_valley = false;
+    bool saw_mountain = false, saw_valley = false, saw_oak = false, saw_cherry = false;
     for (uint32_t seed = 1; seed <= 12; seed++) {
         World w;
         CHECK(world_init(&w, 2048, 401, seed, WORLD_TERRAIN));
@@ -598,6 +607,16 @@ static void test_terrain(void)
             /* High peaks and deep floors are bare stone; the plains are not. */
             if ((level > 45 || level < -25) && dirt != 0) bad++;
             if (world_get(&w, x, top) == TILE_DIRT) bad++;
+
+            /* Trees stand on grass: a trunk has trunk or grass under it. */
+            for (int r = 0; r < top; r++) {
+                TileType t = world_get(&w, x, r);
+                if (tree_kind_of_log(t) == TREE_NONE) continue;
+                TileType under = world_get(&w, x, r + 1);
+                if (under != t && under != TILE_GRASS) bad++;
+                if (t == TILE_OAK_LOG) saw_oak = true;
+                if (t == TILE_CHERRY_LOG) saw_cherry = true;
+            }
         }
         CHECK(bad == 0);
         CHECK(lo >= -FEATURE_MAX_SIZE - 2 && hi <= PLAINS_MAX_LEVEL + FEATURE_MAX_SIZE + 2);
@@ -609,7 +628,7 @@ static void test_terrain(void)
         for (int d = -3; d <= 3; d++) CHECK(column_level(&w, w.spawn_x + d) == 0);
         world_free(&w);
     }
-    CHECK(saw_mountain && saw_valley);
+    CHECK(saw_mountain && saw_valley && saw_oak && saw_cherry);
 
     /* The full-size world can be walked and mined like the small ones. */
     Game g;
@@ -621,6 +640,235 @@ static void test_terrain(void)
     CHECK(is_idle(&g) && world_get(&g.world, start.x + 2, start.y + 1) == TILE_AIR);
     CHECK(count_item(&g, ITEM_DIRT) == 1);
     game_free(&g);
+}
+
+/* Width of a tree's row: its trunk and leaves, counted across the trunk. */
+static int tree_row_width(const World *w, int x, int row)
+{
+    int n = 0;
+    for (int dx = -4; dx <= 4; dx++)
+        if (is_tree(world_get(w, x + dx, row))) n++;
+    return n;
+}
+
+static int trunk_height(const World *w, int x, int base)
+{
+    int h = 0;
+    while (tree_kind_of_log(world_get(w, x, base - h)) != TREE_NONE) h++;
+    return h;
+}
+
+static void test_trees(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 14, WORLD_FLAT);
+    World *w = &g.world;
+    int s = w->surface_y, base = s - 1;
+    uint32_t rng = 99;
+
+    /* An oak grows one block at a time into a stick with a ball on top. */
+    int ox = 10, blocks = 1, steps = 0;
+    tree_plant(w, ox, base, TREE_OAK);
+    for (;;) {
+        TreeGrowth growth = tree_grow(w, ox, base, &rng);
+        if (!growth.grew) break;
+        int now = 0;
+        for (int y = 0; y < s; y++) now += tree_row_width(w, ox, y);
+        /* Extending the trunk adds one block; it may also shed leaves that hit something. */
+        CHECK(now == blocks + 1);
+        blocks = now;
+        steps++;
+    }
+    CHECK(trunk_height(w, ox, base) == OAK_MAX_HEIGHT);
+    int top = base - OAK_MAX_HEIGHT + 1;
+    static const int oak_rows[] = { 3, 5, 5, 3, 1, 1, 1, 1 };
+    for (int i = 0; i < 8; i++) CHECK(tree_row_width(w, ox, top - 1 + i) == oak_rows[i]);
+    CHECK(world_get(w, ox, top - 1) == TILE_OAK_LEAVES && world_get(w, ox, top) == TILE_OAK_LOG);
+    CHECK(steps == 6 + 13);
+
+    /* A cherry ends up 3, 3, 4, 4, 5, 5 wide over two blocks of bare trunk. */
+    int cx = 30;
+    tree_plant(w, cx, base, TREE_CHERRY);
+    while (tree_grow(w, cx, base, &rng).grew) {}
+    CHECK(trunk_height(w, cx, base) == CHERRY_MAX_HEIGHT);
+    static const int cherry_rows[] = { 3, 3, 4, 4, 5, 5, 1, 1 };
+    for (int i = 0; i < 8; i++) {
+        int row = base - CHERRY_MAX_HEIGHT + 1 + i;
+        CHECK(tree_row_width(w, cx, row) == cherry_rows[i]);
+        CHECK(world_get(w, cx, row) == TILE_CHERRY_LOG);
+    }
+    CHECK(world_get(w, cx, base - CHERRY_MAX_HEIGHT) == TILE_AIR);
+
+    /* A one-block tree can put a leaf out sideways before it grows up. When
+     * the trunk does extend, the leaves ride up with it, except one with a
+     * block in its way, which is lost. */
+    int tx = 45;
+    tree_plant(w, tx, base, TREE_CHERRY);
+    bool leaf_first = false;
+    for (uint32_t seed = 1; seed < 20 && !leaf_first; seed++) {
+        uint32_t r = seed;
+        TreeGrowth growth = tree_grow(w, tx, base, &r);
+        leaf_first = growth.grew && !growth.extended;
+    }
+    CHECK(leaf_first && trunk_height(w, tx, base) == 1);
+    world_set(w, tx - 1, base, TILE_CHERRY_LEAVES);
+    world_set(w, tx + 1, base, TILE_CHERRY_LEAVES);
+    world_set(w, tx + 1, base - 1, TILE_STONE);
+    TreeGrowth growth = tree_grow(w, tx, base, &rng);
+    CHECK(growth.extended && trunk_height(w, tx, base) == 2);
+    CHECK(world_get(w, tx - 1, base - 1) == TILE_CHERRY_LEAVES);
+    CHECK(world_get(w, tx - 1, base) == TILE_AIR && world_get(w, tx + 1, base) == TILE_AIR);
+    CHECK(world_get(w, tx + 1, base - 1) == TILE_STONE);
+
+    /* Breaking a leaf gives a stick, a trunk gives wood, and wood placed
+     * again is an ordinary block, not a tree. */
+    CHECK(item_for_tile(TILE_OAK_LEAVES) == ITEM_STICK && item_for_tile(TILE_CHERRY_LEAVES) == ITEM_STICK);
+    CHECK(item_for_tile(TILE_OAK_LOG) == ITEM_WOOD && item_for_tile(TILE_CHERRY_LOG) == ITEM_WOOD);
+    CHECK(item_def(ITEM_WOOD)->places == TILE_WOOD && tree_kind_of_log(TILE_WOOD) == TREE_NONE);
+    game_free(&g);
+}
+
+static void test_ticks(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 15, WORLD_FLAT);
+    World *w = &g.world;
+    int s = w->surface_y, base = s - 1;
+    TilePos start = g.player.feet;
+
+    /* Ten ticks a second, or whatever the world is set to. */
+    CHECK(g.tick_rate == 10);
+    run(&g, 1.0f);
+    CHECK(g.tick >= 9 && g.tick <= 11);
+    g.tick_rate = 40;
+    uint64_t before = g.tick;
+    run(&g, 1.0f);
+    CHECK(g.tick - before >= 39 && g.tick - before <= 41);
+
+    /* 1000 ticks of day, 800 of night, with a fade between them. */
+    bool day;
+    g.tick = 500;
+    CHECK(game_daylight(&g) == 1.0f && game_day_phase(&g, &day) == 0.5f && day);
+    g.tick = 1400;
+    CHECK(game_daylight(&g) == 0.0f && game_day_phase(&g, &day) == 0.5f && !day);
+    g.tick = 1000;
+    CHECK(game_daylight(&g) > 0.4f && game_daylight(&g) < 0.6f);
+    g.tick = 1800;
+    CHECK(game_daylight(&g) > 0.4f && game_daylight(&g) < 0.6f && game_day_phase(&g, &day) == 0.0f && day);
+    g.tick = 1799;
+    float late = game_daylight(&g);
+    g.tick = 1801;
+    CHECK(late < game_daylight(&g) && late > 0.3f);
+
+    /* Random events alone grow a sapling into a full tree and hang fruit on it. */
+    int tx = world_wrap_x(w, start.x + 4);
+    tree_plant(w, tx, base, TREE_OAK);
+    for (int i = 0; i < 150000; i++) game_tick(&g);
+    CHECK(trunk_height(w, tx, base) == OAK_MAX_HEIGHT);
+    int fruit = -1, fruits = 0;
+    for (int i = 0; i < MAX_DROPS; i++) {
+        const Drop *d = &g.drops[i];
+        if (!d->active) continue;
+        CHECK(d->attached && d->item == ITEM_ACORN && d->ttl > 0 && d->ttl <= FRUIT_TICKS);
+        CHECK(world_get(w, d->x, (int)d->y) == TILE_OAK_LEAVES);
+        fruits++;
+        fruit = i;
+    }
+    CHECK(fruits > 0 && fruits <= 13);
+
+    /* Fruit stays on the tree however long the player stands under it... */
+    Drop kept = g.drops[fruit];
+    g.player.feet = g.player.step_to = (TilePos){ tx - 1, base };
+    g.tick_rate = 1;
+    run(&g, 1.0f);
+    CHECK(g.drops[fruit].active && g.drops[fruit].y == kept.y && count_item(&g, ITEM_ACORN) == 0);
+
+    /* ...until it is tapped. One on the underside of the crown can be reached
+     * by climbing the trunk; one on top of the crown cannot, and is refused. */
+    int top = base - OAK_MAX_HEIGHT + 1, low = -1, high = -1;
+    for (int i = 0; i < MAX_DROPS && (low < 0 || high < 0); i++) {
+        if (g.drops[i].active) continue;
+        TilePos at = low < 0 ? (TilePos){ tx - 1, top + 2 } : (TilePos){ tx, top - 1 };
+        g.drops[i] = (Drop){ true, ITEM_ACORN, at.x, (float)at.y, 0.0f, 0.0f, true, FRUIT_TICKS,
+                             ++g.next_drop_id };
+        if (low < 0) low = i;
+        else high = i;
+    }
+    float cx, cy;
+    game_drop_center(&g, low, &cx, &cy);
+    /* (Another fruit may already hang on the same leaf; either will do.) */
+    int hit = game_drop_at(&g, cx + 0.2f, cy - 0.2f);
+    CHECK(hit >= 0 && g.drops[hit].x == g.drops[low].x && g.drops[hit].y == g.drops[low].y);
+    CHECK(game_drop_at(&g, cx + 9.0f, cy) == -1);
+    CHECK(!game_queue_collect(&g, high));
+    CHECK(game_queue_collect(&g, low));
+    CHECK(g.queue[0].type == ACTION_COLLECT);
+    run(&g, 6.0f);
+    CHECK(is_idle(&g) && count_item(&g, ITEM_ACORN) == 1 && !g.drops[low].active);
+    CHECK(g.player.climbing && g.drops[high].active);
+    kept = g.drops[high];
+
+    /* Fruit that is left alone disappears after 1800 ticks. */
+    for (int i = 0; i < FRUIT_TICKS; i++) game_tick(&g);
+    int old = 0;
+    for (int i = 0; i < MAX_DROPS; i++)
+        if (g.drops[i].active && g.drops[i].id <= kept.id) old++;
+    CHECK(old == 0);
+
+    /* Breaking the leaf under a fruit lets it fall. */
+    for (int i = 0; i < 20000; i++) game_tick(&g);
+    fruit = -1;
+    for (int i = 0; i < MAX_DROPS && fruit < 0; i++)
+        if (g.drops[i].active && g.drops[i].attached) fruit = i;
+    CHECK(fruit >= 0);
+    if (fruit >= 0) {
+        world_set(w, g.drops[fruit].x, (int)g.drops[fruit].y, TILE_AIR);
+        game_tick(&g);
+        CHECK(!g.drops[fruit].attached);
+    }
+    game_free(&g);
+}
+
+static void test_save(void)
+{
+    const char *path = "build/test_save.world";
+    Game g;
+    game_init(&g, 64, 48, 16, WORLD_FLAT);
+    TilePos start = g.player.feet;
+    int s = g.world.surface_y;
+
+    CHECK(game_click_tile(&g, start.x + 3, s));
+    run(&g, 2.0f);
+    inventory_add(&g.inventory, ITEM_STONE, 7);
+    tree_plant(&g.world, start.x - 5, s - 1, TREE_CHERRY);
+    g.world.background[5] = TILE_STONE;
+    g.tick = 12345;
+    g.tick_rate = 25;
+    CHECK(save_game(&g, path));
+
+    Game loaded;
+    CHECK(load_game(&loaded, path));
+    size_t cells = (size_t)g.world.width * g.world.height;
+    CHECK(loaded.world.width == 64 && loaded.world.height == 48 && loaded.world.seed == 16);
+    CHECK(memcmp(loaded.world.tiles, g.world.tiles, cells) == 0);
+    CHECK(memcmp(loaded.world.background, g.world.background, cells) == 0);
+    CHECK(memcmp(&loaded.inventory, &g.inventory, sizeof g.inventory) == 0);
+    CHECK(memcmp(loaded.drops, g.drops, sizeof g.drops) == 0);
+    CHECK(loaded.player.feet.x == g.player.feet.x && loaded.player.feet.y == g.player.feet.y);
+    CHECK(loaded.tick == 12345 && loaded.tick_rate == 25 && loaded.rng == g.rng);
+    CHECK(loaded.world.y_top == g.world.y_top && loaded.world.spawn_x == g.world.spawn_x);
+    CHECK(count_item(&loaded, ITEM_DIRT) == 1 && count_item(&loaded, ITEM_STONE) == 7);
+
+    /* A loaded game plays on. */
+    CHECK(game_click_tile(&loaded, start.x + 5, s - 1));
+    run(&loaded, 2.0f);
+    CHECK(is_idle(&loaded) && loaded.player.feet.x == world_wrap_x(&loaded.world, start.x + 5));
+    game_free(&loaded);
+
+    CHECK(!load_game(&loaded, "build/no_such_file.world"));
+    CHECK(!load_game(&loaded, "Makefile"));
+    game_free(&g);
+    remove(path);
 }
 
 int main(void)
@@ -641,6 +889,9 @@ int main(void)
     test_bench();
     test_wrap();
     test_terrain();
+    test_trees();
+    test_ticks();
+    test_save();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;

@@ -15,6 +15,10 @@ typedef enum {
     ITEM_DIRT = 2,
     ITEM_WORKBENCH = 3,
     ITEM_STONE = 4,
+    ITEM_STICK = 5,
+    ITEM_WOOD = 6,
+    ITEM_ACORN = 7,
+    ITEM_CHERRY = 8,
     ITEM_COUNT
 } ItemId;
 
