@@ -842,7 +842,7 @@
       "move_chance": 0.5,
       "turn_chance": 0.15,
       "health": 5,
-      "cap": 4,
+      "cap": 8,
       "spawn": {
         "water": true,
         "biome": "ocean",
@@ -869,7 +869,7 @@
       "move_chance": 0.5,
       "turn_chance": 0.1,
       "health": 25,
-      "cap": 1,
+      "cap": 3,
       "size": [
         1,
         8
