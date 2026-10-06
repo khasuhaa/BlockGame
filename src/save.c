@@ -4,7 +4,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 3u
+#define SAVE_VERSION 4u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -45,6 +45,23 @@ typedef struct {
     int ttl;
     uint32_t id;
 } OldDrop;
+
+/* Version 3 kept only a block's contents, not its fuel. */
+typedef struct {
+    bool used;
+    int x, y;
+    uint16_t container;
+} OldStorage;
+
+static bool read_old_storages(FILE *f, Game *g)
+{
+    static OldStorage old[MAX_STORAGES];
+    if (fread(old, sizeof old, 1, f) != 1) return false;
+    for (int i = 0; i < MAX_STORAGES; i++)
+        g->storages[i] = (Storage){ .used = old[i].used, .x = old[i].x, .y = old[i].y,
+                                    .container = old[i].container };
+    return true;
+}
 
 /* Reads the inventory and drops of a version 1 or 2 save into today's layout. */
 static bool read_old_state(FILE *f, Game *g)
@@ -192,7 +209,8 @@ bool load_game(Game *g, const char *path)
         } else {
             ok = ok && fread(&g->inventory, sizeof g->inventory, 1, f) == 1 &&
                  fread(g->drops, sizeof g->drops, 1, f) == 1 &&
-                 fread(g->storages, sizeof g->storages, 1, f) == 1;
+                 (h.version == 3 ? read_old_storages(f, g)
+                                 : fread(g->storages, sizeof g->storages, 1, f) == 1);
         }
 
         /* Turn the save's ids into this run's. */

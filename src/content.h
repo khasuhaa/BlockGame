@@ -72,6 +72,7 @@ typedef struct {
     int bench_level;
     char popup_name[CONTENT_NAME_LEN]; /* what "Open ..." and "Remove ..." call it */
     int storage_columns, storage_rows; /* grid of item slots it holds; 0 for none */
+    int fuel_capacity; /* ticks of fuel it can hold; 0 if it needs none to work */
     TileType upgrade_to; /* TILE_AIR if it cannot be upgraded */
     RecipeItem upgrade_cost[RECIPE_MAX_INPUTS];
     int upgrade_cost_count;
@@ -93,6 +94,7 @@ typedef struct {
     bool opens_in_bar;   /* those slots can be opened from the inventory bar */
     EquipSlot equip; /* armor slot it can be worn in, or EQUIP_NONE */
     TileType places; /* block it becomes when placed, or TILE_AIR */
+    int fuel;        /* ticks it burns for as fuel; 0 if it is not fuel */
     int plants;      /* tree it grows into when planted, or -1 */
     char plants_name[CONTENT_NAME_LEN];
     char texture[CONTENT_PATH_LEN];

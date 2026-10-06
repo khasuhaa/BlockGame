@@ -11,7 +11,9 @@
 #define MENU_PAD 10.0f
 #define LIST_CELL 48.0f
 #define LIST_GAP 4.0f
-#define POPUP_WIDTH 176.0f
+#define POPUP_WIDTH 224.0f
+#define FUEL_ROW 44.0f
+#define MAX_FUEL_ROWS 8
 #define POPUP_BUTTON_HEIGHT 26.0f
 #define UI_DRAG_THRESHOLD 6.0f
 #define STORAGE_SLOT 52.0f
@@ -77,6 +79,37 @@ static Rectangle craft_rect(Rectangle menu)
                         menu.width - 2 * MENU_PAD, 34 };
 }
 
+/* The fuel gauge on the side of a bench that burns fuel, and the list of
+ * things to burn that it opens. */
+static Rectangle fuel_tab_rect(Rectangle menu)
+{
+    return (Rectangle){ menu.x + menu.width + 4, menu.y, 46, 112 };
+}
+
+/* The items held that can be burned, in the order they are listed. */
+static int fuel_items(const Game *g, ItemId *out)
+{
+    int n = 0;
+    for (int i = 1; i < content.item_count && n < MAX_FUEL_ROWS; i++)
+        if (content.items[i].fuel > 0 && inventory_count(&g->inventory, i) > 0) out[n++] = i;
+    return n;
+}
+
+static Rectangle fuel_panel_rect(const Game *g, Rectangle menu)
+{
+    ItemId items[MAX_FUEL_ROWS];
+    int rows = fuel_items(g, items);
+    Rectangle tab = fuel_tab_rect(menu);
+    return (Rectangle){ tab.x + tab.width + 4, menu.y, 210,
+                        MENU_HEADER + (rows > 0 ? rows : 1) * FUEL_ROW + MENU_PAD };
+}
+
+static Rectangle fuel_row_rect(Rectangle panel, int i)
+{
+    return (Rectangle){ panel.x + MENU_PAD, panel.y + MENU_HEADER + i * FUEL_ROW,
+                        panel.width - 2 * MENU_PAD, FUEL_ROW - 4 };
+}
+
 static Rectangle upgrade_rect(Rectangle menu)
 {
     return (Rectangle){ menu.x + menu.width - MENU_PAD - 132, menu.y + 7, 132, 26 };
@@ -132,7 +165,13 @@ bool benchui_mouse_over(const BenchUi *ui, const Game *g, const View *v)
     Vector2 m = GetMousePosition();
     if (ui->press != BENCH_PRESS_NONE) return true;
     if (ui->popup && CheckCollisionPointRec(m, popup_rect(ui, v))) return true;
-    return g->bench_open && CheckCollisionPointRec(m, menu_rect(g, v));
+    if (!g->bench_open) return false;
+    Rectangle menu = menu_rect(g, v);
+    if (game_bench_fuel(g, NULL) >= 0) {
+        if (CheckCollisionPointRec(m, fuel_tab_rect(menu))) return true;
+        if (ui->fuel_open && CheckCollisionPointRec(m, fuel_panel_rect(g, menu))) return true;
+    }
+    return CheckCollisionPointRec(m, menu);
 }
 
 static BenchPress press_target(const BenchUi *ui, const Game *g, const View *v, Vector2 m)
@@ -145,6 +184,11 @@ static BenchPress press_target(const BenchUi *ui, const Game *g, const View *v, 
     }
     if (!g->bench_open) return BENCH_PRESS_NONE;
     Rectangle menu = menu_rect(g, v);
+    if (game_bench_fuel(g, NULL) >= 0) {
+        if (CheckCollisionPointRec(m, fuel_tab_rect(menu))) return BENCH_PRESS_FUEL_TAB;
+        if (ui->fuel_open && CheckCollisionPointRec(m, fuel_panel_rect(g, menu)))
+            return BENCH_PRESS_FUEL_ITEM;
+    }
     if (!CheckCollisionPointRec(m, menu)) return BENCH_PRESS_NONE;
     if (tile_def(open_bench(g))->storage_columns > 0) return BENCH_PRESS_PANEL;
     if (tile_def(open_bench(g))->upgrade_to != TILE_AIR &&
@@ -170,6 +214,7 @@ bool benchui_handle_input(BenchUi *ui, Game *g, const View *v)
             ui->selected = -1;
             ui->scroll = 0.0f;
             ui->amount = 1;
+            ui->fuel_open = false;
             ui->shown = g->bench_pos;
         }
         ui->popup = false;
@@ -225,6 +270,15 @@ bool benchui_handle_input(BenchUi *ui, Game *g, const View *v)
             ui->selected = i;
             ui->amount = 1;
         }
+    } else if (ui->press == BENCH_PRESS_FUEL_TAB && released == BENCH_PRESS_FUEL_TAB) {
+        ui->fuel_open = !ui->fuel_open;
+    } else if (ui->press == BENCH_PRESS_FUEL_ITEM && released == BENCH_PRESS_FUEL_ITEM) {
+        /* Each click on a row burns one of that item. */
+        ItemId items[MAX_FUEL_ROWS];
+        int rows = fuel_items(g, items);
+        Rectangle panel = fuel_panel_rect(g, menu);
+        for (int i = 0; i < rows; i++)
+            if (CheckCollisionPointRec(m, fuel_row_rect(panel, i))) game_add_fuel(g, items[i]);
     } else if (ui->press == BENCH_PRESS_UPGRADE && released == BENCH_PRESS_UPGRADE) {
         game_upgrade_bench(g);
     } else if (ui->press == BENCH_PRESS_CRAFT && released == BENCH_PRESS_CRAFT) {
@@ -282,7 +336,7 @@ static void draw_header(const Game *g, Rectangle menu)
 {
     const TileDef *def = tile_def(open_bench(g));
     bool levelled = def->upgrade_to != TILE_AIR || def->bench_level > 1;
-    DrawText(levelled ? TextFormat("%s  Lv %d", def->label, def->bench_level) : def->label,
+    DrawText(levelled ? TextFormat("%s  Tier %d", def->label, def->bench_level) : def->label,
              (int)(menu.x + MENU_PAD), (int)menu.y + 12, 16, RAYWHITE);
     if (def->upgrade_to == TILE_AIR) return;
 
@@ -318,7 +372,7 @@ static void draw_list(const BenchUi *ui, const Game *g, const Recipe **recipes, 
         if (recipe_locked(open_bench(g), recipes[i])) {
             DrawRectangleRec(cell, Fade((Color){ 20, 21, 27, 255 }, 0.72f));
             draw_lock(cell);
-            const char *need = TextFormat("Lv %d", recipes[i]->level);
+            const char *need = TextFormat("Tier %d", recipes[i]->level);
             DrawText(need, (int)(cell.x + (cell.width - MeasureText(need, 10)) / 2),
                      (int)(cell.y + cell.height - 13), 10, LIGHTGRAY);
         }
@@ -369,7 +423,9 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
     DrawText(TextFormat("x%d", amount), (int)(s.x + s.width + 14), (int)mid - 8, 16, RAYWHITE);
 
     Rectangle b = craft_rect(menu);
-    if (g->craft_remaining > 0) {
+    if (game_bench_fuel(g, NULL) == 0) {
+        draw_centered("Needs fuel", b, 18, (Color){ 240, 150, 60, 255 });
+    } else if (g->craft_remaining > 0) {
         int done = g->craft_total - g->craft_remaining;
         DrawRectangleRec(b, (Color){ 44, 47, 58, 255 });
         DrawRectangleRec((Rectangle){ b.x, b.y, b.width * done / g->craft_total, b.height },
@@ -381,6 +437,50 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
         bool hot = CheckCollisionPointRec(GetMousePosition(), b);
         DrawRectangleRec(b, hot ? (Color){ 90, 160, 100, 255 } : button_color);
         draw_centered("Craft", b, 18, RAYWHITE);
+    }
+}
+
+/* The gauge beside a bench that burns fuel, and the list it opens. */
+static void draw_fuel(const BenchUi *ui, const Game *g, Rectangle menu)
+{
+    int capacity = 1, fuel = game_bench_fuel(g, &capacity);
+    if (fuel < 0) return;
+    Color flame = { 240, 150, 60, 255 };
+    Vector2 m = GetMousePosition();
+
+    Rectangle tab = fuel_tab_rect(menu);
+    DrawRectangleRec(tab, CheckCollisionPointRec(m, tab) || ui->fuel_open ? (Color){ 44, 47, 58, 245 }
+                                                                          : panel_color);
+    DrawRectangleLinesEx(tab, 2.0f, fuel > 0 ? edge_color : flame);
+    draw_centered("Fuel", (Rectangle){ tab.x, tab.y + 4, tab.width, 18 }, 14, RAYWHITE);
+    Rectangle gauge = { tab.x + 16, tab.y + 26, tab.width - 32, tab.height - 36 };
+    float level = gauge.height * (float)fuel / (float)capacity;
+    DrawRectangleRec(gauge, (Color){ 18, 19, 24, 255 });
+    DrawRectangleRec((Rectangle){ gauge.x, gauge.y + gauge.height - level, gauge.width, level }, flame);
+    DrawRectangleLinesEx(gauge, 1.0f, edge_color);
+    if (!ui->fuel_open) return;
+
+    ItemId items[MAX_FUEL_ROWS];
+    int rows = fuel_items(g, items);
+    Rectangle panel = fuel_panel_rect(g, menu);
+    DrawRectangleRec(panel, panel_color);
+    DrawRectangleLinesEx(panel, 2.0f, edge_color);
+    DrawText(fuel >= capacity ? "Fuel is full" : "Add fuel", (int)(panel.x + MENU_PAD), (int)panel.y + 10,
+             16, RAYWHITE);
+    if (rows == 0)
+        DrawText("Nothing to burn", (int)(panel.x + MENU_PAD), (int)(panel.y + MENU_HEADER + 10), 14,
+                 LIGHTGRAY);
+    for (int i = 0; i < rows; i++) {
+        Rectangle row = fuel_row_rect(panel, i);
+        bool usable = fuel < capacity;
+        bool hot = usable && CheckCollisionPointRec(m, row);
+        DrawRectangleRec(row, hot ? (Color){ 80, 84, 100, 255 } : (Color){ 44, 47, 58, 255 });
+        hud_draw_item_icon(items[i], (Rectangle){ row.x + 2, row.y + 2, row.height - 4, row.height - 4 });
+        DrawText(TextFormat("%s x%d", item_def(items[i])->label, inventory_count(&g->inventory, items[i])),
+                 (int)(row.x + row.height + 4), (int)row.y + 5, 14, usable ? RAYWHITE : GRAY);
+        /* How much of the gauge one of these fills. */
+        DrawText(TextFormat("+%d%%", item_def(items[i])->fuel * 100 / capacity),
+                 (int)(row.x + row.height + 4), (int)row.y + 22, 12, flame);
     }
 }
 
@@ -401,6 +501,7 @@ void benchui_draw(const BenchUi *ui, const Game *g, const View *v)
     DrawRectangleLinesEx(menu, 2.0f, edge_color);
 
     draw_header(g, menu);
+    draw_fuel(ui, g, menu);
     /* A storage block is just its name: the inventory draws the slots, so
      * that items can be dragged between them and the bar. */
     if (tile_def(open_bench(g))->storage_columns > 0) return;

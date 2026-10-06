@@ -525,14 +525,26 @@ static Storage *storage_at(Game *g, TilePos t)
     return NULL;
 }
 
-/* Gives a newly placed storage block the contents of the item it came from. */
-static bool storage_create(Game *g, TilePos t, ItemStack from)
+/* Whether a tile keeps anything a Storage record is needed for. */
+static bool needs_storage(const TileDef *def)
+{
+    return def->storage_columns > 0 || def->fuel_capacity > 0;
+}
+
+/* Sets up the record of a newly placed block. A storage block takes over the
+ * contents of the item it came from; anything else has none. */
+static bool storage_create(Game *g, TilePos t, const TileDef *def, ItemStack from)
 {
     for (int i = 0; i < MAX_STORAGES; i++) {
         if (g->storages[i].used) continue;
-        uint16_t c = from.container ? from.container : container_alloc(&g->inventory);
-        if (c == 0) return false;
-        g->storages[i] = (Storage){ true, t.x, t.y, c };
+        uint16_t c = 0;
+        if (def->storage_columns > 0) {
+            c = from.container ? from.container : container_alloc(&g->inventory);
+            if (c == 0) return false;
+        } else {
+            container_free(&g->inventory, from.container);
+        }
+        g->storages[i] = (Storage){ .used = true, .x = t.x, .y = t.y, .container = c };
         return true;
     }
     return false;
@@ -639,10 +651,10 @@ static void finish_activity(Game *g)
         } else if (g->current.type == ACTION_PLANT) {
             container_free(&g->inventory, one.container);
             tree_plant(&g->world, t.x, t.y - 1, item_def(item)->plants);
-        } else if (tile_def(tile)->storage_columns == 0) {
+        } else if (!needs_storage(tile_def(tile))) {
             container_free(&g->inventory, one.container);
             world_set(&g->world, t.x, t.y, tile);
-        } else if (storage_create(g, t, one)) {
+        } else if (storage_create(g, t, tile_def(tile), one)) {
             /* What was inside the item is now inside the block. */
             world_set(&g->world, t.x, t.y, tile);
         } else {
@@ -743,11 +755,32 @@ bool game_craft(Game *g, const Recipe *r, int count)
     /* Only what this bench makes, at the level it has reached. */
     TileType bench = world_get(&g->world, g->bench_pos.x, g->bench_pos.y);
     if (strcmp(r->bench, tile_def(bench)->bench_kind) != 0 || recipe_locked(bench, r)) return false;
+    if (game_bench_fuel(g, NULL) == 0) return false; /* out of fuel */
     int max = recipe_max_crafts(&g->inventory, r);
     if (max < 1) return false;
     g->craft_recipe = r;
     g->craft_total = g->craft_remaining = count < max ? count : max;
     g->craft_timer = 0.0f;
+    return true;
+}
+
+int game_bench_fuel(const Game *g, int *capacity)
+{
+    if (!g->bench_open) return -1;
+    const TileDef *def = tile_def(world_get(&g->world, g->bench_pos.x, g->bench_pos.y));
+    Storage *st = storage_at((Game *)g, g->bench_pos);
+    if (def->fuel_capacity <= 0 || !st) return -1;
+    if (capacity) *capacity = def->fuel_capacity;
+    return st->fuel;
+}
+
+bool game_add_fuel(Game *g, ItemId item)
+{
+    int capacity = 0, fuel = game_bench_fuel(g, &capacity);
+    if (fuel < 0 || fuel >= capacity || item_def(item)->fuel <= 0) return false;
+    if (inventory_remove(&g->inventory, item, 1) != 1) return false;
+    fuel += item_def(item)->fuel;
+    storage_at(g, g->bench_pos)->fuel = fuel > capacity ? capacity : fuel;
     return true;
 }
 
@@ -779,6 +812,8 @@ static void update_bench(Game *g, float dt)
         return;
     }
 
+    /* The fire going out stops the work. */
+    if (game_bench_fuel(g, NULL) == 0) g->craft_remaining = 0;
     if (g->craft_remaining <= 0) return;
     g->craft_timer += dt;
     while (g->craft_remaining > 0 && g->craft_timer >= CRAFT_TIME) {
@@ -851,6 +886,10 @@ void game_tick(Game *g)
             if (x < w->width) random_event(g, x, (int)((r >> 8) % (uint32_t)w->height));
         }
     }
+
+    /* Fuel burns down whether or not anything is being made. */
+    for (int i = 0; i < MAX_STORAGES; i++)
+        if (g->storages[i].used && g->storages[i].fuel > 0) g->storages[i].fuel--;
 
     for (int i = 0; i < MAX_DROPS; i++) {
         Drop *d = &g->drops[i];

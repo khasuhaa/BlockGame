@@ -200,6 +200,7 @@ static bool read_tiles(Reader *r, const cJSON *root)
             for (char *c = t->popup_name; *c; c++) *c = (char)tolower((unsigned char)*c);
         t->storage_columns = (int)num(field(e, "storage"), "columns", 0);
         t->storage_rows = (int)num(field(e, "storage"), "rows", 0);
+        t->fuel_capacity = (int)num(e, "fuel_capacity", 0);
         t->upgrade_to = TILE_AIR;
         t->upgrade_cost_count = 0;
         const cJSON *upgrade = field(e, "upgrade"), *cost;
@@ -249,6 +250,7 @@ static bool read_items(Reader *r, const cJSON *root)
             return fail(r, "item \"%s\": a container that opens in the inventory cannot stack",
                         it->name);
         copy_name(it->texture, sizeof it->texture, str(e, "texture"));
+        it->fuel = (int)num(e, "fuel", 0);
         it->places = TILE_AIR;
         if (!tile_ref(r, e, "places", &it->places)) return false;
         /* Trees are read later; the name is matched to one once they are. */

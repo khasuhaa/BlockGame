@@ -12,6 +12,8 @@ typedef enum {
     BENCH_PRESS_SLIDER,
     BENCH_PRESS_CRAFT,
     BENCH_PRESS_UPGRADE,
+    BENCH_PRESS_FUEL_TAB,
+    BENCH_PRESS_FUEL_ITEM,
     BENCH_PRESS_OPEN,
     BENCH_PRESS_REMOVE
 } BenchPress;
@@ -29,6 +31,7 @@ typedef struct {
     int selected; /* recipe index, or -1 */
     float scroll; /* recipe list offset in pixels */
     int amount;   /* how many to craft */
+    bool fuel_open; /* the list of things to burn is showing */
 
     BenchPress press;
     Vector2 press_mouse;

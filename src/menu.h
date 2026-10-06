@@ -65,6 +65,7 @@ typedef struct {
     PausePage page;
     int rebinding; /* BindId waiting for a key press, or -1 */
     bool slider_held;
+    bool just_opened; /* the key press that opened it is still down this frame */
 } PauseMenu;
 
 void pause_menu_open(PauseMenu *p);

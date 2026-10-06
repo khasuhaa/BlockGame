@@ -214,6 +214,7 @@ void pause_menu_open(PauseMenu *p)
     p->page = PAUSE_PAGE_MAIN;
     p->rebinding = -1;
     p->slider_held = false;
+    p->just_opened = true;
 }
 
 static void world_page(PauseMenu *p, Game *g, float top)
@@ -302,6 +303,9 @@ PauseResult pause_menu_frame(PauseMenu *p, Game *g, Keybinds *k, const char *wor
 
     /* Escape backs out one level; while rebinding, the keys page takes it. */
     bool escape = p->rebinding < 0 && IsKeyPressed(KEY_ESCAPE);
+    /* The press that opened the menu is not also a press to close it. */
+    if (p->just_opened) escape = false;
+    p->just_opened = false;
 
     if (p->page == PAUSE_PAGE_WORLD) {
         world_page(p, g, top);

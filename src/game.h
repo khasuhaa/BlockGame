@@ -112,11 +112,14 @@ typedef struct {
     uint16_t container; /* what is inside the item, as in an ItemStack */
 } Drop;
 
-/* The contents of a storage block placed in the world, such as a chest. */
+/* What a block placed in the world keeps besides its tile: the contents of a
+ * storage block such as a chest, the fuel left in a kiln or furnace. */
 typedef struct {
     bool used;
     int x, y;
-    uint16_t container;
+    uint16_t container; /* 0 if it stores nothing */
+    int fuel;           /* ticks of burning left */
+    int reserved[2];
 } Storage;
 
 typedef struct {
@@ -201,6 +204,13 @@ bool game_craft(Game *g, const Recipe *r, int count);
 /* Upgrades the open bench in place, paying its cost. False if it cannot be
  * upgraded or the cost is not held. */
 bool game_upgrade_bench(Game *g);
+/* Fuel left in the open bench, in ticks, and how much it can hold; -1 if it
+ * does not use fuel. A bench that uses fuel only crafts while it has some. */
+int game_bench_fuel(const Game *g, int *capacity);
+/* Feeds one of an item to the open bench. False if the item is not fuel, none
+ * is held, or the bench is full. */
+bool game_add_fuel(Game *g, ItemId item);
+
 /* The container of the storage block that is open, or 0 if what is open is
  * not one. Its slots are reached with SLOT_CONTAINER. */
 uint16_t game_open_storage(const Game *g);

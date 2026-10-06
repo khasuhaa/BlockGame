@@ -491,6 +491,44 @@ static void test_place(void)
     game_free(&g);
 }
 
+/* The recipe a bench has for an item, or NULL. */
+static const Recipe *find_recipe(TileType bench, const char *output)
+{
+    const Recipe *list[MAX_BENCH_RECIPES];
+    int n = bench_recipes(bench, list, MAX_BENCH_RECIPES);
+    for (int i = 0; i < n; i++)
+        if (list[i]->output.id == item_id(output) && list[i]->output.count == 1) return list[i];
+    return NULL;
+}
+
+/* Whether a recipe takes exactly these one or two inputs. */
+static bool costs(const Recipe *r, const char *a, int na, const char *b, int nb)
+{
+    if (!r || r->input_count != (b ? 2 : 1)) return false;
+    if (r->inputs[0].id != item_id(a) || r->inputs[0].count != na) return false;
+    return !b || (r->inputs[1].id == item_id(b) && r->inputs[1].count == nb);
+}
+
+static const char *TextName(const char *fmt, const char *arg)
+{
+    static char buf[64];
+    snprintf(buf, sizeof buf, fmt, arg);
+    return buf;
+}
+
+static const char *TextName2(const char *fmt, const char *arg)
+{
+    static char buf[64];
+    snprintf(buf, sizeof buf, fmt, arg);
+    return buf;
+}
+
+static void clear_inventory(Game *g)
+{
+    memset(&g->inventory, 0, sizeof g->inventory);
+    g->inventory.sel_inner = -1;
+}
+
 static void test_bench(void)
 {
     Game g;
@@ -514,16 +552,21 @@ static void test_bench(void)
     CHECK(bench_recipes(TILE_DIRT, &other, 1) == 0);
     CHECK(n == 1 && portal->output.id == ITEM_WORKBENCH && portal->inputs[0].id == ITEM_DIRT &&
           portal->inputs[0].count == 1);
-    const Recipe *list[8];
-    n = bench_recipes(TILE_WORKBENCH, list, 8);
-    bench = list[0];
-    const Recipe *chest = list[1];
-    CHECK(n == 2 && bench_recipes(TILE_WORKBENCH_2, list, 8) == 2 && list[1] == chest);
-    CHECK(bench->output.id == ITEM_BASKET && bench->input_count == 1);
-    CHECK(bench->inputs[0].id == ITEM_STICK && bench->inputs[0].count == 10);
-    CHECK(chest->output.id == ITEM_CHEST && chest->inputs[0].id == ITEM_WOOD && chest->inputs[0].count == 1);
-    CHECK(chest->level == 2 && recipe_locked(TILE_WORKBENCH, chest) && !recipe_locked(TILE_WORKBENCH_2, chest));
-    CHECK(!recipe_locked(TILE_WORKBENCH, bench));
+    /* The workbench makes the other benches: three at tier 1, two more at tier 2. */
+    const Recipe *list[16];
+    CHECK(bench_recipes(TILE_WORKBENCH, list, 16) == 5 && bench_recipes(TILE_WORKBENCH_2, list, 16) == 5);
+    const Recipe *woodwork = find_recipe(TILE_WORKBENCH, "woodwork_bench");
+    const Recipe *toolbench = find_recipe(TILE_WORKBENCH, "tool_bench");
+    const Recipe *kiln = find_recipe(TILE_WORKBENCH, "kiln"), *furnace = find_recipe(TILE_WORKBENCH, "furnace");
+    bench = find_recipe(TILE_WORKBENCH, "craft_bench");
+    CHECK(costs(woodwork, "wood", 1, NULL, 0) && costs(toolbench, "stone", 1, "flint", 1));
+    CHECK(costs(bench, "dirt", 1, NULL, 0));
+    CHECK(costs(kiln, "dirt", 10, "stick", 1) && costs(furnace, "stone", 5, "stick", 1));
+    CHECK(!recipe_locked(TILE_WORKBENCH, woodwork) && !recipe_locked(TILE_WORKBENCH, toolbench) &&
+          !recipe_locked(TILE_WORKBENCH, bench));
+    CHECK(recipe_locked(TILE_WORKBENCH, kiln) && recipe_locked(TILE_WORKBENCH, furnace));
+    CHECK(!recipe_locked(TILE_WORKBENCH_2, kiln) && !recipe_locked(TILE_WORKBENCH_2, furnace));
+    CHECK(find_recipe(TILE_WORKBENCH, "basket") == NULL && find_recipe(TILE_WORKBENCH, "chest") == NULL);
 
     /* Using the portal from afar walks back to it, then opens it. */
     CHECK(game_click_tile(&g, px + 8, s - 1));
@@ -552,7 +595,7 @@ static void test_bench(void)
     run(&g, 2.0f);
     CHECK(!g.bench_open);
 
-    /* A placed workbench can be opened, makes baskets, and can be removed. */
+    /* A placed workbench can be opened and makes its tier 1 benches. */
     inventory_select(&g.inventory, 2, -1);
     CHECK(inventory_selected(&g.inventory)->id == ITEM_WORKBENCH);
     CHECK(game_click_tile(&g, px + 7, s - 1));
@@ -561,33 +604,203 @@ static void test_bench(void)
     CHECK(world_get(&g.world, px + 7, s - 1) == TILE_WORKBENCH && g.bench_open);
     CHECK(count_item(&g, ITEM_WORKBENCH) == 4);
     CHECK(!game_craft(&g, portal, 1)); /* not this bench's recipe */
-    inventory_add(&g.inventory, ITEM_STICK, 25);
-    CHECK(recipe_max_crafts(&g.inventory, bench) == 2);
-    CHECK(game_craft(&g, bench, 5));
-    run(&g, 0.5f);
-    CHECK(count_item(&g, ITEM_BASKET) == 3 && count_item(&g, ITEM_STICK) == 5);
+    clear_inventory(&g);
+    inventory_add(&g.inventory, ITEM_WOOD, 2);
+    inventory_add(&g.inventory, ITEM_DIRT, 12);
+    inventory_add(&g.inventory, ITEM_STONE, 13);
+    inventory_add(&g.inventory, item_id("flint"), 1);
+    inventory_add(&g.inventory, ITEM_STICK, 2);
+    CHECK(game_craft(&g, woodwork, 1));
+    run(&g, 0.3f);
+    CHECK(game_craft(&g, bench, 1));
+    run(&g, 0.3f);
+    CHECK(game_craft(&g, toolbench, 5) && g.craft_total == 1);
+    run(&g, 0.3f);
+    CHECK(count_item(&g, item_id("woodwork_bench")) == 1 && count_item(&g, item_id("craft_bench")) == 1);
+    CHECK(count_item(&g, item_id("tool_bench")) == 1 && count_item(&g, ITEM_WOOD) == 1);
+    CHECK(count_item(&g, ITEM_STONE) == 12 && count_item(&g, item_id("flint")) == 0);
 
-    /* The chest is on the list but locked until the bench is level 2, which
+    /* The kiln and furnace are on the list but locked until tier 2, which
      * costs 5 stone. */
-    inventory_add(&g.inventory, ITEM_WOOD, 3);
-    CHECK(!game_craft(&g, chest, 1) && count_item(&g, ITEM_CHEST) == 0);
+    CHECK(!game_craft(&g, kiln, 1) && !game_craft(&g, furnace, 1));
+    inventory_remove(&g.inventory, ITEM_STONE, 8);
     CHECK(!game_upgrade_bench(&g));
-    inventory_add(&g.inventory, ITEM_STONE, 7);
+    inventory_add(&g.inventory, ITEM_STONE, 6);
     CHECK(game_upgrade_bench(&g));
-    CHECK(world_get(&g.world, px + 7, s - 1) == TILE_WORKBENCH_2 && count_item(&g, ITEM_STONE) == 2);
+    CHECK(world_get(&g.world, px + 7, s - 1) == TILE_WORKBENCH_2 && count_item(&g, ITEM_STONE) == 5);
     CHECK(g.bench_open && !game_upgrade_bench(&g));
-    CHECK(game_craft(&g, chest, 2));
-    run(&g, 0.5f);
-    CHECK(count_item(&g, ITEM_CHEST) == 2 && count_item(&g, ITEM_WOOD) == 1);
-    CHECK(game_craft(&g, bench, 1) == false && count_item(&g, ITEM_STICK) == 5);
+    CHECK(game_craft(&g, kiln, 1));
+    run(&g, 0.3f);
+    CHECK(game_craft(&g, furnace, 1));
+    run(&g, 0.3f);
+    CHECK(count_item(&g, item_id("kiln")) == 1 && count_item(&g, item_id("furnace")) == 1);
+    CHECK(count_item(&g, ITEM_DIRT) == 1 && count_item(&g, ITEM_STONE) == 0 && count_item(&g, ITEM_STICK) == 0);
     game_close_bench(&g);
     CHECK(!game_upgrade_bench(&g));
 
     CHECK(game_queue_action(&g, ACTION_MINE, px + 7, s - 1));
     run(&g, 2.0f);
     CHECK(world_get(&g.world, px + 7, s - 1) == TILE_AIR && !g.bench_open);
-    /* The upgraded bench comes back as itself, level and all. */
-    CHECK(count_item(&g, ITEM_WORKBENCH) == 4 && count_item(&g, item_id("workbench_2")) == 1);
+    /* The upgraded bench comes back as itself, tier and all. */
+    CHECK(count_item(&g, item_id("workbench_2")) == 1);
+    game_free(&g);
+}
+
+/* Puts a bench item in the player's hands, places it at column x and opens it. */
+static bool place_and_open(Game *g, const char *item, int x)
+{
+    clear_inventory(g);
+    inventory_add(&g->inventory, item_id(item), 1);
+    inventory_select(&g->inventory, 0, -1);
+    int y = g->world.surface_y - 1;
+    g->player.feet = g->player.step_to = (TilePos){ x - 1, y };
+    game_close_bench(g);
+    if (!game_click_tile(g, x, y) || !game_queue_action(g, ACTION_USE, x, y)) return false;
+    run(g, 2.0f);
+    return g->bench_open && g->bench_pos.x == world_wrap_x(&g->world, x);
+}
+
+static void test_work_benches(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 21, WORLD_FLAT);
+    Inventory *inv = &g.inventory;
+    int s = g.world.surface_y, x = g.world.spawn_x + 4;
+    TileType tool1 = tile_id("tool_bench"), tool2 = tile_id("tool_bench_2");
+    TileType f1 = tile_id("furnace"), f2 = tile_id("furnace_2"), f3 = tile_id("furnace_3");
+
+    /* Woodwork bench: a chest for 1 wood. Craft bench: a basket for 10 sticks. */
+    CHECK(place_and_open(&g, "woodwork_bench", x));
+    CHECK(costs(find_recipe(tile_id("woodwork_bench"), "chest"), "wood", 1, NULL, 0));
+    inventory_add(inv, ITEM_WOOD, 2);
+    CHECK(game_craft(&g, find_recipe(tile_id("woodwork_bench"), "chest"), 1));
+    run(&g, 0.3f);
+    CHECK(count_item(&g, ITEM_CHEST) == 1 && count_item(&g, ITEM_WOOD) == 1);
+    CHECK(game_bench_fuel(&g, NULL) == -1 && !game_add_fuel(&g, ITEM_WOOD));
+
+    CHECK(place_and_open(&g, "craft_bench", x + 2));
+    CHECK(costs(find_recipe(tile_id("craft_bench"), "basket"), "stick", 10, NULL, 0));
+    inventory_add(inv, ITEM_STICK, 10);
+    CHECK(game_craft(&g, find_recipe(tile_id("craft_bench"), "basket"), 1));
+    run(&g, 0.3f);
+    CHECK(count_item(&g, ITEM_BASKET) == 1 && count_item(&g, ITEM_STICK) == 0);
+
+    /* Tool bench: wooden and flint tools at tier 1, stone tools at tier 2 (5 stone). */
+    CHECK(place_and_open(&g, "tool_bench", x + 4));
+    const Recipe *list[16];
+    CHECK(bench_recipes(tool1, list, 16) == 6);
+    CHECK(costs(find_recipe(tool1, "wooden_pickaxe"), "wood", 1, "stick", 1));
+    CHECK(costs(find_recipe(tool1, "wooden_shovel"), "wood", 1, "stick", 1));
+    CHECK(costs(find_recipe(tool1, "flint_axe"), "flint", 2, "stick", 1));
+    CHECK(costs(find_recipe(tool1, "flint_shovel"), "flint", 2, "stick", 1));
+    CHECK(costs(find_recipe(tool1, "stone_pickaxe"), "stone", 5, "stick", 1));
+    CHECK(costs(find_recipe(tool1, "stone_shovel"), "stone", 5, "stick", 1));
+    CHECK(recipe_locked(tool1, find_recipe(tool1, "stone_pickaxe")) && recipe_locked(tool1, find_recipe(tool1, "stone_shovel")));
+    CHECK(!recipe_locked(tool1, find_recipe(tool1, "flint_axe")) && !recipe_locked(tool2, find_recipe(tool1, "stone_shovel")));
+    inventory_add(inv, ITEM_WOOD, 2);
+    inventory_add(inv, ITEM_STICK, 4);
+    inventory_add(inv, item_id("flint"), 2);
+    inventory_add(inv, ITEM_STONE, 10);
+    CHECK(game_craft(&g, find_recipe(tool1, "wooden_pickaxe"), 2));
+    run(&g, 0.4f);
+    CHECK(game_craft(&g, find_recipe(tool1, "flint_axe"), 1));
+    run(&g, 0.3f);
+    CHECK(!game_craft(&g, find_recipe(tool1, "stone_pickaxe"), 1));
+    CHECK(game_upgrade_bench(&g) && world_get(&g.world, x + 4, s - 1) == tool2);
+    CHECK(count_item(&g, ITEM_STONE) == 5 && !game_upgrade_bench(&g));
+    CHECK(game_craft(&g, find_recipe(tool1, "stone_pickaxe"), 1));
+    run(&g, 0.3f);
+    CHECK(count_item(&g, item_id("wooden_pickaxe")) == 2 && count_item(&g, item_id("flint_axe")) == 1);
+    CHECK(count_item(&g, item_id("stone_pickaxe")) == 1 && count_item(&g, ITEM_STONE) == 0);
+    /* Tools do not stack. */
+    int pick_slots = 0;
+    for (int i = 0; i < INVENTORY_SLOTS; i++)
+        if (inv->slots[i].id == item_id("wooden_pickaxe") && inv->slots[i].count == 1) pick_slots++;
+    CHECK(pick_slots == 2);
+
+    /* Kiln: needs fuel to work, and burns sticks, wood or coal. */
+    CHECK(place_and_open(&g, "kiln", x + 6));
+    const Recipe *charcoal = find_recipe(tile_id("kiln"), "charcoal");
+    CHECK(costs(charcoal, "stick", 1, NULL, 0));
+    int capacity = 0;
+    CHECK(game_bench_fuel(&g, &capacity) == 0 && capacity > 0);
+    inventory_add(inv, ITEM_STICK, 6);
+    inventory_add(inv, ITEM_DIRT, 1);
+    CHECK(!game_craft(&g, charcoal, 1) && count_item(&g, item_id("charcoal")) == 0);
+    CHECK(item_def(ITEM_STICK)->fuel > 0 && item_def(ITEM_WOOD)->fuel > 0 && item_def(item_id("coal"))->fuel > 0);
+    CHECK(item_def(ITEM_DIRT)->fuel == 0 && !game_add_fuel(&g, ITEM_DIRT) && !game_add_fuel(&g, ITEM_WOOD));
+    CHECK(game_add_fuel(&g, ITEM_STICK) && count_item(&g, ITEM_STICK) == 5);
+    CHECK(game_bench_fuel(&g, NULL) == item_def(ITEM_STICK)->fuel);
+    CHECK(game_craft(&g, charcoal, 2));
+    run(&g, 0.4f);
+    CHECK(count_item(&g, item_id("charcoal")) == 2 && count_item(&g, ITEM_STICK) == 3);
+
+    /* The fuel burns down by the tick, to nothing, and then nothing can be made. */
+    int before = game_bench_fuel(&g, NULL);
+    for (int i = 0; i < 10; i++) game_tick(&g);
+    CHECK(game_bench_fuel(&g, NULL) == before - 10);
+    for (int i = 0; i < item_def(ITEM_STICK)->fuel + 50; i++) game_tick(&g);
+    CHECK(game_bench_fuel(&g, NULL) == 0 && !game_craft(&g, charcoal, 1));
+    /* It cannot be filled past the top. */
+    inventory_add(inv, item_id("coal"), 5);
+    int fed = 0;
+    while (game_add_fuel(&g, item_id("coal"))) fed++;
+    CHECK(fed > 0 && fed <= 5 && game_bench_fuel(&g, NULL) == capacity);
+    CHECK(count_item(&g, item_id("coal")) == 5 - fed);
+    /* A run in progress stops when the fire goes out. */
+    game_close_bench(&g);
+
+    /* Furnace: ore to ingot, tin and copper at tier 1, iron and gold at 2
+     * (5 iron ore), platinum and titanium at 3 (5 titanium ore). */
+    CHECK(place_and_open(&g, "furnace", x + 8));
+    static const char *metals[] = { "copper", "tin", "iron", "gold", "platinum", "titanium" };
+    CHECK(bench_recipes(f1, list, 16) == 6);
+    for (int i = 0; i < 6; i++) {
+        const char *ore = TextName("%s_ore", metals[i]);
+        const Recipe *r = find_recipe(f1, TextName2("%s_ingot", metals[i]));
+        CHECK(costs(r, ore, 1, NULL, 0) && r->level == i / 2 + 1);
+        CHECK(recipe_locked(f1, r) == (i >= 2) && recipe_locked(f2, r) == (i >= 4) && !recipe_locked(f3, r));
+    }
+    inventory_add(inv, item_id("tin_ore"), 2);
+    inventory_add(inv, item_id("iron_ore"), 7);
+    inventory_add(inv, item_id("titanium_ore"), 6);
+    inventory_add(inv, ITEM_WOOD, 3);
+    CHECK(!game_craft(&g, find_recipe(f1, "tin_ingot"), 1)); /* cold */
+    CHECK(game_add_fuel(&g, ITEM_WOOD) && game_add_fuel(&g, ITEM_WOOD));
+    CHECK(game_craft(&g, find_recipe(f1, "tin_ingot"), 2));
+    run(&g, 0.4f);
+    CHECK(count_item(&g, item_id("tin_ingot")) == 2 && count_item(&g, item_id("tin_ore")) == 0);
+    CHECK(!game_craft(&g, find_recipe(f1, "iron_ingot"), 1));
+    int fuel = game_bench_fuel(&g, NULL);
+    CHECK(game_upgrade_bench(&g) && world_get(&g.world, x + 8, s - 1) == f2);
+    CHECK(count_item(&g, item_id("iron_ore")) == 2);
+    /* Upgrading keeps the fire in. */
+    CHECK(game_bench_fuel(&g, NULL) == fuel);
+    CHECK(game_craft(&g, find_recipe(f1, "iron_ingot"), 2));
+    run(&g, 0.4f);
+    CHECK(count_item(&g, item_id("iron_ingot")) == 2);
+    CHECK(!game_craft(&g, find_recipe(f1, "titanium_ingot"), 1));
+    CHECK(game_upgrade_bench(&g) && world_get(&g.world, x + 8, s - 1) == f3);
+    CHECK(count_item(&g, item_id("titanium_ore")) == 1 && !game_upgrade_bench(&g));
+    CHECK(game_craft(&g, find_recipe(f1, "titanium_ingot"), 1));
+    run(&g, 0.3f);
+    CHECK(count_item(&g, item_id("titanium_ingot")) == 1);
+
+    /* Fuel is saved with the world. */
+    fuel = game_bench_fuel(&g, NULL);
+    CHECK(fuel > 0 && save_game(&g, "build/test_fuel.world"));
+    Game loaded;
+    CHECK(load_game(&loaded, "build/test_fuel.world"));
+    CHECK(game_queue_action(&loaded, ACTION_USE, x + 8, s - 1));
+    run(&loaded, 0.05f);
+    CHECK(loaded.bench_open && game_bench_fuel(&loaded, NULL) > fuel - 5 && game_bench_fuel(&loaded, NULL) <= fuel);
+    game_free(&loaded);
+    remove("build/test_fuel.world");
+
+    /* Taken down, the furnace comes back at its tier. */
+    CHECK(game_queue_action(&g, ACTION_MINE, x + 8, s - 1));
+    run(&g, 2.0f);
+    CHECK(count_item(&g, item_id("furnace_3")) == 1);
     game_free(&g);
 }
 
@@ -1164,6 +1377,11 @@ static void test_veins(void)
                 mega += small.over;
             }
         }
+        /* Coal: veins of 5 to 10, about as many of them as copper's or tin's. */
+        VeinStats coal = vein_stats(&w, tile_id("coal_ore"), 10);
+        VeinStats copper = vein_stats(&w, tile_id("copper_ore"), 6);
+        CHECK(coal.smallest >= 5 && coal.over == 0);
+        CHECK(coal.groups * 3 > copper.groups * 2 && coal.groups * 2 < copper.groups * 3);
         dirt_copper += vein_stats(&w, tile_id("copper_dirt"), 6).blocks;
         dirt_tin += vein_stats(&w, tile_id("tin_dirt"), 6).blocks;
         world_free(&w);
@@ -1180,6 +1398,7 @@ static void test_veins(void)
 
     /* Mining gives the material, and the dirt kinds give ore too. */
     CHECK(tile_def(tile_id("flint"))->drop == item_id("flint"));
+    CHECK(tile_def(tile_id("coal_ore"))->drop == item_id("coal"));
     CHECK(tile_def(tile_id("copper_dirt"))->drop == item_id("copper_ore"));
     CHECK(tile_def(tile_id("titanium_ore"))->drop == item_id("titanium_ore"));
     CHECK(tile_def(tile_id("titanium_ore"))->mine_time > tile_def(TILE_STONE)->mine_time);
@@ -1399,6 +1618,7 @@ int main(void)
     test_drops();
     test_place();
     test_bench();
+    test_work_benches();
     test_wrap();
     test_terrain();
     test_veins();

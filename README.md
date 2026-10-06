@@ -19,8 +19,8 @@ Everything the game contains is defined in `data/`, not in the code, so it can b
 
 | File | Defines |
 | --- | --- |
-| `tiles.json` | Blocks: whether they are solid, climbable or minable, how long they take to mine, what they drop, their textures, for benches their kind, level and upgrade, and for storage blocks their grid of slots |
-| `items.json` | Items: label, stack size, how many slots they hold inside them and whether those open from the bar, what block they place, what tree they plant, and their texture |
+| `tiles.json` | Blocks: whether they are solid, climbable or minable, how long they take to mine, what they drop, their textures, for benches their kind, tier, upgrade and how much fuel they hold, and for storage blocks their grid of slots |
+| `items.json` | Items: label, stack size, how many slots they hold inside them and whether those open from the bar, what block they place, what tree they plant, how long they burn as fuel, and their texture |
 | `recipes.json` | What each kind of bench makes, from what, and at what bench level |
 | `trees.json` | Tree kinds: their blocks, fruit, full height, the shape of the crown row by row, which layer they grow in, and what they can be planted on |
 | `worldgen.json` | World size, the plains, the mountains and valleys (any number of kinds), soil layers, veins (what, in what, how big, how deep, how common, what shape), the spawn and its portal, and how trees are scattered |
@@ -91,6 +91,7 @@ Veins of other blocks run through the ground:
 | --- | --- | --- | --- |
 | Flint | Dirt, never touching open air | 4–10 | Fairly common |
 | Copper, tin | Stone, down to about 90 below the surface | 2–6 | Common |
+| Coal | Stone, down to about 90 below the surface | 5–10 | Common, the same as copper and tin |
 | Copper, tin | Dirt | 2–6 | Fairly common |
 | Copper, tin "scratches" | Stone: one long thin line on a shallow slant | 10–30 | Rare |
 | Iron, gold | Stone, deeper | 2–8 | Rarer |
@@ -150,13 +151,24 @@ An open bench shows a menu beside it in the world:
 
 Each item takes 100 ms to craft. Output that does not fit in the inventory is dropped at the player's feet. The bench closes when the world is clicked, a movement key is pressed, or the player moves out of reach, and that ends any crafting still running.
 
-A bench can have levels. The workbench's menu shows its level and an Upgrade button with the cost; upgrading happens in place and keeps the menu open. A recipe that needs a higher level is still shown in the row, darkened with a padlock and the level it needs, and cannot be selected. An upgraded workbench that is removed comes back as an upgraded workbench.
+A bench can have tiers. Its menu shows its tier and, if it can go higher, an Upgrade button with the cost; upgrading happens in place and keeps the menu open. A recipe that needs a higher tier is still shown in the row, darkened with a padlock and the tier it needs, and cannot be selected. A bench that is removed comes back at the tier it had reached.
 
-| Bench | Makes | From |
-| --- | --- | --- |
-| Spawn portal | Workbench | 1 dirt |
-| Workbench | Basket | 10 sticks |
-| Workbench, level 2 (upgrade: 5 stone) | Chest | 1 wood |
+| Bench | Made at | From | Makes |
+| --- | --- | --- | --- |
+| Workbench | Spawn portal | 1 dirt | The other benches. Tier 2 costs 5 stone |
+| Woodwork bench | Workbench | 1 wood | Chest (1 wood) |
+| Tool bench | Workbench | 1 stone, 1 flint | Wooden pickaxe, wooden shovel (1 wood, 1 stick each); flint axe, flint shovel (2 flint, 1 stick each). Tier 2, for 5 stone: stone pickaxe, stone shovel (5 stone, 1 stick each) |
+| Craft bench | Workbench | 1 dirt | Basket (10 sticks) |
+| Kiln | Workbench tier 2 | 10 dirt, 1 stick | Charcoal (1 stick) |
+| Furnace | Workbench tier 2 | 5 stone, 1 stick | One ingot from one ore: copper and tin. Tier 2, for 5 iron ore: iron and gold. Tier 3, for 5 titanium ore: platinum and titanium |
+
+The tools do not do anything yet, and do not stack.
+
+### Fuel
+
+The kiln and the furnace burn fuel. A gauge on the side of their menu shows how much is left; it runs down all the time, by the tick, whether or not anything is being made. With none left the Craft button is replaced by "Needs fuel", and a crafting run in progress stops.
+
+Clicking the gauge opens a list of the fuel in the inventory, each with how much of the gauge one of it fills; clicking an item burns one. Sticks, wood and coal are fuel, coal much the best. A bench that is removed loses the fuel in it.
 
 ## Chests
 

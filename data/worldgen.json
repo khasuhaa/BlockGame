@@ -38,6 +38,8 @@
       "per_100_columns": 30, "depth": [1, 90] },
     { "name": "tin", "tile": "tin_ore", "in": ["stone"], "size": [2, 6],
       "per_100_columns": 30, "depth": [1, 90] },
+    { "name": "coal", "tile": "coal_ore", "in": ["stone"], "size": [5, 10],
+      "per_100_columns": 30, "depth": [1, 90] },
     { "name": "copper_in_dirt", "tile": "copper_dirt", "in": ["dirt"], "size": [2, 6],
       "per_100_columns": 5, "depth": [1, 6] },
     { "name": "tin_in_dirt", "tile": "tin_dirt", "in": ["dirt"], "size": [2, 6],
