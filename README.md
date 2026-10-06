@@ -187,6 +187,8 @@ A bench can have tiers. Its menu shows its tier and, if it can go higher, an Upg
 
 ### Trade portal
 
+For trying things out, a new world starts the player with a trade portal and 1 gold coin as well as the basket, and the spawn portal makes a trade portal or a gold coin for 1 dirt each. Both are in the data (`rules.json` and `recipes.json`) and are meant to come out again.
+
 Clicking a placed trade portal offers to open or remove it. Open, it shows the coins held and a tab for each category of item - blocks, benches, materials, tools, food - plus a Convert tab.
 
 - Pick an item to see its price and how many are held, then Buy 1, Buy 10, Sell 1 or Sell 10. Every item but the coins themselves is for sale, and for now everything costs 1 copper coin.

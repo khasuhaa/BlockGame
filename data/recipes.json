@@ -30,6 +30,8 @@
     {"bench": "metalwork_bench", "level": 2, "output": {"item": "gold_coin", "count": 1}, "inputs": [{"item": "copper_coin", "count": 100}]},
     {"bench": "metalwork_bench", "level": 2, "output": {"item": "gold_coin", "count": 100}, "inputs": [{"item": "platinum_coin", "count": 1}]},
     {"bench": "metalwork_bench", "level": 3, "output": {"item": "platinum_coin", "count": 1}, "inputs": [{"item": "platinum_ingot", "count": 5}]},
-    {"bench": "metalwork_bench", "level": 3, "output": {"item": "platinum_coin", "count": 1}, "inputs": [{"item": "gold_coin", "count": 100}]}
+    {"bench": "metalwork_bench", "level": 3, "output": {"item": "platinum_coin", "count": 1}, "inputs": [{"item": "gold_coin", "count": 100}]},
+    {"bench": "spawn_portal", "output": {"item": "trade_portal", "count": 1}, "inputs": [{"item": "dirt", "count": 1}]},
+    {"bench": "spawn_portal", "output": {"item": "gold_coin", "count": 1}, "inputs": [{"item": "dirt", "count": 1}]}
   ]
 }

@@ -2100,6 +2100,26 @@ static void write_file(const char *path, const char *text)
     }
 }
 
+/* What a new world hands the player, as shipped. */
+static void test_start_items(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 29, WORLD_FLAT);
+    CHECK(g.inventory.slots[0].id == ITEM_BASKET && g.inventory.slots[0].count == 1);
+    CHECK(count_item(&g, item_id("trade_portal")) == 1 && count_item(&g, item_id("gold_coin")) == 1);
+
+    /* The spawn portal also hands out a trade portal or a gold coin for 1 dirt each. */
+    const Recipe *list[MAX_BENCH_RECIPES];
+    int n = bench_recipes(TILE_SPAWN_PORTAL, list, MAX_BENCH_RECIPES), cheap_portal = 0, cheap_coin = 0;
+    for (int i = 0; i < n; i++) {
+        if (!costs(list[i], "dirt", 1, NULL, 0) || list[i]->output.count != 1) continue;
+        if (list[i]->output.id == item_id("trade_portal")) cheap_portal++;
+        if (list[i]->output.id == item_id("gold_coin")) cheap_coin++;
+    }
+    CHECK(cheap_portal == 1 && cheap_coin == 1);
+    game_free(&g);
+}
+
 /* Runs last: it changes the loaded content. */
 static void test_content(void)
 {
@@ -2160,6 +2180,7 @@ static void test_content(void)
 
     content_reset();
     CHECK(content_load("data", err, sizeof err) && content.tile_count == tiles);
+    CHECK(content.rules.start_item_count == 3);
 }
 
 int main(void)
@@ -2169,6 +2190,10 @@ int main(void)
         printf("could not load data: %s\n", err);
         return 1;
     }
+    /* The shipped data starts the player with extras for trying things out.
+     * Every other test assumes a bare start: one basket. */
+    test_start_items();
+    content.rules.start_item_count = 1;
 
     test_world();
     test_mine_range();
