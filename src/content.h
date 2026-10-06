@@ -35,6 +35,7 @@
 #define MAX_VEIN_SIZE 64
 #define MAX_TILE_TEXTURES 4
 #define MAX_TILE_ALIASES 2
+#define MAX_TILE_JOINS 4
 #define MAX_TREE_ROWS 12
 #define MAX_SWELLS 4
 #define MAX_START_ITEMS 8
@@ -138,6 +139,13 @@ typedef struct {
     char textures_lit[MAX_TILE_TEXTURES][CONTENT_PATH_LEN];
     int lit_count;
     float lit_fps;
+    /* Blocks it joins up with when they are beside it, itself included if
+     * listed: a cactus and its arms, say. One that joins is drawn from a
+     * sheet of sixteen pictures, four to a row, one for every combination of
+     * neighbours: picture number = 1 for one above + 2 right + 4 below + 8 left. */
+    TileType joins[MAX_TILE_JOINS];
+    int join_count;
+    char texture_joined[CONTENT_PATH_LEN];
     int shade;   /* how much brightness varies from tile to tile, 0..255 */
     bool front;  /* drawn after the other tiles, so its overhang shows */
     float pulse; /* how strongly its brightness breathes, 0..1 */
@@ -196,6 +204,7 @@ typedef struct {
     int max_height;  /* trunk blocks when full grown */
     int weight;      /* how common it is relative to other trees */
     bool mirror_by_column; /* swap left and right on odd columns */
+    bool connected;        /* a leaf only grows touching the trunk or another leaf: no gaps */
     bool needs_water;      /* only grows where the block above it is under water */
     TreeRow rows[MAX_TREE_ROWS];
     int row_count;

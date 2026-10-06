@@ -26,6 +26,9 @@ void assets_draw_tile(TileType t, int x, int y, float px, float py, float tile_s
  * burning: its frames of flame, one after another. */
 void assets_draw_tile_lit(TileType t, int x, int y, float px, float py, float tile_size, float dim, TilePart part,
                           bool lit);
+/* And for a block that joins up with the ones beside it: `joined` says which
+ * sides have one, 1 for above + 2 right + 4 below + 8 left. */
+void assets_draw_tile_joined(TileType t, int x, int y, float px, float py, float tile_size, float dim, int joined);
 /* Which part a tile is, from the tiles of its layer above and below it. A
  * block that stands alone counts as a top. */
 TilePart assets_tile_part(TileType t, TileType above, TileType below);

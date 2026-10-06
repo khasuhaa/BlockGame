@@ -2550,7 +2550,8 @@ static void test_biomes(void)
 {
     TileType sand = tile_id("sand"), kelp = tile_id("kelp"), cactus = tile_id("cactus");
     int deserts = 0, cacti = 0, kelps = 0, corals = 0, carrots = 0, flax = 0, apples = 0, oranges = 0;
-    int shore_sand = 0, shore_all = 0, inland_sand_runs = 0;
+    int shore_sand = 0, shore_all = 0, inland_sand_runs = 0, stripes = 0, thin_edges = 0, loose_arms = 0, arms = 0;
+    TileType arm = tile_id("cactus_arm");
 
     CHECK(content.biome_count == 4 && content.worldgen.has_sea && content.worldgen.sea_level == 0);
     CHECK(!content.biomes[0].has_climate && content.biomes[1].has_climate && content.biomes[3].below_sea);
@@ -2581,8 +2582,17 @@ static void test_biomes(void)
                     if (column_level(&w, x - d) < 0 || column_level(&w, x + d) < 0) far = false;
                 if (by_sea) shore_all++, shore_sand += surface == sand;
                 if (far && surface == sand) deserts++;
-                if (far && surface == sand && world_get(&w, x - 1, world_y_to_row(&w, column_level(&w, x - 1) - 1)) != sand)
+                TileType left = world_get(&w, x - 1, world_y_to_row(&w, column_level(&w, x - 1) - 1));
+                TileType right = world_get(&w, x + 1, world_y_to_row(&w, column_level(&w, x + 1) - 1));
+                if (far && surface == sand && left != sand) {
                     inland_sand_runs++;
+                    /* Where a desert begins its sand is a skin over the dirt. */
+                    if (world_get(&w, x, top + 1) != sand) thin_edges++;
+                }
+                /* Sand and grass do not alternate column by column. */
+                if (far && ((surface == sand && left == TILE_GRASS && right == TILE_GRASS) ||
+                            (surface == TILE_GRASS && left == sand && right == sand)))
+                    stripes++;
             }
             /* What grows: each thing in its own country, on its own ground. */
             TileType growing = world_get_at(&w, BG, x, feet);
@@ -2607,6 +2617,18 @@ static void test_biomes(void)
             if (growing == tile_id("orange_log")) oranges++, bad += surface != TILE_GRASS;
         }
         CHECK(bad == 0);
+        /* Every arm of a cactus is joined on to the rest of it: none hangs in the air. */
+        for (int y = 1; y < w.height - 1; y++) {
+            for (int x = 0; x < w.width; x++) {
+                if (world_get_at(&w, BG, x, y) != arm) continue;
+                arms++;
+                TileType round[4] = { world_get_at(&w, BG, x - 1, y), world_get_at(&w, BG, x + 1, y),
+                                      world_get_at(&w, BG, x, y - 1), world_get_at(&w, BG, x, y + 1) };
+                bool held = false;
+                for (int k = 0; k < 4; k++) held = held || round[k] == arm || round[k] == cactus;
+                if (!held) loose_arms++;
+            }
+        }
         /* The spawn stands on ordinary ground, with dirt to hand. */
         for (int d = -20; d <= 20; d++) {
             int top = world_y_to_row(&w, column_level(&w, w.spawn_x + d) - 1);
@@ -2617,8 +2639,37 @@ static void test_biomes(void)
     CHECK(kelps > 20 && corals > 20 && carrots > 5 && flax > 5 && apples > 0 && oranges > 0);
     /* Deserts turn up, with cacti in them, but most worlds are not all desert. */
     CHECK(deserts > 100 && deserts < 10 * 2048 / 2 && cacti > 3);
-    /* Sand does not start at a line: where a desert begins there are several edges, not one. */
-    CHECK(inland_sand_runs > 10);
+    /* Sand does not start at a line, nor in stripes: it thins out over the dirt. */
+    CHECK(inland_sand_runs > 0 && stripes == 0 && thin_edges * 10 >= inland_sand_runs * 8);
+    CHECK(arms > 5 && loose_arms == 0);
+
+    /* A cactus grown from nothing keeps its arms attached at every step of
+     * the way, and ends up with all six blocks of them. */
+    Game g;
+    game_init(&g, 64, 48, 77, WORLD_FLAT);
+    World *fw = &g.world;
+    int cx = 20, ground = fw->surface_y;
+    world_set(fw, cx, ground, sand);
+    tree_plant(fw, cx, ground - 1, tree_id("cactus"));
+    uint32_t rng = 5;
+    int grown = 0;
+    for (int step = 0; step < 400; step++) {
+        tree_grow(fw, cx, ground - 1, &rng);
+        grown = 0;
+        for (int y = ground - 8; y < ground; y++) {
+            for (int x = cx - 3; x <= cx + 3; x++) {
+                if (world_get_at(fw, BG, x, y) != arm) continue;
+                grown++;
+                TileType round[4] = { world_get_at(fw, BG, x - 1, y), world_get_at(fw, BG, x + 1, y),
+                                      world_get_at(fw, BG, x, y - 1), world_get_at(fw, BG, x, y + 1) };
+                bool held = false;
+                for (int k = 0; k < 4; k++) held = held || round[k] == arm || round[k] == cactus;
+                CHECK(held);
+            }
+        }
+    }
+    CHECK(grown == 6 && world_get_at(fw, BG, cx, ground - 5) == cactus && world_get_at(fw, BG, cx, ground - 6) != cactus);
+    game_free(&g);
     CHECK(shore_all > 10 && shore_sand * 10 >= shore_all * 7);
 }
 

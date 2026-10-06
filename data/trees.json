@@ -163,6 +163,7 @@
    ],
    "max_height": 5,
    "mirror_by_column": true,
+   "connected": true,
    "rows": [
     {
      "offset": 2,

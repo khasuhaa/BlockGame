@@ -11,6 +11,7 @@ static Texture2D tile_textures[MAX_TILES][MAX_TILE_TEXTURES];
 static Texture2D tile_top_textures[MAX_TILES];
 static Texture2D tile_base_textures[MAX_TILES];
 static Texture2D tile_lit_textures[MAX_TILES][MAX_TILE_TEXTURES];
+static Texture2D tile_joined_textures[MAX_TILES];
 static Texture2D item_textures[MAX_ITEMS];
 static Rectangle item_bounds[MAX_ITEMS]; /* the part of each item's image that is drawn on */
 static Color tile_colors[MAX_TILES];
@@ -88,6 +89,7 @@ void assets_load(const char *dir)
         for (int i = 0; i < content.tiles[t].lit_count; i++)
             tile_lit_textures[t][i] = load(dir, content.tiles[t].textures_lit[i]);
         tile_top_textures[t] = load(dir, content.tiles[t].texture_top);
+        tile_joined_textures[t] = load(dir, content.tiles[t].texture_joined);
         tile_colors[t] = average_color(dir, content.tiles[t].texture_count > 0 ? content.tiles[t].textures[0] : "");
         tile_base_textures[t] = load(dir, content.tiles[t].texture_base);
     }
@@ -104,6 +106,8 @@ void assets_unload(void)
         tile_top_textures[t] = (Texture2D){ 0 };
         if (tile_base_textures[t].id) UnloadTexture(tile_base_textures[t]);
         tile_base_textures[t] = (Texture2D){ 0 };
+        if (tile_joined_textures[t].id) UnloadTexture(tile_joined_textures[t]);
+        tile_joined_textures[t] = (Texture2D){ 0 };
         for (int i = 0; i < MAX_TILE_TEXTURES; i++) {
             if (tile_textures[t][i].id) UnloadTexture(tile_textures[t][i]);
             tile_textures[t][i] = (Texture2D){ 0 };
@@ -138,6 +142,21 @@ TilePart assets_tile_part(TileType t, TileType above, TileType below)
 void assets_draw_tile(TileType t, int x, int y, float px, float py, float tile_size, float dim, TilePart part)
 {
     assets_draw_tile_lit(t, x, y, px, py, tile_size, dim, part, false);
+}
+
+void assets_draw_tile_joined(TileType t, int x, int y, float px, float py, float tile_size, float dim, int joined)
+{
+    if (t <= TILE_AIR || t >= content.tile_count) return;
+    Texture2D sheet = tile_joined_textures[t];
+    if (!sheet.id) {
+        assets_draw_tile(t, x, y, px, py, tile_size, dim, TILE_PART_BODY);
+        return;
+    }
+    /* Sixteen pictures, four to a row. */
+    float cell = (float)sheet.width / 4.0f;
+    unsigned char v = (unsigned char)(255.0f * (dim > 1.0f ? 0.0f : 1.0f - dim));
+    DrawTexturePro(sheet, (Rectangle){ (float)(joined & 3) * cell, (float)((joined >> 2) & 3) * cell, cell, cell },
+                   (Rectangle){ px, py, tile_size, tile_size }, (Vector2){ 0, 0 }, 0.0f, (Color){ v, v, v, 255 });
 }
 
 void assets_draw_tile_lit(TileType t, int x, int y, float px, float py, float tile_size, float dim, TilePart part,

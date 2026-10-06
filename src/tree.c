@@ -48,6 +48,17 @@ static bool is_free(const World *w, const TreeDef *def, int x, int y)
            !world_is_solid(w, x, y);
 }
 
+/* Whether a place is right beside the tree's trunk or one of its leaves. */
+static bool touches_tree(const World *w, const TreeDef *def, int x, int y)
+{
+    static const int beside[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
+    for (int i = 0; i < 4; i++) {
+        TileType t = world_get_at(w, def->layer, x + beside[i][0], y + beside[i][1]);
+        if (t != TILE_AIR && (t == def->log || t == def->leaves)) return true;
+    }
+    return false;
+}
+
 /* The places a tree of this height may have leaves, nearest the trunk first.
  * Rows are counted from the top of the trunk, so the crown rides up as the
  * trunk grows, and a row only gets leaves once the trunk reaches down to it. */
@@ -105,6 +116,8 @@ TreeGrowth tree_grow(World *w, int x, int y, uint32_t *rng)
     for (int i = 0; i < count; i++) {
         int d = cells[i].dx < 0 ? -cells[i].dx : cells[i].dx;
         if (!is_free(w, def, x + cells[i].dx, top + cells[i].off)) continue;
+        /* An arm grows out from the trunk a block at a time, never ahead of itself. */
+        if (def->connected && !touches_tree(w, def, x + cells[i].dx, top + cells[i].off)) continue;
         if (ring < 0) ring = d;
         if (d == ring) open[open_count++] = i;
     }

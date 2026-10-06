@@ -261,6 +261,35 @@ static void draw_sky(const Game *g, Vector2 origin)
 /* The tile layers, back to front: the backwall, well dimmed, and the
  * background, dimmed a little, wherever the foreground does not hide them;
  * then the foreground itself. */
+/* Which sides of a block have something it joins up with: 1 for above, 2
+ * right, 4 below, 8 left. Standing on solid ground counts as joined below. */
+static int tile_joined(const World *w, int layer, int x, int y)
+{
+    static const int side[4][2] = { { 0, -1 }, { 1, 0 }, { 0, 1 }, { -1, 0 } };
+    const TileDef *def = tile_def(world_get_at(w, layer, x, y));
+    int joined = 0;
+    for (int i = 0; i < 4; i++) {
+        TileType other = world_get_at(w, layer, x + side[i][0], y + side[i][1]);
+        for (int k = 0; k < def->join_count; k++)
+            if (other != TILE_AIR && other == def->joins[k]) joined |= 1 << i;
+    }
+    if (world_is_solid(w, x, y + 1)) joined |= 4;
+    return joined;
+}
+
+/* One block of a layer, in whichever of its looks applies. */
+static void draw_block(const Game *g, int layer, TileType t, int x, int y, float px, float py, float dim)
+{
+    const TileDef *def = tile_def(t);
+    int wx = world_wrap_x(&g->world, x);
+    if (def->join_count > 0)
+        assets_draw_tile_joined(t, wx, y, px, py, TILE_SIZE, dim, tile_joined(&g->world, layer, x, y));
+    else
+        /* Something with a fire in it shows the fire while it has fuel. */
+        assets_draw_tile_lit(t, wx, y, px, py, TILE_SIZE, dim, TILE_PART_BODY,
+                             def->lit_count > 0 && game_fuel_at(g, wx, y) > 0);
+}
+
 static void draw_world(const Game *g, Vector2 origin)
 {
     const World *w = &g->world;
@@ -278,14 +307,9 @@ static void draw_world(const Game *g, Vector2 origin)
             if (!tile_def(t)->solid) {
                 assets_draw_tile(world_get_at(w, LAYER_WALL, x, y), wx, y, px, py, TILE_SIZE, WALL_DIM,
                                  TILE_PART_BODY);
-                /* Something with a fire in it shows the fire while it has fuel. */
-                if (!tile_def(behind)->front)
-                    assets_draw_tile_lit(behind, wx, y, px, py, TILE_SIZE, BACKGROUND_DIM, TILE_PART_BODY,
-                                         tile_def(behind)->lit_count > 0 && game_fuel_at(g, wx, y) > 0);
+                if (!tile_def(behind)->front) draw_block(g, LAYER_BACKGROUND, behind, x, y, px, py, BACKGROUND_DIM);
             }
-            if (!tile_def(t)->front)
-                assets_draw_tile_lit(t, wx, y, px, py, TILE_SIZE, 0.0f, TILE_PART_BODY,
-                                     tile_def(t)->lit_count > 0 && game_fuel_at(g, wx, y) > 0);
+            if (!tile_def(t)->front) draw_block(g, LAYER_FOREGROUND, t, x, y, px, py, 0.0f);
             if (world_is_water(w, x, y)) {
                 /* Water tints what is in it; its surface is a lighter line. */
                 const int *c = content.rules.water_color;

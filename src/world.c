@@ -306,9 +306,12 @@ static float inside(float v, float lo, float hi, float blend)
 /* Decides what kind of country every column is. The sea claims everything
  * below its level outright. On land, heat and dryness - two smooth maps round
  * the world - pick the climate, and the shore biome reaches in from the sea.
- * Toward the edge of a biome fewer and fewer columns belong to it, so one
- * kind of ground gives way to another gradually rather than at a line. */
-static void assign_biomes(World *w, const int *level, int *biome)
+ * `share` is how fully a column belongs to its biome: 1 well inside it,
+ * falling toward 0 at its edge. The ground there is that biome's all the way
+ * along, but thinner and thinner over what lies beneath (see the filling of
+ * the columns), so one kind of country gives way to another as a wedge and
+ * not as a line, nor as stripes. */
+static void assign_biomes(World *w, const int *level, int *biome, float *share_out)
 {
     const WorldGenDef *gen = &content.worldgen;
     int width = w->width, reach = 0;
@@ -323,9 +326,15 @@ static void assign_biomes(World *w, const int *level, int *biome)
                 to_sea = d;
         float heat = ring_noise(w->seed ^ 0xE5u, x, width, gen->heat_wavelength);
         float dry = ring_noise(w->seed ^ 0xF6u, x, width, gen->dryness_wavelength);
-        bool near_spawn = abs(world_dx(w, w->spawn_x, x)) < gen->climate_spawn_clearance;
+        /* Nothing but the first biome round the spawn; past that clearing
+         * the others come in over as far again, not all at once. */
+        int from_spawn = abs(world_dx(w, w->spawn_x, x)) - gen->climate_spawn_clearance;
+        bool near_spawn = from_spawn < 0;
+        float clearing = gen->climate_spawn_clearance > 0
+                             ? fminf(1.0f, (float)(from_spawn + 1) / (float)gen->climate_spawn_clearance) : 1.0f;
 
         biome[x] = 0;
+        share_out[x] = 1.0f;
         for (int b = 1; b < content.biome_count; b++) {
             const BiomeDef *def = &content.biomes[b];
             float share = 0.0f;
@@ -333,9 +342,12 @@ static void assign_biomes(World *w, const int *level, int *biome)
             else if (sea) share = 0.0f;
             else if (def->near_sea > 0) share = 1.0f - (float)(to_sea - 1) / (float)def->near_sea;
             else if (def->has_climate && !near_spawn)
-                share = fminf(inside(heat, def->heat_min, def->heat_max, gen->climate_blend),
-                              inside(dry, def->dry_min, def->dry_max, gen->climate_blend));
-            if (share > 0.0f && hash01(w->seed ^ (0x1B0u + (uint32_t)b), x) < share) biome[x] = b;
+                share = clearing * fminf(inside(heat, def->heat_min, def->heat_max, gen->climate_blend),
+                                         inside(dry, def->dry_min, def->dry_max, gen->climate_blend));
+            if (share > 0.0f) {
+                biome[x] = b;
+                share_out[x] = share;
+            }
         }
     }
 }
@@ -459,14 +471,17 @@ static bool generate_terrain(World *w)
     for (int i = 0; i < span_count; i++) limit_steps(w, level, spans[i][0], spans[i][1], spans[i][2]);
 
     int *biome = calloc((size_t)width, sizeof(int));
-    if (!biome) {
+    float *share = calloc((size_t)width, sizeof(float));
+    if (!biome || !share) {
+        free(biome);
+        free(share);
         free(c.level);
         free(c.shape);
         free(level);
         return false;
     }
     w->sea_row = gen->has_sea ? world_y_to_row(w, gen->sea_level) : -1;
-    assign_biomes(w, level, biome);
+    assign_biomes(w, level, biome, share);
 
     /* Fill the columns: the biome's surface over its soil over rock. The
      * soil thins out into a feature until it is bare rock, unless the biome
@@ -480,12 +495,17 @@ static bool generate_terrain(World *w)
         depth += (hash01(w->seed ^ 0xD4u, x) - 0.5f) * 0.8f * (bare > 0.0f ? 1.0f : 0.0f);
         if (b->soil_depth > 0.0f) depth = b->soil_depth + (hash01(w->seed ^ 0xD4u, x) - 0.5f) * 0.8f;
         int soil = (int)floorf(depth + 0.5f);
+        /* At the edge of its country a biome's ground is only a skin over the
+         * ordinary soil, a block deep at the very edge and deepening inward. */
+        int own = share[x] >= 1.0f ? soil : 1 + (int)floorf(share[x] * (float)(soil > 1 ? soil - 1 : 0) + 0.5f);
         int top = world_y_to_row(w, level[x] - 1);
         for (int y = top < 0 ? 0 : top; y < w->height; y++) {
             int below = y - top;
-            world_set(w, x, y, below >= soil ? gen->rock : below == 0 ? b->surface : b->soil);
+            world_set(w, x, y, below >= soil ? gen->rock : below == 0 ? b->surface
+                               : below < own ? b->soil : content.biomes[0].soil);
         }
     }
+    free(share);
 
     raise_walls(w);
     carve_caves(w, level, &rng);

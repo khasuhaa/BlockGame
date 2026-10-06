@@ -98,7 +98,7 @@ The land is plains broken up by mountains and valleys, always with a stretch of 
 **Biomes.** Two smooth maps run round the world, one of heat and one of dryness, and what kind of country a column is follows from them and from the sea:
 
 - **Plains** are the ordinary country: grass over dirt, with oak, cherry, apple and orange trees, and carrots and flax growing wild.
-- **Desert** is where it is both hot and dry: sand instead of grass and dirt, and cacti instead of trees. The spawn is always on plains.
+- **Desert** is where it is both hot and dry: sand instead of grass and dirt, and cacti instead of trees. The spawn is always on plains. Where a desert or a beach meets other country its sand does not stop at a line or break into stripes: it thins to a skin one block deep over the ordinary dirt at the edge, and deepens inward.
 - **Ocean** is everything below Y 0. Its bed is sand, kelp and coral grow on it, and the open space above it is water up to Y 0. Valleys reach below Y 0, so every valley is a sea.
 - **Beach** is the land within nine columns of a sea: sand, more of it the nearer the water.
 
@@ -148,7 +148,7 @@ With an acorn or a cherry selected, clicking dirt or grass that has room above i
 
 An **apple** tree and an **orange** tree are smaller round-crowned trees with their own trunks and leaves, bearing apples and oranges; planting the fruit grows the tree.
 
-A **cactus** grows on sand: a trunk up to 5 blocks, with two arms that leave it sideways and turn up, and no leaves. Prickly pears grow on the arms, and planting one on sand grows a cactus.
+A **cactus** grows on sand: a trunk up to 5 blocks, with two arms that leave it sideways and turn up, and no leaves. Prickly pears grow on the arms, and planting one on sand grows a cactus. An arm grows out from the trunk a block at a time, so no part of one ever hangs in the air (`"connected"` in `trees.json`), and the blocks of a cactus are drawn joined up: one round stem that bends at the elbows and is capped at the tips. A block that lists others it `"joins"` in `tiles.json` is drawn from a sheet of sixteen pictures, one for each combination of neighbours.
 
 **Kelp** grows on the sea bed, one straight stem up through the water and never above it, with no leaves and no fruit. It can be climbed. Cutting it part-way up takes away everything above the cut as well; what is below stays.
 

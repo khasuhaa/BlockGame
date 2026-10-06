@@ -232,6 +232,15 @@ static bool read_tiles(Reader *r, const cJSON *root)
         if (t->height < 1 || t->height > 8) return fail(r, "tile \"%s\": height must be 1 to 8", t->name);
         copy_name(t->texture_top, sizeof t->texture_top, str(e, "texture_top"));
         copy_name(t->texture_base, sizeof t->texture_base, str(e, "texture_base"));
+        copy_name(t->texture_joined, sizeof t->texture_joined, str(e, "texture_joined"));
+        t->join_count = 0;
+        const cJSON *joins = field(e, "joins"), *join;
+        cJSON_ArrayForEach(join, joins) {
+            TileType other = cJSON_IsString(join) ? tile_id(join->valuestring) : -1;
+            if (other < 0 || t->join_count >= MAX_TILE_JOINS)
+                return fail(r, "tile \"%s\": \"joins\" lists at most %d blocks that exist", t->name, MAX_TILE_JOINS);
+            t->joins[t->join_count++] = other;
+        }
         const cJSON *alias;
         t->alias_count = 0;
         cJSON_ArrayForEach(alias, field(e, "aliases")) {
@@ -445,6 +454,7 @@ static bool read_trees(Reader *r, const cJSON *root)
         t->max_height = (int)num(e, "max_height", 6);
         t->weight = (int)num(e, "weight", 1);
         t->mirror_by_column = flag(e, "mirror_by_column", false);
+        t->connected = flag(e, "connected", false);
         const char *layer = str(e, "layer");
         t->layer = layer && strcmp(layer, "foreground") == 0 ? LAYER_FOREGROUND : LAYER_BACKGROUND;
         const cJSON *soil;
