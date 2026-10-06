@@ -292,7 +292,7 @@ static void test_unqueue(void)
     CHECK(!game_click_tile(&g, at.x, s - 9) && g.queue_count == 0);
 
     /* The same goes for an item on the ground. */
-    g.drops[0] = (Drop){ true, (uint8_t)ITEM_STONE, at.x + 9, (float)(s - 1), 0.0f, 0.0f, false, 0, 500, 0 };
+    g.drops[0] = (Drop){ true, (uint8_t)ITEM_STONE, at.x + 9, (float)(s - 1), 0.0f, 0.0f, false, 0, 500, 0, false };
     CHECK(game_click_drop(&g, 0) && g.queue_count == 1 && g.queue[0].type == ACTION_COLLECT);
     CHECK(game_click_drop(&g, 0) && g.queue_count == 0);
     run(&g, 1.0f);
@@ -705,7 +705,7 @@ static void test_drops(void)
     CHECK(!g.drops[0].active && count_item(&g, ITEM_DIRT) == 1);
 
     /* Out of reach it stays put until the player walks up to it. */
-    g.drops[0] = (Drop){ true, (uint8_t)ITEM_DIRT, start.x + 6, (float)(s - 5), 0.0f, 0.0f, false, 0, 1, 0 };
+    g.drops[0] = (Drop){ true, (uint8_t)ITEM_DIRT, start.x + 6, (float)(s - 5), 0.0f, 0.0f, false, 0, 1, 0, false };
     run(&g, 2.0f);
     CHECK(g.drops[0].active && g.drops[0].y == (float)(s - 1));
     CHECK(game_click_tile(&g, start.x + 5, start.y));
@@ -715,7 +715,7 @@ static void test_drops(void)
     /* With no room, it is left on the ground. */
     inventory_add(&g.inventory, ITEM_DIRT, 99 * 12);
     int before = count_item(&g, ITEM_DIRT);
-    g.drops[0] = (Drop){ true, (uint8_t)ITEM_DIRT, g.player.feet.x, (float)g.player.feet.y, 0.0f, 0.0f, false, 0, 2, 0 };
+    g.drops[0] = (Drop){ true, (uint8_t)ITEM_DIRT, g.player.feet.x, (float)g.player.feet.y, 0.0f, 0.0f, false, 0, 2, 0, false };
     run(&g, 2.0f);
     CHECK(g.drops[0].active && count_item(&g, ITEM_DIRT) == before);
     game_free(&g);
@@ -1416,7 +1416,7 @@ static void test_ticks(void)
         if (g.drops[i].active) continue;
         TilePos at = low < 0 ? (TilePos){ tx - 1, top + 2 } : (TilePos){ tx, top - 1 };
         g.drops[i] = (Drop){ true, (uint8_t)ITEM_ACORN, at.x, (float)at.y, 0.0f, 0.0f, true, FRUIT_TICKS,
-                             ++g.next_drop_id, 0 };
+                             ++g.next_drop_id, 0, false };
         if (low < 0) low = i;
         else high = i;
     }
@@ -3260,12 +3260,16 @@ static void test_vitals(void)
         bool listed = false;
         for (int k = 0; k < u->loot_count; k++) listed = listed || u->loot[k].item == g.drops[i].item;
         CHECK(listed);
-        /* Far enough off that it lies there until the player goes for it. */
-        CHECK(abs(world_dx(&g.world, g.player.feet.x, g.drops[i].x)) == 2);
+        /* It comes out right on top of the player. */
+        CHECK(g.drops[i].x == g.player.feet.x && !g.drops[i].held_off);
     }
     CHECK(found == 2);
+    /* And so is picked up like anything else lying at their feet. */
+    int had = inv->slots[0].count + inv->slots[1].count;
     run(&g, 1.0f);
-    CHECK(inventory_count(inv, g.drops[0].item) == 0);
+    found = 0;
+    for (int i = 0; i < MAX_DROPS; i++) found += g.drops[i].active;
+    CHECK(found == 0 && inv->slots[0].count + inv->slots[1].count == had + 2);
     game_wake(&g);
     CHECK(v->rest == REST_NONE && v->meditation == 0.0f);
 
@@ -3350,34 +3354,54 @@ static void test_discard(void)
     for (int i = 0; i < MAX_MOBS; i++) g.mobs[i].active = false;
     CHECK(content.rules.drop_lifetime == 600.0f);
 
-    /* Part of a stack thrown out of the bar lands two blocks in front of
-     * the player, and stays there rather than coming straight back. */
+    /* Part of a stack dropped out of the bar lands right where the player
+     * is, and stays there however long they stand over it. */
     inventory_add(inv, ITEM_STONE, 20);
-    g.player.facing = 1;
-    int px = g.player.feet.x;
+    int px = g.player.feet.x, ground = g.player.feet.y;
     CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 5) == 5);
     CHECK(inv->slots[0].count == 15 && count_drops(&g, ITEM_STONE) == 5);
     for (int i = 0; i < MAX_DROPS; i++)
-        if (g.drops[i].active) CHECK(g.drops[i].x == px + 2);
-    run(&g, 3.0f);
+        if (g.drops[i].active) CHECK(g.drops[i].x == px && g.drops[i].held_off);
+    run(&g, 5.0f);
     CHECK(count_drops(&g, ITEM_STONE) == 5 && inventory_count(inv, ITEM_STONE) == 15);
-    /* Walking over to them picks them up as usual. */
-    inventory_select(inv, 5, -1); /* an empty hand, so the click is a walk and not a placing */
-    CHECK(game_click_tile(&g, px + 2, g.player.feet.y));
+    /* Nor by stepping to the square beside them: that is still within reach. */
+    inventory_select(inv, 5, -1); /* an empty hand, so a click is a walk and not a placing */
+    CHECK(game_click_tile(&g, px + 1, ground));
+    run(&g, 2.0f);
+    CHECK(g.player.feet.x == px + 1 && count_drops(&g, ITEM_STONE) == 5);
+    /* Out of reach and back again, and they are picked up as usual. */
+    CHECK(game_click_tile(&g, px + 4, ground));
+    run(&g, 2.0f);
+    CHECK(g.player.feet.x == px + 4 && count_drops(&g, ITEM_STONE) == 5);
+    for (int i = 0; i < MAX_DROPS; i++)
+        if (g.drops[i].active) CHECK(!g.drops[i].held_off);
+    CHECK(game_click_tile(&g, px, ground));
     run(&g, 3.0f);
     CHECK(count_drops(&g, ITEM_STONE) == 0 && inventory_count(inv, ITEM_STONE) == 20);
 
-    /* Asking for more than there is throws the whole stack; an empty slot throws nothing. */
-    CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 99) == 20 && inv->slots[0].count == 0);
-    CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 1) == 0 && count_drops(&g, ITEM_STONE) == 20);
-    /* Behind, when there is a block in front. */
-    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
-    world_set(w, g.player.feet.x + 1, g.player.feet.y - 1, TILE_STONE);
-    inventory_add(inv, ITEM_DIRT, 1);
-    CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 1) == 1);
+    /* Or, without going anywhere, by asking for one: a tap on it queues picking it up. */
+    CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 3) == 3);
+    run(&g, 2.0f);
+    CHECK(count_drops(&g, ITEM_STONE) == 3 && inventory_count(inv, ITEM_STONE) == 17);
+    int tapped = -1;
     for (int i = 0; i < MAX_DROPS; i++)
-        if (g.drops[i].active) CHECK(g.drops[i].x == g.player.feet.x - 2);
-    world_set(w, g.player.feet.x + 1, g.player.feet.y - 1, TILE_AIR);
+        if (g.drops[i].active) tapped = i;
+    CHECK(tapped >= 0 && game_click_drop(&g, tapped));
+    run(&g, 2.0f);
+    CHECK(count_drops(&g, ITEM_STONE) == 2 && inventory_count(inv, ITEM_STONE) == 18);
+    /* The flag is kept by a save. */
+    Game loaded;
+    CHECK(save_game(&g, "build/test_discard.world") && load_game(&loaded, "build/test_discard.world"));
+    int held = 0;
+    for (int i = 0; i < MAX_DROPS; i++) held += loaded.drops[i].active && loaded.drops[i].held_off;
+    CHECK(held == 2);
+    game_free(&loaded);
+    remove("build/test_discard.world");
+
+    /* Asking for more than there is drops the whole stack; an empty slot drops nothing. */
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 99) == 18 && inv->slots[0].count == 0);
+    CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 1) == 0 && count_drops(&g, ITEM_STONE) == 18);
 
     /* A basket goes with what is in it, and comes back with it. */
     for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
@@ -3387,10 +3411,10 @@ static void test_discard(void)
     CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 1, 0 }, (SlotRef){ SLOT_BASKET, 0, 2 }, MAX_STACK));
     CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 1) == 1 && inventory_count(inv, ITEM_WOOD) == 0);
     CHECK(count_drops(&g, ITEM_BASKET) == 1);
-    int at = 0;
+    run(&g, 2.0f);
+    CHECK(inventory_count(inv, ITEM_BASKET) == 0);
     for (int i = 0; i < MAX_DROPS; i++)
-        if (g.drops[i].active) at = g.drops[i].x;
-    CHECK(game_click_tile(&g, at, g.player.feet.y));
+        if (g.drops[i].active) CHECK(game_click_drop(&g, i));
     run(&g, 3.0f);
     CHECK(inventory_count(inv, ITEM_BASKET) == 1 && inventory_count(inv, ITEM_WOOD) == 7);
 
@@ -3398,7 +3422,8 @@ static void test_discard(void)
      * got there: thrown out, left by a block, left by a creature. */
     clear_inventory(&g);
     for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
-    int far = g.player.feet.x + 20, ground = g.player.feet.y;
+    int far = g.player.feet.x + 20;
+    ground = g.player.feet.y;
     game_drop_item(&g, ITEM_STICK, far, ground);
     int dodo = mob_spawn(&g, mob_id("dodo"), far + 3, ground, true, false);
     mob_kill(&g, dodo);

@@ -202,7 +202,7 @@ The bar along the bottom has a head button followed by 8 slots. Stacks hold up t
 - Tap the head button to open the 4 armor slots (head, chest, legs, boots) and every basket at once.
 - Press and hold on a stack to pick items up from it: 1 after a moment, then 2, 3 … 10, then 15, 20, 25 … up to one fewer than the stack holds. The count stops rising once the cursor leaves the slot. Release over an empty slot or an equal stack to put them there; release anywhere else to put them back.
 - Drag a stack away without waiting to move all of it: equal stacks merge, anything else swaps.
-- Drag a stack off the inventory and let go over the world to drop it there - as many as were picked up, or the whole stack. It lands two blocks in front of the player (behind, if the way in front is blocked), far enough that it is not picked straight back up; walking over it or tapping it collects it again. A basket or chest is dropped with what is in it. Letting go over a menu drops nothing.
+- Drag a stack off the inventory and let go over the world to drop it there - as many as were picked up, or the whole stack. It drops right where the player is, and stays there while they stand over it: it is only picked up again once they have walked out of reach of it and come back, or by tapping it to queue picking it up. A basket or chest is dropped with what is in it. Letting go over a menu drops nothing.
 - A basket can be put inside another basket and keeps its contents, but only baskets sitting in the bar can be opened. Baskets never stack.
 - Clicking or dragging the world, or pressing a movement key, closes everything.
 - An item's picture is centred in its slot by what is actually drawn in it, whatever empty space its image has round it, and sits a little inside the slot.
@@ -220,7 +220,7 @@ The button in the top left corner, under the readout, is the player. Under it ar
 - **Health** mends by itself, slowly, and a little with everything eaten - much less than the food does for hunger. With hunger at nothing it runs down instead, though never below a tenth.
 - **Energy** runs down while awake: a full bar lasts 1800 ticks. It has no golden state.
 - **Sleeping** lays the player on the ground and brings energy back; they wake by themselves when it is full. The button is greyed out while energy is full.
-- **Meditating** sits the player down, with a progress bar over their head. Every 900 ticks it reaches 100% and something pops out beside them to be picked up: a gem (amethyst most often, diamond least), a fruit, or one of the six ores found in stone. (Coffee beans count as a fruit.)
+- **Meditating** sits the player down, with a progress bar over their head. Every 900 ticks it reaches 100% and something drops out right on top of them, and is picked up like anything else at their feet: a gem (amethyst most often, diamond least), a fruit, or one of the six ores found in stone. (Coffee beans count as a fruit.)
 - Either needs the player to be standing on the ground, and ends as soon as they are told to do anything else - a click on the world, a movement key - or the button is pressed again.
 - While the player sleeps or meditates the ticks go three times as fast (30 a second instead of 10), and arrows at the top of the screen say so.
 

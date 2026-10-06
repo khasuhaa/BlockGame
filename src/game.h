@@ -136,6 +136,10 @@ typedef struct {
     int ttl;       /* ticks until it disappears; 0 lasts forever */
     uint32_t id;   /* unique, so a queued action can tell if its drop is gone */
     uint16_t container; /* what is inside the item, as in an ItemStack */
+    /* Put down by the player on purpose: not picked up by their standing
+     * there, until they have walked out of reach of it and come back. Asking
+     * for it - a tap on it - picks it up regardless. */
+    bool held_off;
 } Drop;
 
 /* A creature. It stands in one tile, and walks to the next over several ticks. */
@@ -318,9 +322,10 @@ int game_tick_speed(const Game *g);
  * `rise_first` picks up-or-down then across, otherwise across first. */
 void game_step_offset(int dx, int dy, bool rise_first, float t, float *ox, float *oy);
 
-/* Throws up to `count` items out of an inventory slot into the world, with
- * whatever is inside them. They land a couple of blocks from the player, far
- * enough not to be picked straight back up. Returns how many went. */
+/* Drops up to `count` items out of an inventory slot into the world, with
+ * whatever is inside them, right where the player is. They are not picked
+ * straight back up: only once the player has gone out of reach of them and
+ * come back, or asks for them. Returns how many went. */
 int game_discard(Game *g, SlotRef from, int count);
 
 /* What a random event does when it lands on a tile; game_tick lands them. */

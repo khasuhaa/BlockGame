@@ -714,15 +714,13 @@ bool game_click_tile(Game *g, int tx, int ty)
  * for another drop it goes straight to the inventory instead. */
 static void vitals_tick(Game *g);
 
-#define DISCARD_GRACE 4.0f /* seconds before something dropped at the player's own feet can be picked up */
-
 static Drop *spawn_drop_stack(Game *g, ItemStack one, TilePos at)
 {
     if (one.id == ITEM_NONE) return NULL;
     for (int i = 0; i < MAX_DROPS; i++) {
         if (g->drops[i].active) continue;
         g->drops[i] = (Drop){ true, one.id, at.x, (float)at.y, 0.0f, 0.0f, false, 0,
-                              ++g->next_drop_id, one.container };
+                              ++g->next_drop_id, one.container, false };
         return &g->drops[i];
     }
     one.count = 1;
@@ -970,7 +968,10 @@ static void update_drops(Game *g, float dt)
 
         /* Collected from the tiles the player occupies or touches. */
         int dx = world_dx(&g->world, feet.x, d->x), dy = (int)(d->y + 0.5f) - feet.y;
-        if (d->age < DROP_PICKUP_DELAY || dx < -1 || dx > 1 || dy < -2 || dy > 1) continue;
+        bool in_reach = dx >= -1 && dx <= 1 && dy >= -2 && dy <= 1;
+        /* Something the player put down stays down until they have been away. */
+        if (d->held_off && !in_reach) d->held_off = false;
+        if (d->age < DROP_PICKUP_DELAY || !in_reach || d->held_off) continue;
         collect_drop(g, d);
     }
 }
@@ -1449,25 +1450,15 @@ int game_tick_speed(const Game *g)
     return g->tick_rate * speed;
 }
 
-/* Where something the player lets go of lands: two blocks off at head
- * height, in front if there is room and behind if not, so that it lies there
- * instead of being picked straight back up. Their own square if boxed in. */
+/* Where something that comes out of the player appears: at their head, to
+ * fall to their feet. */
 static TilePos toss_tile(const Game *g)
 {
-    const Player *p = &g->player;
-    TilePos at = { p->feet.x, p->feet.y - 1 };
-    for (int side = 0; side < 2; side++) {
-        int d = side == 0 ? p->facing : -p->facing;
-        if (world_is_solid(&g->world, p->feet.x + d, at.y) || world_is_solid(&g->world, p->feet.x + 2 * d, at.y))
-            continue;
-        at.x = world_wrap_x(&g->world, p->feet.x + 2 * d);
-        break;
-    }
-    return at;
+    return (TilePos){ g->player.feet.x, g->player.feet.y - 1 };
 }
 
-/* What meditating has brought: one thing from the list, by weight. It lands a
- * little way off, so that it lies there to be picked up. */
+/* What meditating has brought: one thing from the list, by weight. It drops
+ * out on top of the player, and is picked up like anything else at their feet. */
 static void meditation_reward(Game *g)
 {
     const RulesDef *u = &content.rules;
@@ -1498,9 +1489,7 @@ int game_discard(Game *g, SlotRef from, int count)
         if (--s->count == 0) *s = (ItemStack){ 0 };
         Drop *d = spawn_drop_stack(g, one, at);
         if (!d) break; /* no room in the world for more: it went back where it fits */
-        /* With nowhere to throw it but the player's own square, it is at
-         * least not snatched straight back. */
-        if (at.x == g->player.feet.x) d->age = -DISCARD_GRACE;
+        d->held_off = true;
         gone++;
     }
     return gone;

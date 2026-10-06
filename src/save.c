@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 10u
+#define SAVE_VERSION 11u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -91,7 +91,7 @@ static bool read_old_state(FILE *f, Game *g)
     for (int i = 0; i < MAX_DROPS; i++) {
         const OldDrop *d = &drops[i];
         g->drops[i] = (Drop){ d->active, d->item, d->x, d->y, d->age, d->collect, d->attached, d->ttl,
-                              d->id, 0 };
+                              d->id, 0, false };
     }
     return true;
 }
@@ -324,6 +324,8 @@ bool load_game(Game *g, const char *path)
                 for (int j = 0; j < CONTAINER_MAX_SLOTS; j++)
                     remap_stack(&inv->containers[i].slots[j], items);
             for (int i = 0; i < MAX_DROPS; i++) {
+                /* (Before version 11 this was unused space in the record.) */
+                if (h.version < 11) g->drops[i].held_off = false;
                 g->drops[i].item = items[g->drops[i].item];
                 if (g->drops[i].item == ITEM_NONE) g->drops[i].active = false;
             }
