@@ -3058,7 +3058,7 @@ static void test_mobs(void)
     CHECK(!g.mobs[born].baby && world_get_at(w, BG, g.mobs[born].x, g.mobs[born].y) == egg);
     world_set_at(w, BG, g.mobs[born].x, g.mobs[born].y, TILE_AIR);
 
-    /* Clicking a dodo goes after it and kills it: 1 to 2 meat and 1 to 2 feathers. */
+    /* Clicking a dodo goes after it and hits it, once a click; when it is dead: 1 to 2 meat and 1 to 2 feathers. */
     clear_inventory(&g);
     def->move_chance = saved.move_chance;
     g.mobs[born].x = g.mobs[born].to_x = start.x + 12;
@@ -3067,8 +3067,11 @@ static void test_mobs(void)
     CHECK(game_mob_at(&g, mx + 0.5f, my + 0.5f) == born && game_mob_at(&g, mx + 3.5f, my + 0.5f) == -1);
     CHECK(game_click_mob(&g, born) && g.queue[0].type == ACTION_ATTACK);
     CHECK(game_click_mob(&g, born) && g.queue_count == 0); /* a second click calls it off */
-    CHECK(game_click_mob(&g, born));
-    run(&g, 20.0f);
+    for (int hit = 0; hit < 3 && g.mobs[born].active; hit++) {
+        CHECK(game_click_mob(&g, born));
+        run(&g, 20.0f);
+        CHECK(is_idle(&g));
+    }
     CHECK(!g.mobs[born].active && is_idle(&g));
     int meat = count_item(&g, item_id("dodo_meat")), feathers = count_item(&g, item_id("feather"));
     for (int i = 0; i < MAX_DROPS; i++) {
@@ -3082,8 +3085,11 @@ static void test_mobs(void)
     clear_mobs(&g);
     def->move_chance = 0.0f;
     int small = mob_spawn(&g, dodo, g.player.feet.x + 1, s - 1, false, true);
-    CHECK(game_click_mob(&g, small));
-    run(&g, 3.0f);
+    for (int hit = 0; hit < 3; hit++) {
+        if (!g.mobs[small].active) break;
+        CHECK(game_click_mob(&g, small));
+        run(&g, 3.0f);
+    }
     CHECK(!g.mobs[small].active);
     for (int i = 0; i < MAX_DROPS; i++) CHECK(!g.drops[i].active);
     for (int i = 0; i < INVENTORY_SLOTS; i++) CHECK(inv->slots[i].count == 0);
@@ -4585,10 +4591,16 @@ static void test_sea_and_combat(void)
     CHECK(mob_hurt(&g, m, 2) && !g.mobs[m].active);
     m = mob_spawn(&g, dodo, px + 1, ground, true, false);
     float blow = content.rules.attack_time;
+    /* One click is one blow, and no more: the creature is left hurt, and the player idle. */
     CHECK(game_click_mob(&g, m));
-    run(&g, blow * 2.0f + 0.1f);
-    CHECK(g.mobs[m].active && g.mobs[m].hp == 1 && !is_idle(&g)); /* two blows in, one to go */
-    run(&g, blow + 0.2f);
+    run(&g, blow * 4.0f);
+    CHECK(g.mobs[m].active && g.mobs[m].hp == 3 && is_idle(&g));
+    CHECK(game_click_mob(&g, m));
+    run(&g, blow + 0.1f);
+    CHECK(g.mobs[m].active && g.mobs[m].hp == 1 && is_idle(&g));
+    /* A third finishes it. */
+    CHECK(game_click_mob(&g, m));
+    run(&g, blow + 0.1f);
     CHECK(!g.mobs[m].active && is_idle(&g));
     for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
     clear_inventory(&g);

@@ -187,7 +187,7 @@ The world has four layers from back to front: the backwall; the background layer
 - **Where they go.** A wild dodo that gets more than 50 blocks from the player is gone. One the player owns never is.
 - **Eggs.** A grown dodo has a small chance every tick of leaving a big blue egg where it stands, if nothing is there already. An egg is picked up by clicking it, like a gem, and can be put down again. A random event on an egg hatches it into a chick, which is full grown 600 ticks later.
 - **Whose they are.** A dodo that hatches from an egg the player put down is the player's. One from an egg a dodo laid is wild, whoever the parent belonged to - unless the player picked that egg up and put it down again. A wild egg waits to hatch while the cap of 10 is reached; the player's eggs hatch regardless.
-- **Hunting.** Clicking a creature queues going after it, marked with a red ring; the player follows it as it moves and, once within reach, hits it again and again until it is dead (see Fighting). Clicking it again calls that off. A grown dodo leaves 1 or 2 dodo meat and 1 or 2 feathers; a chick leaves nothing. A campfire cooks dodo meat.
+- **Hunting.** Clicking a creature queues going after it, marked with a red ring; the player follows it as it moves and, once within reach, hits it once (see Fighting). Each click is one blow; to hit it again, click it again. Clicking it again calls that off. A grown dodo leaves 1 or 2 dodo meat and 1 or 2 feathers; a chick leaves nothing. A campfire cooks dodo meat.
 - **How they move.** A dodo strides through its walking frames and bobs as it goes, setting off and stopping gently. Up a step it hops up and then forward, and down one it walks off and then drops, so it goes round the corner of a block and never through it. The frames and the height of the bob are in `mobs.json`.
 
 **The dodo's family tree.** A dodo does not always lay its own egg. Three times in four it does; the fourth time it lays the egg of one of the kinds that come next after it, each of those as likely as the other. Every kind has an egg of its own colour that hatches into that kind, and only the ordinary dodo ever turns up in the wild: the rest are bred.
@@ -213,7 +213,7 @@ The world has four layers from back to front: the backwall; the background layer
 
 A kind at the end of its line only ever lays its own egg. All of this is in `mobs.json`: what a kind breeds on into is `"next"` under its `"lays"`, and how often it leaves a thing is the `"chance"` on that drop.
 
-**Fighting.** Every creature has health, and each blow takes some off: a blow every 0.35 seconds while the player is within reach. A creature that has been hurt shows a small red bar. What a blow does depends on what is in the player's hand:
+**Fighting.** Every creature has health, and each blow takes some off. A click on a creature is one blow, which takes 0.35 seconds to land once the player is within reach; it is not kept up. A creature that has been hurt shows a small red bar. What a blow does depends on what is in the player's hand:
 
 | In hand | A blow does | Made at the tool bench from |
 |---|---|---|

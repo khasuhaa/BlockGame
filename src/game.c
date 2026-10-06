@@ -1238,9 +1238,10 @@ static void finish_activity(Game *g)
         Mob *m = &g->mobs[g->current.drop];
         if (g->has_current && g->current.type == ACTION_ATTACK && m->active && m->id == g->current.drop_id &&
             in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y })) {
-            g->current.tries = 0;
-            if (mob_hurt(g, g->current.drop, game_attack_damage(g))) g->has_current = false;
+            mob_hurt(g, g->current.drop, game_attack_damage(g));
         }
+        /* One blow to a click: hitting it again is asked for again. */
+        if (g->has_current && g->current.type == ACTION_ATTACK) g->has_current = false;
     } else if (p->activity == ACTIVITY_PLACING) {
         TilePos t = g->current.target;
         ItemId item = (ItemId)g->current.item;
@@ -1331,7 +1332,7 @@ static bool start_next_activity(Game *g)
                 }
                 TilePos at = { m->x, m->y };
                 if (in_use_range(w, p->feet, at)) {
-                    /* Within reach: a blow, and then another, until it is done for. */
+                    /* Within reach: one blow. */
                     begin_work(g, ACTIVITY_ATTACKING, content.rules.attack_time > 0.0f ? content.rules.attack_time : 0.3f);
                     return true;
                 }
