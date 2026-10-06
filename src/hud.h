@@ -28,6 +28,10 @@ typedef struct {
      * `dragging` is set once the cursor has left the slot they came from. */
     bool pressed, dragging;
     float hold_time;
+
+    /* The selected item's name, shown for a moment whenever the selection changes. */
+    int named_slot, named_inner, named_item;
+    float name_time;
     int picked;
     bool press_head;
     SlotRef press_slot;

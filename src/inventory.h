@@ -83,6 +83,13 @@ bool inventory_take_one(Inventory *inv, ItemId id, ItemStack *out);
  * to an empty slot or a matching stack. Returns false if nothing could move. */
 bool inventory_move(Inventory *inv, SlotRef from, SlotRef to, int count);
 
+/* Sends a whole stack across between the player's inventory and an open
+ * storage container of `slots` slots: out of the container into the
+ * inventory, or from anywhere else into the container. It tops up matching
+ * stacks first, then takes free slots; what does not fit stays where it was.
+ * Returns how many items moved. */
+int inventory_quick_move(Inventory *inv, SlotRef from, uint16_t container, int slots);
+
 void inventory_select(Inventory *inv, int slot, int inner);
 /* The selected stack: the chosen item inside a container if there is one
  * there, otherwise whatever is in the selected bar slot. */

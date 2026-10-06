@@ -403,6 +403,42 @@ bool inventory_move(Inventory *inv, SlotRef from, SlotRef to, int count)
     return true;
 }
 
+int inventory_quick_move(Inventory *inv, SlotRef from, uint16_t container, int slots)
+{
+    ItemStack *src = inventory_slot(inv, from);
+    if (!src || is_empty(src) || container == 0 || container >= MAX_CONTAINERS) return 0;
+    if (slots > CONTAINER_MAX_SLOTS) slots = CONTAINER_MAX_SLOTS;
+    ItemStack moving = *src;
+    int before = moving.count;
+
+    if (from.kind == SLOT_CONTAINER && from.index == container) {
+        /* Out of the container: lift the stack out, and put back what the
+         * inventory has no room for. */
+        *src = (ItemStack){ 0 };
+        int left = inventory_add_stack(inv, moving);
+        if (left > 0) *src = (ItemStack){ moving.id, (uint8_t)left, moving.container };
+        normalize_selection(inv);
+        return before - left;
+    }
+
+    if (!slot_accepts(inv, (SlotRef){ SLOT_CONTAINER, container, 0 }, &moving)) return 0;
+    ItemStack *dest = inv->containers[container].slots;
+    merge_into(inv, dest, slots, &moving);
+    fill_empty(inv, dest, slots, &moving);
+    if (moving.count == 0) {
+        /* All of it went. If it merged into a matching stack, its own copy
+         * of the contents is no longer needed. */
+        bool handed_over = false;
+        for (int i = 0; i < slots; i++) handed_over = handed_over || dest[i].container == src->container;
+        if (!handed_over) container_free(inv, src->container);
+        *src = (ItemStack){ 0 };
+    } else {
+        src->count = moving.count;
+    }
+    normalize_selection(inv);
+    return before - moving.count;
+}
+
 void inventory_select(Inventory *inv, int slot, int inner)
 {
     if (slot < 0 || slot >= INVENTORY_SLOTS) return;

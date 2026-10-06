@@ -10,6 +10,8 @@
 #define COLUMN_ROWS 4
 #define HOLD_DELAY 0.3f /* seconds before a held press picks up the first item */
 #define HOLD_TICK 0.12f /* seconds between each increase after that */
+#define NAME_TIME 2.2f  /* how long a newly selected item's name stays up */
+#define NAME_FADE 0.5f
 
 /* Cell in the inventory grid. Column 0 is the head button and columns 1..8
  * the bar; row 0 is the bar itself and rows 1..4 extend upward from it. */
@@ -78,9 +80,23 @@ bool hud_mouse_over(const Hud *hud, const Inventory *inv)
     return hud->pressed || hit_test(hud, inv, GetMousePosition(), &head, &slot);
 }
 
+/* The storage container whose slots are on screen, if one is open. */
+static uint16_t open_storage(const Hud *hud)
+{
+    if (hud->extra_count == 0 || hud->extra[0].ref.kind != SLOT_CONTAINER) return 0;
+    return (uint16_t)hud->extra[0].ref.index;
+}
+
 static void handle_tap(Hud *hud, Inventory *inv)
 {
     SlotRef s = hud->press_slot;
+    /* With a chest open, a click on a stack sends the whole stack across:
+     * into the chest from the inventory, out of it from the chest. */
+    const ItemStack *tapped = hud->press_head ? NULL : inventory_slot(inv, s);
+    if (open_storage(hud) != 0 && tapped && tapped->count > 0 && s.kind != SLOT_ARMOR) {
+        inventory_quick_move(inv, s, open_storage(hud), hud->extra_count);
+        return;
+    }
     if (hud->press_head) {
         /* The head button opens the armor column and every basket at once. */
         bool open = !hud->armor_open;
@@ -116,6 +132,17 @@ static bool same_slot(SlotRef a, SlotRef b)
 bool hud_handle_input(Hud *hud, Inventory *inv)
 {
     Vector2 mouse = GetMousePosition();
+
+    /* Whenever a different slot or a different item is selected, its name goes up. */
+    int item = inventory_selected(inv)->count > 0 ? inventory_selected(inv)->id : ITEM_NONE;
+    if (inv->sel_slot != hud->named_slot || inv->sel_inner != hud->named_inner || item != hud->named_item) {
+        hud->named_slot = inv->sel_slot;
+        hud->named_inner = inv->sel_inner;
+        hud->named_item = item;
+        hud->name_time = item != ITEM_NONE ? NAME_TIME : 0.0f;
+    }
+    if (hud->name_time > 0.0f) hud->name_time -= GetFrameTime();
+
     bool head;
     SlotRef over;
     bool on_hud = hit_test(hud, inv, mouse, &head, &over);
@@ -226,6 +253,20 @@ static void draw_stack(const ItemStack *s, Rectangle r, int taken)
     }
 }
 
+/* An item's name on a dark tag, centred on `x`, kept on the screen. */
+static void draw_name(const char *text, float x, float y, float alpha)
+{
+    const int size = 18;
+    float w = (float)MeasureText(text, size) + 16.0f;
+    float left = x - w / 2;
+    if (left < 4.0f) left = 4.0f;
+    if (left + w > (float)GetScreenWidth() - 4.0f) left = (float)GetScreenWidth() - 4.0f - w;
+    Rectangle tag = { left, y, w, 26.0f };
+    DrawRectangleRec(tag, Fade((Color){ 18, 19, 24, 255 }, 0.88f * alpha));
+    DrawRectangleLinesEx(tag, 1.0f, Fade((Color){ 120, 122, 134, 255 }, alpha));
+    DrawText(text, (int)tag.x + 8, (int)tag.y + 4, size, Fade(RAYWHITE, alpha));
+}
+
 void hud_draw(const Hud *hud, const Inventory *inv)
 {
     /* Slots are looked up through the same accessor the game logic uses. */
@@ -278,9 +319,19 @@ void hud_draw(const Hud *hud, const Inventory *inv)
         }
     }
 
+    /* The selected item's name, over its slot (or over the column standing on it). */
+    if (hud->name_time > 0.0f && hud->named_item != ITEM_NONE && !dragged) {
+        int col = inv->sel_slot + 1;
+        Rectangle top = cell_rect(col, basket_shown(hud, inv, inv->sel_slot) ? COLUMN_ROWS : 0);
+        float alpha = hud->name_time < NAME_FADE ? hud->name_time / NAME_FADE : 1.0f;
+        draw_name(item_def(hud->named_item)->label, top.x + top.width / 2, top.y - 30, alpha);
+    }
+
     if (dragged && dragged->count > 0) {
         Vector2 m = GetMousePosition();
         Rectangle r = { m.x - SLOT_SIZE / 2, m.y - SLOT_SIZE / 2, SLOT_SIZE, SLOT_SIZE };
         draw_stack(dragged, r, dragged->count - picked);
+        /* What is being carried, named under the cursor. */
+        draw_name(item_def(dragged->id)->label, m.x, m.y + SLOT_SIZE / 2 + 4, 1.0f);
     }
 }

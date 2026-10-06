@@ -2656,6 +2656,52 @@ static void test_chests(void)
     CHECK(inventory_slot(inv, (SlotRef){ SLOT_BASKET, 0, 1 })->count == 3);
     CHECK(inventory_move(inv, (SlotRef){ SLOT_BASKET, 0, 1 }, bar2, MAX_STACK) && inv->slots[2].count == 15);
 
+    /* A click on a stack with the chest open sends the whole stack across,
+     * topping up a matching stack before taking a free slot. */
+    uint16_t open = game_open_storage(&g);
+    int wood_in_chest = chest_slot(&g, 0)->count;
+    CHECK(wood_in_chest == 5 && inv->slots[2].id == ITEM_WOOD && inv->slots[2].count == 15);
+    CHECK(inventory_quick_move(inv, bar2, open, 16) == 15);
+    CHECK(inv->slots[2].count == 0 && chest_slot(&g, 0)->count == 20 && chest_slot(&g, 1)->count == 0);
+    CHECK(inventory_quick_move(inv, bar2, open, 16) == 0); /* nothing there to send */
+    /* And back out again, into the first free place in the inventory. */
+    CHECK(inventory_quick_move(inv, (SlotRef){ SLOT_CONTAINER, open, 0 }, open, 16) == 20);
+    CHECK(chest_slot(&g, 0)->count == 0 && count_item(&g, ITEM_WOOD) == 20);
+    /* A basket goes across with what it holds, and comes back the same. */
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 1, 0 }, (SlotRef){ SLOT_BAR, 7, 0 }, MAX_STACK));
+    int wood_slot = -1;
+    for (int i = 0; i < INVENTORY_SLOTS; i++)
+        if (inv->slots[i].id == ITEM_WOOD) wood_slot = i;
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, wood_slot, 0 }, (SlotRef){ SLOT_BASKET, 0, 2 }, 6));
+    CHECK(inventory_quick_move(inv, (SlotRef){ SLOT_BAR, 0, 0 }, open, 16) == 1);
+    CHECK(inv->slots[0].count == 0 && chest_slot(&g, 0)->id == ITEM_BASKET);
+    CHECK(inv->containers[chest_slot(&g, 0)->container].slots[2].count == 6);
+    CHECK(inventory_quick_move(inv, (SlotRef){ SLOT_CONTAINER, open, 0 }, open, 16) == 1);
+    CHECK(inv->slots[0].id == ITEM_BASKET && inventory_slot(inv, (SlotRef){ SLOT_BASKET, 0, 2 })->count == 6);
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BASKET, 0, 2 }, (SlotRef){ SLOT_BAR, wood_slot, 0 }, MAX_STACK));
+    /* With the chest full, only what tops up a matching stack goes; with the
+     * inventory full, nothing comes out. */
+    for (int i = 0; i < 16; i++) *chest_slot(&g, i) = (ItemStack){ (uint8_t)ITEM_STONE, 99, 0 };
+    *chest_slot(&g, 4) = (ItemStack){ (uint8_t)ITEM_WOOD, 95, 0 };
+    CHECK(inventory_quick_move(inv, (SlotRef){ SLOT_BAR, wood_slot, 0 }, open, 16) == 4);
+    CHECK(inv->slots[wood_slot].count == 16 && chest_slot(&g, 4)->count == 99);
+    ItemStack saved_bar[INVENTORY_SLOTS];
+    memcpy(saved_bar, inv->slots, sizeof saved_bar);
+    Container saved_basket = inv->containers[inv->slots[0].container];
+    for (int i = 0; i < INVENTORY_SLOTS; i++)
+        if (inv->slots[i].count == 0) inv->slots[i] = (ItemStack){ (uint8_t)ITEM_DIRT, 99, 0 };
+    for (int j = 0; j < BASKET_SLOTS; j++) /* the basket in the bar counts as room too */
+        *inventory_slot(inv, (SlotRef){ SLOT_BASKET, 0, j }) = (ItemStack){ (uint8_t)ITEM_DIRT, 99, 0 };
+    CHECK(inventory_quick_move(inv, (SlotRef){ SLOT_CONTAINER, open, 3 }, open, 16) == 0);
+    CHECK(chest_slot(&g, 3)->count == 99);
+    memcpy(inv->slots, saved_bar, sizeof saved_bar);
+    inv->containers[inv->slots[0].container] = saved_basket;
+    for (int i = 0; i < 16; i++) *chest_slot(&g, i) = (ItemStack){ 0 };
+    *chest_slot(&g, 0) = (ItemStack){ (uint8_t)ITEM_WOOD, 5, 0 };
+    inv->slots[wood_slot].count = 15;
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, wood_slot, 0 }, bar2, MAX_STACK) || wood_slot == 2);
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 7, 0 }, (SlotRef){ SLOT_BAR, 1, 0 }, MAX_STACK));
+
     /* Removing the chest gives a chest item carrying what was inside. */
     CHECK(game_queue_action(&g, ACTION_MINE, cx, s - 1));
     run(&g, 3.0f);

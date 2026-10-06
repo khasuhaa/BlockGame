@@ -142,7 +142,7 @@ The world has four layers from back to front: the backwall; the background layer
 
 The bar along the bottom has a head button followed by 8 slots. Stacks hold up to 99. The player starts with one basket (item ID 1).
 
-- Tap a slot to select it. Tapping a basket also opens or closes its 4 slots, which extend upward from it.
+- Tap a slot to select it. Tapping a basket also opens or closes its 4 slots, which extend upward from it. The name of the selected item shows above its slot for a couple of seconds whenever the selection changes, and the name of anything being dragged shows under the cursor.
 - Tap an item inside a basket to select it; the closed basket then shows that item. Tapping an empty basket slot selects the basket.
 - Tap the head button to open the 4 armor slots (head, chest, legs, boots) and every basket at once.
 - Press and hold on a stack to pick items up from it: 1 after a moment, then 2, 3 … 10, then 15, 20, 25 … up to one fewer than the stack holds. The count stops rising once the cursor leaves the slot. Release over an empty slot or an equal stack to put them there; release anywhere else to put them back.
@@ -263,7 +263,7 @@ Clicking the gauge opens a list of the fuel in the inventory, each with how much
 
 ## Chests
 
-Clicking a placed chest offers "Open chest" and "Remove chest". Opening it (the player walks up first) shows its 16 slots in a 4×4 grid beside it. Items are dragged between the chest and the inventory bar exactly as they are within the bar, including picking up part of a stack by holding. A basket put in a chest keeps what it holds.
+Clicking a placed chest offers "Open chest" and "Remove chest". Opening it (the player walks up first) shows its 16 slots in a 4×4 grid beside it. Items are dragged between the chest and the inventory bar exactly as they are within the bar, including picking up part of a stack by holding. While a chest is open, a click on a stack sends the whole stack across: from the inventory into the chest, or from the chest into the inventory. It tops up a matching stack first, then takes a free slot, and anything that does not fit stays where it was. (So with a chest open, a click moves a stack rather than selecting it; the number keys still select.) A basket put in a chest keeps what it holds.
 
 Removing a chest gives a chest item that still holds everything that was in it, and placing that item puts it all back.
 
