@@ -1,6 +1,6 @@
 {
   "recipes": [
-    {"bench": "spawn_portal", "output": {"item": "workbench", "count": 1}, "inputs": [{"item": "dirt", "count": 1}]},
+    {"bench": "portal", "output": {"item": "workbench", "count": 1}, "inputs": [{"item": "dirt", "count": 1}]},
     {"bench": "workbench", "output": {"item": "woodwork_bench", "count": 1}, "inputs": [{"item": "wood", "count": 1}]},
     {"bench": "workbench", "output": {"item": "tool_bench", "count": 1}, "inputs": [{"item": "stone", "count": 1}, {"item": "flint", "count": 1}]},
     {"bench": "workbench", "output": {"item": "craft_bench", "count": 1}, "inputs": [{"item": "dirt", "count": 1}]},
@@ -23,7 +23,7 @@
     {"bench": "furnace", "level": 3, "output": {"item": "titanium_ingot", "count": 1}, "inputs": [{"item": "titanium_ore", "count": 1}]},
     {"bench": "workbench", "output": {"item": "portal", "count": 1}, "inputs": [{"item": "stone", "count": 1}], "crystals": 100},
     {"bench": "workbench", "level": 3, "output": {"item": "metalwork_bench", "count": 1}, "inputs": [{"item": "iron_ingot", "count": 3}, {"item": "stone", "count": 1}]},
-    {"bench": ["spawn_portal", "portal"], "output": {"item": "trade_portal", "count": 1}, "inputs": [{"item": "portal", "count": 1}, {"item": "gold_coin", "count": 1}]},
+    {"bench": "portal", "output": {"item": "trade_portal", "count": 1}, "inputs": [{"item": "portal", "count": 1}, {"item": "gold_coin", "count": 1}]},
     {"bench": "metalwork_bench", "output": {"item": "copper_coin", "count": 10}, "inputs": [{"item": "copper_ingot", "count": 1}]},
     {"bench": "metalwork_bench", "output": {"item": "copper_coin", "count": 100}, "inputs": [{"item": "gold_coin", "count": 1}]},
     {"bench": "metalwork_bench", "level": 2, "output": {"item": "gold_coin", "count": 1}, "inputs": [{"item": "gold_ingot", "count": 1}]},
@@ -31,8 +31,8 @@
     {"bench": "metalwork_bench", "level": 2, "output": {"item": "gold_coin", "count": 100}, "inputs": [{"item": "platinum_coin", "count": 1}]},
     {"bench": "metalwork_bench", "level": 3, "output": {"item": "platinum_coin", "count": 1}, "inputs": [{"item": "platinum_ingot", "count": 5}]},
     {"bench": "metalwork_bench", "level": 3, "output": {"item": "platinum_coin", "count": 1}, "inputs": [{"item": "gold_coin", "count": 100}]},
-    {"bench": "spawn_portal", "output": {"item": "trade_portal", "count": 1}, "inputs": [{"item": "dirt", "count": 1}]},
-    {"bench": "spawn_portal", "output": {"item": "gold_coin", "count": 1}, "inputs": [{"item": "dirt", "count": 1}]},
+    {"bench": "portal", "output": {"item": "trade_portal", "count": 1}, "inputs": [{"item": "dirt", "count": 1}]},
+    {"bench": "portal", "output": {"item": "gold_coin", "count": 1}, "inputs": [{"item": "dirt", "count": 1}]},
     {"bench": "metalwork_bench", "output": {"item": "bronze_ingot", "count": 1}, "inputs": [{"item": "copper_ingot", "count": 1}, {"item": "tin_ingot", "count": 2}]},
     {"bench": "tool_bench", "level": 3, "output": {"item": "bronze_pickaxe", "count": 1}, "inputs": [{"item": "bronze_ingot", "count": 5}, {"item": "stick", "count": 1}]},
     {"bench": "tool_bench", "level": 3, "output": {"item": "bronze_axe", "count": 1}, "inputs": [{"item": "bronze_ingot", "count": 5}, {"item": "stick", "count": 1}]},

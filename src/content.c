@@ -19,6 +19,15 @@ TileType tile_id(const char *name)
     return -1;
 }
 
+TileType tile_id_or_alias(const char *name)
+{
+    TileType t = tile_id(name);
+    for (int i = 0; t < 0 && i < content.tile_count; i++)
+        for (int a = 0; a < content.tiles[i].alias_count; a++)
+            if (strcmp(content.tiles[i].aliases[a], name) == 0) t = i;
+    return t;
+}
+
 ItemId item_id(const char *name)
 {
     for (int i = 0; i < content.item_count; i++)
@@ -211,6 +220,15 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->climbable = flag(e, "climbable", false);
         t->mine_time = (float)num(e, "mine_time", 0.35);
         t->light = (int)num(e, "light", 0);
+        t->height = (int)num(e, "height", 1);
+        if (t->height < 1 || t->height > 8) return fail(r, "tile \"%s\": height must be 1 to 8", t->name);
+        copy_name(t->texture_top, sizeof t->texture_top, str(e, "texture_top"));
+        const cJSON *alias;
+        t->alias_count = 0;
+        cJSON_ArrayForEach(alias, field(e, "aliases")) {
+            if (t->alias_count < MAX_TILE_ALIASES && cJSON_IsString(alias))
+                copy_name(t->aliases[t->alias_count++], CONTENT_NAME_LEN, alias->valuestring);
+        }
         t->light_needs_fuel = flag(e, "light_needs_fuel", false);
         t->ore = flag(e, "ore", false);
         t->drop_count = (int)num(e, "drop_count", 1);

@@ -14,7 +14,6 @@
 #define TILE_STONE tile_id("stone")
 #define TILE_WORKBENCH tile_id("workbench")
 #define TILE_SPAWN_PORTAL tile_id("spawn_portal")
-#define TILE_SPAWN_PORTAL_TOP tile_id("spawn_portal_top")
 #define TILE_PORTAL_BASE tile_id("portal_base")
 #define TILE_OAK_LOG tile_id("oak_log")
 #define TILE_OAK_LEAVES tile_id("oak_leaves")
@@ -814,17 +813,17 @@ static void test_bench(void)
 
     CHECK(world_get(&g.world, px, s - 1) == TILE_SPAWN_PORTAL);
     CHECK(world_get(&g.world, px, s - 2) == TILE_SPAWN_PORTAL);
-    CHECK(world_get(&g.world, px, s - 3) == TILE_SPAWN_PORTAL_TOP);
+    CHECK(world_get(&g.world, px, s - 3) == TILE_SPAWN_PORTAL);
     CHECK(world_get(&g.world, px, s - 4) == TILE_AIR);
     CHECK(world_get(&g.world, px, s) == TILE_PORTAL_BASE);
     CHECK(!game_queue_action(&g, ACTION_MINE, px, s));
     CHECK(tile_def(TILE_SPAWN_PORTAL)->bench && !tile_def(TILE_SPAWN_PORTAL)->removable);
-    CHECK(tile_def(TILE_SPAWN_PORTAL_TOP)->bench && !tile_def(TILE_SPAWN_PORTAL_TOP)->removable);
+    CHECK(tile_def(TILE_SPAWN_PORTAL)->bench && !tile_def(TILE_SPAWN_PORTAL)->removable);
     CHECK(tile_def(TILE_WORKBENCH)->bench && tile_def(TILE_WORKBENCH)->removable);
 
     const Recipe *portal = NULL, *bench = NULL, *other = NULL;
     n = bench_recipes(TILE_SPAWN_PORTAL, &portal, 1);
-    CHECK(bench_recipes(TILE_SPAWN_PORTAL_TOP, &other, 1) == 1 && other == portal);
+    CHECK(bench_recipes(TILE_SPAWN_PORTAL, &other, 1) == 1 && other == portal);
     CHECK(bench_recipes(TILE_DIRT, &other, 1) == 0);
     CHECK(n == 1 && portal->output.id == ITEM_WORKBENCH && portal->inputs[0].id == ITEM_DIRT &&
           portal->inputs[0].count == 1);
@@ -1196,7 +1195,7 @@ static void test_terrain(void)
         CHECK(world_row_to_y(&w, w.spawn_y) == 0);
         CHECK(world_get(&w, w.spawn_x, w.spawn_y + 1) == TILE_PORTAL_BASE);
         for (int i = 0; i < 3; i++)
-            CHECK(world_get(&w, w.spawn_x, w.spawn_y - i) == (i == 2 ? TILE_SPAWN_PORTAL_TOP : TILE_SPAWN_PORTAL));
+            CHECK(world_get(&w, w.spawn_x, w.spawn_y - i) == TILE_SPAWN_PORTAL);
         CHECK(world_get(&w, w.spawn_x, w.spawn_y - 3) == TILE_AIR);
 
         int lo = 1000, hi = -1000, max_step = 0, bad = 0, carved = 0;
@@ -2326,6 +2325,100 @@ static void test_portal_tiers(void)
     game_free(&g);
 }
 
+/* Portals stand three blocks tall and are one thing. */
+static void test_tall_portals(void)
+{
+    static const char *gems[] = { "amethyst", "sapphire", "emerald", "ruby", "diamond" };
+    Game g;
+    game_init(&g, 64, 48, 35, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    int s = w->surface_y, px = w->spawn_x, x = px + 4;
+    TileType portal = tile_id("portal"), trade = tile_id("trade_portal");
+
+    CHECK(tile_def(portal)->height == 3 && tile_def(trade)->height == 3 && tile_def(TILE_SPAWN_PORTAL)->height == 3);
+    CHECK(tile_def(TILE_DIRT)->height == 1 && tile_def(TILE_WORKBENCH)->height == 1);
+
+    /* Placing one puts up all three blocks; it needs the room for them. */
+    CHECK(place_and_open(&g, "portal", x));
+    for (int i = 0; i < 3; i++) CHECK(world_get_at(w, BG, x, s - 1 - i) == portal);
+    CHECK(world_get_at(w, BG, x, s - 4) == TILE_AIR && count_item(&g, item_id("portal")) == 0);
+    int bottom;
+    CHECK(world_structure(w, BG, x, s - 3, &bottom) == 3 && bottom == s - 1);
+    CHECK(world_structure(w, BG, x, s - 1, &bottom) == 3 && bottom == s - 1);
+    CHECK(world_structure(w, 0, x, s, &bottom) == 1 && bottom == s);
+    clear_inventory(&g);
+    inventory_add(inv, item_id("trade_portal"), 2);
+    inventory_select(inv, 0, -1);
+    world_set(w, x + 2, s - 3, TILE_STONE);
+    CHECK(!game_queue_action(&g, ACTION_PLACE, x + 2, s - 1)); /* a block where its top would be */
+    CHECK(!game_queue_action(&g, ACTION_PLACE, x, s - 4));     /* nor floating on top of another */
+    world_set(w, x + 2, s - 3, TILE_AIR);
+    CHECK(game_queue_action(&g, ACTION_PLACE, x + 2, s - 1));
+    run(&g, 2.0f);
+    for (int i = 0; i < 3; i++) CHECK(world_get_at(w, BG, x + 2, s - 1 - i) == trade);
+    CHECK(count_item(&g, item_id("trade_portal")) == 1);
+
+    /* Any of its blocks opens it, and they are walked in front of. */
+    game_close_bench(&g);
+    CHECK(game_queue_action(&g, ACTION_USE, x + 2, s - 3));
+    run(&g, 2.0f);
+    CHECK(g.bench_open && game_trade_open(&g));
+    game_close_bench(&g);
+    CHECK(game_bench_at(&g, x, s - 2) == portal && game_bench_at(&g, x, s - 4) == TILE_AIR);
+
+    /* Upgrading changes the whole portal, from whichever block was opened. */
+    CHECK(game_queue_action(&g, ACTION_USE, x, s - 2));
+    run(&g, 2.0f);
+    CHECK(g.bench_open && g.bench_pos.y == s - 2);
+    inventory_add(inv, item_id("amethyst"), 1);
+    CHECK(game_upgrade_bench(&g));
+    for (int i = 0; i < 3; i++) CHECK(world_get_at(w, BG, x, s - 1 - i) == tile_id("portal_2"));
+    CHECK(g.bench_open && find_recipe(portal, "amethyst_pickaxe") &&
+          !recipe_locked(game_bench_at(&g, x, s - 2), find_recipe(portal, "amethyst_pickaxe")));
+
+    /* Removing any block of it takes the whole thing down and gives one item back. */
+    clear_inventory(&g);
+    game_close_bench(&g);
+    CHECK(game_queue_action(&g, ACTION_MINE, x, s - 3));
+    run(&g, 3.0f);
+    for (int i = 0; i < 4; i++) CHECK(world_get_at(w, BG, x, s - 1 - i) == TILE_AIR);
+    CHECK(count_item(&g, item_id("portal_2")) == 1 && count_item(&g, item_id("portal")) == 0);
+
+    /* The spawn portal has the same recipes as a made one, and the same tiers. */
+    const Recipe *a[MAX_BENCH_RECIPES], *b[MAX_BENCH_RECIPES];
+    int na = bench_recipes(TILE_SPAWN_PORTAL, a, MAX_BENCH_RECIPES), nb = bench_recipes(portal, b, MAX_BENCH_RECIPES);
+    CHECK(na == nb && na >= 10);
+    for (int i = 0; i < na && i < nb; i++) CHECK(a[i] == b[i]);
+    CHECK(find_recipe(portal, "workbench") && find_recipe(TILE_SPAWN_PORTAL, "portal_chest"));
+    CHECK(find_recipe(TILE_SPAWN_PORTAL, "diamond_pickaxe")->level == 6);
+
+    TileType tier = TILE_SPAWN_PORTAL;
+    g.player.feet = g.player.step_to = (TilePos){ px, s - 1 };
+    CHECK(game_queue_action(&g, ACTION_USE, px, s - 3));
+    run(&g, 1.0f);
+    CHECK(g.bench_open);
+    for (int i = 0; i < 5; i++) {
+        const TileDef *def = tile_def(tier);
+        CHECK(def->bench_level == i + 1 && !def->removable && def->upgrade_cost[0].id == item_id(gems[i]));
+        CHECK(!game_upgrade_bench(&g));
+        inventory_add(inv, item_id(gems[i]), 1);
+        CHECK(game_upgrade_bench(&g));
+        tier = def->upgrade_to;
+        for (int k = 0; k < 3; k++) CHECK(world_get(w, px, s - 1 - k) == tier);
+    }
+    CHECK(tile_def(tier)->bench_level == 6 && tile_def(tier)->upgrade_to == TILE_AIR && !tile_def(tier)->removable);
+    CHECK(world_get(w, px, s) == TILE_PORTAL_BASE && g.bench_open);
+    /* It still cannot be taken down or built over. */
+    CHECK(!game_queue_action(&g, ACTION_MINE, px, s - 2));
+
+    /* An old save's spawn portal top, a block that no longer exists by that
+     * name, loads as part of the portal. */
+    CHECK(tile_id("spawn_portal_top") == -1 && tile_id_or_alias("spawn_portal_top") == TILE_SPAWN_PORTAL);
+    CHECK(tile_id_or_alias("no_such_block") == -1);
+    game_free(&g);
+}
+
 static void test_portal_chest(void)
 {
     const char *profile = "build/test_shared.txt";
@@ -2712,6 +2805,7 @@ int main(void)
     test_backwall();
     test_light();
     test_portal_tiers();
+    test_tall_portals();
     test_portal_chest();
     test_metal_tools();
     test_crystals_and_coins();

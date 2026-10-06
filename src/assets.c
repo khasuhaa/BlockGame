@@ -7,6 +7,7 @@
 #define MAX_IMAGES 32
 
 static Texture2D tile_textures[MAX_TILES][MAX_TILE_TEXTURES];
+static Texture2D tile_top_textures[MAX_TILES];
 static Texture2D item_textures[MAX_ITEMS];
 static struct {
     char file[CONTENT_PATH_LEN];
@@ -30,15 +31,19 @@ void assets_load(const char *dir)
 {
     assets_unload();
     snprintf(data_dir, sizeof data_dir, "%s", dir);
-    for (int t = 0; t < content.tile_count; t++)
+    for (int t = 0; t < content.tile_count; t++) {
         for (int i = 0; i < content.tiles[t].texture_count; i++)
             tile_textures[t][i] = load(dir, content.tiles[t].textures[i]);
+        tile_top_textures[t] = load(dir, content.tiles[t].texture_top);
+    }
     for (int i = 0; i < content.item_count; i++) item_textures[i] = load(dir, content.items[i].texture);
 }
 
 void assets_unload(void)
 {
     for (int t = 0; t < MAX_TILES; t++) {
+        if (tile_top_textures[t].id) UnloadTexture(tile_top_textures[t]);
+        tile_top_textures[t] = (Texture2D){ 0 };
         for (int i = 0; i < MAX_TILE_TEXTURES; i++) {
             if (tile_textures[t][i].id) UnloadTexture(tile_textures[t][i]);
             tile_textures[t][i] = (Texture2D){ 0 };
@@ -62,7 +67,7 @@ static void draw_placeholder(Rectangle r)
                      BLACK);
 }
 
-void assets_draw_tile(TileType t, int x, int y, float px, float py, float tile_size, float dim)
+void assets_draw_tile(TileType t, int x, int y, float px, float py, float tile_size, float dim, bool top)
 {
     if (t <= TILE_AIR || t >= content.tile_count) return;
     const TileDef *def = &content.tiles[t];
@@ -70,6 +75,7 @@ void assets_draw_tile(TileType t, int x, int y, float px, float py, float tile_s
     unsigned h = (unsigned)x * 73856093u ^ (unsigned)y * 19349663u;
     Texture2D tex = def->texture_count > 0 ? tile_textures[t][(h >> 4) % (unsigned)def->texture_count]
                                            : (Texture2D){ 0 };
+    if (top && tile_top_textures[t].id) tex = tile_top_textures[t];
     if (!tex.id) {
         draw_placeholder((Rectangle){ px, py, tile_size, tile_size });
         return;

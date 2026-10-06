@@ -27,7 +27,7 @@
 
   "spawn": {
     "column": [30, 50], "first_feature_at": 80, "flat_radius": 3, "ease_radius": 24,
-    "portal": { "base": "portal_base", "body": "spawn_portal", "top": "spawn_portal_top", "height": 3 }
+    "portal": { "base": "portal_base", "body": "spawn_portal", "height": 3 }
   },
 
   "caves": { "per_100_columns": 5, "length": [30, 140], "radius": [1.4, 3.0], "depth": [2, 190] },

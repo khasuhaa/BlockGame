@@ -201,24 +201,31 @@ static void draw_world(const World *w, Vector2 origin)
 
     for (int y = y0; y <= y1; y++) {
         for (int x = x0; x <= x1; x++) {
-            TileType t = world_get(w, x, y);
+            TileType t = world_get(w, x, y), behind = world_get_at(w, LAYER_BACKGROUND, x, y);
             int wx = world_wrap_x(w, x);
             float px = origin.x + (float)(x * TILE_SIZE), py = origin.y + (float)(y * TILE_SIZE);
             if (!tile_def(t)->solid) {
-                assets_draw_tile(world_get_at(w, LAYER_WALL, x, y), wx, y, px, py, TILE_SIZE, WALL_DIM);
-                assets_draw_tile(world_get_at(w, LAYER_BACKGROUND, x, y), wx, y, px, py, TILE_SIZE,
-                                 BACKGROUND_DIM);
+                assets_draw_tile(world_get_at(w, LAYER_WALL, x, y), wx, y, px, py, TILE_SIZE, WALL_DIM,
+                                 false);
+                if (!tile_def(behind)->front)
+                    assets_draw_tile(behind, wx, y, px, py, TILE_SIZE, BACKGROUND_DIM, false);
             }
-            if (!tile_def(t)->front) assets_draw_tile(t, wx, y, px, py, TILE_SIZE, 0.0f);
+            if (!tile_def(t)->front) assets_draw_tile(t, wx, y, px, py, TILE_SIZE, 0.0f, false);
         }
     }
-    /* Tiles marked "front" go on last: their textures overhang their neighbours. */
-    for (int y = y0; y <= y1; y++) {
+    /* Tiles marked "front" go on last: their textures overhang their
+     * neighbours. The top tile of a column of one has a texture of its own. */
+    for (int y = y0; y <= y1 + 1; y++) {
         for (int x = x0 - 1; x <= x1 + 1; x++) {
-            TileType t = world_get(w, x, y);
-            if (tile_def(t)->front)
-                assets_draw_tile(t, world_wrap_x(w, x), y, origin.x + (float)(x * TILE_SIZE),
-                                 origin.y + (float)(y * TILE_SIZE), TILE_SIZE, 0.0f);
+            float px = origin.x + (float)(x * TILE_SIZE), py = origin.y + (float)(y * TILE_SIZE);
+            for (int layer = BLOCK_LAYERS - 1; layer >= 0; layer--) {
+                TileType t = world_get_at(w, layer, x, y);
+                if (!tile_def(t)->front) continue;
+                if (layer == LAYER_BACKGROUND && tile_def(world_get(w, x, y))->solid) continue;
+                assets_draw_tile(t, world_wrap_x(w, x), y, px, py, TILE_SIZE,
+                                 layer == LAYER_BACKGROUND ? BACKGROUND_DIM : 0.0f,
+                                 world_get_at(w, layer, x, y - 1) != t);
+            }
         }
     }
 }

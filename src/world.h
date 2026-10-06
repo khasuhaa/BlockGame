@@ -46,6 +46,11 @@ void world_set_at(World *w, int layer, int x, int y, TileType t);
 /* The foreground. */
 TileType world_get(const World *w, int x, int y);
 void world_set(World *w, int x, int y, TileType t);
+/* Some blocks stand several tiles tall and are one thing. Given any tile of
+ * one, this returns how many tiles it has and sets `bottom` to its lowest
+ * row; its tiles are that row and the ones above it. 1 for an ordinary block. */
+int world_structure(const World *w, int layer, int x, int y, int *bottom);
+
 /* Above and below the world counts as solid. */
 bool world_is_solid(const World *w, int x, int y);
 

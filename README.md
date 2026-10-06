@@ -19,7 +19,7 @@ Everything the game contains is defined in `data/`, not in the code, so it can b
 
 | File | Defines |
 | --- | --- |
-| `tiles.json` | Blocks: whether they are solid, climbable or minable, which layer they are placed in, how long they take to mine and with what kind of tool, what they drop, their textures, for benches their kind, tier, upgrade and how much fuel they hold, and for storage blocks their grid of slots |
+| `tiles.json` | Blocks: whether they are solid, climbable or minable, which layer they are placed in, how many blocks tall they stand, names they used to have, how long they take to mine and with what kind of tool, what they drop, their textures, for benches their kind, tier, upgrade and how much fuel they hold, and for storage blocks their grid of slots |
 | `items.json` | Items: label, stack size, how many slots they hold inside them and whether those open from the bar, what block they place, what tree they plant, how long they burn as fuel, what kind of tool they are and how fast, their trade category and price, and their texture |
 | `recipes.json` | What each kind of bench makes, from what, for how many crystals, and at what bench tier |
 | `trees.json` | Tree kinds: their blocks, fruit, full height, the shape of the crown row by row, which layer they grow in, and what they can be planted on |
@@ -173,7 +173,7 @@ A bench can have tiers. Its menu shows its tier and, if it can go higher, an Upg
 
 | Bench | Made at | From | Makes |
 | --- | --- | --- | --- |
-| Workbench | Spawn portal | 1 dirt | The other benches, and a portal (1 stone, 100 crystals). Tier 2 costs 5 stone, tier 3 costs 5 iron ingots |
+| Workbench | Any portal | 1 dirt | The other benches, and a portal (1 stone, 100 crystals). Tier 2 costs 5 stone, tier 3 costs 5 iron ingots |
 | Woodwork bench | Workbench | 1 wood | Chest (1 wood) |
 | Tool bench | Workbench | 1 stone, 1 flint | Tools, a tier at a time (see Tools) |
 | Craft bench | Workbench | 1 dirt | Basket (10 sticks) |
@@ -181,11 +181,13 @@ A bench can have tiers. Its menu shows its tier and, if it can go higher, an Upg
 | Furnace | Workbench tier 2 | 5 stone, 1 stick | One ingot from one ore: copper and tin. Tier 2, for 5 iron ore: iron and gold. Tier 3, for 5 titanium ore: platinum and titanium |
 | Campfire | Workbench | 10 sticks | Torch (1 stick). Burns fuel like the kiln, and gives light while it does |
 | Metalwork bench | Workbench tier 3 | 3 iron ingots, 1 stone | Coins (see Money) |
-| Trade portal | Spawn portal | 1 portal, 1 gold coin | Nothing: it is where things are bought and sold |
+| Trade portal | Any portal | 1 portal, 1 gold coin | Nothing: it is where things are bought and sold |
 
 ### Portals
 
-The portal made at the workbench is a bench of its own. It makes a trade portal (1 portal, 1 gold coin), and has six tiers, each bought with one gem and each unlocking that gem's pickaxe (3 of the gem and 1 stick):
+The portal made at the workbench and the spawn portal are the same kind of bench: they offer the same recipes and climb the same tiers. A made portal and a trade portal stand three blocks tall, like the spawn portal. Each is one thing: placing it needs room for all three blocks, any of its blocks opens it, upgrading changes all of it, and removing any block takes the whole portal down and gives one item back. The spawn portal cannot be removed.
+
+A portal makes a workbench (1 dirt) and a trade portal (1 portal and 1 gold coin), and has six tiers, each bought with one gem and each unlocking that gem's pickaxe (3 of the gem and 1 stick):
 
 | Portal tier | Costs | Unlocks | Ore multiplier |
 | --- | --- | --- | --- |
@@ -213,7 +215,7 @@ The **portal chest** (1 chest and 100 crystals, at a tier 6 portal) opens onto o
 
 ### Trade portal
 
-For trying things out, a new world starts the player with a trade portal and 1 gold coin as well as the basket, and the spawn portal makes a trade portal or a gold coin for 1 dirt each. Both are in the data (`rules.json` and `recipes.json`) and are meant to come out again.
+For trying things out, a new world starts the player with a trade portal and 1 gold coin as well as the basket, and any portal makes a trade portal or a gold coin for 1 dirt each. Both are in the data (`rules.json` and `recipes.json`) and are meant to come out again.
 
 Clicking a placed trade portal offers to open or remove it. Open, it shows the coins held and a tab for each category of item - blocks, benches, materials, tools, food - plus a Convert tab.
 

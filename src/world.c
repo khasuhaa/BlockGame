@@ -462,8 +462,8 @@ bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind)
     const WorldGenDef *gen = &content.worldgen;
     world_set(w, w->spawn_x, w->spawn_y + 1, gen->portal_base);
     for (int i = 0; i < gen->portal_height; i++)
-        world_set(w, w->spawn_x, w->spawn_y - i,
-                  i == gen->portal_height - 1 ? gen->portal_top : gen->portal_body);
+        world_set_at(w, tile_def(gen->portal_body)->layer, w->spawn_x, w->spawn_y - i,
+                     i == gen->portal_height - 1 ? gen->portal_top : gen->portal_body);
     return true;
 }
 
@@ -521,6 +521,22 @@ TileType world_get(const World *w, int x, int y)
 void world_set(World *w, int x, int y, TileType t)
 {
     world_set_at(w, LAYER_FOREGROUND, x, y, t);
+}
+
+int world_structure(const World *w, int layer, int x, int y, int *bottom)
+{
+    TileType t = world_get_at(w, layer, x, y);
+    int height = tile_def(t)->height;
+    *bottom = y;
+    if (t == TILE_AIR || height <= 1) return 1;
+    /* Count up from the bottom of the unbroken column of this block: every
+     * `height` tiles is one structure, even with another stacked on top. */
+    int lowest = y;
+    while (world_get_at(w, layer, x, lowest + 1) == t) lowest++;
+    *bottom = lowest - ((lowest - y) / height) * height;
+    int count = 0;
+    while (count < height && world_get_at(w, layer, x, *bottom - count) == t) count++;
+    return count;
 }
 
 bool world_is_solid(const World *w, int x, int y)

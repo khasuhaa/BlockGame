@@ -192,10 +192,11 @@ bool load_game(Game *g, const char *path)
               h.drops_size == (h.version < 3 ? sizeof(OldDrop) * MAX_DROPS : sizeof g->drops) &&
               h.width > 0 && h.height > 0 && h.width <= 1 << 16 && h.height <= 1 << 12;
     if (ok && h.version == 1) {
-        legacy_names(tiles, legacy_tiles, (int)(sizeof legacy_tiles / sizeof legacy_tiles[0]), tile_id);
+        legacy_names(tiles, legacy_tiles, (int)(sizeof legacy_tiles / sizeof legacy_tiles[0]),
+                     tile_id_or_alias);
         legacy_names(items, legacy_items, (int)(sizeof legacy_items / sizeof legacy_items[0]), item_id);
     } else if (ok) {
-        ok = read_names(f, tiles, tile_id) && read_names(f, items, item_id);
+        ok = read_names(f, tiles, tile_id_or_alias) && read_names(f, items, item_id);
     }
     ok = ok && game_init(g, h.width, h.height, h.seed, WORLD_BLANK);
 

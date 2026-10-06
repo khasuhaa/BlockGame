@@ -25,6 +25,7 @@
 #define MAX_VEIN_HOSTS 4
 #define MAX_VEIN_SIZE 64
 #define MAX_TILE_TEXTURES 4
+#define MAX_TILE_ALIASES 2
 #define MAX_TREE_ROWS 12
 #define MAX_SWELLS 4
 #define MAX_START_ITEMS 8
@@ -65,6 +66,11 @@ typedef struct {
     char label[CONTENT_NAME_LEN]; /* shown to the player */
     bool solid;      /* in the foreground: blocks movement and can be stood on */
     int layer;       /* the layer it goes in when placed */
+    int height;      /* tiles tall: it is placed, removed and upgraded as one column of itself */
+    /* Names it used to have, or that other blocks now folded into it had:
+     * an old save that knows one of these gets this block. */
+    char aliases[MAX_TILE_ALIASES][CONTENT_NAME_LEN];
+    int alias_count;
     bool bench;      /* a workbench: can be opened to craft */
     bool trade;      /* can be opened to buy and sell */
     bool removable;  /* can be mined */
@@ -96,6 +102,7 @@ typedef struct {
      * tile, centred and resting on the tile's bottom edge. */
     char textures[MAX_TILE_TEXTURES][CONTENT_PATH_LEN]; /* one is picked per position */
     int texture_count;
+    char texture_top[CONTENT_PATH_LEN]; /* used instead on the topmost tile of a column of it */
     int shade;   /* how much brightness varies from tile to tile, 0..255 */
     bool front;  /* drawn after the other tiles, so its overhang shows */
     float pulse; /* how strongly its brightness breathes, 0..1 */
@@ -316,6 +323,8 @@ bool content_load(const char *dir, char *error, size_t error_size);
 
 /* Look up by name; -1 if there is no such thing. */
 TileType tile_id(const char *name);
+/* As tile_id, but also by any name the block used to go by. */
+TileType tile_id_or_alias(const char *name);
 ItemId item_id(const char *name);
 int tree_id(const char *name);
 int tool_class_id(const char *name);

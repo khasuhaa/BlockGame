@@ -363,6 +363,10 @@ static bool can_plant(const World *w, ItemId item, TilePos t)
            !world_is_solid(w, t.x, t.y - 1);
 }
 
+static void place_tile(World *w, TilePos t, TileType tile);
+static void replace_block(World *w, int layer, TilePos t, TileType with);
+static bool room_for(const World *w, TilePos t, TileType tile);
+
 /* Whether the target tile is still something the action can be done to. */
 static bool target_valid(const World *w, Action a)
 {
@@ -373,15 +377,13 @@ static bool target_valid(const World *w, Action a)
     case ACTION_MINE: return action_layer(w, a) >= 0;
     case ACTION_PLACE:
         /* Something that hangs in the background can go up against a backwall. */
-        if (t == TILE_AIR && item_def((ItemId)a.item)->places != TILE_AIR &&
-            tile_def(item_def((ItemId)a.item)->places)->layer == LAYER_BACKGROUND &&
+        if (item_def((ItemId)a.item)->places == TILE_AIR ||
+            !room_for(w, a.target, item_def((ItemId)a.item)->places))
+            return false;
+        if (tile_def(item_def((ItemId)a.item)->places)->layer == LAYER_BACKGROUND &&
             bare_wall(w, a.target) != TILE_AIR)
             return true;
-        /* Empty in front, and empty in the layer the block goes in. */
-        return t == TILE_AIR && item_def((ItemId)a.item)->places != TILE_AIR &&
-               world_get_at(w, tile_def(item_def((ItemId)a.item)->places)->layer, a.target.x,
-                            a.target.y) == TILE_AIR &&
-               beside_block(w, a.target);
+        return beside_block(w, a.target);
     case ACTION_PLANT: return can_plant(w, (ItemId)a.item, a.target);
     case ACTION_USE: return usable_at(w, a.target.x, a.target.y, NULL) != TILE_AIR;
     default: return !tile_def(t)->solid;
@@ -455,10 +457,9 @@ static Pose sim_effect(Game *g, Pose pose, Action a)
 {
     int layer = action_layer(&g->sim, a);
     if (a.type == ACTION_MINE && layer >= 0)
-        world_set_at(&g->sim, layer, a.target.x, a.target.y, TILE_AIR);
+        replace_block(&g->sim, layer, a.target, TILE_AIR);
     else if (a.type == ACTION_PLACE)
-        world_set_at(&g->sim, tile_def(item_def((ItemId)a.item)->places)->layer, a.target.x,
-                     a.target.y, item_def((ItemId)a.item)->places);
+        place_tile(&g->sim, a.target, item_def((ItemId)a.item)->places);
     else if (a.type == ACTION_PLANT)
         tree_plant(&g->sim, a.target.x, a.target.y - 1, item_def((ItemId)a.item)->plants);
     return pose_rest(&g->sim, pose);
@@ -818,9 +819,31 @@ static void begin_step(Game *g, Step s)
  * there is none there already. */
 static void place_tile(World *w, TilePos t, TileType tile)
 {
-    world_set_at(w, tile_def(tile)->layer, t.x, t.y, tile);
+    /* A tall block goes up as a column of itself from where it is put. */
+    for (int i = 0; i < tile_def(tile)->height; i++)
+        world_set_at(w, tile_def(tile)->layer, t.x, t.y - i, tile);
     if (tile_def(tile)->wall && world_get_at(w, LAYER_WALL, t.x, t.y) == TILE_AIR)
         world_set_at(w, LAYER_WALL, t.x, t.y, tile);
+}
+
+/* Changes every tile of the block at a position - all of it, if it is a tall
+ * one - to another tile: TILE_AIR to remove it. */
+static void replace_block(World *w, int layer, TilePos t, TileType with)
+{
+    int bottom, count = world_structure(w, layer, t.x, t.y, &bottom);
+    for (int i = 0; i < count; i++) world_set_at(w, layer, t.x, bottom - i, with);
+}
+
+/* Whether there is room for a block: nothing in front, and nothing in its
+ * own layer, for every tile of its height. */
+static bool room_for(const World *w, TilePos t, TileType tile)
+{
+    for (int i = 0; i < tile_def(tile)->height; i++) {
+        if (!world_in_bounds(w, t.x, t.y - i) || world_get(w, t.x, t.y - i) != TILE_AIR ||
+            world_get_at(w, tile_def(tile)->layer, t.x, t.y - i) != TILE_AIR)
+            return false;
+    }
+    return true;
 }
 
 static void begin_work(Game *g, Activity activity, float duration)
@@ -851,9 +874,13 @@ static void finish_activity(Game *g)
             /* Ore comes out several times over with the right pickaxe. */
             int count = def->drop_count > 0 ? def->drop_count : 1;
             if (def->ore) count *= inventory_ore_multiplier(&g->inventory, def->tool_class);
+            /* A tall block comes down whole, and lands at its foot. */
+            int bottom;
+            world_structure(&g->world, layer, t.x, t.y, &bottom);
             for (int i = 0; i < count; i++)
-                spawn_drop_stack(g, (ItemStack){ (uint8_t)def->drop, 1, i == 0 ? inside : 0 }, t);
-            world_set_at(&g->world, layer, t.x, t.y, TILE_AIR);
+                spawn_drop_stack(g, (ItemStack){ (uint8_t)def->drop, 1, i == 0 ? inside : 0 },
+                                 (TilePos){ t.x, bottom });
+            replace_block(&g->world, layer, t, TILE_AIR);
         }
         g->has_current = false;
     } else if (p->activity == ACTIVITY_PLACING) {
@@ -1015,7 +1042,7 @@ bool game_upgrade_bench(Game *g)
         !inventory_has_all(&g->inventory, def->upgrade_cost, def->upgrade_cost_count))
         return false;
     inventory_remove_all(&g->inventory, def->upgrade_cost, def->upgrade_cost_count);
-    world_set_at(&g->world, layer, g->bench_pos.x, g->bench_pos.y, def->upgrade_to);
+    replace_block(&g->world, layer, g->bench_pos, def->upgrade_to);
     return true;
 }
 
