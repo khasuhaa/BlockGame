@@ -5,9 +5,14 @@
 
 #define MAX_QUEUED_ACTIONS 32
 #define MAX_DENIALS 8
+#define MAX_WALL_HOP 2 /* columns a wall-to-wall hop can cover */
+#define MAX_MOVES 8
 
 #define WALK_TIME 0.12f
 #define FALL_TIME 0.07f
+#define CLIMB_TIME 0.16f
+#define HOP_TIME 0.2f
+#define HOP_HEIGHT 0.35f /* peak of a hop's arc, in tiles */
 #define MINE_TIME 0.35f
 #define DENIAL_TIME 0.6f
 
@@ -25,11 +30,22 @@ typedef struct {
     TilePos target;
 } Action;
 
-/* One voluntary move: walk (+-1,0), step up a ledge (+-1,-1) or jump (0,-1).
- * Falling is never planned; gravity is applied between steps. */
+/* One voluntary move. Standing: walk (+-1,0), hop a one-block gap (+-2,0),
+ * pull up onto a ledge (+-1,-1), go over an edge onto its wall (+-1,+1) or
+ * jump to catch a wall (0,-1). Climbing: up or down the wall (0,+-1), hop to
+ * the facing wall (+-n,0) or pull up onto the top (+-1,-1).
+ * `climb` says whether the step ends hanging on a wall. Falling is never
+ * planned; gravity is applied between steps. */
 typedef struct {
     int8_t dx, dy;
+    bool climb;
 } Step;
+
+/* Where the player is and whether they are hanging on a wall. */
+typedef struct {
+    TilePos feet;
+    bool climbing;
+} Pose;
 
 typedef enum {
     ACTIVITY_IDLE,
@@ -40,8 +56,12 @@ typedef enum {
 /* The player is 1 tile wide and 2 tall: feet at (x, y), head at (x, y-1). */
 typedef struct {
     TilePos feet;
+    bool climbing; /* hanging on a wall rather than standing */
+    int facing;    /* -1 or +1: last horizontal direction moved */
     Activity activity;
-    TilePos step_to; /* destination while ACTIVITY_STEPPING */
+    Step step;       /* the step in progress while ACTIVITY_STEPPING */
+    bool step_hop;   /* that step is a hop, drawn as an arc */
+    TilePos step_to; /* and its destination */
     float timer, duration;
 } Player;
 
@@ -96,5 +116,7 @@ bool game_in_mine_range(TilePos feet, TilePos target);
 
 /* Feet position in tile units, interpolated across the step in progress. */
 void game_player_visual_pos(const Game *g, float *x, float *y);
+/* Side (-1 or +1) of the wall the player is hanging on, or 0 if not climbing. */
+int game_player_grip_side(const Game *g);
 
 #endif

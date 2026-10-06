@@ -154,19 +154,27 @@ static void draw_player(const Game *g, Vector2 origin)
 {
     float x, y;
     game_player_visual_pos(g, &x, &y);
-    float px = origin.x + x * TILE_SIZE, py = origin.y + y * TILE_SIZE;
+    int grip = game_player_grip_side(g);
     const float inset = 3.0f;
+    /* When climbing, press against the wall and reach for it. */
+    float px = origin.x + x * TILE_SIZE + grip * inset, py = origin.y + y * TILE_SIZE;
+    Color skin = { 240, 200, 160, 255 };
     DrawRectangleRec((Rectangle){ px + inset, py, TILE_SIZE - 2 * inset, TILE_SIZE },
                      (Color){ 50, 90, 190, 255 });
     DrawRectangleRec((Rectangle){ px + inset, py - TILE_SIZE + inset, TILE_SIZE - 2 * inset,
                                   TILE_SIZE - inset },
-                     (Color){ 240, 200, 160, 255 });
+                     skin);
+    if (grip != 0) {
+        float hx = grip > 0 ? px + TILE_SIZE - inset - 4 : px + inset - 4;
+        DrawRectangleRec((Rectangle){ hx, py - 6, 8, 6 }, skin);
+        DrawRectangleRec((Rectangle){ hx, py + TILE_SIZE - 10, 8, 6 }, (Color){ 40, 60, 120, 255 });
+    }
 }
 
 static void draw_hud(const Game *g, const MapCamera *cam)
 {
     DrawRectangle(0, 0, GetScreenWidth(), 52, Fade(BLACK, 0.45f));
-    DrawText("WASD: move / jump   Click air: move there   Click dirt: mine it   "
+    DrawText("A/D: move   W/S: jump, climb   Click air: move there   Click dirt: mine it   "
              "Drag: pan map   Space: follow player",
              10, 8, 16, RAYWHITE);
     DrawText(TextFormat("seed %u   player %d,%d   queued %d%s", g->world.seed, g->player.feet.x,

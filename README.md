@@ -18,14 +18,25 @@ On an Apple Silicon Mac, if the shell is running under Rosetta the compiler may 
 
 | Input | Effect |
 | --- | --- |
-| `A` / `D` | Walk left / right, climbing ledges one block high |
-| `W` | Jump one block |
+| `A` / `D` | Move left / right over whatever is in the way (see below) |
+| `W` / `S` | Climb up / down a wall; `W` on the ground jumps and catches a wall if one is beside you |
 | Click an air tile | Queue a move that puts the player's feet or head on that tile |
 | Click a ground tile | Queue walking next to that tile and mining it |
 | Drag | Pan the map |
 | `Space` | Make the camera follow the player again |
 
 Clicks queue up and run in order. A click that cannot be carried out is refused with a red cross on the tile. Pressing a movement key cancels the queue.
+
+## Movement
+
+Holding a direction, or a queued click, takes the player:
+
+- up a one-block ledge;
+- over a one-block gap with a short hop (hold `S` as well to go down into it instead);
+- down a one-block drop with a plain step;
+- over the edge of a drop of two or more blocks into a climbing pose on its wall, then down the wall;
+- from one wall to a facing wall up to two columns away with a hop, so a pit two or three blocks wide is crossed near the top without going to the bottom;
+- up any wall, pulling onto the top.
 
 ## Layout
 

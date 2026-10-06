@@ -15,22 +15,150 @@ static bool is_supported(const World *w, TilePos feet)
     return world_is_solid(w, feet.x, feet.y + 1);
 }
 
-static bool can_step(const World *w, TilePos feet, Step s)
+/* A wall on side `d` that a player at `feet` can hold on to. */
+static bool can_cling_side(const World *w, TilePos feet, int d)
 {
-    if (s.dy == 0) return body_fits(w, feet.x + s.dx, feet.y);
-    if (s.dy == -1) {
-        /* Jumping or climbing a ledge needs headroom above the player. */
-        if (world_is_solid(w, feet.x, feet.y - 2)) return false;
-        return body_fits(w, feet.x + s.dx, feet.y - 1);
-    }
-    return s.dx == 0 && !world_is_solid(w, feet.x, feet.y + 1);
+    return world_is_solid(w, feet.x + d, feet.y) || world_is_solid(w, feet.x + d, feet.y - 1);
 }
 
-/* Where a player at `feet` comes to rest once gravity is done. */
-static TilePos settle(const World *w, TilePos feet)
+static bool can_cling(const World *w, TilePos feet)
 {
-    while (!is_supported(w, feet)) feet.y++;
-    return feet;
+    return can_cling_side(w, feet, -1) || can_cling_side(w, feet, 1);
+}
+
+/* Pull up onto the block beside the feet: a one-block ledge when standing,
+ * the top of the wall when climbing. */
+static bool can_mantle(const World *w, TilePos feet, int d)
+{
+    return world_is_solid(w, feet.x + d, feet.y) && !world_is_solid(w, feet.x, feet.y - 2) &&
+           body_fits(w, feet.x + d, feet.y - 1);
+}
+
+static bool can_climb_up(const World *w, TilePos feet)
+{
+    return !world_is_solid(w, feet.x, feet.y - 2) &&
+           can_cling(w, (TilePos){ feet.x, feet.y - 1 });
+}
+
+/* Leap from one wall to a facing wall on side `d`. Returns the distance, or 0. */
+static int wall_hop_distance(const World *w, TilePos feet, int d)
+{
+    for (int k = 1; k <= MAX_WALL_HOP; k++) {
+        TilePos to = { feet.x + d * k, feet.y };
+        if (!body_fits(w, to.x, to.y)) return 0;
+        if (can_cling_side(w, to, d)) return k;
+    }
+    return 0;
+}
+
+/* Where a pose ends up once gravity is done with it. */
+static Pose pose_rest(const World *w, Pose p)
+{
+    if (is_supported(w, p.feet)) {
+        p.climbing = false;
+    } else if (!p.climbing || !can_cling(w, p.feet)) {
+        p.climbing = false;
+        while (!is_supported(w, p.feet)) p.feet.y++;
+    }
+    return p;
+}
+
+static Pose pose_after(const World *w, Pose p, Step s)
+{
+    p.feet.x += s.dx;
+    p.feet.y += s.dy;
+    p.climbing = s.climb;
+    return pose_rest(w, p);
+}
+
+/* Every step open to a player at rest in pose `p`. `out` needs MAX_MOVES. */
+static int list_moves(const World *w, Pose p, Step *out)
+{
+    int n = 0;
+    int x = p.feet.x, y = p.feet.y;
+
+    if (p.climbing) {
+        if (can_climb_up(w, p.feet)) out[n++] = (Step){ 0, -1, true };
+        out[n++] = (Step){ 0, 1, true };
+        for (int d = -1; d <= 1; d += 2) {
+            int k;
+            if (can_mantle(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, -1, false };
+            else if ((k = wall_hop_distance(w, p.feet, d)) > 0)
+                out[n++] = (Step){ (int8_t)(d * k), 0, true };
+        }
+        return n;
+    }
+
+    for (int d = -1; d <= 1; d += 2) {
+        if (!body_fits(w, x + d, y)) {
+            if (can_mantle(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, -1, false };
+        } else if (is_supported(w, (TilePos){ x + d, y })) {
+            out[n++] = (Step){ (int8_t)d, 0, false };
+        } else {
+            /* An edge: hop a one-block gap, step down one block, or go over
+             * the side and hang on the wall of a deeper drop. */
+            if (body_fits(w, x + 2 * d, y) && is_supported(w, (TilePos){ x + 2 * d, y }))
+                out[n++] = (Step){ (int8_t)(2 * d), 0, false };
+            if (world_is_solid(w, x + d, y + 2)) out[n++] = (Step){ (int8_t)d, 0, false };
+            else out[n++] = (Step){ (int8_t)d, 1, true };
+        }
+    }
+    /* Jump and catch a wall too tall to step onto. */
+    if (can_climb_up(w, p.feet)) out[n++] = (Step){ 0, -1, true };
+    return n;
+}
+
+static bool move_allowed(const World *w, Pose p, Step s)
+{
+    Step moves[MAX_MOVES];
+    int n = list_moves(w, p, moves);
+    for (int i = 0; i < n; i++) {
+        if (moves[i].dx == s.dx && moves[i].dy == s.dy && moves[i].climb == s.climb) return true;
+    }
+    return false;
+}
+
+/* The step held movement keys ask for, or a zero step for none. Holding a
+ * direction carries the player over whatever is in the way: across one-block
+ * gaps, down and up walls, and from wall to wall across a pit. */
+static Step key_step(const World *w, Pose p, int dx, int dy)
+{
+    const Step none = { 0, 0, false };
+    int x = p.feet.x, y = p.feet.y;
+
+    if (p.climbing) {
+        if (dy < 0 && can_climb_up(w, p.feet)) return (Step){ 0, -1, true };
+        if (dy > 0) return (Step){ 0, 1, true };
+        if (dx == 0) {
+            /* W at the top of a wall pulls up onto it. */
+            for (int d = -1; d <= 1 && dy < 0; d += 2)
+                if (can_mantle(w, p.feet, d)) return (Step){ (int8_t)d, -1, false };
+            return none;
+        }
+        if (can_mantle(w, p.feet, dx)) return (Step){ (int8_t)dx, -1, false };
+        if (can_cling_side(w, p.feet, dx))
+            return can_climb_up(w, p.feet) ? (Step){ 0, -1, true } : none;
+        int k = wall_hop_distance(w, p.feet, dx);
+        if (k > 0) return (Step){ (int8_t)(dx * k), 0, true };
+        return dy < 0 ? none : (Step){ 0, 1, true };
+    }
+
+    if (dx != 0) {
+        if (!body_fits(w, x + dx, y)) {
+            if (can_mantle(w, p.feet, dx)) return (Step){ (int8_t)dx, -1, false };
+            if (can_cling_side(w, (TilePos){ x, y - 1 }, dx) && !world_is_solid(w, x, y - 2))
+                return (Step){ 0, -1, true };
+            return none;
+        }
+        if (is_supported(w, (TilePos){ x + dx, y })) return (Step){ (int8_t)dx, 0, false };
+        /* Holding down as well goes into a gap instead of hopping it. */
+        if (dy <= 0 && body_fits(w, x + 2 * dx, y) && is_supported(w, (TilePos){ x + 2 * dx, y }))
+            return (Step){ (int8_t)(2 * dx), 0, false };
+        if (world_is_solid(w, x + dx, y + 2)) return (Step){ (int8_t)dx, 0, false };
+        return (Step){ (int8_t)dx, 1, true };
+    }
+    if (dy < 0 && !world_is_solid(w, x, y - 2)) return (Step){ 0, -1, true };
+    return none;
 }
 
 bool game_in_mine_range(TilePos feet, TilePos target)
@@ -43,50 +171,57 @@ bool game_in_mine_range(TilePos feet, TilePos target)
 
 /* ---- planning ---------------------------------------------------------- */
 
-static bool is_goal(const World *w, TilePos feet, Action a)
+static bool is_goal(Pose p, Action a)
 {
-    (void)w;
+    TilePos feet = p.feet;
     if (a.type == ACTION_MINE) return game_in_mine_range(feet, a.target);
     return feet.x == a.target.x && (feet.y == a.target.y || feet.y - 1 == a.target.y);
 }
 
-/* Breadth-first search over resting positions for the fewest steps that
- * accomplish `a` from `start` (which must be at rest). On success writes the
- * steps to `out` (if non-NULL), their count, and the final resting position. */
-static bool plan_action(Game *g, const World *w, TilePos start, Action a,
-                        Step *out, int *out_count, TilePos *end)
+static int pose_index(const World *w, Pose p)
+{
+    return (p.feet.y * w->width + p.feet.x) * 2 + (p.climbing ? 1 : 0);
+}
+
+static Pose pose_at_index(const World *w, int idx)
+{
+    int cell = idx / 2;
+    return (Pose){ { cell % w->width, cell / w->width }, idx % 2 != 0 };
+}
+
+/* Breadth-first search over resting poses (standing or hanging on a wall)
+ * for the fewest steps that accomplish `a` from `start`, which must be at
+ * rest. On success writes the steps to `out` (if non-NULL), their count, and
+ * the final pose. */
+static bool plan_action(Game *g, const World *w, Pose start, Action a,
+                        Step *out, int *out_count, Pose *end)
 {
     if (!world_in_bounds(w, a.target.x, a.target.y)) return false;
     bool solid = world_is_solid(w, a.target.x, a.target.y);
     if ((a.type == ACTION_MINE) != solid) return false;
 
-    int width = w->width;
-    int start_idx = start.y * width + start.x;
+    int start_idx = pose_index(w, start);
     int goal_idx = -1;
     int head = 0, tail = 0;
 
-    memset(g->bfs_parent, -1, sizeof(int32_t) * (size_t)width * w->height);
+    memset(g->bfs_parent, -1, sizeof(int32_t) * 2 * (size_t)w->width * w->height);
     g->bfs_parent[start_idx] = start_idx;
     g->bfs_queue[tail++] = start_idx;
 
     while (head < tail) {
         int idx = g->bfs_queue[head++];
-        TilePos pos = { idx % width, idx / width };
-        if (is_goal(w, pos, a)) {
+        Pose pose = pose_at_index(w, idx);
+        if (is_goal(pose, a)) {
             goal_idx = idx;
             break;
         }
-        for (int dx = -1; dx <= 1; dx += 2) {
-            Step s = { (int8_t)dx, 0 };
-            if (!can_step(w, pos, s)) {
-                s.dy = -1;
-                if (!can_step(w, pos, s)) continue;
-            }
-            TilePos next = settle(w, (TilePos){ pos.x + s.dx, pos.y + s.dy });
-            int next_idx = next.y * width + next.x;
+        Step moves[MAX_MOVES];
+        int n = list_moves(w, pose, moves);
+        for (int i = 0; i < n; i++) {
+            int next_idx = pose_index(w, pose_after(w, pose, moves[i]));
             if (g->bfs_parent[next_idx] != -1) continue;
             g->bfs_parent[next_idx] = idx;
-            g->bfs_step[next_idx] = s;
+            g->bfs_step[next_idx] = moves[i];
             g->bfs_queue[tail++] = next_idx;
         }
     }
@@ -100,20 +235,20 @@ static bool plan_action(Game *g, const World *w, TilePos start, Action a,
             out[--i] = g->bfs_step[idx];
     }
     if (out_count) *out_count = count;
-    if (end) *end = (TilePos){ goal_idx % width, goal_idx / width };
+    if (end) *end = pose_at_index(w, goal_idx);
     return true;
 }
 
 /* Plays an action out instantly on the scratch world. */
-static bool sim_action(Game *g, TilePos *pos, Action a)
+static bool sim_action(Game *g, Pose *pose, Action a)
 {
-    TilePos end;
-    if (!plan_action(g, &g->sim, *pos, a, NULL, NULL, &end)) return false;
+    Pose end;
+    if (!plan_action(g, &g->sim, *pose, a, NULL, NULL, &end)) return false;
     if (a.type == ACTION_MINE) {
         world_set(&g->sim, a.target.x, a.target.y, TILE_AIR);
-        end = settle(&g->sim, end);
+        end = pose_rest(&g->sim, end);
     }
-    *pos = end;
+    *pose = end;
     return true;
 }
 
@@ -138,17 +273,15 @@ bool game_click_tile(Game *g, int tx, int ty)
 
     /* Fast-forward a copy of the world through everything already pending. */
     memcpy(g->sim.tiles, g->world.tiles, (size_t)g->world.width * g->world.height);
-    TilePos pos = p->activity == ACTIVITY_STEPPING ? p->step_to : p->feet;
-    pos = settle(&g->sim, pos);
+    Pose pos = { p->feet, p->climbing };
+    if (p->activity == ACTIVITY_STEPPING) pos = (Pose){ p->step_to, p->step.climb };
+    pos = pose_rest(&g->sim, pos);
     if (g->has_current) {
-        for (int i = g->step_index; i < g->step_count; i++) {
-            pos.x += g->steps[i].dx;
-            pos.y += g->steps[i].dy;
-            pos = settle(&g->sim, pos);
-        }
+        for (int i = g->step_index; i < g->step_count; i++)
+            pos = pose_after(&g->sim, pos, g->steps[i]);
         if (g->current.type == ACTION_MINE) {
             world_set(&g->sim, g->current.target.x, g->current.target.y, TILE_AIR);
-            pos = settle(&g->sim, pos);
+            pos = pose_rest(&g->sim, pos);
         }
     }
     for (int i = 0; i < g->queue_count; i++) sim_action(g, &pos, g->queue[i]);
@@ -167,10 +300,16 @@ bool game_click_tile(Game *g, int tx, int ty)
 static void begin_step(Game *g, Step s)
 {
     Player *p = &g->player;
+    bool hop = s.dy == 0 && (p->climbing || s.dx > 1 || s.dx < -1);
     p->activity = ACTIVITY_STEPPING;
+    p->step = s;
+    p->step_hop = hop;
     p->step_to = (TilePos){ p->feet.x + s.dx, p->feet.y + s.dy };
     p->timer = 0.0f;
-    p->duration = s.dy > 0 ? FALL_TIME : WALK_TIME;
+    if (hop) p->duration = HOP_TIME;
+    else if (s.climb || p->climbing) p->duration = CLIMB_TIME;
+    else p->duration = s.dy > 0 ? FALL_TIME : WALK_TIME;
+    if (s.dx != 0) p->facing = s.dx > 0 ? 1 : -1;
 }
 
 static void finish_activity(Game *g)
@@ -178,6 +317,7 @@ static void finish_activity(Game *g)
     Player *p = &g->player;
     if (p->activity == ACTIVITY_STEPPING) {
         p->feet = p->step_to;
+        p->climbing = p->step.climb;
     } else if (p->activity == ACTIVITY_MINING) {
         world_set(&g->world, g->current.target.x, g->current.target.y, TILE_AIR);
         g->has_current = false;
@@ -191,16 +331,20 @@ static bool start_next_activity(Game *g)
     Player *p = &g->player;
     const World *w = &g->world;
 
-    if (!is_supported(w, p->feet)) {
-        begin_step(g, (Step){ 0, 1 });
+    if (is_supported(w, p->feet)) {
+        p->climbing = false;
+    } else if (!p->climbing || !can_cling(w, p->feet)) {
+        p->climbing = false;
+        begin_step(g, (Step){ 0, 1, false });
         return true;
     }
+    Pose pose = { p->feet, p->climbing };
 
     for (;;) {
         if (g->has_current) {
             if (g->step_index < g->step_count) {
                 Step s = g->steps[g->step_index];
-                if (can_step(w, p->feet, s)) {
+                if (move_allowed(w, pose, s)) {
                     g->step_index++;
                     begin_step(g, s);
                     return true;
@@ -225,7 +369,7 @@ static bool start_next_activity(Game *g)
         Action a = g->queue[0];
         g->queue_count--;
         memmove(g->queue, g->queue + 1, sizeof(Action) * (size_t)g->queue_count);
-        if (plan_action(g, w, p->feet, a, g->steps, &g->step_count, NULL)) {
+        if (plan_action(g, w, pose, a, g->steps, &g->step_count, NULL)) {
             g->current = a;
             g->step_index = 0;
             g->has_current = true;
@@ -234,16 +378,9 @@ static bool start_next_activity(Game *g)
         }
     }
 
-    if (g->move_dx != 0) {
-        Step s = { (int8_t)g->move_dx, 0 };
-        if (!can_step(w, p->feet, s)) s.dy = -1;
-        if (can_step(w, p->feet, s)) {
-            begin_step(g, s);
-            return true;
-        }
-    }
-    if (g->move_dy < 0 && can_step(w, p->feet, (Step){ 0, -1 })) {
-        begin_step(g, (Step){ 0, -1 });
+    Step s = key_step(w, pose, g->move_dx, g->move_dy);
+    if (s.dx != 0 || s.dy != 0) {
+        begin_step(g, s);
         return true;
     }
     return false;
@@ -290,6 +427,19 @@ void game_player_visual_pos(const Game *g, float *x, float *y)
     float t = p->activity == ACTIVITY_STEPPING ? p->timer / p->duration : 0.0f;
     *x = (float)p->feet.x + (float)(p->step_to.x - p->feet.x) * t;
     *y = (float)p->feet.y + (float)(p->step_to.y - p->feet.y) * t;
+    if (p->activity == ACTIVITY_STEPPING && p->step_hop) *y -= HOP_HEIGHT * 4.0f * t * (1.0f - t);
+}
+
+int game_player_grip_side(const Game *g)
+{
+    const Player *p = &g->player;
+    /* While moving along a wall, read the grip from where the step ends. */
+    bool moving = p->activity == ACTIVITY_STEPPING;
+    if (!(moving ? p->step.climb && !p->step_hop : p->climbing)) return 0;
+    TilePos at = moving ? p->step_to : p->feet;
+    if (can_cling_side(&g->world, at, p->facing)) return p->facing;
+    if (can_cling_side(&g->world, at, -p->facing)) return -p->facing;
+    return 0;
 }
 
 /* ---- setup ------------------------------------------------------------- */
@@ -301,15 +451,17 @@ bool game_init(Game *g, int width, int height, uint32_t seed)
     bool ok = world_init(&g->world, width, height, seed) &&
               world_init(&g->sim, width, height, seed);
     g->steps = malloc(sizeof(Step) * cells);
-    g->bfs_step = malloc(sizeof(Step) * cells);
-    g->bfs_parent = malloc(sizeof(int32_t) * cells);
-    g->bfs_queue = malloc(sizeof(int32_t) * cells);
+    /* The search visits two poses per tile: standing and climbing. */
+    g->bfs_step = malloc(sizeof(Step) * cells * 2);
+    g->bfs_parent = malloc(sizeof(int32_t) * cells * 2);
+    g->bfs_queue = malloc(sizeof(int32_t) * cells * 2);
     if (!ok || !g->steps || !g->bfs_step || !g->bfs_parent || !g->bfs_queue) {
         game_free(g);
         return false;
     }
 
-    g->player.feet = settle(&g->world, (TilePos){ g->world.spawn_x, 1 });
+    g->player.feet = pose_rest(&g->world, (Pose){ { g->world.spawn_x, 1 }, false }).feet;
+    g->player.facing = 1;
     g->player.step_to = g->player.feet;
     return true;
 }
