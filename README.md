@@ -104,7 +104,7 @@ The land is plains broken up by mountains and valleys, always with a stretch of 
 - **Ocean** is everything below Y 0. Its bed is sand, kelp and coral grow on it, and it is filled with water up to Y 0. Valleys reach below Y 0, so every valley is a sea.
 - **Beach** is the land within nine columns of a sea: sand, more of it the nearer the water.
 
-One biome gives way to another gradually: toward the edge fewer and fewer columns belong to it, so the ground changes over a stretch rather than at a line.
+One biome gives way to another gradually: toward its edge its own ground thins to a skin over the ordinary soil, so the ground changes over a stretch rather than at a line.
 
 **Water** is real, and there is always the same amount of it. Every square of the world holds so many eighths of water, from none to 8. It is never made or lost by moving:
 
