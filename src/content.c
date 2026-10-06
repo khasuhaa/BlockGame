@@ -515,6 +515,7 @@ static bool read_rules(Reader *r, const cJSON *root)
         u->fall_time = (float)num(player, "fall_time", u->fall_time);
         u->climb_time = (float)num(player, "climb_time", u->climb_time);
         u->hop_time = (float)num(player, "hop_time", u->hop_time);
+        u->crawl_time = (float)num(player, "crawl_time", u->crawl_time > 0 ? u->crawl_time : 0.2);
         u->hop_height = (float)num(player, "hop_height", u->hop_height);
         u->max_wall_hop = (int)num(player, "max_wall_hop", u->max_wall_hop);
         u->place_time = (float)num(player, "place_time", u->place_time);

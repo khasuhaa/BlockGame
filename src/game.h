@@ -8,7 +8,7 @@
 
 #define MAX_QUEUED_ACTIONS 32
 #define MAX_DENIALS 8
-#define MAX_MOVES 8
+#define MAX_MOVES 12
 #define MAX_DROPS 2048
 #define MAX_TICK_RATE 100
 #define MAX_STORAGES 256
@@ -17,6 +17,7 @@
 #define WALK_TIME (content.rules.walk_time)
 #define FALL_TIME (content.rules.fall_time)
 #define CLIMB_TIME (content.rules.climb_time)
+#define CRAWL_TIME (content.rules.crawl_time)
 #define HOP_TIME (content.rules.hop_time)
 #define HOP_HEIGHT (content.rules.hop_height)
 #define MAX_WALL_HOP (content.rules.max_wall_hop)
@@ -243,6 +244,8 @@ bool game_in_mine_range(TilePos feet, TilePos target);
 
 /* Feet position in tile units, interpolated across the step in progress. */
 void game_player_visual_pos(const Game *g, float *x, float *y);
+/* True while the player is one tile tall, going through a gap one block high. */
+bool game_player_crawling(const Game *g);
 /* Side (-1 or +1) of the wall the player is hanging on, or 0 if not climbing. */
 int game_player_grip_side(const Game *g);
 

@@ -6,9 +6,25 @@
 
 /* ---- movement rules ---------------------------------------------------- */
 
+/* The player is two tiles tall standing or climbing, and one tile tall when
+ * crawling. Crawling is not a choice: it is what the player does wherever
+ * there is a block where their head would be. */
+
+/* Room for the whole body. */
 static bool body_fits(const World *w, int x, int y)
 {
     return !world_is_solid(w, x, y) && !world_is_solid(w, x, y - 1);
+}
+
+/* Room to be in at all, if only on hands and knees. */
+static bool low_fits(const World *w, int x, int y)
+{
+    return !world_is_solid(w, x, y);
+}
+
+static bool is_crawling(const World *w, TilePos feet)
+{
+    return world_is_solid(w, feet.x, feet.y - 1);
 }
 
 static bool is_supported(const World *w, TilePos feet)
@@ -33,23 +49,54 @@ static bool can_hold(const World *w, TilePos feet)
     return false;
 }
 
+/* A block just overhead to hang from, like a monkey bar. */
+static bool can_hang(const World *w, TilePos feet)
+{
+    return world_is_solid(w, feet.x, feet.y - 2);
+}
+
+/* Whether a player can hang on at `feet` without standing on anything. */
 static bool can_cling(const World *w, TilePos feet)
 {
-    return can_cling_side(w, feet, -1) || can_cling_side(w, feet, 1) || can_hold(w, feet);
+    if (!body_fits(w, feet.x, feet.y)) return false;
+    return can_cling_side(w, feet, -1) || can_cling_side(w, feet, 1) || can_hold(w, feet) ||
+           can_hang(w, feet);
 }
 
 /* Pull up onto the block beside the feet: a one-block ledge when standing,
- * the top of the wall when climbing. */
+ * the top of the wall when climbing. The top may be a gap only high enough
+ * to crawl into. */
 static bool can_mantle(const World *w, TilePos feet, int d)
 {
-    return world_is_solid(w, feet.x + d, feet.y) && !world_is_solid(w, feet.x, feet.y - 2) &&
-           body_fits(w, feet.x + d, feet.y - 1);
+    return world_is_solid(w, feet.x + d, feet.y) && body_fits(w, feet.x, feet.y - 1) &&
+           low_fits(w, feet.x + d, feet.y - 1);
 }
 
 static bool can_climb_up(const World *w, TilePos feet)
 {
-    return !world_is_solid(w, feet.x, feet.y - 2) &&
-           can_cling(w, (TilePos){ feet.x, feet.y - 1 });
+    return body_fits(w, feet.x, feet.y - 1) && can_cling(w, (TilePos){ feet.x, feet.y - 1 });
+}
+
+/* Move one column while climbing without letting go: across a tree, or hand
+ * over hand along the underside of a row of blocks. */
+static bool can_climb_across(const World *w, TilePos feet, int d)
+{
+    TilePos to = { feet.x + d, feet.y };
+    return body_fits(w, to.x, to.y) && (can_hold(w, to) || can_hang(w, to));
+}
+
+/* From hanging under a block, round its end and up onto its side. */
+static bool can_swing_up(const World *w, TilePos feet, int d)
+{
+    return body_fits(w, feet.x + d, feet.y) && !world_is_solid(w, feet.x + d, feet.y - 2) &&
+           can_cling_side(w, (TilePos){ feet.x + d, feet.y - 1 }, -d);
+}
+
+/* The other way: from the side of a block, down and under it. */
+static bool can_swing_under(const World *w, TilePos feet, int d)
+{
+    return !world_is_solid(w, feet.x, feet.y + 1) && body_fits(w, feet.x + d, feet.y + 1) &&
+           world_is_solid(w, feet.x + d, feet.y - 1);
 }
 
 /* Leap from one wall to a facing wall on side `d`. Returns the distance, or 0. */
@@ -95,29 +142,33 @@ static int list_moves(const World *w, Pose p, Step *out)
         for (int d = -1; d <= 1; d += 2) {
             int k;
             if (can_mantle(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, -1, false };
-            else if (body_fits(w, x + d, y) && can_hold(w, (TilePos){ x + d, y }))
-                out[n++] = (Step){ (int8_t)d, 0, true }; /* sideways across a tree */
+            else if (can_climb_across(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, 0, true };
             else if ((k = wall_hop_distance(w, p.feet, d)) > 0)
                 out[n++] = (Step){ (int8_t)(d * k), 0, true };
+            if (can_swing_up(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, -1, true };
+            if (can_swing_under(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, 1, true };
         }
         return n;
     }
 
+    bool upright = !is_crawling(w, p.feet);
     for (int d = -1; d <= 1; d += 2) {
-        if (!body_fits(w, x + d, y)) {
+        if (!low_fits(w, x + d, y)) {
             if (can_mantle(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, -1, false };
         } else if (is_supported(w, (TilePos){ x + d, y })) {
+            /* Walking, or crawling if there is only a one-block gap to go through. */
             out[n++] = (Step){ (int8_t)d, 0, false };
         } else {
             /* An edge: hop a one-block gap, step down one block, or go over
              * the side and hang on the wall of a deeper drop. */
-            if (body_fits(w, x + 2 * d, y) && is_supported(w, (TilePos){ x + 2 * d, y }))
+            if (upright && body_fits(w, x + d, y) && body_fits(w, x + 2 * d, y) &&
+                is_supported(w, (TilePos){ x + 2 * d, y }))
                 out[n++] = (Step){ (int8_t)(2 * d), 0, false };
             if (world_is_solid(w, x + d, y + 2)) out[n++] = (Step){ (int8_t)d, 0, false };
             else out[n++] = (Step){ (int8_t)d, 1, true };
         }
     }
-    /* Jump and catch a wall too tall to step onto. */
+    /* Jump and catch a wall too tall to step onto, or something overhead. */
     if (can_climb_up(w, p.feet)) out[n++] = (Step){ 0, -1, true };
     return n;
 }
@@ -134,7 +185,8 @@ static bool move_allowed(const World *w, Pose p, Step s)
 
 /* The step held movement keys ask for, or a zero step for none. Holding a
  * direction carries the player over whatever is in the way: across one-block
- * gaps, down and up walls, and from wall to wall across a pit. */
+ * gaps, through gaps one block high, down and up walls, from wall to wall
+ * across a pit, and along the underside of a row of blocks. */
 static Step key_step(const World *w, Pose p, int dx, int dy)
 {
     const Step none = { 0, 0, false };
@@ -142,38 +194,50 @@ static Step key_step(const World *w, Pose p, int dx, int dy)
 
     if (p.climbing) {
         if (dy < 0 && can_climb_up(w, p.feet)) return (Step){ 0, -1, true };
-        if (dy > 0) return (Step){ 0, 1, true };
+        if (dy > 0) {
+            /* Rather than drop off the bottom of a block, swing in under it. */
+            TilePos below = { x, y + 1 };
+            for (int d = -1; d <= 1; d += 2)
+                if (!is_supported(w, below) && !can_cling(w, below) && can_swing_under(w, p.feet, d))
+                    return (Step){ (int8_t)d, 1, true };
+            return (Step){ 0, 1, true };
+        }
         if (dx == 0) {
-            /* W at the top of a wall pulls up onto it. */
+            /* W with nowhere higher to climb: onto the top of a wall, or
+             * round the end of the block being hung from. */
             for (int d = -1; d <= 1 && dy < 0; d += 2)
                 if (can_mantle(w, p.feet, d)) return (Step){ (int8_t)d, -1, false };
+            for (int d = -1; d <= 1 && dy < 0; d += 2)
+                if (can_swing_up(w, p.feet, d)) return (Step){ (int8_t)d, -1, true };
             return none;
         }
         if (can_mantle(w, p.feet, dx)) return (Step){ (int8_t)dx, -1, false };
         if (can_cling_side(w, p.feet, dx))
             return can_climb_up(w, p.feet) ? (Step){ 0, -1, true } : none;
-        if (body_fits(w, x + dx, y) && can_hold(w, (TilePos){ x + dx, y }))
-            return (Step){ (int8_t)dx, 0, true };
+        if (can_climb_across(w, p.feet, dx)) return (Step){ (int8_t)dx, 0, true };
         int k = wall_hop_distance(w, p.feet, dx);
         if (k > 0) return (Step){ (int8_t)(dx * k), 0, true };
+        /* Nothing further that way to hold: down, or off the end of the bars. */
         return dy < 0 ? none : (Step){ 0, 1, true };
     }
 
+    bool upright = !is_crawling(w, p.feet);
     if (dx != 0) {
-        if (!body_fits(w, x + dx, y)) {
+        if (!low_fits(w, x + dx, y)) {
             if (can_mantle(w, p.feet, dx)) return (Step){ (int8_t)dx, -1, false };
-            if (can_cling_side(w, (TilePos){ x, y - 1 }, dx) && !world_is_solid(w, x, y - 2))
+            if (can_cling_side(w, (TilePos){ x, y - 1 }, dx) && can_climb_up(w, p.feet))
                 return (Step){ 0, -1, true };
             return none;
         }
         if (is_supported(w, (TilePos){ x + dx, y })) return (Step){ (int8_t)dx, 0, false };
         /* Holding down as well goes into a gap instead of hopping it. */
-        if (dy <= 0 && body_fits(w, x + 2 * dx, y) && is_supported(w, (TilePos){ x + 2 * dx, y }))
+        if (dy <= 0 && upright && body_fits(w, x + dx, y) && body_fits(w, x + 2 * dx, y) &&
+            is_supported(w, (TilePos){ x + 2 * dx, y }))
             return (Step){ (int8_t)(2 * dx), 0, false };
         if (world_is_solid(w, x + dx, y + 2)) return (Step){ (int8_t)dx, 0, false };
         return (Step){ (int8_t)dx, 1, true };
     }
-    if (dy < 0 && !world_is_solid(w, x, y - 2)) return (Step){ 0, -1, true };
+    if (dy < 0 && body_fits(w, x, y - 1)) return (Step){ 0, -1, true };
     return none;
 }
 
@@ -193,10 +257,22 @@ static bool on_body(TilePos feet, TilePos t)
 }
 
 /* game_in_mine_range, measured the short way round the world. */
+/* Whether a player at `feet` can get a hand to `target`: the tiles around
+ * their body - ten when upright, eight when crawling - measured the short way
+ * round the world. A tile at a corner cannot be reached past two blocks that
+ * meet in front of it. */
 static bool in_reach(const World *w, TilePos feet, TilePos target)
 {
-    return game_in_mine_range((TilePos){ 0, feet.y },
-                              (TilePos){ world_dx(w, feet.x, target.x), target.y });
+    int dx = world_dx(w, feet.x, target.x), dy = target.y - feet.y;
+    bool crawling = is_crawling(w, feet);
+    if (crawling ? (dx < -1 || dx > 1 || dy < -1 || dy > 1 || (dx == 0 && dy == 0))
+                 : !game_in_mine_range((TilePos){ 0, 0 }, (TilePos){ dx, dy }))
+        return false;
+    if (dx == 0 || (dy != 1 && dy != (crawling ? -1 : -2))) return true;
+    /* A corner: the two tiles the reach passes between, beside the body and
+     * above or below it. */
+    int beside_y = dy > 0 ? feet.y : target.y + 1;
+    return !world_is_solid(w, feet.x + dx, beside_y) || !world_is_solid(w, feet.x, target.y);
 }
 
 static bool in_use_range(const World *w, TilePos feet, TilePos bench)
@@ -659,7 +735,9 @@ static void begin_step(Game *g, Step s)
     Player *p = &g->player;
     TilePos to = { p->feet.x + s.dx, p->feet.y + s.dy };
     /* Going hand over hand across a tree is a climb; letting go of a wall is a hop. */
-    bool hop = s.dy == 0 && (s.dx > 1 || s.dx < -1 || (p->climbing && !can_hold(&g->world, to)));
+    bool hop = s.dy == 0 && (s.dx > 1 || s.dx < -1 ||
+                             (p->climbing && !can_hold(&g->world, to) && !can_hang(&g->world, to)));
+    bool crawl = is_crawling(&g->world, p->feet) || is_crawling(&g->world, to);
     p->activity = ACTIVITY_STEPPING;
     p->step = s;
     p->step_hop = hop;
@@ -667,7 +745,8 @@ static void begin_step(Game *g, Step s)
     p->timer = 0.0f;
     if (hop) p->duration = HOP_TIME;
     else if (s.climb || p->climbing) p->duration = CLIMB_TIME;
-    else p->duration = s.dy > 0 ? FALL_TIME : WALK_TIME;
+    else if (s.dy > 0) p->duration = FALL_TIME;
+    else p->duration = crawl ? CRAWL_TIME : WALK_TIME;
     if (s.dx != 0) p->facing = s.dx > 0 ? 1 : -1;
 }
 
@@ -1030,6 +1109,15 @@ void game_player_visual_pos(const Game *g, float *x, float *y)
     *x = (float)p->feet.x + (float)(p->step_to.x - p->feet.x) * t;
     *y = (float)p->feet.y + (float)(p->step_to.y - p->feet.y) * t;
     if (p->activity == ACTIVITY_STEPPING && p->step_hop) *y -= HOP_HEIGHT * 4.0f * t * (1.0f - t);
+}
+
+bool game_player_crawling(const Game *g)
+{
+    const Player *p = &g->player;
+    /* Down on hands and knees from the start of a step into a low gap to the
+     * end of the step out of it. */
+    return is_crawling(&g->world, p->feet) ||
+           (p->activity == ACTIVITY_STEPPING && is_crawling(&g->world, p->step_to));
 }
 
 int game_player_grip_side(const Game *g)

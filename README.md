@@ -72,7 +72,11 @@ Holding a direction, or a queued click, takes the player:
 - down a one-block drop with a plain step;
 - over the edge of a drop of two or more blocks into a climbing pose on its wall, then down the wall;
 - from one wall to a facing wall up to two columns away with a hop, so a pit two or three blocks wide is crossed near the top without going to the bottom;
-- up any wall, pulling onto the top.
+- up any wall, pulling onto the top;
+- through a gap one block high, crawling; the player is one block tall while under the low ceiling and stands up again on the far side;
+- along the underside of a row of blocks, hand over hand like monkey bars.
+
+To get onto a row of blocks overhead, press `W` under it: the player jumps and catches it if there is one clear block between their head and it. Holding a direction past the end of the row lets go. Pressing `W` at the end instead swings round onto the side of the last block, from where it is an ordinary climb onto the top; `S` on the side of a block swings back in under it rather than dropping off. A queued click uses all of these to find its way.
 
 ## World
 
@@ -137,6 +141,10 @@ The bar along the bottom has a head button followed by 8 slots. Stacks hold up t
 - Clicking or dragging the world, or pressing a movement key, closes everything.
 
 A mined block drops as an item where it was. It is collected when the player is on or next to its tile, a moment after it drops, as long as there is room in the bar or in a basket in the bar.
+
+## Reach
+
+The player can mine, place, plant, open and pick up within the ten tiles around their body, or the eight around them while crawling. A tile at a corner of that range cannot be reached when the two tiles between it and the body are both blocks: there is no reaching diagonally through a closed corner. The player goes somewhere else to do it if there is anywhere, and otherwise the action is refused.
 
 ## Building and benches
 

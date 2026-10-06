@@ -207,7 +207,7 @@ typedef struct {
     int chunk_width; /* columns per chunk */
     int random_events_per_chunk; /* random blocks hit in each chunk every tick */
 
-    float walk_time, fall_time, climb_time, hop_time; /* seconds per step */
+    float walk_time, fall_time, climb_time, hop_time, crawl_time; /* seconds per step */
     float hop_height;  /* peak of a hop's arc, in tiles */
     int max_wall_hop;  /* columns a wall-to-wall hop can cover */
     float place_time;

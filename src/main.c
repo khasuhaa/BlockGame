@@ -308,6 +308,22 @@ static void draw_player(const Game *g, Vector2 origin)
     /* When climbing, press against the wall and reach for it. */
     float px = origin.x + view_near_x(&view, x) * TILE_SIZE + grip * inset, py = origin.y + y * TILE_SIZE;
     Color skin = { 240, 200, 160, 255 };
+    if (game_player_crawling(g)) {
+        /* On hands and knees: one tile tall, head leading. */
+        float half = TILE_SIZE / 2.0f;
+        float head_x = g->player.facing > 0 ? px + TILE_SIZE - half : px;
+        DrawRectangleRec((Rectangle){ px + 1, py + half, TILE_SIZE - 2, half }, (Color){ 50, 90, 190, 255 });
+        DrawRectangleRec((Rectangle){ head_x + 1, py + 4, half - 2, half }, skin);
+        return;
+    }
+    /* Hanging from a block overhead: arms up to it. */
+    const Player *p = &g->player;
+    if (p->climbing && p->activity != ACTIVITY_MINING && grip == 0 &&
+        world_is_solid(&g->world, p->feet.x, p->feet.y - 2) &&
+        (p->activity != ACTIVITY_STEPPING || world_is_solid(&g->world, p->step_to.x, p->step_to.y - 2))) {
+        DrawRectangleRec((Rectangle){ px + inset + 2, py - TILE_SIZE - 5, 5, 10 }, skin);
+        DrawRectangleRec((Rectangle){ px + TILE_SIZE - inset - 7, py - TILE_SIZE - 5, 5, 10 }, skin);
+    }
     DrawRectangleRec((Rectangle){ px + inset, py, TILE_SIZE - 2 * inset, TILE_SIZE },
                      (Color){ 50, 90, 190, 255 });
     DrawRectangleRec((Rectangle){ px + inset, py - TILE_SIZE + inset, TILE_SIZE - 2 * inset,

@@ -298,6 +298,225 @@ static void test_unqueue(void)
     game_free(&g);
 }
 
+/* Hanging from the underside of a row of blocks, and getting round its end. */
+static void test_monkey_bars(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 24, WORLD_FLAT);
+    World *w = &g.world;
+    TilePos start = g.player.feet;
+    int s = w->surface_y, bar = s - 4; /* one clear tile above the standing player's head */
+
+    for (int x = start.x - 2; x <= start.x + 6; x++) world_set(w, x, bar, TILE_STONE);
+
+    /* W jumps up and catches the bar; the player hangs there. */
+    game_set_move_input(&g, 0, -1);
+    run(&g, CLIMB_TIME + 0.05f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 1.0f);
+    CHECK(g.player.climbing && g.player.feet.y == s - 2 && g.player.feet.x == start.x);
+    CHECK(game_player_grip_side(&g) == 0);
+
+    /* A direction goes hand over hand along the underside without dropping... */
+    game_set_move_input(&g, 1, 0);
+    Trace tr = run_traced(&g, CLIMB_TIME * 5.5f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 0.3f);
+    CHECK(!tr.fell && !tr.hopped && tr.deepest == s - 2);
+    CHECK(g.player.climbing && g.player.feet.x == start.x + 6 && g.player.feet.y == s - 2);
+
+    /* At the end, up goes round the end of the last block onto its side... */
+    game_set_move_input(&g, 0, -1);
+    run(&g, CLIMB_TIME * 0.5f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 0.3f);
+    CHECK(g.player.climbing && g.player.feet.x == start.x + 7 && g.player.feet.y == s - 3);
+    CHECK(game_player_grip_side(&g) == -1);
+
+    /* ...and from there it is an ordinary climb up and onto the top. */
+    game_set_move_input(&g, 0, -1);
+    run(&g, CLIMB_TIME * 1.5f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 0.5f);
+    CHECK(!g.player.climbing && g.player.feet.x == start.x + 6 && g.player.feet.y == bar - 1);
+
+    /* Back the other way: off the top, down the side, under, and let go. */
+    game_set_move_input(&g, 1, 0);
+    run(&g, WALK_TIME * 0.5f);
+    game_set_move_input(&g, 0, 1);
+    run(&g, CLIMB_TIME * 1.5f + 0.05f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 0.3f);
+    CHECK(g.player.climbing && g.player.feet.x == start.x + 6 && g.player.feet.y == s - 2);
+    game_set_move_input(&g, 0, 1);
+    run(&g, 1.0f);
+    game_set_move_input(&g, 0, 0);
+    CHECK(!g.player.climbing && g.player.feet.y == s - 1);
+
+    /* Holding a direction past the end of the bars just lets go. */
+    g.player.feet = g.player.step_to = (TilePos){ start.x + 5, s - 2 };
+    g.player.climbing = true;
+    game_set_move_input(&g, 1, 0);
+    run(&g, 1.0f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 0.3f);
+    CHECK(!g.player.climbing && g.player.feet.y == s - 1 && g.player.feet.x > start.x + 6);
+
+    /* A click finds the whole route: up to the bar, along, round the end, on top. */
+    g.player.feet = g.player.step_to = start;
+    CHECK(game_click_tile(&g, start.x + 3, bar - 1));
+    tr = run_traced(&g, 8.0f);
+    CHECK(is_idle(&g) && tr.climbed && !tr.fell);
+    CHECK(g.player.feet.x == start.x + 3 && g.player.feet.y == bar - 1);
+
+    /* Mining the block being hung from lets the player drop. */
+    g.player.feet = g.player.step_to = (TilePos){ start.x + 2, s - 2 };
+    g.player.climbing = true;
+    run(&g, 0.2f);
+    CHECK(g.player.climbing && g.player.feet.y == s - 2);
+    world_set(w, start.x + 2, bar, TILE_AIR);
+    run(&g, 1.0f);
+    CHECK(!g.player.climbing && g.player.feet.y == s - 1);
+    game_free(&g);
+}
+
+/* Going through a gap one block high. */
+static void test_crawl(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 25, WORLD_FLAT);
+    World *w = &g.world;
+    TilePos start = g.player.feet;
+    int s = w->surface_y;
+
+    /* A thick wall with a tunnel one block high along the ground. */
+    for (int x = start.x + 3; x <= start.x + 6; x++)
+        for (int y = s - 12; y <= s - 2; y++) world_set(w, x, y, TILE_STONE);
+
+    CHECK(!game_player_crawling(&g));
+    game_set_move_input(&g, 1, 0);
+    bool crawled = false, upright_inside = false;
+    int lowest = start.y, highest = start.y;
+    for (float t = 0.0f; t < 3.0f; t += 1.0f / 60.0f) {
+        game_update(&g, 1.0f / 60.0f);
+        int x = world_dx(w, start.x, g.player.feet.x);
+        if (x >= 3 && x <= 6) {
+            crawled = crawled || game_player_crawling(&g);
+            upright_inside = upright_inside || !game_player_crawling(&g);
+        }
+        if (g.player.feet.y > lowest) lowest = g.player.feet.y;
+        if (g.player.feet.y < highest) highest = g.player.feet.y;
+    }
+    game_set_move_input(&g, 0, 0);
+    run(&g, 0.5f);
+    /* Straight through at ground level, down the whole way, up again after. */
+    CHECK(crawled && !upright_inside && lowest == start.y && highest == start.y);
+    CHECK(world_dx(w, start.x, g.player.feet.x) > 7 && !game_player_crawling(&g) && !g.player.climbing);
+
+    /* A click inside the tunnel is a place to go; the player stops there, flat. */
+    CHECK(game_click_tile(&g, start.x + 4, s - 1));
+    run(&g, 4.0f);
+    CHECK(is_idle(&g) && g.player.feet.x == start.x + 4 && g.player.feet.y == s - 1);
+    CHECK(game_player_crawling(&g));
+    /* No jumping in there, but the roof can be mined from below. */
+    game_set_move_input(&g, 0, -1);
+    run(&g, 0.5f);
+    game_set_move_input(&g, 0, 0);
+    CHECK(g.player.feet.y == s - 1 && !g.player.climbing);
+    CHECK(game_click_tile(&g, start.x + 4, s - 2));
+    run(&g, 2.0f);
+    CHECK(world_get(w, start.x + 4, s - 2) == TILE_AIR && !game_player_crawling(&g));
+    /* Crawling, only the eight tiles around the player are within reach. */
+    CHECK(game_click_tile(&g, start.x + 5, s - 1));
+    run(&g, 1.0f);
+    CHECK(game_player_crawling(&g) && g.player.feet.x == start.x + 5);
+    CHECK(!game_queue_action(&g, ACTION_MINE, start.x + 5, s - 3));
+    CHECK(game_queue_action(&g, ACTION_MINE, start.x + 6, s - 2));
+    run(&g, 2.0f);
+    CHECK(world_get(w, start.x + 6, s - 2) == TILE_AIR && g.player.feet.x == start.x + 5);
+
+    /* A crawl takes its own, slower, time per step. */
+    CHECK(CRAWL_TIME > WALK_TIME);
+
+    /* A ledge can be climbed up into a low gap. */
+    for (int x = start.x - 6; x <= start.x - 3; x++) {
+        world_set(w, x, s - 1, TILE_STONE);
+        world_set(w, x, s - 3, TILE_STONE);
+    }
+    g.player.feet = g.player.step_to = (TilePos){ start.x - 1, s - 1 };
+    CHECK(game_click_tile(&g, start.x - 5, s - 2));
+    run(&g, 4.0f);
+    CHECK(is_idle(&g) && g.player.feet.x == start.x - 5 && g.player.feet.y == s - 2 && game_player_crawling(&g));
+    game_free(&g);
+}
+
+/* Nothing is reached diagonally past two blocks that meet at the corner. */
+static void test_blocked_corner(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 26, WORLD_FLAT);
+    World *w = &g.world;
+    TilePos start = g.player.feet;
+    int s = w->surface_y;
+
+    /* On open ground the block diagonally below is fair game: only the
+     * ground underfoot is in the way, not the tile beside the player. */
+    CHECK(game_queue_action(&g, ACTION_MINE, start.x + 1, s));
+    run(&g, 2.0f);
+    CHECK(world_get(w, start.x + 1, s) == TILE_AIR && g.player.feet.x == start.x);
+
+    /* Down a one-wide shaft, the blocks diagonally below are walled off. */
+    int hx = start.x + 5;
+    world_set(w, hx, s, TILE_AIR);
+    world_set(w, hx, s + 1, TILE_AIR);
+    g.player.feet = g.player.step_to = (TilePos){ hx, s + 1 };
+    CHECK(world_is_solid(w, hx + 1, s + 1) && world_is_solid(w, hx, s + 2));
+    CHECK(!game_queue_action(&g, ACTION_MINE, hx + 1, s + 2));
+    CHECK(!game_queue_action(&g, ACTION_MINE, hx - 1, s + 2));
+    /* Straight down and straight to the side are not corners. */
+    CHECK(game_queue_action(&g, ACTION_MINE, hx + 1, s + 1));
+    run(&g, 2.0f);
+    CHECK(world_get(w, hx + 1, s + 1) == TILE_AIR);
+    /* With the side block gone there is a way through to the corner. */
+    CHECK(game_queue_action(&g, ACTION_MINE, hx + 1, s + 2));
+    run(&g, 2.0f);
+    CHECK(world_get(w, hx + 1, s + 2) == TILE_AIR && g.player.feet.x == hx);
+
+    /* The same above the head, for placing as well as mining. */
+    int cx = start.x - 6;
+    g.player.feet = g.player.step_to = (TilePos){ cx, s - 1 };
+    game_cancel_actions(&g);
+    world_set(w, cx, s - 3, TILE_STONE);     /* over the head */
+    world_set(w, cx + 1, s - 2, TILE_STONE); /* beside the head */
+    world_set(w, cx + 1, s - 3, TILE_STONE); /* the corner */
+    run(&g, 0.2f);
+    /* It can still be mined, but only by going somewhere else to do it. */
+    bool queued = game_queue_action(&g, ACTION_MINE, cx + 1, s - 3);
+    run(&g, tile_def(TILE_STONE)->mine_time * 0.5f);
+    CHECK(!queued || g.player.activity != ACTIVITY_MINING);
+    game_cancel_actions(&g);
+    run(&g, 1.0f);
+    g.player.feet = g.player.step_to = (TilePos){ cx, s - 1 };
+    g.player.climbing = false;
+    world_set(w, cx, s - 3, TILE_STONE);
+    world_set(w, cx + 1, s - 2, TILE_STONE);
+    world_set(w, cx + 1, s - 3, TILE_AIR);
+    memset(&g.inventory, 0, sizeof g.inventory);
+    g.inventory.sel_inner = -1;
+    inventory_add(&g.inventory, ITEM_DIRT, 4);
+    inventory_select(&g.inventory, 0, -1);
+    /* Walled in on all sides so there is nowhere else to place it from. */
+    world_set(w, cx - 1, s - 1, TILE_STONE);
+    world_set(w, cx - 1, s - 2, TILE_STONE);
+    world_set(w, cx + 1, s - 1, TILE_STONE);
+    CHECK(!game_queue_action(&g, ACTION_PLACE, cx + 1, s - 3));
+    world_set(w, cx, s - 3, TILE_AIR);
+    CHECK(game_queue_action(&g, ACTION_PLACE, cx + 1, s - 3));
+    run(&g, 2.0f);
+    CHECK(world_get(w, cx + 1, s - 3) == TILE_DIRT && g.player.feet.x == cx);
+    game_free(&g);
+}
+
 static void test_hop_gap(void)
 {
     Game g;
@@ -1743,6 +1962,9 @@ int main(void)
     test_click_mine();
     test_queue();
     test_unqueue();
+    test_monkey_bars();
+    test_crawl();
+    test_blocked_corner();
     test_hop_gap();
     test_climb_drop();
     test_wall_hop();
