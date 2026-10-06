@@ -152,6 +152,37 @@
    ]
   },
   {
+   "name": "coffee",
+   "log": "coffee_log",
+   "leaves": "coffee_leaves",
+   "fruit": "coffee_bean",
+   "fruit_ticks": 1800,
+   "layer": "background",
+   "soil": [
+    "dirt",
+    "grass"
+   ],
+   "max_height": 3,
+   "rows": [
+    {
+     "offset": -1,
+     "left": 1,
+     "right": 1,
+     "center": true
+    },
+    {
+     "offset": 0,
+     "left": 1,
+     "right": 1
+    },
+    {
+     "offset": 1,
+     "left": 1,
+     "right": 1
+    }
+   ]
+  },
+  {
    "name": "cactus",
    "log": "cactus",
    "leaves": "cactus_arm",

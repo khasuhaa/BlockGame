@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 9u
+#define SAVE_VERSION 10u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -132,6 +132,41 @@ static bool read_names(FILE *f, uint8_t map[256], int (*lookup)(const char *))
     return true;
 }
 
+/* A creature as saved before version 10. */
+typedef struct {
+    bool active;
+    uint8_t kind;
+    bool owned;
+    bool baby;
+    int x, y;
+    int to_x, to_y;
+    int step_left, step_total;
+    int dir;
+    int age;
+    uint32_t id;
+} OldMob;
+
+static bool read_old_mobs(FILE *f, Game *g)
+{
+    static OldMob old[MAX_MOBS];
+    if (fread(old, sizeof old, 1, f) != 1) return false;
+    for (int i = 0; i < MAX_MOBS; i++) {
+        const OldMob *m = &old[i];
+        g->mobs[i] = (Mob){ .active = m->active, .kind = m->kind, .owned = m->owned, .baby = m->baby,
+                            .x = m->x, .y = m->y, .to_x = m->to_x, .to_y = m->to_y,
+                            .step_left = m->step_left, .step_total = m->step_total, .dir = m->dir,
+                            .age = m->age, .id = m->id };
+    }
+    return true;
+}
+
+static int biome_id(const char *name)
+{
+    for (int i = 0; i < content.biome_count; i++)
+        if (strcmp(content.biomes[i].name, name) == 0) return i;
+    return 0;
+}
+
 /* Which saved creature kinds still exist, filled in as their names are read. */
 static bool mob_id_by_saved_name[256];
 static int mob_names_read;
@@ -193,7 +228,9 @@ bool save_game(const Game *g, const char *path)
          fwrite(g->storages, sizeof g->storages, 1, f) == 1 &&
          write_names(f, content.mob_count, content.mobs[0].name, sizeof content.mobs[0]) &&
          fwrite(g->mobs, sizeof g->mobs, 1, f) == 1 && fwrite(&g->next_mob_id, sizeof g->next_mob_id, 1, f) == 1 &&
-         fwrite(g->explored, 1, cells, f) == cells && fwrite(&g->vitals, sizeof g->vitals, 1, f) == 1;
+         fwrite(g->explored, 1, cells, f) == cells && fwrite(&g->vitals, sizeof g->vitals, 1, f) == 1 &&
+         write_names(f, content.biome_count, content.biomes[0].name, sizeof content.biomes[0]) &&
+         fwrite(w->biome, 1, (size_t)w->width, f) == (size_t)w->width;
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
         remove(tmp);
@@ -247,7 +284,8 @@ bool load_game(Game *g, const char *path)
             uint8_t kinds[256];
             mob_names_read = 0;
             memset(mob_id_by_saved_name, 0, sizeof mob_id_by_saved_name);
-            ok = read_names(f, kinds, mob_id_or_zero) && fread(g->mobs, sizeof g->mobs, 1, f) == 1 &&
+            ok = read_names(f, kinds, mob_id_or_zero) &&
+                 (h.version < 10 ? read_old_mobs(f, g) : fread(g->mobs, sizeof g->mobs, 1, f) == 1) &&
                  fread(&g->next_mob_id, sizeof g->next_mob_id, 1, f) == 1;
             for (int i = 0; ok && i < MAX_MOBS; i++) {
                 /* (A kind that no longer exists maps to 0 like any other; a
@@ -264,6 +302,14 @@ bool load_game(Game *g, const char *path)
         /* The player's needs, from version 9; before that, everything full.
          * Nobody is saved asleep. */
         if (ok && h.version >= 9) ok = fread(&g->vitals, sizeof g->vitals, 1, f) == 1;
+        /* The biome of each column, by name, from version 10. */
+        bool biomes_read = false;
+        if (ok && h.version >= 10) {
+            uint8_t kinds[256];
+            ok = read_names(f, kinds, biome_id) && fread(w->biome, 1, (size_t)w->width, f) == (size_t)w->width;
+            for (int x = 0; ok && x < w->width; x++) w->biome[x] = kinds[w->biome[x]];
+            biomes_read = ok;
+        }
         g->vitals.rest = REST_NONE;
         g->vitals.meditation = 0.0f;
 
@@ -312,6 +358,8 @@ bool load_game(Game *g, const char *path)
 
         w->y_top = h.y_top;
         w->sea_row = extra.sea_row;
+        /* An older world did not record its biomes: they are worked out from the land. */
+        if (ok && !biomes_read) world_guess_biomes(w);
         if (extra.fog != 0) g->fog = extra.fog == 1;
         w->spawn_x = h.spawn_x;
         w->spawn_y = h.spawn_y;

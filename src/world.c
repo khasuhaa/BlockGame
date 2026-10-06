@@ -482,6 +482,7 @@ static bool generate_terrain(World *w)
     }
     w->sea_row = gen->has_sea ? world_y_to_row(w, gen->sea_level) : -1;
     assign_biomes(w, level, biome, share);
+    for (int x = 0; x < width; x++) w->biome[x] = (uint8_t)biome[x];
 
     /* Fill the columns: the biome's surface over its soil over rock. The
      * soil thins out into a feature until it is bare rock, unless the biome
@@ -554,6 +555,11 @@ bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind)
             return false;
         }
     }
+    w->biome = calloc((size_t)width, 1);
+    if (!w->biome) {
+        world_free(w);
+        return false;
+    }
     w->width = width;
     w->height = height;
     w->seed = seed;
@@ -581,7 +587,34 @@ bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind)
 void world_free(World *w)
 {
     for (int i = 0; i < LAYER_COUNT; i++) free(w->layers[i]);
+    free(w->biome);
     memset(w, 0, sizeof *w);
+}
+
+int world_biome(const World *w, int x)
+{
+    int b = w->biome ? w->biome[world_wrap_x(w, x)] : 0;
+    return b < content.biome_count ? b : 0;
+}
+
+void world_guess_biomes(World *w)
+{
+    int *level = calloc((size_t)w->width, sizeof(int)), *biome = calloc((size_t)w->width, sizeof(int));
+    float *share = calloc((size_t)w->width, sizeof(float));
+    if (level && biome && share) {
+        /* The ground is as high as its backwall stands, whatever has been dug since. */
+        for (int x = 0; x < w->width; x++) {
+            int top = 0;
+            while (top < w->height - 1 && world_get_at(w, LAYER_WALL, x, top) == TILE_AIR && !world_is_solid(w, x, top))
+                top++;
+            level[x] = world_row_to_y(w, top) + 1;
+        }
+        assign_biomes(w, level, biome, share);
+        for (int x = 0; x < w->width; x++) w->biome[x] = (uint8_t)biome[x];
+    }
+    free(level);
+    free(biome);
+    free(share);
 }
 
 bool world_in_bounds(const World *w, int x, int y)

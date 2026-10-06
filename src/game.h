@@ -150,7 +150,20 @@ typedef struct {
     int dir;       /* -1 or +1: which way it faces */
     int age;       /* ticks since it was born */
     uint32_t id;
+    /* For a creature that lives in trees. */
+    int32_t state;  /* a MobState */
+    int32_t home_x; /* the column of its tree */
+    int32_t timer;  /* ticks left of the chase, or before it will come down again */
+    int32_t reserved[3];
 } Mob;
+
+typedef enum {
+    MOB_WANDER, /* an ordinary creature, going where it likes */
+    MOB_PERCH,  /* up its tree */
+    MOB_HUNT,   /* down after the player */
+    MOB_RETURN, /* on its way back to its tree */
+    MOB_SEEK    /* without a tree, looking for one */
+} MobState;
 
 /* What a block placed in the world keeps besides its tile: the contents of a
  * storage block such as a chest, the fuel left in a kiln or furnace. */

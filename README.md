@@ -58,6 +58,7 @@ Worlds are saved in `saves/<name>.world`, next to where the game is run from. A 
 | Click a dropped item or a fruit | Queue walking up to it and picking it up |
 | Click a creature | Queue hunting it |
 | `Esc` | Pause menu |
+| `F3` | Hide or show the readout in the corner |
 | Drag | Pan the map |
 | Mouse wheel | Zoom in and out; far enough out, the world map |
 | `Space` | Make the camera follow the player again |
@@ -97,7 +98,8 @@ The land is plains broken up by mountains and valleys, always with a stretch of 
 
 **Biomes.** Two smooth maps run round the world, one of heat and one of dryness, and what kind of country a column is follows from them and from the sea:
 
-- **Plains** are the ordinary country: grass over dirt, with oak, cherry, apple and orange trees, and carrots and flax growing wild.
+- **Plains** are the ordinary country: grass over dirt, with oaks, and carrots and flax growing wild.
+- Each kind of tree keeps to its own country, so like grows with like: a **cherry grove** where it is cold, an **orchard** of apple trees where it is mild and damp, and the **tropics** - coffee and orange trees - where it is hot and damp. All three are grass over dirt like the plains. Which biome a column is is recorded with the world; a world saved before that has it worked out from its climate and the lie of the land, so there the name may not match the trees that were generated.
 - **Desert** is where it is both hot and dry: sand instead of grass and dirt, and cacti instead of trees. The spawn is always on plains. Where a desert or a beach meets other country its sand does not stop at a line or break into stripes: it thins to a skin one block deep over the ordinary dirt at the edge, and deepens inward.
 - **Ocean** is everything below Y 0. Its bed is sand, kelp and coral grow on it, and the open space above it is water up to Y 0. Valleys reach below Y 0, so every valley is a sea.
 - **Beach** is the land within nine columns of a sea: sand, more of it the nearer the water.
@@ -146,7 +148,7 @@ Trees are generated on the plains at every stage of growth, and keep growing:
 
 With an acorn or a cherry selected, clicking dirt or grass that has room above it queues planting: the player walks over and a single trunk block appears on top, which then grows by random events like any other tree. Where it cannot be planted (other blocks, or something in the way above), the click mines as usual.
 
-An **apple** tree and an **orange** tree are smaller round-crowned trees with their own trunks and leaves, bearing apples and oranges; planting the fruit grows the tree.
+An **apple** tree and an **orange** tree are smaller round-crowned trees with their own trunks and leaves, bearing apples and oranges; planting the fruit grows the tree. A **coffee** tree is a bush three blocks tall bearing coffee beans, and a bean planted on dirt or grass grows one. Eating a bean gives a fifth of a bar of energy, with a little hunger and health.
 
 A **cactus** grows on sand: a trunk up to 5 blocks, with two arms that leave it sideways and turn up, and no leaves. Prickly pears grow on the arms, and planting one on sand grows a cactus. An arm grows out from the trunk a block at a time, so no part of one ever hangs in the air (`"connected"` in `trees.json`), and the blocks of a cactus are drawn joined up: one round stem that bends at the elbows and is capped at the tips. A block that lists others it `"joins"` in `tiles.json` is drawn from a sheet of sixteen pictures, one for each combination of neighbours.
 
@@ -170,6 +172,12 @@ The world has four layers from back to front: the backwall; the background layer
 - **Whose they are.** A dodo that hatches from an egg the player put down is the player's. One from an egg a dodo laid is wild, whoever the parent belonged to - unless the player picked that egg up and put it down again. A wild egg waits to hatch while the cap of 10 is reached; the player's eggs hatch regardless.
 - **Hunting.** Clicking a dodo queues going after it, marked with a red ring; the player follows it as it moves and kills it on reaching it. Clicking it again calls that off. A grown dodo leaves 1 or 2 dodo meat and 1 or 2 feathers; a chick leaves nothing. A campfire cooks dodo meat.
 - **How they move.** A dodo strides through its walking frames and bobs as it goes, setting off and stopping gently. Up a step it hops up and then forward, and down one it walks off and then drops, so it goes round the corner of a block and never through it. The frames and the height of the bob are in `mobs.json`.
+
+**Dropbears** live at the top of trees. A random event on the trunk of a tree near the player can bring one, at most three near the player at once and one to a tree.
+
+- **Ambush.** When the player comes within two columns of its tree, below it, it runs down the trunk, runs at them and bites - 15% of the health bar, and enough to wake a sleeper - then runs back up. It then leaves the player alone for 150 ticks. If the player gets away for long enough it gives up and goes home.
+- **Homeless.** If its tree is cut down it drops to the ground and runs for the nearest tree within 24 columns, and goes up that. With none in sight it runs about until one is.
+- Hunted like a dodo, it leaves 1 or 2 fur. Health never goes below nothing, and nothing more happens when it is at nothing.
 
 ## Plants
 
@@ -204,17 +212,21 @@ A mined block drops as an item where it was. It is collected when the player is 
 
 ## Health, hunger and energy
 
-The button in the top left corner is the player. Under it are two small bars, health and hunger. Clicking it flies a panel out beside it with those two and a third, energy, and two buttons: **Sleep** and **Meditate**. Bars are green on dark red.
+The button in the top left corner, under the readout, is the player. Under it are two small bars, health and hunger. Clicking it flies a panel out beside it with those two and a third, energy, and two buttons: **Sleep** and **Meditate**. Bars are green on dark red.
 
 - **Hunger** runs down all the time: a full bar lasts 3600 ticks. Selecting a food in the inventory puts an **Eat** button above it; eating one fills some of the bar, a cooked meal much more than a berry. Eating to full and then eating again turns the bar golden: nothing more can be eaten (the button reads "Full"), and hunger holds off until that wears off - longer the bigger the meal.
 - **Health** mends by itself, slowly, and a little with everything eaten - much less than the food does for hunger. With hunger at nothing it runs down instead, though never below a tenth.
 - **Energy** runs down while awake: a full bar lasts 1800 ticks. It has no golden state.
 - **Sleeping** lays the player on the ground and brings energy back; they wake by themselves when it is full. The button is greyed out while energy is full.
-- **Meditating** sits the player down, with a progress bar over their head. Every 900 ticks it reaches 100% and something pops out beside them to be picked up: a gem (amethyst most often, diamond least), a fruit, or one of the six ores found in stone.
+- **Meditating** sits the player down, with a progress bar over their head. Every 900 ticks it reaches 100% and something pops out beside them to be picked up: a gem (amethyst most often, diamond least), a fruit, or one of the six ores found in stone. (Coffee beans count as a fruit.)
 - Either needs the player to be standing on the ground, and ends as soon as they are told to do anything else - a click on the world, a movement key - or the button is pressed again.
 - While the player sleeps or meditates the ticks go three times as fast (30 a second instead of 10), and arrows at the top of the screen say so.
 
 All the numbers, what each food is worth (`"food"` in `items.json`) and the list of what meditating brings are data.
+
+## The readout
+
+The top left corner shows, a line each: frames per second; the player's X and Y; the biome they are standing in; how many creatures are within range against the cap; and the time of day with the tick count and the rate ticks are going at. `F3` hides it and brings it back. The crystals are in the top right corner.
 
 ## Fog of war and the world map
 

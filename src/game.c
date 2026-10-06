@@ -1301,6 +1301,7 @@ bool game_eat(Game *g)
     v->hunger = clamp01(v->hunger + def->food);
     float mend = def->food_health >= 0.0f ? def->food_health : def->food * content.rules.food_health;
     v->health = clamp01(v->health + mend);
+    v->energy = clamp01(v->energy + def->food_energy);
     return true;
 }
 

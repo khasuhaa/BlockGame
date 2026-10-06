@@ -19,10 +19,11 @@
 #define MAX_FEATURES 16
 #define MAX_VEINS 48
 #define MAX_DECOR 16
-#define MAX_BIOMES 8
+#define MAX_BIOMES 16
 #define MAX_MOB_KINDS 16
 #define MAX_MOB_DROPS 4
 #define MAX_MOB_SPAWN_TILES 4
+#define MAX_MOB_TREES 8
 #define MAX_BIOME_TREES 8
 #define MAX_BIOME_PLANTS 8
 #define MAX_TILE_SOILS 4
@@ -162,6 +163,7 @@ typedef struct {
     int fuel;        /* ticks it burns for as fuel; 0 if it is not fuel */
     float food;      /* share of the hunger bar eating one fills; 0 if it cannot be eaten */
     float food_health; /* share of the health bar it mends; below 0 for the usual share of `food` */
+    float food_energy; /* share of the energy bar it gives back */
     int category;    /* where it is listed for trading, or -1 if it is not traded */
     char category_name[CONTENT_NAME_LEN];
     int price;       /* what one costs, in the smallest currency; 0 for the default */
@@ -264,6 +266,7 @@ typedef struct {
  * is there, from whether it is under the sea, and from how near the sea it is. */
 typedef struct {
     char name[CONTENT_NAME_LEN];
+    char label[CONTENT_NAME_LEN]; /* shown to the player */
     bool has_climate;  /* chosen by heat and dryness, each -1..1 */
     float heat_min, heat_max, dry_min, dry_max;
     bool below_sea;    /* this is what land under sea level is */
@@ -398,6 +401,19 @@ typedef struct {
     TileType spawn_above[MAX_MOB_SPAWN_TILES]; /* ground it turns up on, in the open air */
     int spawn_above_count;
     float spawn_chance; /* chance that a random event on such a spot brings one */
+    int cap;            /* no more of this kind appear while this many are near; 0 for no limit of its own */
+    /* A creature that lives in trees. It turns up at the top of one and sits
+     * there. When the player comes by underneath it runs down, bites them
+     * and runs back up; if its tree goes, it looks for another. */
+    bool perches;
+    int perch_trees[MAX_MOB_TREES]; /* the kinds of tree it will live in; any, if none are named */
+    int perch_tree_count;
+    int ambush_range;   /* columns either side of its tree that count as underneath */
+    int ambush_depth;   /* how far below it the player can be and still be gone for */
+    float bite;         /* share of the health bar a bite takes */
+    int chase_ticks;    /* how long it keeps after the player before giving up */
+    int bite_rest;      /* ticks after a bite, or giving up, before it will come down again */
+    int seek_radius;    /* columns it can see a tree from, and will chase the player over */
     TileType lays;      /* what it leaves where it stands now and then, or TILE_AIR */
     float lay_chance;   /* chance each tick */
     int baby_ticks;     /* how long a young one takes to grow up */

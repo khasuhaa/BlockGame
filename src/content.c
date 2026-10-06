@@ -364,6 +364,7 @@ static bool read_items(Reader *r, const cJSON *root)
         const cJSON *food = field(e, "food");
         it->food = cJSON_IsNumber(food) ? (float)food->valuedouble : (float)num(food, "hunger", 0.0);
         it->food_health = (float)num(food, "health", -1.0);
+        it->food_energy = (float)num(food, "energy", 0.0);
         if (it->food < 0.0f || it->food > 1.0f)
             return fail(r, "item \"%s\": \"food\" is a share of the hunger bar, 0 to 1", it->name);
         /* The category is matched to the trade file once that has been read. */
@@ -558,6 +559,7 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         BiomeDef *b = &content.biomes[id];
         memset(b, 0, sizeof *b);
         copy_name(b->name, sizeof b->name, name);
+        copy_name(b->label, sizeof b->label, str(e, "label") ? str(e, "label") : name);
         if (!tile_ref(r, e, "surface", &b->surface) || !tile_ref(r, e, "soil", &b->soil)) return false;
         if (b->surface == TILE_AIR || b->soil == TILE_AIR)
             return fail(r, "biome \"%s\" needs a \"surface\" and a \"soil\"", name);
@@ -842,6 +844,21 @@ static bool read_mobs(Reader *r, const cJSON *root)
             if (t < 0) return fail(r, "mob \"%s\": it spawns above a tile that does not exist", name);
             if (m->spawn_above_count < MAX_MOB_SPAWN_TILES) m->spawn_above[m->spawn_above_count++] = t;
         }
+        m->cap = (int)num(e, "cap", 0);
+        /* "perch": it lives in trees and comes down at the player. */
+        const cJSON *perch = field(e, "perch");
+        m->perches = cJSON_IsObject(perch);
+        cJSON_ArrayForEach(one, field(perch, "trees")) {
+            int tree = cJSON_IsString(one) ? tree_id(one->valuestring) : -1;
+            if (tree < 0) return fail(r, "mob \"%s\" perches in a tree that does not exist", name);
+            if (m->perch_tree_count < MAX_MOB_TREES) m->perch_trees[m->perch_tree_count++] = tree;
+        }
+        m->ambush_range = (int)num(perch, "ambush_range", 2);
+        m->ambush_depth = (int)num(perch, "ambush_depth", 12);
+        m->bite = (float)num(perch, "bite", 0.1);
+        m->chase_ticks = (int)num(perch, "chase_ticks", 100);
+        m->bite_rest = (int)num(perch, "rest_ticks", 100);
+        m->seek_radius = (int)num(perch, "seek_radius", 24);
         const cJSON *lays = field(e, "lays");
         if (lays && !tile_ref(r, lays, "tile", &m->lays)) return false;
         m->lay_chance = (float)num(lays, "chance", 0.0);

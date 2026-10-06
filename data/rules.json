@@ -25,7 +25,7 @@
       { "item": "amethyst", "weight": 16 }, { "item": "sapphire", "weight": 8 }, { "item": "emerald", "weight": 4 },
       { "item": "ruby", "weight": 2 }, { "item": "diamond", "weight": 1 },
       { "item": "acorn", "weight": 16 }, { "item": "cherry", "weight": 16 }, { "item": "apple", "weight": 16 },
-      { "item": "orange", "weight": 16 }, { "item": "prickly_pear", "weight": 16 },
+      { "item": "orange", "weight": 16 }, { "item": "prickly_pear", "weight": 16 }, { "item": "coffee_bean", "weight": 16 },
       { "item": "copper_ore", "weight": 14 }, { "item": "tin_ore", "weight": 14 }, { "item": "iron_ore", "weight": 10 },
       { "item": "gold_ore", "weight": 10 }, { "item": "platinum_ore", "weight": 5 }, { "item": "titanium_ore", "weight": 5 }
     ]

@@ -593,7 +593,7 @@ static void draw_mobs(const Game *g, Vector2 origin)
                 int frame = (int)(stride * 2.0f * (float)frames) % frames;
                 file = m->baby ? def->walk_baby[frame] : def->walk[frame];
             }
-            r.y -= def->hop * TILE_SIZE * fabsf(sinf(stride * 2.0f * PI));
+            if (m->to_x != m->x) r.y -= def->hop * TILE_SIZE * fabsf(sinf(stride * 2.0f * PI));
         }
         assets_draw_sprite(file, r, m->dir < 0);
     }
@@ -768,7 +768,7 @@ static void draw_player(const Game *g, Vector2 origin)
 static void draw_fast_forward(const Game *g)
 {
     if (g->vitals.rest == REST_NONE || game_tick_speed(g) <= g->tick_rate) return;
-    float cx = GetScreenWidth() / 2.0f, y = 70.0f, time = (float)GetTime();
+    float cx = GetScreenWidth() / 2.0f, y = 20.0f, time = (float)GetTime();
     const char *text = TextFormat("x%d", game_tick_speed(g) / g->tick_rate);
     float w = 86.0f + (float)MeasureText(text, 20);
     Rectangle box = { cx - w / 2, y - 8, w, 40 };
@@ -790,30 +790,42 @@ static void draw_crystals(const Game *g)
 {
     const char *text = TextFormat("%d", g->crystals);
     float w = (float)MeasureText(text, 20) + 52.0f;
-    Rectangle box = { GetScreenWidth() - w - 12.0f, 64.0f, w, 36.0f };
+    Rectangle box = { GetScreenWidth() - w - 12.0f, 12.0f, w, 36.0f };
     DrawRectangleRec(box, (Color){ 22, 30, 48, 235 });
     DrawRectangleLinesEx(box, 2.0f, (Color){ 120, 220, 255, 255 });
     assets_draw_image(content.trade.crystal_icon, (Rectangle){ box.x + 8, box.y + 5, 26, 26 });
     DrawText(text, (int)box.x + 42, (int)box.y + 8, 20, RAYWHITE);
 }
 
+/* One line of the readout: white text on its own dark strip. */
+static void draw_readout_line(int row, const char *text)
+{
+    const int size = 16, x = 4, y = 4 + row * (size + 4);
+    DrawRectangle(x - 2, y - 2, MeasureText(text, size) + 8, size + 4, Fade((Color){ 20, 20, 24, 255 }, 0.6f));
+    DrawText(text, x + 2, y, size, (Color){ 224, 224, 224, 255 });
+}
+
+/* The readout in the top left corner: how the game is running, where the
+ * player is and what is about. F3 hides it and brings it back. */
+static bool readout_shown = true;
+
 static void draw_hud(const Game *g, const MapCamera *cam)
 {
     draw_crystals(g);
-    DrawRectangle(0, 0, GetScreenWidth(), 52, Fade(BLACK, 0.45f));
-    DrawText("Click: move / mine / place / use / pick up   Drag: pan   Scroll: zoom, out to the "
-             "world map   1-8: select   Esc: menu",
-             10, 8, 16, RAYWHITE);
-    const ItemStack *held = inventory_selected(&g->inventory);
+    if (IsKeyPressed(KEY_F3)) readout_shown = !readout_shown;
+    if (!readout_shown) return;
+
+    const World *w = &g->world;
     bool day;
     float phase = game_day_phase(g, &day);
-    DrawText(TextFormat("%s %d%%   X %d  Y %d   queued %d   selected: %s%s",
-                        day ? "Day" : "Night", (int)(phase * 100.0f),
-                        g->player.feet.x, world_row_to_y(&g->world, g->player.feet.y),
-                        g->queue_count + (g->has_current ? 1 : 0),
-                        held->count > 0 ? item_def((ItemId)held->id)->label : "nothing",
-                        cam->follow ? "" : "   (camera detached)"),
-             10, 30, 16, LIGHTGRAY);
+    int row = 0;
+    draw_readout_line(row++, TextFormat("%d fps", GetFPS()));
+    draw_readout_line(row++, TextFormat("XY: %d / %d", g->player.feet.x, world_row_to_y(w, g->player.feet.y)));
+    draw_readout_line(row++, TextFormat("Biome: %s", content.biomes[world_biome(w, g->player.feet.x)].label));
+    draw_readout_line(row++, TextFormat("Mobs: %d / %d", mobs_near_player(g), content.mob_cap));
+    draw_readout_line(row++, TextFormat("%s %d%%   tick %llu at %d/s%s", day ? "Day" : "Night", (int)(phase * 100.0f),
+                                        (unsigned long long)g->tick, game_tick_speed(g),
+                                        cam->follow ? "" : "   camera free"));
 }
 
 /* Everything that exists only while a world is open. */

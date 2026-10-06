@@ -3,7 +3,7 @@
 #include "hud.h"
 
 #define BUTTON_X 12.0f
-#define BUTTON_Y 64.0f
+#define BUTTON_Y 116.0f /* under the readout in the corner */
 #define BUTTON_SIZE 52.0f
 #define SMALL_BAR_HEIGHT 7.0f
 #define SMALL_BAR_GAP 3.0f

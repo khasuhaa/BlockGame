@@ -7,8 +7,18 @@
       "label": "Dodo",
       "texture": "mobs/dodo.png",
       "texture_baby": "mobs/dodo_baby.png",
-      "walk": ["mobs/dodo_walk_0.png", "mobs/dodo.png", "mobs/dodo_walk_1.png", "mobs/dodo.png"],
-      "walk_baby": ["mobs/dodo_baby_walk_0.png", "mobs/dodo_baby.png", "mobs/dodo_baby_walk_1.png", "mobs/dodo_baby.png"],
+      "walk": [
+        "mobs/dodo_walk_0.png",
+        "mobs/dodo.png",
+        "mobs/dodo_walk_1.png",
+        "mobs/dodo.png"
+      ],
+      "walk_baby": [
+        "mobs/dodo_baby_walk_0.png",
+        "mobs/dodo_baby.png",
+        "mobs/dodo_baby_walk_1.png",
+        "mobs/dodo_baby.png"
+      ],
       "hop": 0.1,
       "step_ticks": 4,
       "move_chance": 0.2,
@@ -32,6 +42,45 @@
         },
         {
           "item": "feather",
+          "min": 1,
+          "max": 2
+        }
+      ]
+    },
+    {
+      "name": "dropbear",
+      "label": "Dropbear",
+      "texture": "mobs/dropbear.png",
+      "walk": [
+        "mobs/dropbear_walk_0.png",
+        "mobs/dropbear.png",
+        "mobs/dropbear_walk_1.png",
+        "mobs/dropbear.png"
+      ],
+      "hop": 0.06,
+      "step_ticks": 2,
+      "cap": 3,
+      "spawn": {
+        "chance": 0.25
+      },
+      "perch": {
+        "trees": [
+          "oak",
+          "cherry",
+          "apple",
+          "orange",
+          "coffee"
+        ],
+        "ambush_range": 2,
+        "ambush_depth": 12,
+        "bite": 0.15,
+        "chase_ticks": 120,
+        "rest_ticks": 150,
+        "seek_radius": 24
+      },
+      "drops": [
+        {
+          "item": "fur",
           "min": 1,
           "max": 2
         }

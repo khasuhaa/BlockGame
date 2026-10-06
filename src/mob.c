@@ -1,6 +1,7 @@
 #include "mob.h"
 
 #include <math.h>
+#include <stdlib.h>
 
 static float chance(Game *g)
 {
@@ -42,10 +43,59 @@ int mob_spawn(Game *g, int kind, int x, int y, bool owned, bool baby)
     return -1;
 }
 
+/* Whether a kind of creature will live in a kind of tree. */
+static bool perch_tree(const MobDef *def, int tree)
+{
+    if (tree < 0) return false;
+    if (def->perch_tree_count == 0) return true;
+    for (int i = 0; i < def->perch_tree_count; i++)
+        if (def->perch_trees[i] == tree) return true;
+    return false;
+}
+
+static bool trunk_for(const World *w, const MobDef *def, int x, int y)
+{
+    return perch_tree(def, tree_trunk_at(w, x, y));
+}
+
+static int kind_near_player(const Game *g, int kind)
+{
+    int n = 0;
+    for (int i = 0; i < MAX_MOBS; i++)
+        if (g->mobs[i].active && g->mobs[i].kind == kind && in_range(g, g->mobs[i].x, g->mobs[i].y)) n++;
+    return n;
+}
+
+/* A random event on the trunk of a tree can bring something that lives in
+ * trees to the top of it. */
+static bool try_spawn_in_tree(Game *g, int x, int y)
+{
+    const World *w = &g->world;
+    for (int kind = 0; kind < content.mob_count; kind++) {
+        const MobDef *def = &content.mobs[kind];
+        if (!def->perches || !trunk_for(w, def, x, y)) continue;
+        int top = y;
+        while (trunk_for(w, def, x, top - 1)) top--;
+        if (!in_range(g, x, top) || mobs_near_player(g) >= content.mob_cap) return false;
+        if (def->cap > 0 && kind_near_player(g, kind) >= def->cap) return false;
+        for (int i = 0; i < MAX_MOBS; i++)
+            if (g->mobs[i].active && g->mobs[i].kind == kind && g->mobs[i].x == world_wrap_x(w, x)) return false;
+        if (chance(g) >= def->spawn_chance) return false;
+        int slot = mob_spawn(g, kind, x, top, false, false);
+        if (slot < 0) return false;
+        g->mobs[slot].state = MOB_PERCH;
+        g->mobs[slot].home_x = g->mobs[slot].x;
+        return true;
+    }
+    return false;
+}
+
 bool mobs_try_spawn(Game *g, int x, int y)
 {
     const World *w = &g->world;
-    if (!world_in_bounds(w, x, y) || world_get(w, x, y) != TILE_AIR) return false;
+    if (!world_in_bounds(w, x, y)) return false;
+    if (try_spawn_in_tree(g, x, y)) return true;
+    if (world_get(w, x, y) != TILE_AIR) return false;
     if (world_get_at(w, LAYER_BACKGROUND, x, y) != TILE_AIR || world_is_water(w, x, y)) return false;
     TileType ground = world_get(w, x, y + 1);
 
@@ -53,9 +103,10 @@ bool mobs_try_spawn(Game *g, int x, int y)
         const MobDef *def = &content.mobs[kind];
         bool here = false;
         for (int i = 0; i < def->spawn_above_count; i++) here = here || def->spawn_above[i] == ground;
-        if (!here) continue;
+        if (!here || def->perches) continue;
         /* Only near the player, and only while there is room for more. */
         if (!in_range(g, x, y) || mobs_near_player(g) >= content.mob_cap) return false;
+        if (def->cap > 0 && kind_near_player(g, kind) >= def->cap) return false;
         if (chance(g) >= def->spawn_chance) return false;
         return mob_spawn(g, kind, x, y, false, false) >= 0;
     }
@@ -95,7 +146,7 @@ void mob_kill(Game *g, int mob)
 /* Sets a creature walking one block the way it faces: along the level, up a
  * step of one block, or down one. It will not cross a gap or drop further;
  * faced with either it turns round instead. */
-static void start_step(Game *g, Mob *m)
+static bool start_step(Game *g, Mob *m)
 {
     const World *w = &g->world;
     int nx = m->x + m->dir, ny = m->y;
@@ -105,11 +156,127 @@ static void start_step(Game *g, Mob *m)
     else if (!world_is_solid(w, nx, m->y) && can_stand(w, nx, m->y + 1)) ny = m->y + 1;
     else {
         m->dir = -m->dir;
-        return;
+        return false;
     }
     m->to_x = world_wrap_x(w, nx);
     m->to_y = ny;
     m->step_total = m->step_left = content.mobs[m->kind].step_ticks;
+    return true;
+}
+
+/* ---- creatures that live in trees --------------------------------------- */
+
+/* One block up or down the trunk it is on. */
+static void climb(Mob *m, int dy)
+{
+    m->to_x = m->x;
+    m->to_y = m->y + dy;
+    m->step_total = m->step_left = content.mobs[m->kind].step_ticks;
+}
+
+/* Whether a column has a trunk it could live on, somewhere about its own height. */
+static bool tree_in_column(const World *w, const MobDef *def, int x, int y)
+{
+    for (int dy = -8; dy <= 8; dy++)
+        if (trunk_for(w, def, x, y + dy)) return true;
+    return false;
+}
+
+/* Goes a step nearer a column on foot, coming down off a trunk first.
+ * Returns false if there is no getting any nearer that way. */
+static bool head_for(Game *g, Mob *m, int column)
+{
+    const World *w = &g->world;
+    int dx = world_dx(w, m->x, column);
+    if (!world_is_solid(w, m->x, m->y + 1)) {
+        climb(m, 1);
+        return true;
+    }
+    if (dx == 0) return true;
+    m->dir = dx > 0 ? 1 : -1;
+    return start_step(g, m);
+}
+
+/* Up the trunk it has reached, to sit at the top. */
+static void go_up(Mob *m, const World *w, const MobDef *def)
+{
+    if (trunk_for(w, def, m->x, m->y - 1) && !world_is_solid(w, m->x, m->y - 1)) {
+        climb(m, -1);
+        return;
+    }
+    m->state = MOB_PERCH;
+    m->home_x = m->x;
+}
+
+static void perch_tick(Game *g, Mob *m, const MobDef *def)
+{
+    const World *w = &g->world;
+    const Player *p = &g->player;
+    bool on_trunk = trunk_for(w, def, m->x, m->y);
+    int pdx = world_dx(w, m->x, p->feet.x), pdy = p->feet.y - m->y;
+
+    switch ((MobState)m->state) {
+    case MOB_PERCH:
+        if (m->timer > 0) m->timer--;
+        if (!on_trunk) {
+            /* Its tree is gone from under it. */
+            m->state = MOB_SEEK;
+        } else if (trunk_for(w, def, m->x, m->y - 1)) {
+            go_up(m, w, def); /* the tree has grown */
+        } else if (m->timer == 0 && abs(pdx) <= def->ambush_range && pdy > 0 && pdy <= def->ambush_depth) {
+            /* Somebody is walking by underneath. */
+            m->state = MOB_HUNT;
+            m->home_x = m->x;
+            m->timer = def->chase_ticks;
+        }
+        break;
+    case MOB_HUNT:
+        if (m->timer > 0) m->timer--;
+        if (abs(pdx) <= 1 && pdy >= -1 && pdy <= 1) {
+            /* Got them. A bite wakes anybody. */
+            g->vitals.health -= def->bite;
+            if (g->vitals.health < 0.0f) g->vitals.health = 0.0f;
+            game_wake(g);
+            m->state = MOB_RETURN;
+            m->timer = def->bite_rest;
+        } else if (m->timer == 0 || abs(pdx) > def->seek_radius || !head_for(g, m, p->feet.x)) {
+            /* Too far, too long, or no way to them: back up the tree. */
+            m->state = MOB_RETURN;
+            m->timer = def->bite_rest;
+        }
+        break;
+    case MOB_RETURN:
+        if (!tree_in_column(w, def, m->home_x, m->y)) {
+            m->state = MOB_SEEK;
+        } else if (m->x == m->home_x && on_trunk) {
+            go_up(m, w, def);
+        } else if (m->x == m->home_x || !head_for(g, m, m->home_x)) {
+            m->state = MOB_SEEK; /* cannot get home: any tree will do */
+        }
+        break;
+    default: {
+        /* No tree: make for the nearest one in sight. */
+        if (on_trunk) {
+            go_up(m, w, def);
+            break;
+        }
+        int found = 0;
+        for (int d = 1; d <= def->seek_radius && found == 0; d++) {
+            if (tree_in_column(w, def, m->x + d * m->dir, m->y)) found = d * m->dir;
+            else if (tree_in_column(w, def, m->x - d * m->dir, m->y)) found = -d * m->dir;
+        }
+        /* With none in sight, or no way to it, it runs on the way it was going. */
+        if (found != 0 && m->timer == 0) {
+            if (!head_for(g, m, m->x + found)) m->timer = 4 * def->step_ticks + (int)(game_random(g) % 20u);
+        } else {
+            if (m->timer > 0) m->timer--;
+            if (world_is_solid(w, m->x, m->y + 1)) start_step(g, m);
+            else climb(m, 1);
+        }
+        m->state = MOB_SEEK;
+        break;
+    }
+    }
 }
 
 void mobs_tick(Game *g)
@@ -134,11 +301,15 @@ void mobs_tick(Game *g)
             }
             continue;
         }
-        /* With the ground gone from under it, it falls. */
-        if (!world_is_solid(w, m->x, m->y + 1)) {
+        /* With the ground gone from under it, it falls - unless it has hold of a tree. */
+        if (!world_is_solid(w, m->x, m->y + 1) && !(def->perches && trunk_for(w, def, m->x, m->y))) {
             m->to_x = m->x;
             m->to_y = m->y + 1;
             m->step_total = m->step_left = 1;
+            continue;
+        }
+        if (def->perches) {
+            perch_tick(g, m, def);
             continue;
         }
         if (chance(g) < def->move_chance) {
@@ -176,7 +347,7 @@ void game_mob_pos(const Game *g, int mob, float *x, float *y)
 bool game_mob_walking(const Game *g, int mob, float *stride)
 {
     const Mob *m = &g->mobs[mob];
-    bool walking = m->step_left > 0 && m->step_total > 0 && m->to_x != m->x;
+    bool walking = m->step_left > 0 && m->step_total > 0 && (m->to_x != m->x || m->to_y != m->y);
     if (stride) {
         float into_tick = g->tick_timer < 1.0f ? g->tick_timer : 1.0f;
         *stride = walking ? ((float)(m->step_total - m->step_left) + into_tick) / (float)m->step_total : 0.0f;

@@ -2,6 +2,7 @@
 #define MOB_H
 
 #include "game.h"
+#include "tree.h"
 
 /* Creatures: where they come from, how they get about, and how they end. */
 
@@ -27,7 +28,8 @@ int game_mob_at(const Game *g, float x, float y);
 /* Where a creature is drawn: the top-left of its tile, part-way through its
  * step, and which way it faces. */
 void game_mob_pos(const Game *g, int mob, float *x, float *y);
-/* Whether a creature is walking, and how far through its stride it is, 0..1. */
+/* Whether a creature is on the move - walking, climbing or falling - and how
+ * far through its stride it is, 0..1. */
 bool game_mob_walking(const Game *g, int mob, float *stride);
 /* A click on a creature: queues going after it and killing it, or takes that
  * back if it is already queued. */

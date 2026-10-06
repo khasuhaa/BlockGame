@@ -26,11 +26,18 @@ typedef struct {
     int surface_y;    /* WORLD_FLAT only: row of the ground's top layer */
     int sea_row;      /* row of sea level: open sky below it is water; -1 for a world with no sea */
     uint8_t *layers[LAYER_COUNT];
+    uint8_t *biome;   /* which of content.biomes each column is */
 } World;
 
 /* Allocates the grid and generates terrain from the seed. */
 bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind);
 void world_free(World *w);
+
+/* The kind of country a column is. */
+int world_biome(const World *w, int x);
+/* Works the biomes out again from the land as it lies: for a world saved
+ * before they were recorded. */
+void world_guess_biomes(World *w);
 
 /* Any x is valid and wraps; only y can be out of bounds. */
 bool world_in_bounds(const World *w, int x, int y);

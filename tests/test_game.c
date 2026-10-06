@@ -2553,8 +2553,9 @@ static void test_biomes(void)
     int shore_sand = 0, shore_all = 0, inland_sand_runs = 0, stripes = 0, thin_edges = 0, loose_arms = 0, arms = 0;
     TileType arm = tile_id("cactus_arm");
 
-    CHECK(content.biome_count == 4 && content.worldgen.has_sea && content.worldgen.sea_level == 0);
-    CHECK(!content.biomes[0].has_climate && content.biomes[1].has_climate && content.biomes[3].below_sea);
+    CHECK(content.biome_count == 7 && content.worldgen.has_sea && content.worldgen.sea_level == 0);
+    CHECK(!content.biomes[0].has_climate && content.biomes[1].has_climate && content.biomes[6].below_sea);
+    int seen[MAX_TREES] = { 0 }, strays = 0, biomes_seen[MAX_BIOMES] = { 0 };
 
     for (uint32_t seed = 1; seed <= 10; seed++) {
         World w;
@@ -2596,6 +2597,17 @@ static void test_biomes(void)
             }
             /* What grows: each thing in its own country, on its own ground. */
             TileType growing = world_get_at(&w, BG, x, feet);
+            /* Every tree stands in a biome that grows its kind, so like stands with like. */
+            const BiomeDef *here = &content.biomes[world_biome(&w, x)];
+            biomes_seen[world_biome(&w, x)]++;
+            int tree = tree_trunk_at(&w, x, feet);
+            if (tree >= 0) {
+                bool belongs = false;
+                for (int k = 0; k < here->tree_count; k++) belongs = belongs || here->trees[k].tree == tree;
+                seen[tree]++;
+                if (!belongs) strays++;
+            }
+            if ((level < 0) != here->below_sea) bad++;
             const char *name = tile_def(growing)->name;
             if (growing == kelp) {
                 kelps++;
@@ -2637,6 +2649,10 @@ static void test_biomes(void)
         world_free(&w);
     }
     CHECK(kelps > 20 && corals > 20 && carrots > 5 && flax > 5 && apples > 0 && oranges > 0);
+    CHECK(strays == 0);
+    for (int k = 0; k < content.tree_count; k++) CHECK(seen[k] > 0);
+    for (int k = 0; k < content.biome_count; k++) CHECK(biomes_seen[k] > 0);
+    CHECK(strcmp(content.biomes[0].label, "Plains") == 0 && tree_id("coffee") >= 0);
     /* Deserts turn up, with cacti in them, but most worlds are not all desert. */
     CHECK(deserts > 100 && deserts < 10 * 2048 / 2 && cacti > 3);
     /* Sand does not start at a line, nor in stripes: it thins out over the dirt. */
@@ -3269,7 +3285,7 @@ static void test_vitals(void)
         for (int k = 0; k < u->loot_count; k++) listed = listed || u->loot[k].item == item_id(others[i]);
         CHECK(listed);
     }
-    CHECK(u->loot_count == 16);
+    CHECK(u->loot_count == 17);
 
     /* Not while hanging on a wall. */
     world_set(&g.world, g.player.feet.x + 1, g.player.feet.y + 1, TILE_AIR);
@@ -3416,6 +3432,167 @@ static void test_discard(void)
         CHECK(fruit->active && !fruit->attached && fruit->age < 5.0f);
     }
     game_free(&g);
+}
+
+/* A full-grown tree of a kind, standing on the flat ground at a column. */
+static void grow_tree(World *w, int x, const char *kind)
+{
+    uint32_t rng = 9;
+    tree_plant(w, x, w->surface_y - 1, tree_id(kind));
+    while (tree_grow(w, x, w->surface_y - 1, &rng).grew) {}
+}
+
+static int tree_top(const World *w, int x)
+{
+    int y = w->surface_y - 1;
+    while (tree_trunk_at(w, x, y - 1) >= 0) y--;
+    return y;
+}
+
+static void test_coffee_and_dropbears(void)
+{
+    Game g;
+    game_init(&g, 256, 64, 61, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    Vitals *v = &g.vitals;
+    ItemId bean = item_id("coffee_bean");
+    int ground = w->surface_y - 1, px = g.player.feet.x;
+    clear_inventory(&g);
+    for (int i = 0; i < MAX_MOBS; i++) g.mobs[i].active = false;
+
+    /* A coffee bean gives energy as well as a little hunger and health. */
+    CHECK(bean > 0 && game_is_food(bean) && item_def(bean)->food_energy > item_def(bean)->food);
+    inventory_add(inv, bean, 5);
+    inventory_select(inv, 0, -1);
+    v->energy = 0.3f;
+    v->hunger = 0.5f;
+    v->health = 0.5f;
+    CHECK(game_eat(&g));
+    CHECK(near(v->energy, 0.3f + item_def(bean)->food_energy) && v->hunger > 0.5f && v->health > 0.5f);
+    /* And planted on dirt it grows a coffee tree, which bears more of them. */
+    CHECK(game_queue_action(&g, ACTION_PLANT, px + 4, ground + 1));
+    run(&g, 3.0f);
+    CHECK(tree_trunk_at(w, px + 4, ground) == tree_id("coffee") && inventory_count(inv, bean) == 3);
+    CHECK(content.trees[tree_id("coffee")].fruit == bean);
+    world_set_at(w, BG, px + 4, ground, TILE_AIR);
+
+    /* Dropbears. One turns up at the top of a tree near the player. */
+    int kind = mob_id("dropbear");
+    const MobDef *def = &content.mobs[kind];
+    CHECK(kind >= 0 && def->perches && def->bite > 0.0f && def->cap > 0);
+    int tx = px + 12;
+    grow_tree(w, tx, "oak");
+    int top = tree_top(w, tx);
+    CHECK(top < ground - 2);
+    int bear = -1;
+    for (int tries = 0; tries < 400 && bear < 0; tries++) {
+        mobs_try_spawn(&g, tx, ground - 1);
+        for (int i = 0; i < MAX_MOBS; i++)
+            if (g.mobs[i].active && g.mobs[i].kind == kind) bear = i;
+    }
+    CHECK(bear >= 0);
+    if (bear < 0) return;
+    Mob *m = &g.mobs[bear];
+    CHECK(m->x == tx && m->y == top && m->state == MOB_PERCH);
+    /* Only one to a tree, and never on open ground. */
+    for (int tries = 0; tries < 400; tries++) mobs_try_spawn(&g, tx, ground - 1), mobs_try_spawn(&g, px + 30, ground);
+    int bears = 0;
+    for (int i = 0; i < MAX_MOBS; i++) bears += g.mobs[i].active && g.mobs[i].kind == kind;
+    CHECK(bears == 1);
+    for (int i = 0; i < MAX_MOBS; i++)
+        if (i != bear) g.mobs[i].active = false;
+
+    /* With nobody underneath it stays where it is. */
+    v->health = 1.0f;
+    v->hunger = 1.0f;
+    for (int i = 0; i < 200; i++) game_tick(&g);
+    CHECK(m->active && m->x == tx && m->y == top && m->state == MOB_PERCH && v->health == 1.0f);
+
+    /* Walk under it and it runs down the tree, bites, and runs back up. */
+    g.player.feet = g.player.step_to = (TilePos){ tx - 2, ground };
+    bool came_down = false, bitten = false;
+    for (int i = 0; i < 300 && !bitten; i++) {
+        game_tick(&g);
+        if (m->y > top) came_down = true;
+        if (v->health < 0.99f) bitten = true;
+    }
+    CHECK(came_down && bitten && m->state == MOB_RETURN);
+    CHECK(near(v->health, 1.0f - def->bite) || v->health > 1.0f - def->bite);
+    float after = v->health;
+    for (int i = 0; i < 100; i++) game_tick(&g);
+    CHECK(m->x == tx && m->y == top && m->state == MOB_PERCH);
+    /* It does not come straight back down for another go. */
+    CHECK(v->health >= after);
+    /* A bite wakes a sleeper. */
+    m->timer = 0;
+    v->energy = 0.2f;
+    CHECK(game_rest(&g, REST_SLEEP));
+    for (int i = 0; i < 300 && v->rest == REST_SLEEP; i++) game_tick(&g);
+    CHECK(v->rest == REST_NONE);
+
+    /* The player gone, it gives the chase up and goes home. */
+    g.player.feet = g.player.step_to = (TilePos){ px - 60, ground };
+    m->owned = true; /* (so that it is not lost for being far from the player) */
+    for (int i = 0; i < 400; i++) game_tick(&g);
+    CHECK(m->x == tx && m->y == top && m->state == MOB_PERCH);
+
+    /* Cut its tree down and it drops, runs about, finds another and goes up that. */
+    int other = tx + 9;
+    grow_tree(w, other, "cherry");
+    for (int y = top - 3; y <= ground; y++)
+        for (int x = tx - 3; x <= tx + 3; x++) world_set_at(w, BG, x, y, TILE_AIR);
+    bool on_ground = false;
+    for (int i = 0; i < 400 && !(m->x == other && m->state == MOB_PERCH); i++) {
+        game_tick(&g);
+        if (m->y == ground && m->x != other) on_ground = true;
+    }
+    CHECK(on_ground && m->x == other && m->y == tree_top(w, other) && m->state == MOB_PERCH && m->home_x == other);
+
+    /* With no tree anywhere it keeps running about on the ground. */
+    for (int y = 0; y <= ground; y++)
+        for (int x = other - 4; x <= other + 4; x++) world_set_at(w, BG, x, y, TILE_AIR);
+    int left = m->x, right = m->x;
+    for (int i = 0; i < 300; i++) {
+        game_tick(&g);
+        if (world_dx(w, other, m->x) < world_dx(w, other, left)) left = m->x;
+        if (world_dx(w, other, m->x) > world_dx(w, other, right)) right = m->x;
+    }
+    CHECK(m->active && m->y == ground && m->state == MOB_SEEK && right != left);
+
+    /* It is saved as it is, state and all; killed, it leaves fur. */
+    grow_tree(w, m->x + 3, "oak");
+    for (int i = 0; i < 200; i++) game_tick(&g);
+    CHECK(m->state == MOB_PERCH);
+    Game loaded;
+    CHECK(save_game(&g, "build/test_bear.world") && load_game(&loaded, "build/test_bear.world"));
+    CHECK(loaded.mobs[bear].active && loaded.mobs[bear].state == MOB_PERCH && loaded.mobs[bear].home_x == m->home_x);
+    game_free(&loaded);
+    remove("build/test_bear.world");
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    mob_kill(&g, bear);
+    CHECK(count_drops(&g, item_id("fur")) >= 1);
+    game_free(&g);
+
+    /* A world remembers which biome each column is. */
+    Game t;
+    CHECK(game_init(&t, 1024, 401, 4, WORLD_TERRAIN));
+    CHECK(save_game(&t, "build/test_biome.world") && load_game(&loaded, "build/test_biome.world"));
+    int differ = 0, kinds = 0;
+    bool had[MAX_BIOMES] = { false };
+    for (int x = 0; x < t.world.width; x++) {
+        differ += world_biome(&t.world, x) != world_biome(&loaded.world, x);
+        if (!had[world_biome(&t.world, x)]) had[world_biome(&t.world, x)] = true, kinds++;
+    }
+    CHECK(differ == 0 && kinds >= 2 && world_biome(&t.world, t.world.spawn_x) == 0);
+    /* And one that never recorded them has them worked out from the land. */
+    int guessed = 0;
+    world_guess_biomes(&loaded.world);
+    for (int x = 0; x < t.world.width; x++) guessed += world_biome(&t.world, x) == world_biome(&loaded.world, x);
+    CHECK(guessed * 100 >= t.world.width * 95);
+    game_free(&loaded);
+    game_free(&t);
+    remove("build/test_biome.world");
 }
 
 static void test_tools(void)
@@ -3778,6 +3955,7 @@ int main(void)
     test_fog();
     test_vitals();
     test_discard();
+    test_coffee_and_dropbears();
     test_mobs();
     test_biomes();
     test_plants();
