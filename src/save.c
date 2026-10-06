@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 8u
+#define SAVE_VERSION 9u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -193,7 +193,7 @@ bool save_game(const Game *g, const char *path)
          fwrite(g->storages, sizeof g->storages, 1, f) == 1 &&
          write_names(f, content.mob_count, content.mobs[0].name, sizeof content.mobs[0]) &&
          fwrite(g->mobs, sizeof g->mobs, 1, f) == 1 && fwrite(&g->next_mob_id, sizeof g->next_mob_id, 1, f) == 1 &&
-         fwrite(g->explored, 1, cells, f) == cells;
+         fwrite(g->explored, 1, cells, f) == cells && fwrite(&g->vitals, sizeof g->vitals, 1, f) == 1;
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
         remove(tmp);
@@ -261,6 +261,11 @@ bool load_game(Game *g, const char *path)
          * dark, but for where the player is standing. */
         memset(g->explored, 0, cells);
         if (ok && h.version >= 8) ok = fread(g->explored, 1, cells, f) == cells;
+        /* The player's needs, from version 9; before that, everything full.
+         * Nobody is saved asleep. */
+        if (ok && h.version >= 9) ok = fread(&g->vitals, sizeof g->vitals, 1, f) == 1;
+        g->vitals.rest = REST_NONE;
+        g->vitals.meditation = 0.0f;
 
         /* Turn the save's ids into this run's. */
         for (int layer = 0; layer < LAYER_COUNT && ok; layer++)

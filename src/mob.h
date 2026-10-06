@@ -27,6 +27,8 @@ int game_mob_at(const Game *g, float x, float y);
 /* Where a creature is drawn: the top-left of its tile, part-way through its
  * step, and which way it faces. */
 void game_mob_pos(const Game *g, int mob, float *x, float *y);
+/* Whether a creature is walking, and how far through its stride it is, 0..1. */
+bool game_mob_walking(const Game *g, int mob, float *stride);
 /* A click on a creature: queues going after it and killing it, or takes that
  * back if it is already queued. */
 bool game_click_mob(Game *g, int mob);

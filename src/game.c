@@ -556,6 +556,7 @@ static bool queue_checked(Game *g, Pose pos, Action a)
         return false;
     }
     g->queue[g->queue_count++] = a;
+    game_wake(g);
     return true;
 }
 
@@ -711,6 +712,8 @@ bool game_click_tile(Game *g, int tx, int ty)
 
 /* Leaves an item lying in a tile, with whatever is inside it. With no room
  * for another drop it goes straight to the inventory instead. */
+static void vitals_tick(Game *g);
+
 static Drop *spawn_drop_stack(Game *g, ItemStack one, TilePos at)
 {
     if (one.id == ITEM_NONE) return NULL;
@@ -1013,6 +1016,11 @@ static bool start_next_activity(Game *g)
         begin_step(g, (Step){ 0, 1, false });
         return true;
     }
+    /* Asleep or meditating, the player stays put - on the ground, that is. */
+    if (g->vitals.rest != REST_NONE) {
+        if (!p->climbing) return false;
+        game_wake(g);
+    }
     Pose pose = { p->feet, p->climbing };
 
     for (;;) {
@@ -1243,6 +1251,145 @@ static void random_event(Game *g, int x, int y)
     fruit->ttl = content.trees[kind].fruit_ticks;
 }
 
+/* ---- the player's needs ------------------------------------------------- */
+
+static float clamp01(float v)
+{
+    return v < 0.0f ? 0.0f : v > 1.0f ? 1.0f : v;
+}
+
+bool game_bar_full(float value)
+{
+    return value >= 1.0f - content.rules.full_margin;
+}
+
+bool game_is_food(ItemId id)
+{
+    return item_def(id)->food > 0.0f;
+}
+
+bool game_saturated(const Game *g)
+{
+    return g->vitals.saturation > 0.0f;
+}
+
+bool game_can_eat(const Game *g, ItemId id)
+{
+    return game_is_food(id) && !game_saturated(g);
+}
+
+bool game_eat(Game *g)
+{
+    Vitals *v = &g->vitals;
+    const ItemStack *held = inventory_selected(&g->inventory);
+    if (held->count < 1 || !game_can_eat(g, held->id)) return false;
+    const ItemDef *def = item_def(held->id);
+    ItemStack eaten;
+    if (!inventory_take_one(&g->inventory, held->id, &eaten)) return false;
+    container_free(&g->inventory, eaten.container);
+
+    /* On a full stomach it does not fill the bar; it keeps it full. */
+    if (game_bar_full(v->hunger)) v->saturation += def->food * (float)content.rules.saturation_ticks;
+    v->hunger = clamp01(v->hunger + def->food);
+    float mend = def->food_health >= 0.0f ? def->food_health : def->food * content.rules.food_health;
+    v->health = clamp01(v->health + mend);
+    return true;
+}
+
+void game_wake(Game *g)
+{
+    g->vitals.rest = REST_NONE;
+    g->vitals.meditation = 0.0f;
+}
+
+bool game_rest(Game *g, Rest kind)
+{
+    Player *p = &g->player;
+    if (kind == REST_NONE) {
+        game_wake(g);
+        return true;
+    }
+    if (kind == REST_SLEEP && game_bar_full(g->vitals.energy)) return false;
+    /* Only from standing on the ground, or about to be. */
+    TilePos at = p->activity == ACTIVITY_STEPPING ? p->step_to : p->feet;
+    bool climbing = p->activity == ACTIVITY_STEPPING ? p->step.climb : p->climbing;
+    if (climbing || !is_supported(&g->world, at)) return false;
+    game_cancel_actions(g);
+    game_close_bench(g);
+    g->move_dx = g->move_dy = 0;
+    if (g->vitals.rest != (int32_t)kind) g->vitals.meditation = 0.0f;
+    g->vitals.rest = (int32_t)kind;
+    return true;
+}
+
+int game_tick_speed(const Game *g)
+{
+    int speed = g->vitals.rest != REST_NONE && content.rules.rest_speed > 1 ? content.rules.rest_speed : 1;
+    return g->tick_rate * speed;
+}
+
+/* What meditating has brought: one thing from the list, by weight. It lands a
+ * little way off, so that it lies there to be picked up. */
+static void meditation_reward(Game *g)
+{
+    const RulesDef *u = &content.rules;
+    int total = 0;
+    for (int i = 0; i < u->loot_count; i++) total += u->loot[i].weight;
+    if (total <= 0) return;
+    int roll = (int)(game_random(g) % (uint32_t)total);
+    ItemId item = ITEM_NONE;
+    for (int i = 0; i < u->loot_count && item == ITEM_NONE; i++) {
+        if (roll < u->loot[i].weight) item = u->loot[i].item;
+        roll -= u->loot[i].weight;
+    }
+    const Player *p = &g->player;
+    TilePos at = { p->feet.x, p->feet.y - 1 };
+    for (int side = 0; side < 2; side++) {
+        int d = side == 0 ? p->facing : -p->facing;
+        if (world_is_solid(&g->world, p->feet.x + d, at.y) || world_is_solid(&g->world, p->feet.x + 2 * d, at.y))
+            continue;
+        at.x = world_wrap_x(&g->world, p->feet.x + 2 * d);
+        break;
+    }
+    spawn_drop(g, item, at);
+}
+
+static void vitals_tick(Game *g)
+{
+    const RulesDef *u = &content.rules;
+    Vitals *v = &g->vitals;
+
+    /* Hunger waits for a full stomach to wear off, then runs down. */
+    if (v->saturation > 0.0f) v->saturation = v->saturation > 1.0f ? v->saturation - 1.0f : 0.0f;
+    else if (u->hunger_ticks > 0) v->hunger = clamp01(v->hunger - 1.0f / (float)u->hunger_ticks);
+
+    /* Health mends by itself, unless there is nothing left to eat on. */
+    if (v->hunger <= 0.0f && u->starve_ticks > 0) {
+        if (v->health > u->starve_floor) {
+            v->health -= 1.0f / (float)u->starve_ticks;
+            if (v->health < u->starve_floor) v->health = u->starve_floor;
+        }
+    } else if (u->health_regen_ticks > 0) {
+        v->health = clamp01(v->health + 1.0f / (float)u->health_regen_ticks);
+    }
+
+    if (v->rest == REST_SLEEP) {
+        if (u->sleep_ticks > 0) v->energy = clamp01(v->energy + 1.0f / (float)u->sleep_ticks);
+        if (v->energy >= 1.0f || u->sleep_ticks <= 0) game_wake(g);
+    } else if (u->energy_ticks > 0) {
+        v->energy = clamp01(v->energy - 1.0f / (float)u->energy_ticks);
+    }
+
+    if (v->rest == REST_MEDITATE && u->meditation_ticks > 0) {
+        v->meditation += 1.0f / (float)u->meditation_ticks;
+        /* (A hair short of 1 is the rounding of all those small steps.) */
+        if (v->meditation >= 0.9999f) {
+            v->meditation = 0.0f;
+            meditation_reward(g);
+        }
+    }
+}
+
 void game_tick(Game *g)
 {
     World *w = &g->world;
@@ -1257,6 +1404,7 @@ void game_tick(Game *g)
     }
 
     mobs_tick(g);
+    vitals_tick(g);
 
     /* Fuel burns down whether or not anything is being made. */
     for (int i = 0; i < MAX_STORAGES; i++)
@@ -1297,8 +1445,8 @@ void game_update(Game *g, float dt)
     Player *p = &g->player;
     float frame = dt;
 
-    g->tick_timer += dt * (float)g->tick_rate;
-    for (int n = 0; g->tick_timer >= 1.0f && n < MAX_TICK_RATE; n++) {
+    g->tick_timer += dt * (float)game_tick_speed(g);
+    for (int n = 0; g->tick_timer >= 1.0f && n < MAX_TICKS_PER_UPDATE; n++) {
         g->tick_timer -= 1.0f;
         game_tick(g);
     }
@@ -1328,6 +1476,7 @@ void game_set_move_input(Game *g, int dx, int dy)
 {
     g->move_dx = dx;
     g->move_dy = dy;
+    if (dx != 0 || dy != 0) game_wake(g);
 }
 
 void game_cancel_actions(Game *g)
@@ -1342,9 +1491,38 @@ void game_player_visual_pos(const Game *g, float *x, float *y)
 {
     const Player *p = &g->player;
     float t = p->activity == ACTIVITY_STEPPING ? p->timer / p->duration : 0.0f;
-    *x = (float)p->feet.x + (float)(p->step_to.x - p->feet.x) * t;
-    *y = (float)p->feet.y + (float)(p->step_to.y - p->feet.y) * t;
+    int dx = p->step_to.x - p->feet.x, dy = p->step_to.y - p->feet.y;
+    /* A diagonal step goes round the corner between the two squares, by
+     * whichever way the body has room: up and then across to get onto
+     * something, across and then down to get off it. */
+    bool rise_first = dy < 0;
+    if (dx != 0 && dy != 0) {
+        bool by_rise = body_fits(&g->world, p->feet.x, p->feet.y + dy);
+        bool by_side = body_fits(&g->world, p->feet.x + dx, p->feet.y);
+        if (rise_first && !by_rise && by_side) rise_first = false;
+        else if (!rise_first && !by_side && by_rise) rise_first = true;
+    }
+    float ox, oy;
+    game_step_offset(dx, dy, rise_first, t, &ox, &oy);
+    *x = (float)p->feet.x + ox;
+    *y = (float)p->feet.y + oy;
     if (p->activity == ACTIVITY_STEPPING && p->step_hop) *y -= HOP_HEIGHT * 4.0f * t * (1.0f - t);
+}
+
+void game_step_offset(int dx, int dy, bool rise_first, float t, float *ox, float *oy)
+{
+    t = t < 0.0f ? 0.0f : t > 1.0f ? 1.0f : t;
+    if (dx == 0 || dy == 0) {
+        *ox = (float)dx * t;
+        *oy = (float)dy * t;
+        return;
+    }
+    /* Two legs, each eased in and out so the turn is not a jolt. */
+    float a = t < 0.5f ? t * 2.0f : 1.0f, b = t < 0.5f ? 0.0f : t * 2.0f - 1.0f;
+    a = a * a * (3.0f - 2.0f * a);
+    b = b * b * (3.0f - 2.0f * b);
+    *ox = (float)dx * (rise_first ? b : a);
+    *oy = (float)dy * (rise_first ? a : b);
 }
 
 bool game_player_crawling(const Game *g)
@@ -1398,6 +1576,7 @@ bool game_init(Game *g, int width, int height, uint32_t seed, WorldKind kind)
         game_free(g);
         return false;
     }
+    g->vitals = (Vitals){ .health = 1.0f, .hunger = 1.0f, .energy = 1.0f };
     g->fog = content.rules.fog_enabled;
     game_reveal(g, g->player.feet.x, g->player.feet.y - 1);
     g->player.step_to = g->player.feet;

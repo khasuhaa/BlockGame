@@ -5,6 +5,7 @@
 #include "light.h"
 #include "menu.h"
 #include "mob.h"
+#include "playerui.h"
 #include "raylib.h"
 #include "save.h"
 #include "tradeui.h"
@@ -63,7 +64,10 @@ static void update_view(const MapCamera *cam, const World *w)
 {
     zoom = (cam->scale > 0.0f ? cam->scale : (float)TILE_SIZE) / TILE_SIZE;
     seen = (Vector2){ GetScreenWidth() / zoom, GetScreenHeight() / zoom };
-    view.origin = (Vector2){ floorf(seen.x / 2.0f - cam->center.x), floorf(seen.y / 2.0f - cam->center.y) };
+    /* Snapped to whole pixels of the screen, so the blocks stay crisp and
+     * nothing shimmers against them as the camera glides. */
+    view.origin = (Vector2){ floorf((seen.x / 2.0f - cam->center.x) * zoom) / zoom,
+                             floorf((seen.y / 2.0f - cam->center.y) * zoom) / zoom };
     view.tile_size = TILE_SIZE;
     view.center_x = cam->center.x / TILE_SIZE;
     view.world_width = w->width;
@@ -111,7 +115,7 @@ static void sync_storage_slots(const Game *g, Hud *hud)
         hud->extra[i] = (HudSlot){ rects[i], { SLOT_CONTAINER, container, i } };
 }
 
-static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, TradeUi *trade,
+static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, TradeUi *trade, PlayerUi *player,
                          const Keybinds *keys)
 {
     const int *k = keys->keys;
@@ -131,14 +135,23 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
     /* The slots of an open chest join the inventory's, so items drag between them. */
     sync_storage_slots(g, hud);
 
+    /* Food that is selected gets an "Eat" button, greyed out on a full stomach. */
+    const ItemStack *chosen = inventory_selected(&g->inventory);
+    hud->eat = chosen->count < 1 || !game_is_food(chosen->id) ? HUD_EAT_NONE
+               : game_can_eat(g, chosen->id) ? HUD_EAT_READY : HUD_EAT_FULL;
+
     /* A press that starts on the inventory never reaches the world. */
-    if (hud_handle_input(hud, &g->inventory)) return;
+    bool on_hud = hud_handle_input(hud, &g->inventory);
+    if (hud->eat_clicked) game_eat(g);
+    if (on_hud) return;
+    if (playerui_handle_input(player, g)) return;
     if (tradeui_handle_input(trade, g, &ui_view)) return;
     if (benchui_handle_input(bench, g, &ui_view)) return;
 
     /* The wheel zooms, when it is not scrolling a menu under the cursor. */
     float wheel = GetMouseWheelMove();
     if (wheel != 0.0f && !hud_mouse_over(hud, &g->inventory) && !tradeui_mouse_over(trade, g, &ui_view) &&
+        !playerui_mouse_over(player) &&
         !benchui_mouse_over(bench, g, &ui_view)) {
         cam->zoom_level += wheel > 0.0f ? -1 : 1;
         if (cam->zoom_level < 0) cam->zoom_level = 0;
@@ -155,6 +168,7 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         hud_close_all(hud);
         benchui_close(bench, g);
+        player->open = false;
         cam->pressed = true;
         cam->dragging = false;
         cam->press_mouse = mouse;
@@ -241,8 +255,9 @@ static void draw_sky(const Game *g, Vector2 origin)
 /* The tile layers, back to front: the backwall, well dimmed, and the
  * background, dimmed a little, wherever the foreground does not hide them;
  * then the foreground itself. */
-static void draw_world(const World *w, Vector2 origin)
+static void draw_world(const Game *g, Vector2 origin)
 {
+    const World *w = &g->world;
     /* Columns run past either end of the world: reads wrap round it. */
     int x0 = (int)floorf(-origin.x / TILE_SIZE), y0 = (int)floorf(-origin.y / TILE_SIZE);
     int x1 = x0 + (int)seen.x / TILE_SIZE + 1, y1 = y0 + (int)seen.y / TILE_SIZE + 1;
@@ -257,10 +272,14 @@ static void draw_world(const World *w, Vector2 origin)
             if (!tile_def(t)->solid) {
                 assets_draw_tile(world_get_at(w, LAYER_WALL, x, y), wx, y, px, py, TILE_SIZE, WALL_DIM,
                                  TILE_PART_BODY);
+                /* Something with a fire in it shows the fire while it has fuel. */
                 if (!tile_def(behind)->front)
-                    assets_draw_tile(behind, wx, y, px, py, TILE_SIZE, BACKGROUND_DIM, TILE_PART_BODY);
+                    assets_draw_tile_lit(behind, wx, y, px, py, TILE_SIZE, BACKGROUND_DIM, TILE_PART_BODY,
+                                         tile_def(behind)->lit_count > 0 && game_fuel_at(g, wx, y) > 0);
             }
-            if (!tile_def(t)->front) assets_draw_tile(t, wx, y, px, py, TILE_SIZE, 0.0f, TILE_PART_BODY);
+            if (!tile_def(t)->front)
+                assets_draw_tile_lit(t, wx, y, px, py, TILE_SIZE, 0.0f, TILE_PART_BODY,
+                                     tile_def(t)->lit_count > 0 && game_fuel_at(g, wx, y) > 0);
             if (world_is_water(w, x, y)) {
                 /* Water tints what is in it; its surface is a lighter line. */
                 const int *c = content.rules.water_color;
@@ -492,8 +511,7 @@ static void draw_action_marker(const Game *g, Vector2 origin, Action a)
     if (a.type == ACTION_PLACE) {
         /* A faded copy of the block that is going to be put here. */
         c = (Color){ 110, 220, 120, 255 };
-        hud_draw_item_icon((ItemId)a.item, (Rectangle){ r.x - 6, r.y - 6, r.width + 12,
-                                                        r.height + 12 });
+        hud_draw_item_icon((ItemId)a.item, (Rectangle){ r.x - 3, r.y - 3, r.width + 6, r.height + 6 });
         DrawRectangleRec(r, Fade(WHITE, 0.35f));
     }
     DrawRectangleLinesEx(r, 2.0f, c);
@@ -535,14 +553,26 @@ static void draw_mobs(const Game *g, Vector2 origin)
         Rectangle r = { origin.x + view_near_x(&view, x) * TILE_SIZE, origin.y + y * TILE_SIZE, TILE_SIZE,
                         TILE_SIZE };
         if (r.x < -TILE_SIZE || r.x > seen.x) continue;
-        assets_draw_sprite(m->baby ? def->texture_baby : def->texture, r, m->dir < 0);
+        /* On the move it strides through its walking frames, twice to the
+         * block, and bobs with each stride. */
+        const char *file = m->baby ? def->texture_baby : def->texture;
+        int frames = m->baby ? def->walk_baby_count : def->walk_count;
+        float stride;
+        if (game_mob_walking(g, i, &stride)) {
+            if (frames > 0) {
+                int frame = (int)(stride * 2.0f * (float)frames) % frames;
+                file = m->baby ? def->walk_baby[frame] : def->walk[frame];
+            }
+            r.y -= def->hop * TILE_SIZE * fabsf(sinf(stride * 2.0f * PI));
+        }
+        assets_draw_sprite(file, r, m->dir < 0);
     }
 }
 
 /* The item layer, in front of the blocks. */
 static void draw_drops(const Game *g, Vector2 origin)
 {
-    const float size = TILE_SIZE * 0.55f;
+    const float size = TILE_SIZE * 0.62f;
     Vector2 player = player_center(g);
     for (int i = 0; i < MAX_DROPS; i++) {
         const Drop *d = &g->drops[i];
@@ -556,41 +586,167 @@ static void draw_drops(const Game *g, Vector2 origin)
     }
 }
 
+static const Color SKIN = { 240, 200, 160, 255 }, HAIR = { 90, 60, 40, 255 }, SHIRT = { 50, 90, 190, 255 },
+                   TROUSERS = { 40, 60, 120, 255 }, EYE = { 40, 40, 60, 255 };
+
+/* The player's head, `size` across, with its top-left corner at (x, y),
+ * looking the way `facing` says. */
+static void draw_player_head(float x, float y, float size, int facing, bool eyes_shut)
+{
+    DrawRectangleRec((Rectangle){ x, y, size, size }, SKIN);
+    DrawRectangleRec((Rectangle){ x, y, size, size * 0.28f }, HAIR);
+    /* Hair down the back of the head. */
+    DrawRectangleRec((Rectangle){ facing > 0 ? x : x + size - size * 0.2f, y, size * 0.2f, size * 0.55f }, HAIR);
+    float eye = facing > 0 ? x + size * 0.62f : x + size * 0.24f;
+    if (eyes_shut) DrawRectangleRec((Rectangle){ eye - 1, y + size * 0.52f, size * 0.2f, 2 }, EYE);
+    else DrawRectangleRec((Rectangle){ eye, y + size * 0.42f, size * 0.14f, size * 0.18f }, EYE);
+}
+
+/* Asleep: stretched out on the ground, toward whichever side there is room. */
+static void draw_player_asleep(const Game *g, float px, float py)
+{
+    const Player *p = &g->player;
+    int side = !world_is_solid(&g->world, p->feet.x - p->facing, p->feet.y) ? -p->facing
+               : !world_is_solid(&g->world, p->feet.x + p->facing, p->feet.y) ? p->facing : 0;
+    float ground = py + TILE_SIZE, breath = sinf((float)GetTime() * 1.6f);
+    if (side == 0) {
+        /* Nowhere to lie: slumped where they sat. */
+        DrawRectangleRec((Rectangle){ px + 4, ground - 16, TILE_SIZE - 8, 16 }, SHIRT);
+        draw_player_head(px + 7, ground - 32, 18, p->facing, true);
+    } else {
+        /* Legs where they stood, head on the square beside. */
+        float body = 12.0f + breath;
+        float from = side > 0 ? px + 2 : px - 10, len = TILE_SIZE + 8;
+        DrawRectangleRec((Rectangle){ from, ground - body, len, body }, SHIRT);
+        DrawRectangleRec((Rectangle){ side > 0 ? px + 2 : px + TILE_SIZE - 16, ground - 10, 14, 10 }, TROUSERS);
+        float hx = side > 0 ? px + TILE_SIZE + 8 : px - 10 - 16;
+        draw_player_head(hx, ground - 17, 16, -side, true);
+    }
+    /* Zs drifting up from the head. */
+    float hx = px + TILE_SIZE / 2 + side * (TILE_SIZE * 0.9f);
+    for (int k = 0; k < 3; k++) {
+        float t = fmodf((float)GetTime() * 0.5f + k / 3.0f, 1.0f);
+        int size = 10 + (int)(t * 8.0f);
+        DrawText("z", (int)(hx + 6 + t * 14.0f + sinf(t * 6.0f) * 3.0f), (int)(ground - 30 - t * 34.0f), size,
+                 Fade(RAYWHITE, (1.0f - t) * 0.9f));
+    }
+}
+
+/* Meditating: sat cross-legged, eyes shut, with rings of calm spreading out. */
+static void draw_player_meditating(const Game *g, float px, float py)
+{
+    float ground = py + TILE_SIZE, cx = px + TILE_SIZE / 2;
+    float time = (float)GetTime(), lift = 2.0f + sinf(time * 1.8f) * 1.5f;
+    for (int k = 0; k < 3; k++) {
+        float t = fmodf(time * 0.45f + k / 3.0f, 1.0f);
+        DrawRing((Vector2){ cx, ground - 22 }, 12.0f + t * 30.0f, 14.0f + t * 30.0f, 0.0f, 360.0f, 40,
+                 Fade((Color){ 170, 220, 255, 255 }, (1.0f - t) * 0.55f));
+    }
+    float y = ground - lift;
+    DrawRectangleRec((Rectangle){ cx - 17, y - 9, 34, 9 }, TROUSERS);   /* crossed legs */
+    DrawRectangleRec((Rectangle){ cx - 9, y - 26, 18, 18 }, SHIRT);     /* body */
+    DrawRectangleRec((Rectangle){ cx - 18, y - 13, 6, 5 }, SKIN);       /* hands on the knees */
+    DrawRectangleRec((Rectangle){ cx + 12, y - 13, 6, 5 }, SKIN);
+    DrawRectangleRec((Rectangle){ cx - 13, y - 24, 4, 12 }, SHIRT);     /* arms */
+    DrawRectangleRec((Rectangle){ cx + 9, y - 24, 4, 12 }, SHIRT);
+    draw_player_head(cx - 10, y - 46, 20, g->player.facing, true);
+
+    /* How far along the meditation is, in a little box over the head. */
+    Rectangle box = { cx - 34, y - 78, 68, 22 };
+    DrawRectangleRec(box, (Color){ 30, 32, 42, 235 });
+    DrawRectangleLinesEx(box, 1.0f, (Color){ 150, 200, 240, 255 });
+    DrawTriangle((Vector2){ cx - 5, box.y + box.height }, (Vector2){ cx, box.y + box.height + 6 },
+                 (Vector2){ cx + 5, box.y + box.height }, (Color){ 150, 200, 240, 255 });
+    Rectangle bar = { box.x + 5, box.y + 12, box.width - 10, 5 };
+    DrawRectangleRec(bar, (Color){ 22, 40, 60, 255 });
+    DrawRectangleRec((Rectangle){ bar.x, bar.y, bar.width * g->vitals.meditation, bar.height },
+                     (Color){ 150, 210, 255, 255 });
+    const char *text = TextFormat("%d%%", (int)(g->vitals.meditation * 100.0f));
+    DrawText(text, (int)(cx - MeasureText(text, 10) / 2.0f), (int)box.y + 1, 10, RAYWHITE);
+}
+
 static void draw_player(const Game *g, Vector2 origin)
 {
     float x, y;
     game_player_visual_pos(g, &x, &y);
     int grip = game_player_grip_side(g);
     const float inset = 3.0f;
+    const Player *p = &g->player;
     /* When climbing, press against the wall and reach for it. */
     float px = origin.x + view_near_x(&view, x) * TILE_SIZE + grip * inset, py = origin.y + y * TILE_SIZE;
-    Color skin = { 240, 200, 160, 255 };
+    bool settled = p->activity == ACTIVITY_IDLE && !p->climbing;
+    if (g->vitals.rest == REST_SLEEP && settled) {
+        draw_player_asleep(g, px, py);
+        return;
+    }
+    if (g->vitals.rest == REST_MEDITATE && settled) {
+        draw_player_meditating(g, px, py);
+        return;
+    }
     if (game_player_crawling(g)) {
         /* On hands and knees: one tile tall, head leading. */
         float half = TILE_SIZE / 2.0f;
-        float head_x = g->player.facing > 0 ? px + TILE_SIZE - half : px;
-        DrawRectangleRec((Rectangle){ px + 1, py + half, TILE_SIZE - 2, half }, (Color){ 50, 90, 190, 255 });
-        DrawRectangleRec((Rectangle){ head_x + 1, py + 4, half - 2, half }, skin);
+        float head_x = p->facing > 0 ? px + TILE_SIZE - half : px;
+        float shuffle = p->activity == ACTIVITY_STEPPING ? sinf(p->timer / p->duration * PI * 2.0f) * 2.0f : 0.0f;
+        DrawRectangleRec((Rectangle){ px + 1, py + half, TILE_SIZE - 2, half - 5 }, SHIRT);
+        DrawRectangleRec((Rectangle){ px + 3 + shuffle, py + TILE_SIZE - 6, 6, 6 }, TROUSERS);
+        DrawRectangleRec((Rectangle){ px + TILE_SIZE - 9 - shuffle, py + TILE_SIZE - 6, 6, 6 }, TROUSERS);
+        draw_player_head(head_x + 1, py + 3, half - 2, p->facing, false);
         return;
     }
     /* Hanging from a block overhead: arms up to it. */
-    const Player *p = &g->player;
     if (p->climbing && p->activity != ACTIVITY_MINING && grip == 0 &&
         world_is_solid(&g->world, p->feet.x, p->feet.y - 2) &&
         (p->activity != ACTIVITY_STEPPING || world_is_solid(&g->world, p->step_to.x, p->step_to.y - 2))) {
-        DrawRectangleRec((Rectangle){ px + inset + 2, py - TILE_SIZE - 5, 5, 10 }, skin);
-        DrawRectangleRec((Rectangle){ px + TILE_SIZE - inset - 7, py - TILE_SIZE - 5, 5, 10 }, skin);
+        DrawRectangleRec((Rectangle){ px + inset + 2, py - TILE_SIZE - 5, 5, 10 }, SKIN);
+        DrawRectangleRec((Rectangle){ px + TILE_SIZE - inset - 7, py - TILE_SIZE - 5, 5, 10 }, SKIN);
     }
-    DrawRectangleRec((Rectangle){ px + inset, py, TILE_SIZE - 2 * inset, TILE_SIZE },
-                     (Color){ 50, 90, 190, 255 });
-    DrawRectangleRec((Rectangle){ px + inset, py - TILE_SIZE + inset, TILE_SIZE - 2 * inset,
-                                  TILE_SIZE - inset },
-                     skin);
+
+    /* Walking: the legs swing and the body bobs, one stride to the block.
+     * Working: a small nod in time with it. */
+    bool walking = p->activity == ACTIVITY_STEPPING && p->step.dx != 0 && grip == 0 && !p->climbing &&
+                   !p->step.climb && !p->step_hop;
+    float t = p->activity != ACTIVITY_IDLE && p->duration > 0.0f ? p->timer / p->duration : 0.0f;
+    float swing = walking ? sinf(t * PI * 2.0f) : 0.0f;
+    float bob = walking ? fabsf(sinf(t * PI * 2.0f)) * 1.5f : 0.0f;
+    if (p->activity == ACTIVITY_MINING || p->activity == ACTIVITY_PLACING) bob = -fabsf(sinf((float)GetTime() * 9.0f)) * 1.5f;
+    float legs = 11.0f, body_w = TILE_SIZE - 2 * inset, leg_w = body_w / 2 - 1;
+    float top = py - bob;
+    /* Legs, the far one a shade darker. */
+    DrawRectangleRec((Rectangle){ px + inset + 1 - swing * 4.0f, py + TILE_SIZE - legs, leg_w, legs },
+                     (Color){ 32, 48, 100, 255 });
+    DrawRectangleRec((Rectangle){ px + inset + body_w - leg_w - 1 + swing * 4.0f, py + TILE_SIZE - legs, leg_w, legs },
+                     TROUSERS);
+    DrawRectangleRec((Rectangle){ px + inset, top, body_w, TILE_SIZE - legs + bob }, SHIRT);
+    /* An arm, swinging against the legs. */
+    DrawRectangleRec((Rectangle){ px + TILE_SIZE / 2 - 3 + swing * 3.0f, top + 3, 6, 13 }, (Color){ 40, 74, 160, 255 });
+    DrawRectangleRec((Rectangle){ px + TILE_SIZE / 2 - 3 + swing * 3.0f, top + 14, 6, 4 }, SKIN);
+    draw_player_head(px + inset, top - TILE_SIZE + inset, body_w, p->facing, false);
     if (grip != 0) {
         float hx = grip > 0 ? px + TILE_SIZE - inset - 4 : px + inset - 4;
-        DrawRectangleRec((Rectangle){ hx, py - 6, 8, 6 }, skin);
-        DrawRectangleRec((Rectangle){ hx, py + TILE_SIZE - 10, 8, 6 }, (Color){ 40, 60, 120, 255 });
+        DrawRectangleRec((Rectangle){ hx, py - 6, 8, 6 }, SKIN);
+        DrawRectangleRec((Rectangle){ hx, py + TILE_SIZE - 10, 8, 6 }, TROUSERS);
     }
+}
+
+/* While the player sleeps or meditates the world runs fast: arrows say so. */
+static void draw_fast_forward(const Game *g)
+{
+    if (g->vitals.rest == REST_NONE || game_tick_speed(g) <= g->tick_rate) return;
+    float cx = GetScreenWidth() / 2.0f, y = 70.0f, time = (float)GetTime();
+    const char *text = TextFormat("x%d", game_tick_speed(g) / g->tick_rate);
+    float w = 86.0f + (float)MeasureText(text, 20);
+    Rectangle box = { cx - w / 2, y - 8, w, 40 };
+    DrawRectangleRec(box, (Color){ 22, 30, 48, 220 });
+    DrawRectangleLinesEx(box, 2.0f, (Color){ 244, 196, 48, 255 });
+    for (int k = 0; k < 3; k++) {
+        /* Three arrows, lighting up one after another. */
+        float glow = 0.35f + 0.65f * fmaxf(0.0f, sinf(time * 6.0f - k * 1.1f));
+        float ax = box.x + 12 + k * 18.0f;
+        DrawTriangle((Vector2){ ax, y }, (Vector2){ ax, y + 24 }, (Vector2){ ax + 16, y + 12 },
+                     Fade((Color){ 244, 196, 48, 255 }, glow));
+    }
+    DrawText(text, (int)(box.x + 72), (int)y + 2, 20, RAYWHITE);
 }
 
 /* Crystals have a box of their own in the corner: they belong to the player,
@@ -637,6 +793,7 @@ typedef struct {
     Container saved_shared;
     PauseMenu pause;
     bool paused;
+    PlayerUi player_ui;
     float since_save;
     char name[WORLD_NAME_MAX + 1];
     char path[256];
@@ -649,6 +806,7 @@ static void session_begin(Session *s, const MainMenu *menu)
     s->hud = (Hud){ 0 };
     s->bench = (BenchUi){ .selected = -1, .amount = 1 };
     s->trade = (TradeUi){ 0 };
+    s->player_ui = (PlayerUi){ 0 };
     /* Crystals come with the player into whichever world is opened. */
     profile_load(PROFILE_PATH, &s->game);
     s->saved_crystals = s->game.crystals;
@@ -685,7 +843,7 @@ static void session_update(Session *s, const Keybinds *keys, float dt)
         game_set_move_input(&s->game, 0, 0);
         return;
     }
-    handle_input(&s->game, &s->cam, &s->hud, &s->bench, &s->trade, keys);
+    handle_input(&s->game, &s->cam, &s->hud, &s->bench, &s->trade, &s->player_ui, keys);
     game_update(&s->game, dt);
     /* What belongs to the player is written down as soon as it changes, not
      * only when the world is saved. */
@@ -710,7 +868,7 @@ static void session_draw(Session *s)
     if (s->cam.scale > MAP_FADE_TO) {
         /* The world itself, scaled by the zoom. */
         BeginMode2D((Camera2D){ .zoom = zoom });
-        draw_world(&g->world, origin);
+        draw_world(g, origin);
         draw_mobs(g, origin);
         draw_player(g, origin);
         draw_drops(g, origin);
@@ -720,6 +878,7 @@ static void session_draw(Session *s)
         draw_actions(g, origin);
         if (!on_map && !s->paused && !s->cam.dragging && IsCursorOnScreen() &&
             !hud_mouse_over(&s->hud, &g->inventory) && !benchui_mouse_over(&s->bench, g, &ui_view) &&
+            !playerui_mouse_over(&s->player_ui) &&
             !tradeui_mouse_over(&s->trade, g, &ui_view))
             DrawRectangleLinesEx(tile_rect(origin, tile_at_screen(&s->cam, GetMousePosition())), 1.0f,
                                  Fade(WHITE, 0.5f));
@@ -737,6 +896,8 @@ static void session_draw(Session *s)
     }
     sync_storage_slots(g, &s->hud);
     draw_hud(g, &s->cam);
+    draw_fast_forward(g);
+    playerui_draw(&s->player_ui, g);
     hud_draw(&s->hud, &g->inventory);
 }
 

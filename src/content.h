@@ -38,6 +38,8 @@
 #define MAX_TREE_ROWS 12
 #define MAX_SWELLS 4
 #define MAX_START_ITEMS 8
+#define MAX_LOOT 32
+#define MAX_MOB_FRAMES 4
 #define RECIPE_MAX_INPUTS 3
 #define MAX_TREE_SOILS 8
 
@@ -131,6 +133,11 @@ typedef struct {
     /* Used instead on the top and the bottom tile of a column of it. */
     char texture_top[CONTENT_PATH_LEN];
     char texture_base[CONTENT_PATH_LEN];
+    /* Fire: frames shown one after another, instead of the texture above,
+     * while the block has fuel burning. */
+    char textures_lit[MAX_TILE_TEXTURES][CONTENT_PATH_LEN];
+    int lit_count;
+    float lit_fps;
     int shade;   /* how much brightness varies from tile to tile, 0..255 */
     bool front;  /* drawn after the other tiles, so its overhang shows */
     float pulse; /* how strongly its brightness breathes, 0..1 */
@@ -145,6 +152,8 @@ typedef struct {
     EquipSlot equip; /* armor slot it can be worn in, or EQUIP_NONE */
     TileType places; /* block it becomes when placed, or TILE_AIR */
     int fuel;        /* ticks it burns for as fuel; 0 if it is not fuel */
+    float food;      /* share of the hunger bar eating one fills; 0 if it cannot be eaten */
+    float food_health; /* share of the health bar it mends; below 0 for the usual share of `food` */
     int category;    /* where it is listed for trading, or -1 if it is not traded */
     char category_name[CONTENT_NAME_LEN];
     int price;       /* what one costs, in the smallest currency; 0 for the default */
@@ -340,6 +349,25 @@ typedef struct {
     /* The view: how many pixels a block is at each step of the zoom, from
      * closest to farthest, and the one a world opens at. Between map_from
      * and map_to pixels the view fades into the world map. */
+    /* The player's needs. Each bar runs from 0 to 1. A time of 0 turns that
+     * part off. */
+    int max_tick_rate;      /* the fastest the tick rate can be set in the settings */
+    int hunger_ticks;       /* ticks for a full hunger bar to run down */
+    int energy_ticks;       /* and a full energy bar, awake */
+    int sleep_ticks;        /* ticks asleep that fill the energy bar */
+    int health_regen_ticks; /* ticks for health to mend from nothing, when not starving */
+    int starve_ticks;       /* ticks for health to run down with hunger at nothing */
+    float starve_floor;     /* starving never takes health below this */
+    float food_health;      /* share of a food's hunger that it mends health by */
+    int saturation_ticks;   /* ticks hunger is held off for, per bar of food eaten when full */
+    float full_margin;      /* a bar this near the top counts as full */
+    int rest_speed;         /* times faster the ticks go while the player sleeps or meditates */
+    int meditation_ticks;   /* ticks of meditating for each thing it brings */
+    struct {
+        ItemId item;
+        int weight;
+    } loot[MAX_LOOT];       /* what meditating can bring, and how often each */
+    int loot_count;
     float zoom[MAX_ZOOM_LEVELS];
     int zoom_count, zoom_start;
     float map_from, map_to;
@@ -350,6 +378,10 @@ typedef struct {
     char name[CONTENT_NAME_LEN];
     char label[CONTENT_NAME_LEN];
     char texture[CONTENT_PATH_LEN], texture_baby[CONTENT_PATH_LEN]; /* drawn facing right */
+    /* Frames of walking, shown in turn while it is on the move. */
+    char walk[MAX_MOB_FRAMES][CONTENT_PATH_LEN], walk_baby[MAX_MOB_FRAMES][CONTENT_PATH_LEN];
+    int walk_count, walk_baby_count;
+    float hop;          /* how high it bobs with each stride, in tiles */
     int step_ticks;     /* ticks it takes to walk one block */
     float move_chance;  /* chance each tick, standing still, that it sets off */
     float turn_chance;  /* chance that it sets off the other way */

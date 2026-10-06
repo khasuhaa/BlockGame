@@ -24,9 +24,9 @@ Everything the game contains is defined in `data/`, not in the code, so it can b
 | `recipes.json` | What each kind of bench makes, from what, for how many crystals, and at what bench tier |
 | `trees.json` | Tree kinds: their blocks, fruit, full height, the shape of the crown row by row or leaf by leaf, which layer they grow in, what they can be planted on, and whether they need water |
 | `worldgen.json` | World size, the plains, the mountains and valleys (any number of kinds), soil layers, sea level, the climate maps and the biomes (their ground, trees and plants), caves and what is set into them, veins (what, in what, how big, how deep, how common, what shape), the spawn and its portal, and how trees are scattered |
-| `mobs.json` | Creatures: how they move, where they turn up, what they lay, how long they take to grow up, what they leave, and the spawning range and cap |
+| `mobs.json` | Creatures: how they move and the frames they walk through, where they turn up, what they lay, how long they take to grow up, what they leave, and the spawning range and cap |
 | `trade.json` | The categories items are sold in, the coins and what each is worth, the default price, and the crystals a new player starts with |
-| `rules.json` | Tick rate, day and night length, how bright the sun and moon are and how fast light fades, the fog of war, the steps of the zoom and where it becomes the world map, player step timings, starting items, and how drops behave |
+| `rules.json` | Tick rate and the fastest it can be set, day and night length, the player's hunger, health and energy, what meditating brings, how bright the sun and moon are and how fast light fades, the fog of war, the steps of the zoom and where it becomes the world map, player step timings, starting items, and how drops behave |
 | `textures/` | PNG images, 32 pixels to the block. A block can list several to vary between; one larger than a block overhangs it |
 
 Blocks and items refer to each other by name. A mistake, such as a recipe for an item that does not exist, stops the game at startup with a message naming the file and the problem.
@@ -41,7 +41,7 @@ Worlds are saved in `saves/<name>.world`, next to where the game is run from. A 
 
 `Esc` opens the pause menu, which stops the world and offers:
 
-- **World settings** — the tick rate, from 1 to 60 ticks a second (10 by default), and whether the fog of war is on. Both are saved with the world.
+- **World settings** — the tick rate, from 1 to 300 ticks a second (10 by default), and whether the fog of war is on. Both are saved with the world.
 - **Keybinds** — the keys for moving left and right, climbing up and down, and making the camera follow the player. Click one, then press the new key; a key already in use swaps with the one it replaces. Bindings are shared by all worlds and kept in `saves/keybinds.txt`.
 
 ## Controls
@@ -81,6 +81,8 @@ Holding a direction, or a queued click, takes the player:
 - along the underside of a row of blocks, hand over hand like monkey bars.
 
 To get onto a row of blocks overhead, press `W` under it: the player jumps and catches it if there is one clear block between their head and it. Holding a direction past the end of the row lets go. Pressing `W` at the end instead swings round onto the side of the last block, from where it is an ordinary climb onto the top; `S` on the side of a block swings back in under it rather than dropping off. A queued click uses all of these to find its way.
+
+A step that goes up or down as well as across - onto a ledge, off one, over an edge onto a wall - is drawn going round the corner of the block: up and then across, or across and then down, whichever way the body has room. Nothing is drawn passing through a block. The player's legs and arm swing as they walk.
 
 ## World
 
@@ -167,6 +169,7 @@ The world has four layers from back to front: the backwall; the background layer
 - **Eggs.** A grown dodo has a small chance every tick of leaving a big blue egg where it stands, if nothing is there already. An egg is picked up by clicking it, like a gem, and can be put down again. A random event on an egg hatches it into a chick, which is full grown 600 ticks later.
 - **Whose they are.** A dodo that hatches from an egg the player put down is the player's. One from an egg a dodo laid is wild, whoever the parent belonged to - unless the player picked that egg up and put it down again. A wild egg waits to hatch while the cap of 10 is reached; the player's eggs hatch regardless.
 - **Hunting.** Clicking a dodo queues going after it, marked with a red ring; the player follows it as it moves and kills it on reaching it. Clicking it again calls that off. A grown dodo leaves 1 or 2 dodo meat and 1 or 2 feathers; a chick leaves nothing. A campfire cooks dodo meat.
+- **How they move.** A dodo strides through its walking frames and bobs as it goes, setting off and stopping gently. Up a step it hops up and then forward, and down one it walks off and then drops, so it goes round the corner of a block and never through it. The frames and the height of the bob are in `mobs.json`.
 
 ## Plants
 
@@ -191,8 +194,24 @@ The bar along the bottom has a head button followed by 8 slots. Stacks hold up t
 - Drag a stack away without waiting to move all of it: equal stacks merge, anything else swaps.
 - A basket can be put inside another basket and keeps its contents, but only baskets sitting in the bar can be opened. Baskets never stack.
 - Clicking or dragging the world, or pressing a movement key, closes everything.
+- An item's picture is centred in its slot by what is actually drawn in it, whatever empty space its image has round it, and sits a little inside the slot.
+- A selected food has an "Eat" button above it (see Health, hunger and energy).
 
 A mined block drops as an item where it was. It is collected when the player is on or next to its tile, a moment after it drops, as long as there is room in the bar or in a basket in the bar.
+
+## Health, hunger and energy
+
+The button in the top left corner is the player. Under it are two small bars, health and hunger. Clicking it flies a panel out beside it with those two and a third, energy, and two buttons: **Sleep** and **Meditate**. Bars are green on dark red.
+
+- **Hunger** runs down all the time: a full bar lasts 3600 ticks. Selecting a food in the inventory puts an **Eat** button above it; eating one fills some of the bar, a cooked meal much more than a berry. Eating to full and then eating again turns the bar golden: nothing more can be eaten (the button reads "Full"), and hunger holds off until that wears off - longer the bigger the meal.
+- **Health** mends by itself, slowly, and a little with everything eaten - much less than the food does for hunger. With hunger at nothing it runs down instead, though never below a tenth.
+- **Energy** runs down while awake: a full bar lasts 1800 ticks. It has no golden state.
+- **Sleeping** lays the player on the ground and brings energy back; they wake by themselves when it is full. The button is greyed out while energy is full.
+- **Meditating** sits the player down, with a progress bar over their head. Every 900 ticks it reaches 100% and something pops out beside them to be picked up: a gem (amethyst most often, diamond least), a fruit, or one of the six ores found in stone.
+- Either needs the player to be standing on the ground, and ends as soon as they are told to do anything else - a click on the world, a movement key - or the button is pressed again.
+- While the player sleeps or meditates the ticks go three times as fast (30 a second instead of 10), and arrows at the top of the screen say so.
+
+All the numbers, what each food is worth (`"food"` in `items.json`) and the list of what meditating brings are data.
 
 ## Fog of war and the world map
 
@@ -212,7 +231,7 @@ The spawn portal stands where the player spawns: two portal blocks on a base blo
 
 An open bench shows a menu beside it in the world:
 
-- a row of the items it can make, which scrolls sideways (wheel or drag) only when there are more than fit;
+- a row of the items it can make, lowest tier first, which scrolls sideways (wheel or drag) only when there are more than fit;
 - for the selected item, its recipe and output, a slider from 1 to 99 that stops at what the inventory can pay for, and a Craft button or "Not enough items".
 
 Each item takes 100 ms to craft. Output that does not fit in the inventory is dropped at the player's feet. The bench closes when the world is clicked, a movement key is pressed, or the player moves out of reach, and that ends any crafting still running.
@@ -309,6 +328,8 @@ The kiln and the furnace burn fuel. A gauge on the side of their menu shows how 
 
 Clicking the gauge opens a list of the fuel in the inventory, each with how much of the gauge one of it fills; clicking an item burns one. Sticks, wood and coal are fuel, coal much the best. A bench that is removed loses the fuel in it.
 
+Anything with a fire in it - campfire, kiln, furnace - shows it: flames flickering while it has fuel, and a bed of blackened coals when it has none. The frames are the block's `texture_lit` in `tiles.json`.
+
 ## Chests
 
 Clicking a placed chest offers "Open chest" and "Remove chest". Opening it (the player walks up first) shows its 16 slots in a 4×4 grid beside it. Items are dragged between the chest and the inventory bar exactly as they are within the bar, including picking up part of a stack by holding. While a chest is open, a click on a stack sends the whole stack across: from the inventory into the chest, or from the chest into the inventory. It tops up a matching stack first, then takes a free slot, and anything that does not fit stays where it was. (So with a chest open, a click moves a stack rather than selecting it; the number keys still select.) A basket put in a chest keeps what it holds.
@@ -334,6 +355,7 @@ What an item holds is part of the item, and two stacks only merge if they hold t
 - `src/hud.c` — the on-screen inventory bar
 - `src/benchui.c` — the bench popup and crafting menu
 - `src/tradeui.c` — the trade portal menu
+- `src/playerui.c` — the player's button, bars and the sleep and meditate panel
 - `src/menu.c` — main menu, pause menu and key bindings
 - `src/view.h` — placing the wrapping world on screen
 - `src/main.c` — window, input, camera and rendering

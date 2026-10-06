@@ -10,7 +10,8 @@
 #define MAX_DENIALS 8
 #define MAX_MOVES 12
 #define MAX_DROPS 2048
-#define MAX_TICK_RATE 100
+#define MAX_TICK_RATE 1000
+#define MAX_TICKS_PER_UPDATE 200 /* so a slow frame cannot snowball */
 #define MAX_STORAGES 256
 #define MAX_MOBS 64
 #define MAX_ATTACK_TRIES 8 /* times a hunt re-plans after its quarry has moved */
@@ -98,6 +99,22 @@ typedef struct {
     float timer, duration;
 } Player;
 
+/* What the player is doing instead of getting about. */
+typedef enum {
+    REST_NONE,
+    REST_SLEEP,   /* lying down: energy comes back */
+    REST_MEDITATE /* sitting still: now and then it brings something */
+} Rest;
+
+/* The player's needs, each a bar from 0 to 1. */
+typedef struct {
+    float health, hunger, energy;
+    float saturation; /* ticks for which a full stomach holds hunger off */
+    float meditation; /* progress toward the next thing meditating brings, 0..1 */
+    int32_t rest;     /* a Rest */
+    int32_t reserved[4];
+} Vitals;
+
 /* Fading marker shown on a tile whose action was refused. */
 typedef struct {
     TilePos pos;
@@ -181,6 +198,8 @@ typedef struct {
      * a world's save. */
     int crystals;
 
+    Vitals vitals;
+
     /* Fog of war: how far each tile has been uncovered, 0 (never seen) to
      * 255. Once uncovered a tile stays so. */
     uint8_t *explored;
@@ -260,6 +279,30 @@ bool game_upgrade_bench(Game *g);
 int game_explored(const Game *g, int x, int y);
 /* Uncovers the fog round a point, as the player's being there does. */
 void game_reveal(Game *g, int x, int y);
+
+/* Whether an item can be eaten at all, and whether the player could eat one
+ * now: not while a full stomach is still holding hunger off. */
+bool game_is_food(ItemId id);
+bool game_can_eat(const Game *g, ItemId id);
+/* Eats one of the selected item. It fills hunger and mends a little health;
+ * eaten on a full stomach it holds hunger off for a while instead. */
+bool game_eat(Game *g);
+/* True while a full stomach is holding hunger off. */
+bool game_saturated(const Game *g);
+/* Whether a bar is as good as full. */
+bool game_bar_full(float value);
+/* Lies down to sleep, or sits to meditate, dropping whatever was queued. False
+ * if the player is not standing on the ground, or asks to sleep with energy
+ * full. Sleep ends by itself once energy is full; anything the player is told
+ * to do ends either. While it lasts the ticks go faster. */
+bool game_rest(Game *g, Rest kind);
+void game_wake(Game *g);
+/* Ticks per second as they are going now: the world's rate, sped up at rest. */
+int game_tick_speed(const Game *g);
+/* Where something part-way through a step of (dx, dy) is, relative to where
+ * it set off. A diagonal step goes round the corner rather than through it:
+ * `rise_first` picks up-or-down then across, otherwise across first. */
+void game_step_offset(int dx, int dy, bool rise_first, float t, float *ox, float *oy);
 
 /* Leaves one of an item lying in a tile. */
 void game_drop_item(Game *g, ItemId id, int x, int y);

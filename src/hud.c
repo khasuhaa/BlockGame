@@ -12,6 +12,8 @@
 #define HOLD_TICK 0.12f /* seconds between each increase after that */
 #define NAME_TIME 2.2f  /* how long a newly selected item's name stays up */
 #define NAME_FADE 0.5f
+#define EAT_HEIGHT 28.0f
+#define ICON_INSET 3.0f /* room left round an item in its slot */
 
 /* Cell in the inventory grid. Column 0 is the head button and columns 1..8
  * the bar; row 0 is the bar itself and rows 1..4 extend upward from it. */
@@ -67,6 +69,19 @@ static bool hit_test(const Hud *hud, const Inventory *inv, Vector2 p, bool *head
     return false;
 }
 
+/* The top of whatever stands on the selected slot: the slot, or the basket open above it. */
+static Rectangle selected_top(const Hud *hud, const Inventory *inv)
+{
+    return cell_rect(inv->sel_slot + 1, basket_shown(hud, inv, inv->sel_slot) ? COLUMN_ROWS : 0);
+}
+
+/* The "Eat" button sits just above that. */
+static Rectangle eat_rect(const Hud *hud, const Inventory *inv)
+{
+    Rectangle top = selected_top(hud, inv);
+    return (Rectangle){ top.x - 4.0f, top.y - EAT_HEIGHT - 6.0f, top.width + 8.0f, EAT_HEIGHT };
+}
+
 void hud_close_all(Hud *hud)
 {
     hud->armor_open = false;
@@ -77,6 +92,8 @@ bool hud_mouse_over(const Hud *hud, const Inventory *inv)
 {
     bool head;
     SlotRef slot;
+    if (hud->eat_pressed || (hud->eat != HUD_EAT_NONE && CheckCollisionPointRec(GetMousePosition(), eat_rect(hud, inv))))
+        return true;
     return hud->pressed || hit_test(hud, inv, GetMousePosition(), &head, &slot);
 }
 
@@ -143,6 +160,22 @@ bool hud_handle_input(Hud *hud, Inventory *inv)
     }
     if (hud->name_time > 0.0f) hud->name_time -= GetFrameTime();
 
+    /* The "Eat" button takes a press before the slots do. */
+    hud->eat_clicked = false;
+    bool on_eat = hud->eat != HUD_EAT_NONE && CheckCollisionPointRec(mouse, eat_rect(hud, inv));
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && on_eat) {
+        hud->eat_pressed = true;
+        hud->pressed = false;
+        return true;
+    }
+    if (hud->eat_pressed) {
+        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+            hud->eat_pressed = false;
+            hud->eat_clicked = on_eat && hud->eat == HUD_EAT_READY;
+        }
+        return true;
+    }
+
     bool head;
     SlotRef over;
     bool on_hud = hit_test(hud, inv, mouse, &head, &over);
@@ -189,7 +222,7 @@ static Rectangle sub_rect(Rectangle r, float x, float y, float w, float h)
     return (Rectangle){ r.x + r.width * x, r.y + r.height * y, r.width * w, r.height * h };
 }
 
-static void draw_head_icon(Rectangle r)
+void hud_draw_head_icon(Rectangle r)
 {
     DrawRectangleRec(sub_rect(r, 0.2f, 0.2f, 0.6f, 0.6f), (Color){ 240, 200, 160, 255 });
     DrawRectangleRec(sub_rect(r, 0.2f, 0.2f, 0.6f, 0.18f), (Color){ 90, 60, 40, 255 });
@@ -242,7 +275,8 @@ static void draw_stack(const ItemStack *s, Rectangle r, int taken)
 {
     if (!s || s->count <= taken) return;
     int count = s->count - taken;
-    hud_draw_item_icon((ItemId)s->id, r);
+    hud_draw_item_icon((ItemId)s->id, (Rectangle){ r.x + ICON_INSET, r.y + ICON_INSET, r.width - 2 * ICON_INSET,
+                                                   r.height - 2 * ICON_INSET });
     if (count > 1) {
         const char *text = TextFormat("%d", count);
         int size = 18;
@@ -283,7 +317,7 @@ void hud_draw(const Hud *hud, const Inventory *inv)
     }
 
     draw_box(cell_rect(0, 0), hud->armor_open);
-    draw_head_icon(cell_rect(0, 0));
+    hud_draw_head_icon(cell_rect(0, 0));
     if (hud->armor_open) {
         for (int i = 0; i < ARMOR_SLOTS; i++) {
             Rectangle r = cell_rect(0, COLUMN_ROWS - i);
@@ -320,11 +354,27 @@ void hud_draw(const Hud *hud, const Inventory *inv)
     }
 
     /* The selected item's name, over its slot (or over the column standing on it). */
+    bool eat = hud->eat != HUD_EAT_NONE && !dragged;
     if (hud->name_time > 0.0f && hud->named_item != ITEM_NONE && !dragged) {
-        int col = inv->sel_slot + 1;
-        Rectangle top = cell_rect(col, basket_shown(hud, inv, inv->sel_slot) ? COLUMN_ROWS : 0);
+        Rectangle top = selected_top(hud, inv);
         float alpha = hud->name_time < NAME_FADE ? hud->name_time / NAME_FADE : 1.0f;
-        draw_name(item_def(hud->named_item)->label, top.x + top.width / 2, top.y - 30, alpha);
+        /* (Above the "Eat" button, when that is there.) */
+        draw_name(item_def(hud->named_item)->label, top.x + top.width / 2,
+                  top.y - 30 - (eat ? EAT_HEIGHT + 6.0f : 0.0f), alpha);
+    }
+
+    /* Food that is selected can be eaten from here. */
+    if (eat) {
+        Rectangle r = eat_rect(hud, inv);
+        bool ready = hud->eat == HUD_EAT_READY;
+        bool hover = ready && CheckCollisionPointRec(GetMousePosition(), r);
+        Color back = !ready ? (Color){ 38, 40, 48, 235 } : hud->eat_pressed && hover ? (Color){ 40, 110, 52, 255 }
+                     : hover ? (Color){ 66, 160, 78, 255 } : (Color){ 52, 132, 64, 245 };
+        DrawRectangleRec(r, back);
+        DrawRectangleLinesEx(r, 2.0f, ready ? (Color){ 170, 232, 170, 255 } : (Color){ 90, 92, 102, 255 });
+        const char *text = ready ? "Eat" : "Full";
+        DrawText(text, (int)(r.x + (r.width - MeasureText(text, 18)) / 2), (int)r.y + 5, 18,
+                 ready ? RAYWHITE : (Color){ 244, 196, 48, 255 });
     }
 
     if (dragged && dragged->count > 0) {

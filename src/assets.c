@@ -4,12 +4,15 @@
 #include <stdio.h>
 #include <string.h>
 
-#define MAX_IMAGES 32
+#define MAX_IMAGES 64
+#define ITEM_FILL 0.9f /* how much of its rectangle the longer side of an item takes up */
 
 static Texture2D tile_textures[MAX_TILES][MAX_TILE_TEXTURES];
 static Texture2D tile_top_textures[MAX_TILES];
 static Texture2D tile_base_textures[MAX_TILES];
+static Texture2D tile_lit_textures[MAX_TILES][MAX_TILE_TEXTURES];
 static Texture2D item_textures[MAX_ITEMS];
+static Rectangle item_bounds[MAX_ITEMS]; /* the part of each item's image that is drawn on */
 static Color tile_colors[MAX_TILES];
 static struct {
     char file[CONTENT_PATH_LEN];
@@ -48,6 +51,28 @@ static Color average_color(const char *dir, const char *file)
     return (Color){ (unsigned char)(r / n), (unsigned char)(g / n), (unsigned char)(b / n), 255 };
 }
 
+/* The box round the solid pixels of an image; the whole image if it has none. */
+static Rectangle solid_bounds(const char *dir, const char *file)
+{
+    const char *path = TextFormat("%s/textures/%s", dir, file);
+    if (!file[0] || !FileExists(path)) return (Rectangle){ 0 };
+    Image img = LoadImage(path);
+    int x0 = img.width, y0 = img.height, x1 = -1, y1 = -1;
+    for (int y = 0; y < img.height; y++) {
+        for (int x = 0; x < img.width; x++) {
+            if (GetImageColor(img, x, y).a < 40) continue;
+            if (x < x0) x0 = x;
+            if (x > x1) x1 = x;
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+        }
+    }
+    Rectangle all = { 0, 0, (float)img.width, (float)img.height };
+    UnloadImage(img);
+    if (x1 < 0) return all;
+    return (Rectangle){ (float)x0, (float)y0, (float)(x1 - x0 + 1), (float)(y1 - y0 + 1) };
+}
+
 Color assets_tile_color(TileType t)
 {
     return t > TILE_AIR && t < content.tile_count ? tile_colors[t] : BLANK;
@@ -60,11 +85,16 @@ void assets_load(const char *dir)
     for (int t = 0; t < content.tile_count; t++) {
         for (int i = 0; i < content.tiles[t].texture_count; i++)
             tile_textures[t][i] = load(dir, content.tiles[t].textures[i]);
+        for (int i = 0; i < content.tiles[t].lit_count; i++)
+            tile_lit_textures[t][i] = load(dir, content.tiles[t].textures_lit[i]);
         tile_top_textures[t] = load(dir, content.tiles[t].texture_top);
         tile_colors[t] = average_color(dir, content.tiles[t].texture_count > 0 ? content.tiles[t].textures[0] : "");
         tile_base_textures[t] = load(dir, content.tiles[t].texture_base);
     }
-    for (int i = 0; i < content.item_count; i++) item_textures[i] = load(dir, content.items[i].texture);
+    for (int i = 0; i < content.item_count; i++) {
+        item_textures[i] = load(dir, content.items[i].texture);
+        item_bounds[i] = solid_bounds(dir, content.items[i].texture);
+    }
 }
 
 void assets_unload(void)
@@ -77,6 +107,8 @@ void assets_unload(void)
         for (int i = 0; i < MAX_TILE_TEXTURES; i++) {
             if (tile_textures[t][i].id) UnloadTexture(tile_textures[t][i]);
             tile_textures[t][i] = (Texture2D){ 0 };
+            if (tile_lit_textures[t][i].id) UnloadTexture(tile_lit_textures[t][i]);
+            tile_lit_textures[t][i] = (Texture2D){ 0 };
         }
     }
     for (int i = 0; i < MAX_ITEMS; i++) {
@@ -105,12 +137,23 @@ TilePart assets_tile_part(TileType t, TileType above, TileType below)
 
 void assets_draw_tile(TileType t, int x, int y, float px, float py, float tile_size, float dim, TilePart part)
 {
+    assets_draw_tile_lit(t, x, y, px, py, tile_size, dim, part, false);
+}
+
+void assets_draw_tile_lit(TileType t, int x, int y, float px, float py, float tile_size, float dim, TilePart part,
+                          bool lit)
+{
     if (t <= TILE_AIR || t >= content.tile_count) return;
     const TileDef *def = &content.tiles[t];
     /* Cheap per-position hash: which texture, and how bright. */
     unsigned h = (unsigned)x * 73856093u ^ (unsigned)y * 19349663u;
     Texture2D tex = def->texture_count > 0 ? tile_textures[t][(h >> 4) % (unsigned)def->texture_count]
                                            : (Texture2D){ 0 };
+    if (lit && def->lit_count > 0) {
+        /* Fires do not all flicker in step: each starts somewhere of its own. */
+        int frame = (int)(GetTime() * def->lit_fps + (double)(h % 7u)) % def->lit_count;
+        if (tile_lit_textures[t][frame].id) tex = tile_lit_textures[t][frame];
+    }
     if (part == TILE_PART_TOP && tile_top_textures[t].id) tex = tile_top_textures[t];
     if (part == TILE_PART_BASE && tile_base_textures[t].id) tex = tile_base_textures[t];
     if (!tex.id) {
@@ -140,7 +183,14 @@ void assets_draw_item(ItemId id, Rectangle r)
                                       r.height * 0.6f });
         return;
     }
-    DrawTexturePro(tex, (Rectangle){ 0, 0, (float)tex.width, (float)tex.height }, r,
+    /* Only the part of the image that is drawn on, centred. Small drawings are
+     * not blown up to fill the space, and none reaches the edge. */
+    Rectangle src = item_bounds[id];
+    float longest = src.width > src.height ? src.width : src.height;
+    float least = 0.72f * (float)(tex.width > tex.height ? tex.width : tex.height);
+    float scale = r.width * ITEM_FILL / (longest > least ? longest : least);
+    float w = src.width * scale, hgt = src.height * scale;
+    DrawTexturePro(tex, src, (Rectangle){ r.x + (r.width - w) / 2, r.y + (r.height - hgt) / 2, w, hgt },
                    (Vector2){ 0, 0 }, 0.0f, WHITE);
 }
 

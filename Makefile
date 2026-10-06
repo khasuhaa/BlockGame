@@ -20,9 +20,9 @@ DATA := $(wildcard data/*.json)
 
 all: build/blockgame
 
-build/blockgame: src/main.c src/assets.c src/hud.c src/benchui.c src/tradeui.c src/menu.c $(ENGINE_SRC) $(HEADERS) $(RAYLIB_LIB)
+build/blockgame: src/main.c src/assets.c src/hud.c src/benchui.c src/tradeui.c src/playerui.c src/menu.c $(ENGINE_SRC) $(HEADERS) $(RAYLIB_LIB)
 	@mkdir -p build
-	$(CC) $(CFLAGS) -I$(RAYLIB_DIR)/src src/main.c src/assets.c src/hud.c src/benchui.c src/tradeui.c src/menu.c $(ENGINE_SRC) $(RAYLIB_LIB) $(LDLIBS) -o $@
+	$(CC) $(CFLAGS) -I$(RAYLIB_DIR)/src src/main.c src/assets.c src/hud.c src/benchui.c src/tradeui.c src/playerui.c src/menu.c $(ENGINE_SRC) $(RAYLIB_LIB) $(LDLIBS) -o $@
 
 build/test_game: tests/test_game.c $(ENGINE_SRC) $(HEADERS)
 	@mkdir -p build/mod

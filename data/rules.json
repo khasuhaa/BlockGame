@@ -1,6 +1,6 @@
 {
   "time": {
-    "tick_rate": 10, "day_ticks": 1000, "night_ticks": 800, "twilight_ticks": 80,
+    "tick_rate": 10, "max_tick_rate": 300, "day_ticks": 1000, "night_ticks": 800, "twilight_ticks": 80,
     "chunk_width": 16, "random_events_per_chunk": 1
   },
   "player": {
@@ -14,6 +14,22 @@
   },
   "drops": { "fall_speed": 12.0, "pickup_delay": 0.45, "collect_time": 0.15 },
   "light": { "sun": 15, "moon": 5, "air_falloff": 1, "solid_falloff": 2, "minimum": 2, "water_depth_per_level": 4 },
+  "vitals": {
+    "hunger_ticks": 3600, "energy_ticks": 1800, "sleep_ticks": 600,
+    "health_regen_ticks": 6000, "starve_ticks": 3000, "starve_floor": 0.1,
+    "food_health": 0.1, "saturation_ticks": 3600, "full_margin": 0.02, "rest_speed": 3
+  },
+  "meditation": {
+    "ticks": 900,
+    "loot": [
+      { "item": "amethyst", "weight": 16 }, { "item": "sapphire", "weight": 8 }, { "item": "emerald", "weight": 4 },
+      { "item": "ruby", "weight": 2 }, { "item": "diamond", "weight": 1 },
+      { "item": "acorn", "weight": 16 }, { "item": "cherry", "weight": 16 }, { "item": "apple", "weight": 16 },
+      { "item": "orange", "weight": 16 }, { "item": "prickly_pear", "weight": 16 },
+      { "item": "copper_ore", "weight": 14 }, { "item": "tin_ore", "weight": 14 }, { "item": "iron_ore", "weight": 10 },
+      { "item": "gold_ore", "weight": 10 }, { "item": "platinum_ore", "weight": 5 }, { "item": "titanium_ore", "weight": 5 }
+    ]
+  },
   "fog": { "enabled": true, "radius": 20, "fade": 8 },
   "view": { "zoom": [48, 40, 32, 24, 16, 6, 4, 2], "start": 32, "map_from": 12, "map_to": 8 },
   "water": { "color": [38, 110, 190, 110] },

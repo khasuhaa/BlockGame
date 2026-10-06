@@ -7,6 +7,9 @@
       "label": "Dodo",
       "texture": "mobs/dodo.png",
       "texture_baby": "mobs/dodo_baby.png",
+      "walk": ["mobs/dodo_walk_0.png", "mobs/dodo.png", "mobs/dodo_walk_1.png", "mobs/dodo.png"],
+      "walk_baby": ["mobs/dodo_baby_walk_0.png", "mobs/dodo_baby.png", "mobs/dodo_baby_walk_1.png", "mobs/dodo_baby.png"],
+      "hop": 0.1,
       "step_ticks": 4,
       "move_chance": 0.2,
       "turn_chance": 0.25,
@@ -18,7 +21,7 @@
       },
       "lays": {
         "tile": "dodo_egg",
-        "chance": 0.0008
+        "chance": 0.0004
       },
       "baby_ticks": 600,
       "drops": [

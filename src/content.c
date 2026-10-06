@@ -256,6 +256,14 @@ static bool read_tiles(Reader *r, const cJSON *root)
             if (t->soil_count < MAX_TILE_SOILS) t->soil[t->soil_count++] = tile;
         }
         t->shade = (int)num(e, "shade", 0);
+        t->lit_count = 0;
+        const cJSON *lit = field(e, "texture_lit"), *frame;
+        cJSON_ArrayForEach(frame, lit) {
+            if (t->lit_count >= MAX_TILE_TEXTURES || !cJSON_IsString(frame))
+                return fail(r, "tile \"%s\": \"texture_lit\" is a list of at most %d files", t->name, MAX_TILE_TEXTURES);
+            copy_name(t->textures_lit[t->lit_count++], CONTENT_PATH_LEN, frame->valuestring);
+        }
+        t->lit_fps = (float)num(e, "lit_fps", 6.0);
         t->front = flag(e, "front", false);
         t->pulse = (float)num(e, "pulse", 0.0);
         t->drop = ITEM_NONE;
@@ -343,6 +351,12 @@ static bool read_items(Reader *r, const cJSON *root)
                         it->name);
         copy_name(it->texture, sizeof it->texture, str(e, "texture"));
         it->fuel = (int)num(e, "fuel", 0);
+        /* "food" is how much hunger it fills, or says that and what it does for health. */
+        const cJSON *food = field(e, "food");
+        it->food = cJSON_IsNumber(food) ? (float)food->valuedouble : (float)num(food, "hunger", 0.0);
+        it->food_health = (float)num(food, "health", -1.0);
+        if (it->food < 0.0f || it->food > 1.0f)
+            return fail(r, "item \"%s\": \"food\" is a share of the hunger bar, 0 to 1", it->name);
         /* The category is matched to the trade file once that has been read. */
         copy_name(it->category_name, sizeof it->category_name, str(e, "category"));
         it->price = (int)num(e, "price", 0);
@@ -682,6 +696,7 @@ static bool read_rules(Reader *r, const cJSON *root)
     const cJSON *drops = field(root, "drops"), *ui = field(root, "interface"), *e;
     if (time) {
         u->tick_rate = (int)num(time, "tick_rate", u->tick_rate);
+        u->max_tick_rate = (int)num(time, "max_tick_rate", u->max_tick_rate);
         u->day_ticks = (int)num(time, "day_ticks", u->day_ticks);
         u->night_ticks = (int)num(time, "night_ticks", u->night_ticks);
         u->twilight_ticks = (int)num(time, "twilight_ticks", u->twilight_ticks);
@@ -719,6 +734,34 @@ static bool read_rules(Reader *r, const cJSON *root)
         u->fog_enabled = flag(fog, "enabled", u->fog_enabled);
         u->fog_radius = (int)num(fog, "radius", u->fog_radius);
         u->fog_fade = (int)num(fog, "fade", u->fog_fade);
+    }
+    const cJSON *vitals = field(root, "vitals");
+    if (vitals) {
+        u->hunger_ticks = (int)num(vitals, "hunger_ticks", u->hunger_ticks);
+        u->energy_ticks = (int)num(vitals, "energy_ticks", u->energy_ticks);
+        u->sleep_ticks = (int)num(vitals, "sleep_ticks", u->sleep_ticks);
+        u->health_regen_ticks = (int)num(vitals, "health_regen_ticks", u->health_regen_ticks);
+        u->starve_ticks = (int)num(vitals, "starve_ticks", u->starve_ticks);
+        u->starve_floor = (float)num(vitals, "starve_floor", u->starve_floor);
+        u->food_health = (float)num(vitals, "food_health", u->food_health);
+        u->saturation_ticks = (int)num(vitals, "saturation_ticks", u->saturation_ticks);
+        u->full_margin = (float)num(vitals, "full_margin", u->full_margin);
+        u->rest_speed = (int)num(vitals, "rest_speed", u->rest_speed);
+    }
+    const cJSON *meditation = field(root, "meditation");
+    if (meditation) {
+        u->meditation_ticks = (int)num(meditation, "ticks", u->meditation_ticks);
+        const cJSON *loot = field(meditation, "loot");
+        if (loot) u->loot_count = 0;
+        cJSON_ArrayForEach(e, loot) {
+            if (u->loot_count >= MAX_LOOT) return fail(r, "meditation brings more than %d kinds of thing", MAX_LOOT);
+            ItemId item = ITEM_NONE;
+            if (!str(e, "item") || !item_ref(r, e, "item", &item))
+                return fail(r, "something meditation brings needs an \"item\"");
+            u->loot[u->loot_count].item = item;
+            u->loot[u->loot_count].weight = (int)num(e, "weight", 1);
+            if (u->loot[u->loot_count++].weight < 1) return fail(r, "what meditation brings needs a \"weight\" of 1 or more");
+        }
     }
     const cJSON *look = field(root, "view");
     if (look) {
@@ -770,6 +813,13 @@ static bool read_mobs(Reader *r, const cJSON *root)
         copy_name(m->texture, sizeof m->texture, str(e, "texture"));
         copy_name(m->texture_baby, sizeof m->texture_baby,
                   str(e, "texture_baby") ? str(e, "texture_baby") : str(e, "texture"));
+        cJSON_ArrayForEach(one, field(e, "walk"))
+            if (cJSON_IsString(one) && m->walk_count < MAX_MOB_FRAMES)
+                copy_name(m->walk[m->walk_count++], CONTENT_PATH_LEN, one->valuestring);
+        cJSON_ArrayForEach(one, field(e, "walk_baby"))
+            if (cJSON_IsString(one) && m->walk_baby_count < MAX_MOB_FRAMES)
+                copy_name(m->walk_baby[m->walk_baby_count++], CONTENT_PATH_LEN, one->valuestring);
+        m->hop = (float)num(e, "hop", 0.0);
         m->step_ticks = (int)num(e, "step_ticks", 4);
         if (m->step_ticks < 1) m->step_ticks = 1;
         m->move_chance = (float)num(e, "move_chance", 0.2);

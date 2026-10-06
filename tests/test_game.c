@@ -3081,6 +3081,190 @@ static void test_fog(void)
     game_free(&g);
 }
 
+static bool near(float a, float b)
+{
+    return a - b < 0.002f && b - a < 0.002f;
+}
+
+static void test_vitals(void)
+{
+    Game g;
+    game_init(&g, 128, 64, 51, WORLD_FLAT);
+    const RulesDef *u = &content.rules;
+    Vitals *v = &g.vitals;
+    Inventory *inv = &g.inventory;
+    ItemId apple = item_id("apple"), meat = item_id("cooked_dodo_meat");
+
+    CHECK(u->hunger_ticks == 3600 && u->energy_ticks == 1800 && u->meditation_ticks == 900 && u->rest_speed == 3);
+    CHECK(v->health == 1.0f && v->hunger == 1.0f && v->energy == 1.0f && v->rest == REST_NONE);
+
+    /* A full hunger bar lasts 3600 ticks and a full energy bar 1800. */
+    for (int i = 0; i < 360; i++) game_tick(&g);
+    CHECK(near(v->hunger, 0.9f) && near(v->energy, 0.8f) && v->health == 1.0f);
+
+    /* Food is eaten from the selected slot, and only food. */
+    clear_inventory(&g);
+    inventory_add(inv, ITEM_DIRT, 1);
+    inventory_add(inv, apple, 5);
+    inventory_select(inv, 0, -1);
+    CHECK(!game_is_food(ITEM_DIRT) && game_is_food(apple) && !game_eat(&g));
+    inventory_select(inv, 1, -1);
+    v->hunger = 0.5f;
+    v->health = 0.5f;
+    CHECK(game_can_eat(&g, apple) && game_eat(&g));
+    CHECK(near(v->hunger, 0.5f + item_def(apple)->food) && inventory_count(inv, apple) == 4);
+    /* It mends health too, but much less than it fills hunger. */
+    CHECK(v->health > 0.5f && v->health - 0.5f < item_def(apple)->food / 4);
+
+    /* Eating up to full just fills the bar; eating again when full turns it
+     * gold: nothing more can be eaten, and hunger holds off for a while. */
+    v->hunger = 0.95f;
+    CHECK(game_eat(&g) && v->hunger == 1.0f && !game_saturated(&g) && game_can_eat(&g, apple));
+    CHECK(game_eat(&g) && game_saturated(&g) && !game_can_eat(&g, apple) && !game_eat(&g));
+    CHECK(inventory_count(inv, apple) == 2);
+    int held_off = 0;
+    while (game_saturated(&g) && held_off < 100000) {
+        game_tick(&g);
+        held_off++;
+    }
+    CHECK(held_off > 100 && v->hunger == 1.0f);
+    game_tick(&g);
+    CHECK(v->hunger < 1.0f && game_can_eat(&g, apple));
+    /* A bigger meal holds it off for longer. */
+    CHECK(item_def(meat)->food > item_def(apple)->food);
+
+    /* Health comes back by itself, but with nothing in the stomach it runs
+     * down instead - though never all the way. */
+    v->health = 0.5f;
+    for (int i = 0; i < 100; i++) game_tick(&g);
+    CHECK(v->health > 0.5f);
+    v->hunger = 0.0f;
+    float before = v->health;
+    for (int i = 0; i < 100; i++) game_tick(&g);
+    CHECK(v->health < before);
+    for (int i = 0; i < u->starve_ticks; i++) game_tick(&g);
+    CHECK(near(v->health, u->starve_floor) && v->health > 0.0f);
+    v->hunger = v->health = 1.0f;
+
+    /* Sleep: not with energy full. Asleep, ticks go three times as fast and
+     * energy comes back; the player wakes by themselves when it is full. */
+    v->energy = 1.0f;
+    CHECK(!game_rest(&g, REST_SLEEP) && game_tick_speed(&g) == g.tick_rate);
+    v->energy = 0.5f;
+    CHECK(game_rest(&g, REST_SLEEP) && v->rest == REST_SLEEP && game_tick_speed(&g) == 3 * g.tick_rate);
+    uint64_t tick = g.tick;
+    run(&g, 1.0f);
+    CHECK(g.tick - tick >= 29 && g.tick - tick <= 31 && v->energy > 0.5f && is_idle(&g));
+    for (int i = 0; i < u->sleep_ticks && v->rest == REST_SLEEP; i++) game_tick(&g);
+    CHECK(v->rest == REST_NONE && game_bar_full(v->energy) && game_tick_speed(&g) == g.tick_rate);
+
+    /* Asleep, the player does not move; told to, they wake first. */
+    v->energy = 0.2f;
+    TilePos at = g.player.feet;
+    CHECK(game_rest(&g, REST_SLEEP));
+    run(&g, 0.5f);
+    CHECK(g.player.feet.x == at.x && v->rest == REST_SLEEP);
+    CHECK(game_click_tile(&g, at.x + 3, at.y) && v->rest == REST_NONE);
+    run(&g, 2.0f);
+    CHECK(g.player.feet.x == at.x + 3);
+    CHECK(game_rest(&g, REST_SLEEP));
+    game_set_move_input(&g, -1, 0);
+    CHECK(v->rest == REST_NONE);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 0.5f);
+
+    /* Meditating: every 900 ticks something from the list turns up beside
+     * the player. It can be done with energy full, and goes on until stopped. */
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    clear_inventory(&g);
+    v->energy = 1.0f;
+    CHECK(game_rest(&g, REST_MEDITATE) && v->rest == REST_MEDITATE && game_tick_speed(&g) == 3 * g.tick_rate);
+    for (int i = 0; i < 450; i++) game_tick(&g);
+    CHECK(near(v->meditation, 0.5f));
+    int found = 0;
+    for (int i = 0; i < MAX_DROPS; i++) found += g.drops[i].active;
+    CHECK(found == 0);
+    for (int i = 0; i < 450 + 900; i++) game_tick(&g);
+    CHECK(v->rest == REST_MEDITATE);
+    for (int i = 0; i < MAX_DROPS; i++) {
+        if (!g.drops[i].active) continue;
+        found++;
+        bool listed = false;
+        for (int k = 0; k < u->loot_count; k++) listed = listed || u->loot[k].item == g.drops[i].item;
+        CHECK(listed);
+        /* Far enough off that it lies there until the player goes for it. */
+        CHECK(abs(world_dx(&g.world, g.player.feet.x, g.drops[i].x)) == 2);
+    }
+    CHECK(found == 2);
+    run(&g, 1.0f);
+    CHECK(inventory_count(inv, g.drops[0].item) == 0);
+    game_wake(&g);
+    CHECK(v->rest == REST_NONE && v->meditation == 0.0f);
+
+    /* All five gems, with each rarer than the last; the fruits; the six ores. */
+    const char *gems[] = { "amethyst", "sapphire", "emerald", "ruby", "diamond" };
+    const char *others[] = { "acorn", "cherry", "apple", "orange", "prickly_pear", "copper_ore", "tin_ore",
+                             "iron_ore", "gold_ore", "platinum_ore", "titanium_ore" };
+    int last = 1 << 30;
+    for (int i = 0; i < 5; i++) {
+        int weight = 0;
+        for (int k = 0; k < u->loot_count; k++)
+            if (u->loot[k].item == item_id(gems[i])) weight = u->loot[k].weight;
+        CHECK(weight > 0 && weight < last);
+        last = weight;
+    }
+    for (int i = 0; i < 11; i++) {
+        bool listed = false;
+        for (int k = 0; k < u->loot_count; k++) listed = listed || u->loot[k].item == item_id(others[i]);
+        CHECK(listed);
+    }
+    CHECK(u->loot_count == 16);
+
+    /* Not while hanging on a wall. */
+    world_set(&g.world, g.player.feet.x + 1, g.player.feet.y + 1, TILE_AIR);
+    world_set(&g.world, g.player.feet.x + 1, g.player.feet.y + 2, TILE_AIR);
+    world_set(&g.world, g.player.feet.x + 1, g.player.feet.y + 3, TILE_AIR);
+    CHECK(game_click_tile(&g, g.player.feet.x + 1, g.player.feet.y + 2));
+    run(&g, 2.0f);
+    if (g.player.climbing) CHECK(!game_rest(&g, REST_MEDITATE));
+
+    /* The bars are saved with the world; nobody is saved asleep. */
+    v->health = 0.7f;
+    v->hunger = 0.6f;
+    v->energy = 0.4f;
+    v->saturation = 0.0f;
+    v->rest = REST_SLEEP;
+    Game loaded;
+    CHECK(save_game(&g, "build/test_vitals.world") && load_game(&loaded, "build/test_vitals.world"));
+    CHECK(near(loaded.vitals.health, 0.7f) && near(loaded.vitals.hunger, 0.6f) && near(loaded.vitals.energy, 0.4f));
+    CHECK(loaded.vitals.rest == REST_NONE);
+    game_free(&loaded);
+    remove("build/test_vitals.world");
+    game_free(&g);
+
+    /* A step up or down a block goes round its corner, not through it. */
+    for (int i = 0; i <= 20; i++) {
+        float ox, oy;
+        game_step_offset(1, -1, true, (float)i / 20.0f, &ox, &oy);
+        CHECK(ox == 0.0f || oy == -1.0f);
+        game_step_offset(-1, 1, false, (float)i / 20.0f, &ox, &oy);
+        CHECK(ox == -1.0f || oy == 0.0f);
+    }
+    float ox, oy;
+    game_step_offset(1, -1, true, 1.0f, &ox, &oy);
+    CHECK(ox == 1.0f && oy == -1.0f);
+    game_step_offset(2, 0, false, 0.5f, &ox, &oy);
+    CHECK(ox == 1.0f && oy == 0.0f);
+
+    /* Every bench lists what it makes lowest tier first. */
+    for (TileType t = 1; t < content.tile_count; t++) {
+        const Recipe *list[MAX_RECIPES];
+        int n = bench_recipes(t, list, MAX_RECIPES);
+        for (int i = 1; i < n; i++) CHECK(list[i - 1]->level <= list[i]->level);
+    }
+    CHECK(content.rules.max_tick_rate > 60 && content.rules.max_tick_rate <= MAX_TICK_RATE);
+}
+
 static void test_tools(void)
 {
     Game g;
@@ -3439,6 +3623,7 @@ int main(void)
     test_work_benches();
     test_tools();
     test_fog();
+    test_vitals();
     test_mobs();
     test_biomes();
     test_plants();

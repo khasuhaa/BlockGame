@@ -162,8 +162,26 @@ void game_mob_pos(const Game *g, int mob, float *x, float *y)
         float into_tick = g->tick_timer < 1.0f ? g->tick_timer : 1.0f;
         t = ((float)(m->step_total - m->step_left) + into_tick) / (float)m->step_total;
     }
-    *x = (float)m->x + (float)world_dx(&g->world, m->x, m->to_x) * t;
-    *y = (float)m->y + (float)(m->to_y - m->y) * t;
+    /* Up a step it rises and then goes forward; down one it goes forward and
+     * then drops: round the corner of the block, never through it. */
+    int dx = world_dx(&g->world, m->x, m->to_x), dy = m->to_y - m->y;
+    float ox, oy;
+    /* It sets off and comes to rest gently rather than all at once. */
+    if (dy == 0) t = t * t * (3.0f - 2.0f * t);
+    game_step_offset(dx, dy, dy < 0, t, &ox, &oy);
+    *x = (float)m->x + ox;
+    *y = (float)m->y + oy;
+}
+
+bool game_mob_walking(const Game *g, int mob, float *stride)
+{
+    const Mob *m = &g->mobs[mob];
+    bool walking = m->step_left > 0 && m->step_total > 0 && m->to_x != m->x;
+    if (stride) {
+        float into_tick = g->tick_timer < 1.0f ? g->tick_timer : 1.0f;
+        *stride = walking ? ((float)(m->step_total - m->step_left) + into_tick) / (float)m->step_total : 0.0f;
+    }
+    return walking;
 }
 
 int game_mob_at(const Game *g, float x, float y)

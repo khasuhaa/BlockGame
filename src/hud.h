@@ -6,6 +6,12 @@
 
 #define HUD_MAX_EXTRA_SLOTS 16
 
+enum {
+    HUD_EAT_NONE, /* what is selected is not food */
+    HUD_EAT_READY,
+    HUD_EAT_FULL  /* it is food, but the player can eat no more */
+};
+
 /* A slot drawn somewhere other than the bar, such as one of an open chest's. */
 typedef struct {
     Rectangle rect;
@@ -33,6 +39,11 @@ typedef struct {
     int named_slot, named_inner, named_item;
     float name_time;
     int picked;
+    /* The "Eat" button over a selected food. Whoever runs the HUD says each
+     * frame whether it shows, and is told when it has been clicked. */
+    int eat;          /* HUD_EAT_NONE, HUD_EAT_READY or HUD_EAT_FULL */
+    bool eat_pressed; /* a press that began on it */
+    bool eat_clicked; /* set for the frame it is clicked */
     bool press_head;
     SlotRef press_slot;
     Vector2 press_mouse;
@@ -46,5 +57,7 @@ void hud_close_all(Hud *hud);
 bool hud_mouse_over(const Hud *hud, const Inventory *inv);
 void hud_draw(const Hud *hud, const Inventory *inv);
 void hud_draw_item_icon(ItemId id, Rectangle r);
+/* The player's face, as on their buttons. */
+void hud_draw_head_icon(Rectangle r);
 
 #endif

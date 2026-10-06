@@ -7,8 +7,14 @@ int bench_recipes(TileType bench, const Recipe **out, int max)
     const TileDef *def = tile_def(bench);
     int n = 0;
     if (!def->bench) return 0;
-    for (int i = 0; i < content.recipe_count && n < max; i++)
-        if (strcmp(content.recipes[i].bench, def->bench_kind) == 0) out[n++] = &content.recipes[i];
+    for (int i = 0; i < content.recipe_count && n < max; i++) {
+        const Recipe *r = &content.recipes[i];
+        if (strcmp(r->bench, def->bench_kind) != 0) continue;
+        /* Lowest level first; within a level, in the order the data gives. */
+        int at = n++;
+        for (; at > 0 && out[at - 1]->level > r->level; at--) out[at] = out[at - 1];
+        out[at] = r;
+    }
     return n;
 }
 

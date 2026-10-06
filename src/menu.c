@@ -13,7 +13,10 @@
 #define BUTTON_WIDTH 320.0f
 #define BUTTON_HEIGHT 40.0f
 #define BUTTON_GAP 10.0f
-#define MAX_SLIDER_TICK_RATE 60
+/* The fastest the tick rate can be set: what the rules allow, within what the engine can run. */
+#define MAX_SLIDER_TICK_RATE \
+    (content.rules.max_tick_rate < 2 ? 60 : content.rules.max_tick_rate > MAX_TICK_RATE ? MAX_TICK_RATE \
+                                                                                          : content.rules.max_tick_rate)
 
 static const Color panel_color = { 28, 30, 38, 245 };
 static const Color edge_color = { 120, 122, 134, 255 };
