@@ -1,3 +1,4 @@
+#include "benchui.h"
 #include "game.h"
 #include "hud.h"
 #include "raylib.h"
@@ -47,11 +48,12 @@ static Vector2 player_center(const Game *g)
     return (Vector2){ (x + 0.5f) * TILE_SIZE, y * TILE_SIZE };
 }
 
-static void handle_input(Game *g, MapCamera *cam, Hud *hud)
+static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench)
 {
     if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_A) || IsKeyPressed(KEY_S) || IsKeyPressed(KEY_D)) {
         game_cancel_actions(g);
         hud_close_all(hud);
+        benchui_close(bench, g);
     }
     for (int i = 0; i < INVENTORY_SLOTS; i++)
         if (IsKeyPressed(KEY_ONE + i)) inventory_select(&g->inventory, i, -1);
@@ -62,10 +64,12 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud)
 
     /* A press that starts on the inventory never reaches the world. */
     if (hud_handle_input(hud, &g->inventory)) return;
+    if (benchui_handle_input(bench, g, view_origin(cam), TILE_SIZE)) return;
 
     Vector2 mouse = GetMousePosition();
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         hud_close_all(hud);
+        benchui_close(bench, g);
         cam->pressed = true;
         cam->dragging = false;
         cam->press_mouse = mouse;
@@ -83,7 +87,11 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud)
     if (cam->pressed && IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
         if (!cam->dragging) {
             TilePos t = tile_at_screen(cam, mouse);
-            game_click_tile(g, t.x, t.y);
+            const TileDef *def = tile_def(world_get(&g->world, t.x, t.y));
+            /* A bench offers a choice if it can be removed; otherwise it just opens. */
+            if (def->bench && def->removable) benchui_show_popup(bench, t);
+            else if (def->bench) game_queue_action(g, ACTION_USE, t.x, t.y);
+            else game_click_tile(g, t.x, t.y);
         }
         cam->pressed = false;
         cam->dragging = false;
@@ -102,6 +110,42 @@ static void update_camera(const Game *g, MapCamera *cam, float dt)
     cam->center.y = fminf(fmaxf(cam->center.y, 0.0f), (float)g->world.height * TILE_SIZE);
 }
 
+static void draw_dirt(int x, int y, int px, int py)
+{
+    /* Cheap per-tile hash so the dirt is not one flat colour. */
+    unsigned h = (unsigned)x * 73856093u ^ (unsigned)y * 19349663u;
+    int shade = (int)((h >> 8) % 13) - 6;
+    DrawRectangle(px, py, TILE_SIZE, TILE_SIZE, (Color){ 96, 66, 44, 255 });
+    DrawRectangle(px, py, TILE_SIZE - 1, TILE_SIZE - 1,
+                  (Color){ (unsigned char)(134 + shade), (unsigned char)(96 + shade),
+                           (unsigned char)(67 + shade), 255 });
+}
+
+static void draw_workbench(int px, int py)
+{
+    Color dark = { 104, 72, 44, 255 };
+    DrawRectangle(px, py, TILE_SIZE, TILE_SIZE, dark);
+    DrawRectangle(px + 1, py + 1, TILE_SIZE - 2, TILE_SIZE - 2, (Color){ 164, 120, 74, 255 });
+    DrawRectangle(px, py, TILE_SIZE, 8, dark);
+    DrawRectangle(px + 1, py + 19, TILE_SIZE - 2, 2, dark);
+    DrawRectangle(px + 15, py + 8, 2, TILE_SIZE - 8, dark);
+}
+
+/* One tile of the spawn portal: a shimmering field, framed by stone posts
+ * that stand just outside the tile so they show around the player. */
+static void draw_portal(int px, int py, bool top)
+{
+    const int post = 6;
+    Color stone = { 92, 94, 112, 255 };
+    float pulse = 0.5f + 0.5f * sinf((float)GetTime() * 2.5f + py * 0.05f);
+    DrawRectangle(px, py, TILE_SIZE, TILE_SIZE, (Color){ 58, 34, 110, 255 });
+    DrawRectangle(px + 6, py, TILE_SIZE - 12, TILE_SIZE, Fade((Color){ 170, 120, 255, 255 },
+                                                              0.25f + 0.35f * pulse));
+    DrawRectangle(px - post, py, post, TILE_SIZE, stone);
+    DrawRectangle(px + TILE_SIZE, py, post, TILE_SIZE, stone);
+    if (top) DrawRectangle(px - post, py - post, TILE_SIZE + 2 * post, post, stone);
+}
+
 static void draw_world(const World *w, Vector2 origin)
 {
     int x0 = (int)floorf(-origin.x / TILE_SIZE), y0 = (int)floorf(-origin.y / TILE_SIZE);
@@ -116,23 +160,36 @@ static void draw_world(const World *w, Vector2 origin)
 
     for (int y = y0; y <= y1; y++) {
         for (int x = x0; x <= x1; x++) {
-            if (world_get(w, x, y) != TILE_DIRT) continue;
-            /* Cheap per-tile hash so the dirt is not one flat colour. */
-            unsigned h = (unsigned)x * 73856093u ^ (unsigned)y * 19349663u;
-            int shade = (int)((h >> 8) % 13) - 6;
+            TileType t = world_get(w, x, y);
             int px = (int)origin.x + x * TILE_SIZE, py = (int)origin.y + y * TILE_SIZE;
-            DrawRectangle(px, py, TILE_SIZE, TILE_SIZE, (Color){ 96, 66, 44, 255 });
-            DrawRectangle(px, py, TILE_SIZE - 1, TILE_SIZE - 1,
-                          (Color){ (unsigned char)(134 + shade), (unsigned char)(96 + shade),
-                                   (unsigned char)(67 + shade), 255 });
+            if (t == TILE_DIRT) draw_dirt(x, y, px, py);
+            else if (t == TILE_WORKBENCH) draw_workbench(px, py);
+        }
+    }
+    /* Portals go on last: their frame overlaps the tiles around them. */
+    for (int y = y0; y <= y1; y++) {
+        for (int x = x0; x <= x1; x++) {
+            if (world_get(w, x, y) != TILE_SPAWN_PORTAL) continue;
+            draw_portal((int)origin.x + x * TILE_SIZE, (int)origin.y + y * TILE_SIZE,
+                        world_get(w, x, y - 1) != TILE_SPAWN_PORTAL);
         }
     }
 }
 
 static void draw_action_marker(Vector2 origin, Action a)
 {
-    Color c = a.type == ACTION_MINE ? (Color){ 255, 160, 40, 255 } : (Color){ 255, 255, 255, 255 };
-    DrawRectangleLinesEx(tile_rect(origin, a.target), 2.0f, c);
+    Rectangle r = tile_rect(origin, a.target);
+    Color c = { 255, 255, 255, 255 };
+    if (a.type == ACTION_MINE) c = (Color){ 255, 160, 40, 255 };
+    if (a.type == ACTION_USE) c = (Color){ 190, 140, 255, 255 };
+    if (a.type == ACTION_PLACE) {
+        /* A faded copy of the block that is going to be put here. */
+        c = (Color){ 110, 220, 120, 255 };
+        hud_draw_item_icon((ItemId)a.item, (Rectangle){ r.x - 6, r.y - 6, r.width + 12,
+                                                        r.height + 12 });
+        DrawRectangleRec(r, Fade(WHITE, 0.35f));
+    }
+    DrawRectangleLinesEx(r, 2.0f, c);
 }
 
 static void draw_actions(const Game *g, Vector2 origin)
@@ -200,8 +257,8 @@ static void draw_player(const Game *g, Vector2 origin)
 static void draw_hud(const Game *g, const MapCamera *cam)
 {
     DrawRectangle(0, 0, GetScreenWidth(), 52, Fade(BLACK, 0.45f));
-    DrawText("A/D: move   W/S: jump, climb   Click air: move   Click dirt: mine   Drag: pan   "
-             "Space: follow   1-8: select   Drag items to rearrange",
+    DrawText("A/D: move   W/S: climb   Click: move / mine / place held block / use bench   "
+             "Drag: pan   Space: follow   1-8: select",
              10, 8, 16, RAYWHITE);
     const ItemStack *held = inventory_selected(&g->inventory);
     DrawText(TextFormat("seed %u   player %d,%d   queued %d   selected: %s%s", g->world.seed,
@@ -227,12 +284,13 @@ int main(int argc, char **argv)
     SetTargetFPS(60);
 
     Hud hud = { 0 };
+    BenchUi bench = { .selected = -1, .amount = 1 };
     MapCamera cam = { .center = player_center(&game), .follow = true };
 
     while (!WindowShouldClose()) {
         float dt = fminf(GetFrameTime(), 0.1f);
 
-        handle_input(&game, &cam, &hud);
+        handle_input(&game, &cam, &hud, &bench);
         game_update(&game, dt);
         update_camera(&game, &cam, dt);
 
@@ -243,9 +301,11 @@ int main(int argc, char **argv)
         draw_actions(&game, origin);
         draw_drops(&game, origin);
         draw_player(&game, origin);
-        if (!cam.dragging && IsCursorOnScreen() && !hud_mouse_over(&hud, &game.inventory))
+        if (!cam.dragging && IsCursorOnScreen() && !hud_mouse_over(&hud, &game.inventory) &&
+            !benchui_mouse_over(&bench, &game, origin, TILE_SIZE))
             DrawRectangleLinesEx(tile_rect(origin, tile_at_screen(&cam, GetMousePosition())), 1.0f,
                                  Fade(WHITE, 0.5f));
+        benchui_draw(&bench, &game, origin, TILE_SIZE);
         draw_hud(&game, &cam);
         hud_draw(&hud, &game.inventory);
         EndDrawing();

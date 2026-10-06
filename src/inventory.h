@@ -7,12 +7,13 @@
 #define BASKET_SLOTS 4
 #define ARMOR_SLOTS 4
 #define MAX_STACK 99
-#define MAX_CONTAINERS 64
+#define MAX_CONTAINERS 256
 
 typedef enum {
     ITEM_NONE = 0,
     ITEM_BASKET = 1,
     ITEM_DIRT = 2,
+    ITEM_WORKBENCH = 3,
     ITEM_COUNT
 } ItemId;
 
@@ -30,6 +31,7 @@ typedef struct {
     int max_stack;
     bool container;  /* carries BASKET_SLOTS item slots as metadata */
     EquipSlot equip; /* armor slot it can be worn in, or EQUIP_NONE */
+    TileType places; /* block it becomes when placed, or TILE_AIR */
 } ItemDef;
 
 /* `container` is the item's metadata: 0, or which Inventory.containers entry
@@ -79,6 +81,11 @@ ItemStack *inventory_slot(Inventory *inv, SlotRef ref);
 /* Adds items wherever they fit: existing stacks first, then empty bar slots,
  * then empty slots of baskets in the bar. Returns how many did not fit. */
 int inventory_add(Inventory *inv, ItemId id, int count);
+
+/* Counts and takes items from the bar and the baskets in it. Removing takes
+ * from the selected stack first and returns how many were taken. */
+int inventory_count(const Inventory *inv, ItemId id);
+int inventory_remove(Inventory *inv, ItemId id, int count);
 
 /* Moves the stack in `from` onto `to`: merging equal stacks, otherwise
  * swapping. Returns false if nothing could move. */

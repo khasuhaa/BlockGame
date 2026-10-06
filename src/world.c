@@ -3,6 +3,18 @@
 #include <stdlib.h>
 #include <string.h>
 
+static const TileDef tile_defs[TILE_COUNT] = {
+    [TILE_AIR] = { false, false, false },
+    [TILE_DIRT] = { true, false, true },
+    [TILE_WORKBENCH] = { true, true, true },
+    [TILE_SPAWN_PORTAL] = { false, true, false },
+};
+
+const TileDef *tile_def(TileType t)
+{
+    return &tile_defs[t < TILE_COUNT ? t : TILE_AIR];
+}
+
 static uint32_t rng_next(uint32_t *state)
 {
     /* xorshift32 */
@@ -18,7 +30,8 @@ static int rng_range(uint32_t *state, int lo, int hi)
     return lo + (int)(rng_next(state) % (uint32_t)(hi - lo + 1));
 }
 
-/* Flat dirt world: the seed only picks the ground level and spawn column. */
+/* Flat dirt world: the seed only picks the ground level and spawn column.
+ * The spawn portal stands on the ground there, two tiles tall. */
 static void world_generate(World *w)
 {
     uint32_t rng = w->seed ? w->seed : 0x9E3779B9u;
@@ -31,6 +44,8 @@ static void world_generate(World *w)
         TileType t = y >= w->surface_y ? TILE_DIRT : TILE_AIR;
         memset(w->tiles + (size_t)y * w->width, t, (size_t)w->width);
     }
+    world_set(w, w->spawn_x, w->surface_y - 1, TILE_SPAWN_PORTAL);
+    world_set(w, w->spawn_x, w->surface_y - 2, TILE_SPAWN_PORTAL);
 }
 
 bool world_init(World *w, int width, int height, uint32_t seed)
@@ -72,5 +87,5 @@ void world_set(World *w, int x, int y, TileType t)
 bool world_is_solid(const World *w, int x, int y)
 {
     if (!world_in_bounds(w, x, y)) return true;
-    return world_get(w, x, y) != TILE_AIR;
+    return tile_def(world_get(w, x, y))->solid;
 }

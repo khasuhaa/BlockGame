@@ -1,6 +1,7 @@
 #ifndef GAME_H
 #define GAME_H
 
+#include "craft.h"
 #include "inventory.h"
 #include "world.h"
 
@@ -16,6 +17,8 @@
 #define HOP_TIME 0.2f
 #define HOP_HEIGHT 0.35f /* peak of a hop's arc, in tiles */
 #define MINE_TIME 0.35f
+#define PLACE_TIME 0.15f
+#define CRAFT_TIME 0.1f /* per item crafted */
 #define DENIAL_TIME 0.6f
 #define DROP_FALL_SPEED 12.0f   /* tiles per second */
 #define DROP_PICKUP_DELAY 0.45f /* how long a fresh drop lies before it can be collected */
@@ -27,12 +30,15 @@ typedef struct {
 
 typedef enum {
     ACTION_MOVE, /* put one of the player's two blocks on the target tile */
-    ACTION_MINE  /* walk next to the target tile, then mine it */
+    ACTION_MINE, /* walk next to the target tile, then mine it */
+    ACTION_PLACE, /* walk next to the target tile, then put a block there */
+    ACTION_USE   /* walk up to the bench on the target tile, then open it */
 } ActionType;
 
 typedef struct {
     ActionType type;
     TilePos target;
+    uint8_t item; /* ACTION_PLACE: the item being placed */
 } Action;
 
 /* One voluntary move. Standing: walk (+-1,0), hop a one-block gap (+-2,0),
@@ -55,7 +61,8 @@ typedef struct {
 typedef enum {
     ACTIVITY_IDLE,
     ACTIVITY_STEPPING,
-    ACTIVITY_MINING
+    ACTIVITY_MINING,
+    ACTIVITY_PLACING
 } Activity;
 
 /* The player is 1 tile wide and 2 tall: feet at (x, y), head at (x, y-1). */
@@ -107,6 +114,13 @@ typedef struct {
 
     Denial denials[MAX_DENIALS];
 
+    /* The bench the player has open, and the crafting run going on at it. */
+    bool bench_open;
+    TilePos bench_pos;
+    const Recipe *craft_recipe;
+    int craft_total, craft_remaining;
+    float craft_timer;
+
     /* Scratch space for planning. */
     World sim;
     int32_t *bfs_parent;
@@ -118,10 +132,20 @@ bool game_init(Game *g, int width, int height, uint32_t seed);
 void game_free(Game *g);
 void game_update(Game *g, float dt);
 
-/* Queues the action a click on this tile stands for (move for air, mine for
- * ground), judged against the world as it will be once everything already
- * queued has run. Returns false, and shows a denial, if it is unattainable. */
+/* Queues the action a click on this tile stands for, judged against the world
+ * as it will be once everything already queued has run: mine for a block,
+ * place for air beside a block while a placeable item is selected, otherwise
+ * move. Returns false, and shows a denial, if it is unattainable. */
 bool game_click_tile(Game *g, int tx, int ty);
+/* Queues one specific action on a tile, with the same checks. Placing uses
+ * the selected item. */
+bool game_queue_action(Game *g, ActionType type, int tx, int ty);
+
+/* Starts crafting `count` of a recipe at the open bench, one every
+ * CRAFT_TIME. Anything that does not fit in the inventory is dropped. */
+bool game_craft(Game *g, const Recipe *r, int count);
+/* Closes the open bench and abandons the rest of its crafting run. */
+void game_close_bench(Game *g);
 
 void game_set_move_input(Game *g, int dx, int dy);
 /* Drops the current and queued actions; a step in progress still finishes. */

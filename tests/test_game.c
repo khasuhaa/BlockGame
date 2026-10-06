@@ -29,7 +29,7 @@ static void test_world(void)
     CHECK(game_init(&g, 64, 48, 1234));
     int s = g.world.surface_y;
     for (int x = 0; x < g.world.width; x++) {
-        CHECK(world_get(&g.world, x, s - 1) == TILE_AIR);
+        CHECK(world_get(&g.world, x, s - 1) == (x == g.world.spawn_x ? TILE_SPAWN_PORTAL : TILE_AIR));
         CHECK(world_get(&g.world, x, s) == TILE_DIRT);
         CHECK(world_get(&g.world, x, g.world.height - 1) == TILE_DIRT);
     }
@@ -311,15 +311,7 @@ static void test_step_down(void)
 
 static int count_item(Game *g, ItemId id)
 {
-    int total = 0;
-    for (int i = 0; i < INVENTORY_SLOTS; i++) {
-        if (g->inventory.slots[i].id == id) total += g->inventory.slots[i].count;
-        for (int j = 0; j < BASKET_SLOTS; j++) {
-            ItemStack *s = inventory_slot(&g->inventory, (SlotRef){ SLOT_BASKET, i, j });
-            if (s && s->id == id) total += s->count;
-        }
-    }
-    return total;
+    return inventory_count(&g->inventory, id);
 }
 
 static void test_inventory(void)
@@ -410,6 +402,114 @@ static void test_drops(void)
     game_free(&g);
 }
 
+static void test_place(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 11);
+    TilePos start = g.player.feet;
+    int s = g.world.surface_y;
+
+    /* Empty-handed, or holding something that is not a block, air is a move. */
+    CHECK(game_click_tile(&g, start.x + 2, s - 1));
+    CHECK(g.queue[0].type == ACTION_MOVE);
+    run(&g, 2.0f);
+
+    /* Holding dirt: air beside a block queues a place, other air a move. */
+    inventory_add(&g.inventory, ITEM_DIRT, 3);
+    inventory_select(&g.inventory, 1, -1);
+    CHECK(inventory_selected(&g.inventory)->id == ITEM_DIRT);
+    CHECK(game_click_tile(&g, start.x + 6, s - 1));
+    CHECK(g.queue[0].type == ACTION_PLACE && g.queue[0].item == ITEM_DIRT);
+    /* The next one rests on the block queued before it. */
+    CHECK(game_click_tile(&g, start.x + 6, s - 2));
+    CHECK(g.queue[1].type == ACTION_PLACE);
+    CHECK(!game_click_tile(&g, start.x + 6, s - 9));
+    run(&g, 4.0f);
+    CHECK(is_idle(&g));
+    CHECK(world_get(&g.world, start.x + 6, s - 1) == TILE_DIRT);
+    CHECK(world_get(&g.world, start.x + 6, s - 2) == TILE_DIRT);
+    CHECK(count_item(&g, ITEM_DIRT) == 1);
+
+    /* No more can be queued than are held. */
+    CHECK(game_click_tile(&g, start.x + 9, s - 1));
+    CHECK(!game_click_tile(&g, start.x + 10, s - 1));
+    run(&g, 3.0f);
+    CHECK(count_item(&g, ITEM_DIRT) == 0);
+    CHECK(world_get(&g.world, start.x + 9, s - 1) == TILE_DIRT);
+    CHECK(world_get(&g.world, start.x + 10, s - 1) == TILE_AIR);
+
+    /* The spawn portal cannot be built over or mined. */
+    inventory_add(&g.inventory, ITEM_DIRT, 1);
+    CHECK(!game_queue_action(&g, ACTION_PLACE, g.world.spawn_x, s - 1));
+    CHECK(!game_queue_action(&g, ACTION_MINE, g.world.spawn_x, s - 1));
+    game_free(&g);
+}
+
+static void test_bench(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 12);
+    int s = g.world.surface_y, px = g.world.spawn_x;
+    int n;
+
+    CHECK(world_get(&g.world, px, s - 1) == TILE_SPAWN_PORTAL);
+    CHECK(world_get(&g.world, px, s - 2) == TILE_SPAWN_PORTAL);
+    CHECK(tile_def(TILE_SPAWN_PORTAL)->bench && !tile_def(TILE_SPAWN_PORTAL)->removable);
+    CHECK(tile_def(TILE_WORKBENCH)->bench && tile_def(TILE_WORKBENCH)->removable);
+
+    const Recipe *portal = bench_recipes(TILE_SPAWN_PORTAL, &n);
+    CHECK(n == 1 && portal->output.id == ITEM_WORKBENCH && portal->inputs[0].id == ITEM_DIRT &&
+          portal->inputs[0].count == 1);
+    const Recipe *bench = bench_recipes(TILE_WORKBENCH, &n);
+    CHECK(n == 1 && bench->output.id == ITEM_BASKET && bench->inputs[0].id == ITEM_DIRT);
+
+    /* Using the portal from afar walks back to it, then opens it. */
+    CHECK(game_click_tile(&g, px + 8, s - 1));
+    run(&g, 3.0f);
+    CHECK(!game_craft(&g, portal, 1));
+    CHECK(game_queue_action(&g, ACTION_USE, px, s - 1));
+    CHECK(!g.bench_open);
+    run(&g, 3.0f);
+    CHECK(is_idle(&g) && g.bench_open && g.bench_pos.x == px);
+    CHECK(!game_queue_action(&g, ACTION_USE, px + 3, s));
+
+    /* Crafting is capped by what is held and takes 100 ms each. */
+    CHECK(!game_craft(&g, portal, 1));
+    inventory_add(&g.inventory, ITEM_DIRT, 5);
+    CHECK(recipe_max_crafts(&g.inventory, portal) == 5);
+    CHECK(game_craft(&g, portal, 99));
+    CHECK(g.craft_total == 5);
+    run(&g, 0.25f);
+    CHECK(count_item(&g, ITEM_WORKBENCH) == 2 && count_item(&g, ITEM_DIRT) == 3);
+    run(&g, 0.5f);
+    CHECK(count_item(&g, ITEM_WORKBENCH) == 5 && count_item(&g, ITEM_DIRT) == 0);
+    CHECK(g.craft_remaining == 0);
+
+    /* Walking away shuts the bench. */
+    CHECK(game_click_tile(&g, px + 5, s - 1));
+    run(&g, 2.0f);
+    CHECK(!g.bench_open);
+
+    /* A placed workbench can be opened, makes baskets, and can be removed. */
+    inventory_select(&g.inventory, 2, -1);
+    CHECK(inventory_selected(&g.inventory)->id == ITEM_WORKBENCH);
+    CHECK(game_click_tile(&g, px + 7, s - 1));
+    CHECK(game_queue_action(&g, ACTION_USE, px + 7, s - 1));
+    run(&g, 2.0f);
+    CHECK(world_get(&g.world, px + 7, s - 1) == TILE_WORKBENCH && g.bench_open);
+    CHECK(count_item(&g, ITEM_WORKBENCH) == 4);
+    inventory_add(&g.inventory, ITEM_DIRT, 2);
+    CHECK(game_craft(&g, bench, 2));
+    run(&g, 0.5f);
+    CHECK(count_item(&g, ITEM_BASKET) == 3 && count_item(&g, ITEM_DIRT) == 0);
+
+    CHECK(game_queue_action(&g, ACTION_MINE, px + 7, s - 1));
+    run(&g, 2.0f);
+    CHECK(world_get(&g.world, px + 7, s - 1) == TILE_AIR && !g.bench_open);
+    CHECK(count_item(&g, ITEM_WORKBENCH) == 5);
+    game_free(&g);
+}
+
 int main(void)
 {
     test_world();
@@ -424,6 +524,8 @@ int main(void)
     test_step_down();
     test_inventory();
     test_drops();
+    test_place();
+    test_bench();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;

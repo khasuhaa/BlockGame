@@ -154,6 +154,12 @@ void hud_draw_item_icon(ItemId id, Rectangle r)
         for (int i = 0; i < 3; i++)
             DrawRectangleRec(sub_rect(r, 0.3f + 0.18f * i, 0.46f, 0.04f, 0.4f), cane);
         DrawRectangleRec(sub_rect(r, 0.12f, 0.42f, 0.76f, 0.09f), cane);
+    } else if (id == ITEM_WORKBENCH) {
+        Color dark = { 104, 72, 44, 255 };
+        DrawRectangleRec(sub_rect(r, 0.18f, 0.2f, 0.64f, 0.62f), (Color){ 164, 120, 74, 255 });
+        DrawRectangleRec(sub_rect(r, 0.14f, 0.2f, 0.72f, 0.16f), dark);
+        DrawRectangleRec(sub_rect(r, 0.18f, 0.56f, 0.64f, 0.05f), dark);
+        DrawRectangleRec(sub_rect(r, 0.47f, 0.36f, 0.06f, 0.46f), dark);
     }
 }
 

@@ -171,11 +171,49 @@ bool game_in_mine_range(TilePos feet, TilePos target)
 
 /* ---- planning ---------------------------------------------------------- */
 
+static bool on_body(TilePos feet, TilePos t)
+{
+    return t.x == feet.x && (t.y == feet.y || t.y == feet.y - 1);
+}
+
+static bool in_use_range(TilePos feet, TilePos bench)
+{
+    return on_body(feet, bench) || game_in_mine_range(feet, bench);
+}
+
 static bool is_goal(Pose p, Action a)
 {
-    TilePos feet = p.feet;
-    if (a.type == ACTION_MINE) return game_in_mine_range(feet, a.target);
-    return feet.x == a.target.x && (feet.y == a.target.y || feet.y - 1 == a.target.y);
+    switch (a.type) {
+    case ACTION_MINE:
+    case ACTION_PLACE: return game_in_mine_range(p.feet, a.target);
+    case ACTION_USE: return in_use_range(p.feet, a.target);
+    default: return on_body(p.feet, a.target);
+    }
+}
+
+static bool beside_block(const World *w, TilePos t)
+{
+    static const int dirs[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
+    for (int i = 0; i < 4; i++) {
+        int x = t.x + dirs[i][0], y = t.y + dirs[i][1];
+        if (world_in_bounds(w, x, y) && world_is_solid(w, x, y)) return true;
+    }
+    return false;
+}
+
+/* Whether the target tile is still something the action can be done to. */
+static bool target_valid(const World *w, Action a)
+{
+    if (!world_in_bounds(w, a.target.x, a.target.y)) return false;
+    TileType t = world_get(w, a.target.x, a.target.y);
+    switch (a.type) {
+    case ACTION_MINE: return tile_def(t)->solid && tile_def(t)->removable;
+    case ACTION_PLACE:
+        return t == TILE_AIR && item_def((ItemId)a.item)->places != TILE_AIR &&
+               beside_block(w, a.target);
+    case ACTION_USE: return tile_def(t)->bench;
+    default: return !tile_def(t)->solid;
+    }
 }
 
 static int pose_index(const World *w, Pose p)
@@ -196,9 +234,7 @@ static Pose pose_at_index(const World *w, int idx)
 static bool plan_action(Game *g, const World *w, Pose start, Action a,
                         Step *out, int *out_count, Pose *end)
 {
-    if (!world_in_bounds(w, a.target.x, a.target.y)) return false;
-    bool solid = world_is_solid(w, a.target.x, a.target.y);
-    if ((a.type == ACTION_MINE) != solid) return false;
+    if (!target_valid(w, a)) return false;
 
     int start_idx = pose_index(w, start);
     int goal_idx = -1;
@@ -239,16 +275,21 @@ static bool plan_action(Game *g, const World *w, Pose start, Action a,
     return true;
 }
 
+/* What a finished action does to the scratch world. */
+static Pose sim_effect(Game *g, Pose pose, Action a)
+{
+    if (a.type == ACTION_MINE) world_set(&g->sim, a.target.x, a.target.y, TILE_AIR);
+    else if (a.type == ACTION_PLACE)
+        world_set(&g->sim, a.target.x, a.target.y, item_def((ItemId)a.item)->places);
+    return pose_rest(&g->sim, pose);
+}
+
 /* Plays an action out instantly on the scratch world. */
 static bool sim_action(Game *g, Pose *pose, Action a)
 {
     Pose end;
     if (!plan_action(g, &g->sim, *pose, a, NULL, NULL, &end)) return false;
-    if (a.type == ACTION_MINE) {
-        world_set(&g->sim, a.target.x, a.target.y, TILE_AIR);
-        end = pose_rest(&g->sim, end);
-    }
-    *pose = end;
+    *pose = sim_effect(g, end, a);
     return true;
 }
 
@@ -262,16 +303,11 @@ static void deny(Game *g, TilePos pos)
     slot->ttl = DENIAL_TIME;
 }
 
-bool game_click_tile(Game *g, int tx, int ty)
+/* Fast-forwards the scratch world through everything already pending and
+ * returns the pose the player will be left in. */
+static Pose sim_pending(Game *g)
 {
     const Player *p = &g->player;
-    TilePos target = { tx, ty };
-    if (!world_in_bounds(&g->world, tx, ty) || g->queue_count >= MAX_QUEUED_ACTIONS) {
-        deny(g, target);
-        return false;
-    }
-
-    /* Fast-forward a copy of the world through everything already pending. */
     memcpy(g->sim.tiles, g->world.tiles, (size_t)g->world.width * g->world.height);
     Pose pos = { p->feet, p->climbing };
     if (p->activity == ACTIVITY_STEPPING) pos = (Pose){ p->step_to, p->step.climb };
@@ -279,20 +315,56 @@ bool game_click_tile(Game *g, int tx, int ty)
     if (g->has_current) {
         for (int i = g->step_index; i < g->step_count; i++)
             pos = pose_after(&g->sim, pos, g->steps[i]);
-        if (g->current.type == ACTION_MINE) {
-            world_set(&g->sim, g->current.target.x, g->current.target.y, TILE_AIR);
-            pos = pose_rest(&g->sim, pos);
-        }
+        pos = sim_effect(g, pos, g->current);
     }
     for (int i = 0; i < g->queue_count; i++) sim_action(g, &pos, g->queue[i]);
+    return pos;
+}
 
-    Action a = { world_is_solid(&g->sim, tx, ty) ? ACTION_MINE : ACTION_MOVE, target };
-    if (!sim_action(g, &pos, a)) {
-        deny(g, target);
+/* How many of an item the pending place actions will use up. */
+static int pending_places(const Game *g, ItemId item)
+{
+    int n = g->has_current && g->current.type == ACTION_PLACE && g->current.item == item;
+    for (int i = 0; i < g->queue_count; i++)
+        if (g->queue[i].type == ACTION_PLACE && g->queue[i].item == item) n++;
+    return n;
+}
+
+/* Queues `a` if it can be done from `pos` in the scratch world. */
+static bool queue_checked(Game *g, Pose pos, Action a)
+{
+    bool ok = g->queue_count < MAX_QUEUED_ACTIONS;
+    if (ok && a.type == ACTION_PLACE)
+        ok = inventory_count(&g->inventory, (ItemId)a.item) > pending_places(g, (ItemId)a.item);
+    if (!ok || !sim_action(g, &pos, a)) {
+        deny(g, a.target);
         return false;
     }
     g->queue[g->queue_count++] = a;
     return true;
+}
+
+bool game_queue_action(Game *g, ActionType type, int tx, int ty)
+{
+    Action a = { type, { tx, ty }, 0 };
+    if (type == ACTION_PLACE) a.item = inventory_selected(&g->inventory)->id;
+    return queue_checked(g, sim_pending(g), a);
+}
+
+bool game_click_tile(Game *g, int tx, int ty)
+{
+    Pose pos = sim_pending(g);
+    Action a = { ACTION_MOVE, { tx, ty }, 0 };
+    const ItemStack *held = inventory_selected(&g->inventory);
+
+    if (world_in_bounds(&g->world, tx, ty) && world_is_solid(&g->sim, tx, ty)) {
+        a.type = ACTION_MINE;
+    } else if (held->count > 0 && item_def((ItemId)held->id)->places != TILE_AIR) {
+        /* Holding a block: air beside a block is where it gets placed. */
+        Action place = { ACTION_PLACE, a.target, held->id };
+        if (target_valid(&g->sim, place)) a = place;
+    }
+    return queue_checked(g, pos, a);
 }
 
 /* ---- simulation -------------------------------------------------------- */
@@ -350,6 +422,13 @@ static void begin_step(Game *g, Step s)
     if (s.dx != 0) p->facing = s.dx > 0 ? 1 : -1;
 }
 
+static void begin_work(Game *g, Activity activity, float duration)
+{
+    g->player.activity = activity;
+    g->player.timer = 0.0f;
+    g->player.duration = duration;
+}
+
 static void finish_activity(Game *g)
 {
     Player *p = &g->player;
@@ -360,6 +439,14 @@ static void finish_activity(Game *g)
         TilePos t = g->current.target;
         spawn_drop(g, item_for_tile(world_get(&g->world, t.x, t.y)), t);
         world_set(&g->world, t.x, t.y, TILE_AIR);
+        g->has_current = false;
+    } else if (p->activity == ACTIVITY_PLACING) {
+        TilePos t = g->current.target;
+        ItemId item = (ItemId)g->current.item;
+        if (inventory_remove(&g->inventory, item, 1) == 1)
+            world_set(&g->world, t.x, t.y, item_def(item)->places);
+        else
+            deny(g, t);
         g->has_current = false;
     }
     p->activity = ACTIVITY_IDLE;
@@ -389,15 +476,24 @@ static bool start_next_activity(Game *g)
                     begin_step(g, s);
                     return true;
                 }
-            } else if (g->current.type == ACTION_MOVE) {
-                g->has_current = false;
-                continue;
-            } else if (world_is_solid(w, g->current.target.x, g->current.target.y) &&
-                       game_in_mine_range(p->feet, g->current.target)) {
-                p->activity = ACTIVITY_MINING;
-                p->timer = 0.0f;
-                p->duration = MINE_TIME;
-                return true;
+            } else if (target_valid(w, g->current) && is_goal(pose, g->current)) {
+                switch (g->current.type) {
+                case ACTION_MINE:
+                    begin_work(g, ACTIVITY_MINING, MINE_TIME);
+                    return true;
+                case ACTION_PLACE:
+                    if (inventory_count(&g->inventory, (ItemId)g->current.item) < 1) break;
+                    begin_work(g, ACTIVITY_PLACING, PLACE_TIME);
+                    return true;
+                case ACTION_USE:
+                    game_close_bench(g);
+                    g->bench_open = true;
+                    g->bench_pos = g->current.target;
+                    /* fall through */
+                default:
+                    g->has_current = false;
+                    continue;
+                }
             }
             /* The world no longer matches the plan. */
             deny(g, g->current.target);
@@ -426,9 +522,51 @@ static bool start_next_activity(Game *g)
     return false;
 }
 
+bool game_craft(Game *g, const Recipe *r, int count)
+{
+    if (!g->bench_open || g->craft_remaining > 0 || count < 1) return false;
+    int max = recipe_max_crafts(&g->inventory, r);
+    if (max < 1) return false;
+    g->craft_recipe = r;
+    g->craft_total = g->craft_remaining = count < max ? count : max;
+    g->craft_timer = 0.0f;
+    return true;
+}
+
+void game_close_bench(Game *g)
+{
+    g->bench_open = false;
+    g->craft_remaining = 0;
+}
+
+static void update_bench(Game *g, float dt)
+{
+    if (!g->bench_open) return;
+    /* The bench shuts if it is removed or the player leaves it. */
+    TileType t = world_get(&g->world, g->bench_pos.x, g->bench_pos.y);
+    if (!tile_def(t)->bench || !in_use_range(g->player.feet, g->bench_pos)) {
+        game_close_bench(g);
+        return;
+    }
+
+    if (g->craft_remaining <= 0) return;
+    g->craft_timer += dt;
+    while (g->craft_remaining > 0 && g->craft_timer >= CRAFT_TIME) {
+        g->craft_timer -= CRAFT_TIME;
+        int left = recipe_craft(&g->inventory, g->craft_recipe);
+        if (left < 0) {
+            g->craft_remaining = 0;
+            break;
+        }
+        for (int i = 0; i < left; i++) spawn_drop(g, g->craft_recipe->output.id, g->player.feet);
+        g->craft_remaining--;
+    }
+}
+
 void game_update(Game *g, float dt)
 {
     Player *p = &g->player;
+    float frame = dt;
 
     for (int i = 0; i < MAX_DENIALS; i++) {
         if (g->denials[i].ttl > 0.0f) g->denials[i].ttl -= dt;
@@ -446,7 +584,8 @@ void game_update(Game *g, float dt)
         }
         if (!start_next_activity(g)) break;
     }
-    update_drops(g, dt);
+    update_drops(g, frame);
+    update_bench(g, frame);
 }
 
 void game_set_move_input(Game *g, int dx, int dy)
@@ -459,7 +598,8 @@ void game_cancel_actions(Game *g)
 {
     g->queue_count = 0;
     g->has_current = false;
-    if (g->player.activity == ACTIVITY_MINING) g->player.activity = ACTIVITY_IDLE;
+    if (g->player.activity == ACTIVITY_MINING || g->player.activity == ACTIVITY_PLACING)
+        g->player.activity = ACTIVITY_IDLE;
 }
 
 void game_player_visual_pos(const Game *g, float *x, float *y)

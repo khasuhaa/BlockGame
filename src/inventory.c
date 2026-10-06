@@ -3,9 +3,10 @@
 #include <string.h>
 
 static const ItemDef item_defs[ITEM_COUNT] = {
-    [ITEM_NONE] = { "Nothing", 0, false, EQUIP_NONE },
-    [ITEM_BASKET] = { "Basket", 1, true, EQUIP_NONE },
-    [ITEM_DIRT] = { "Dirt", MAX_STACK, false, EQUIP_NONE },
+    [ITEM_NONE] = { "Nothing", 0, false, EQUIP_NONE, TILE_AIR },
+    [ITEM_BASKET] = { "Basket", 1, true, EQUIP_NONE, TILE_AIR },
+    [ITEM_DIRT] = { "Dirt", MAX_STACK, false, EQUIP_NONE, TILE_DIRT },
+    [ITEM_WORKBENCH] = { "Workbench", MAX_STACK, false, EQUIP_NONE, TILE_WORKBENCH },
 };
 
 const ItemDef *item_def(ItemId id)
@@ -17,6 +18,7 @@ ItemId item_for_tile(TileType t)
 {
     switch (t) {
     case TILE_DIRT: return ITEM_DIRT;
+    case TILE_WORKBENCH: return ITEM_WORKBENCH;
     default: return ITEM_NONE;
     }
 }
@@ -119,6 +121,44 @@ int inventory_add(Inventory *inv, ItemId id, int count)
         }
     }
     return count;
+}
+
+int inventory_count(const Inventory *inv, ItemId id)
+{
+    int total = 0;
+    for (int i = 0; i < INVENTORY_SLOTS; i++) {
+        const ItemStack *s = &inv->slots[i];
+        if (is_empty(s)) continue;
+        if (s->id == id) total += s->count;
+        if (s->container == 0) continue;
+        const ItemStack *inner = inv->containers[s->container].slots;
+        for (int j = 0; j < BASKET_SLOTS; j++)
+            if (!is_empty(&inner[j]) && inner[j].id == id) total += inner[j].count;
+    }
+    return total;
+}
+
+static void take_from(ItemStack *s, ItemId id, int *want)
+{
+    if (!s || is_empty(s) || s->id != id || *want <= 0) return;
+    int taken = s->count < *want ? s->count : *want;
+    s->count = (uint8_t)(s->count - taken);
+    *want -= taken;
+    if (s->count == 0) *s = (ItemStack){ 0 };
+}
+
+int inventory_remove(Inventory *inv, ItemId id, int count)
+{
+    int want = count;
+    if (inventory_selection_inside(inv, inv->sel_slot))
+        take_from(inventory_slot(inv, (SlotRef){ SLOT_BASKET, inv->sel_slot, inv->sel_inner }), id,
+                  &want);
+    take_from(&inv->slots[inv->sel_slot], id, &want);
+    for (int i = 0; i < INVENTORY_SLOTS; i++) take_from(&inv->slots[i], id, &want);
+    for (int i = 0; i < INVENTORY_SLOTS; i++)
+        for (int j = 0; j < BASKET_SLOTS; j++)
+            take_from(inventory_slot(inv, (SlotRef){ SLOT_BASKET, i, j }), id, &want);
+    return count - want;
 }
 
 /* Whether `s` may be put in the slot `ref` points at. */
