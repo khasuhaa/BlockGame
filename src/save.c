@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 12u
+#define SAVE_VERSION 13u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -250,7 +250,9 @@ bool load_game(Game *g, const char *path)
     uint8_t tiles[256], items[256];
     bool ok = fread(&h, sizeof h, 1, f) == 1 && h.magic == SAVE_MAGIC &&
               h.version >= 1 && h.version <= SAVE_VERSION &&
-              h.inventory_size == (h.version < 3 ? sizeof(OldInventory) : sizeof g->inventory) &&
+              h.inventory_size == (h.version < 3 ? sizeof(OldInventory)
+                                   : h.version < 13 ? sizeof g->inventory - sizeof g->inventory.choice
+                                                    : sizeof g->inventory) &&
               h.drops_size == (h.version < 3 ? sizeof(OldDrop) * MAX_DROPS : sizeof g->drops) &&
               h.width > 0 && h.height > 0 && h.width <= 1 << 16 && h.height <= 1 << 12;
     /* A world from before there was a sea has none: nothing floods. */
@@ -275,7 +277,8 @@ bool load_game(Game *g, const char *path)
         if (ok && h.version < 3) {
             ok = read_old_state(f, g);
         } else {
-            ok = ok && fread(&g->inventory, sizeof g->inventory, 1, f) == 1 &&
+            /* (Before version 13 the record stopped short of the baskets' choices.) */
+            ok = ok && fread(&g->inventory, h.inventory_size, 1, f) == 1 &&
                  fread(g->drops, sizeof g->drops, 1, f) == 1 &&
                  (h.version == 3 ? read_old_storages(f, g)
                                  : fread(g->storages, sizeof g->storages, 1, f) == 1);
@@ -334,6 +337,7 @@ bool load_game(Game *g, const char *path)
             for (int i = 0; i < MAX_CONTAINERS; i++)
                 for (int j = 0; j < CONTAINER_MAX_SLOTS; j++)
                     remap_stack(&inv->containers[i].slots[j], items);
+            if (h.version < 13) memset(inv->choice, -1, sizeof inv->choice);
             for (int i = 0; i < MAX_DROPS; i++) {
                 /* (Before version 11 this was unused space in the record.) */
                 if (h.version < 11) g->drops[i].held_off = false;

@@ -1,6 +1,7 @@
 #include "game.h"
 
 #include "mob.h"
+#include "trade.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -723,6 +724,7 @@ bool game_click_tile(Game *g, int tx, int ty)
 /* Leaves an item lying in a tile, with whatever is inside it. With no room
  * for another drop it goes straight to the inventory instead. */
 static void vitals_tick(Game *g);
+static bool work_now(Game *g, Work work, int arg, int amount);
 
 static Drop *spawn_drop_stack(Game *g, ItemStack one, TilePos at)
 {
@@ -1202,6 +1204,9 @@ static bool start_next_activity(Game *g)
                     g->bench_open = true;
                     g->bench_pos = g->current.target;
                     storage_ensure(g, g->bench_pos, tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y)));
+                    /* What the player came to do there, if they came to do anything. */
+                    if (g->current.work != WORK_NONE)
+                        work_now(g, (Work)g->current.work, g->current.arg, g->current.amount);
                     /* fall through */
                 default:
                     g->has_current = false;
@@ -1237,6 +1242,11 @@ static bool start_next_activity(Game *g)
 
 bool game_craft(Game *g, const Recipe *r, int count)
 {
+    return r != NULL && game_bench_work(g, WORK_CRAFT, (int)(r - content.recipes), count);
+}
+
+static bool craft_now(Game *g, const Recipe *r, int count)
+{
     if (!g->bench_open || g->craft_remaining > 0 || count < 1) return false;
     /* Only what this bench makes, at the level it has reached. */
     TileType bench = game_bench_at(g, g->bench_pos.x, g->bench_pos.y);
@@ -1268,6 +1278,11 @@ int game_bench_fuel(const Game *g, int *capacity)
 
 bool game_add_fuel(Game *g, ItemId item)
 {
+    return game_bench_work(g, WORK_FUEL, item, 1);
+}
+
+static bool add_fuel_now(Game *g, ItemId item)
+{
     int capacity = 0, fuel = game_bench_fuel(g, &capacity);
     if (fuel < 0 || fuel >= capacity || item_def(item)->fuel <= 0) return false;
     if (inventory_remove(&g->inventory, item, 1) != 1) return false;
@@ -1277,6 +1292,11 @@ bool game_add_fuel(Game *g, ItemId item)
 }
 
 bool game_upgrade_bench(Game *g)
+{
+    return game_bench_work(g, WORK_UPGRADE, 0, 0);
+}
+
+static bool upgrade_now(Game *g)
 {
     if (!g->bench_open) return false;
     int layer = LAYER_FOREGROUND;
@@ -1289,6 +1309,93 @@ bool game_upgrade_bench(Game *g)
     return true;
 }
 
+/* ---- working a bench, from near or far ---------------------------------- */
+
+static bool work_now(Game *g, Work work, int arg, int amount)
+{
+    switch (work) {
+    case WORK_CRAFT:
+        return arg >= 0 && arg < content.recipe_count && craft_now(g, &content.recipes[arg], amount);
+    case WORK_UPGRADE: return upgrade_now(g);
+    case WORK_FUEL: return add_fuel_now(g, arg);
+    case WORK_BUY: return trade_buy_now(g, arg, amount);
+    case WORK_SELL: return trade_sell_now(g, arg, amount);
+    case WORK_CONVERT: return trade_convert_now(g, arg, amount);
+    default: return false;
+    }
+}
+
+bool game_open_bench(Game *g, int x, int y)
+{
+    x = world_wrap_x(&g->world, x);
+    const TileDef *def = tile_def(game_bench_at(g, x, y));
+    if (!def->bench && !def->trade) return false;
+    if (g->bench_open && g->bench_pos.x == x && g->bench_pos.y == y) return true;
+    game_close_bench(g);
+    g->bench_open = true;
+    g->bench_pos = (TilePos){ x, y };
+    return true;
+}
+
+bool game_at_bench(const Game *g)
+{
+    const Player *p = &g->player;
+    return g->bench_open && p->activity != ACTIVITY_STEPPING && in_use_range(&g->world, p->feet, g->bench_pos);
+}
+
+bool game_bench_work(Game *g, Work work, int arg, int amount)
+{
+    if (!g->bench_open || work == WORK_NONE) return false;
+    /* Standing at it with nothing else to do first: done here and now. */
+    if (game_at_bench(g) && !g->has_current && g->queue_count == 0) return work_now(g, work, arg, amount);
+    /* Otherwise the player goes there, and does it on arriving. */
+    Action a = { .type = ACTION_USE, .target = g->bench_pos, .work = (uint8_t)work, .arg = arg, .amount = amount };
+    return queue_checked(g, sim_pending(g), a);
+}
+
+int game_teleport_cost(const Game *g)
+{
+    const RulesDef *u = &content.rules;
+    if (!g->bench_open || !u->teleport_bench[0]) return -1;
+    const TileDef *def = tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y));
+    if (!def->bench || strcmp(def->bench_kind, u->teleport_bench) != 0 || def->bench_level < u->teleport_level) return -1;
+    float dx = (float)world_dx(&g->world, g->player.feet.x, g->bench_pos.x), dy = (float)(g->bench_pos.y - g->player.feet.y);
+    int far = (int)sqrtf(dx * dx + dy * dy) - u->teleport_free;
+    return u->teleport_cost + (far > 0 && u->teleport_per > 0 ? far / u->teleport_per : 0);
+}
+
+bool game_teleport(Game *g)
+{
+    World *w = &g->world;
+    Player *p = &g->player;
+    int cost = game_teleport_cost(g);
+    if (cost < 0 || g->crystals < cost || in_use_range(w, p->feet, g->bench_pos)) return false;
+    /* To the foot of the portal, or failing that beside it. */
+    int layer = LAYER_FOREGROUND, bottom = g->bench_pos.y;
+    usable_at(w, g->bench_pos.x, g->bench_pos.y, &layer);
+    world_structure(w, layer, g->bench_pos.x, g->bench_pos.y, &bottom);
+    TilePos to = { g->bench_pos.x, bottom };
+    bool found = false;
+    static const int beside[5] = { 0, -1, 1, -2, 2 };
+    for (int i = 0; i < 5 && !found; i++) {
+        for (int dy = 0; dy <= 2 && !found; dy++) {
+            TilePos at = { world_wrap_x(w, g->bench_pos.x + beside[i]), bottom - dy };
+            if (!body_fits(w, at.x, at.y) || !is_supported(w, at)) continue;
+            to = at;
+            found = true;
+        }
+    }
+    if (!found) return false;
+    g->crystals -= cost;
+    game_cancel_actions(g);
+    game_wake(g);
+    p->feet = p->step_to = to;
+    p->activity = ACTIVITY_IDLE;
+    p->climbing = false;
+    game_reveal(g, to.x, to.y - 1);
+    return true;
+}
+
 void game_close_bench(Game *g)
 {
     g->bench_open = false;
@@ -1298,10 +1405,17 @@ void game_close_bench(Game *g)
 static void update_bench(Game *g, float dt)
 {
     if (!g->bench_open) return;
-    /* It shuts if it is removed or the player leaves it. */
+    /* It shuts if it is removed. A chest shuts when the player leaves it too;
+     * a bench's menu stays up to be looked at, but nothing is made at it
+     * while the player is away. */
     const TileDef *open = tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y));
-    if ((!open->bench && !open->trade && open->storage_columns == 0) || !in_use_range(&g->world, g->player.feet, g->bench_pos)) {
+    bool there = in_use_range(&g->world, g->player.feet, g->bench_pos);
+    if ((!open->bench && !open->trade && open->storage_columns == 0) || (!there && !open->bench && !open->trade)) {
         game_close_bench(g);
+        return;
+    }
+    if (!there) {
+        g->craft_remaining = 0;
         return;
     }
 

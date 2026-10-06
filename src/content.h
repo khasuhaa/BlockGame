@@ -415,6 +415,13 @@ typedef struct {
         int weight;
     } loot[MAX_LOOT];       /* what meditating can bring, and how often each */
     int loot_count;
+    /* Teleporting: from the menu of a bench of this kind and level, the
+     * player can be carried to it for crystals. */
+    char teleport_bench[CONTENT_NAME_LEN]; /* the kind of bench; empty for none */
+    int teleport_level;    /* lowest level of it that offers it */
+    int teleport_cost;     /* crystals, up to teleport_free blocks away */
+    int teleport_free;
+    int teleport_per;      /* one crystal more for every this many blocks beyond */
     float zoom[MAX_ZOOM_LEVELS];
     int zoom_count, zoom_start;
     float map_from, map_to;

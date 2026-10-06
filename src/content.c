@@ -809,6 +809,14 @@ static bool read_rules(Reader *r, const cJSON *root)
             if (u->loot[u->loot_count++].weight < 1) return fail(r, "what meditation brings needs a \"weight\" of 1 or more");
         }
     }
+    const cJSON *teleport = field(root, "teleport");
+    if (teleport) {
+        copy_name(u->teleport_bench, sizeof u->teleport_bench, str(teleport, "bench"));
+        u->teleport_level = (int)num(teleport, "level", 1);
+        u->teleport_cost = (int)num(teleport, "cost", 0);
+        u->teleport_free = (int)num(teleport, "free_distance", 0);
+        u->teleport_per = (int)num(teleport, "per_blocks", 0);
+    }
     const cJSON *look = field(root, "view");
     if (look) {
         const cJSON *steps = field(look, "zoom");

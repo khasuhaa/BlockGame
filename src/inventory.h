@@ -50,6 +50,10 @@ typedef struct {
     Container containers[MAX_CONTAINERS];
     /* Selection: a bar slot, and optionally a slot inside the container there. */
     int sel_slot, sel_inner;
+    /* For each bar slot, the slot inside the basket there that was last
+     * chosen, or -1: a closed basket shows that item, and choosing the bar
+     * slot chooses it. (At the end, so older saves read as a shorter record.) */
+    int8_t choice[INVENTORY_SLOTS];
 } Inventory;
 
 /* Starts the player off with the items the rules give them. */
@@ -91,6 +95,11 @@ bool inventory_move(Inventory *inv, SlotRef from, SlotRef to, int count);
 int inventory_quick_move(Inventory *inv, SlotRef from, uint16_t container, int slots);
 
 void inventory_select(Inventory *inv, int slot, int inner);
+/* Chooses a bar slot as the number keys do: if a basket is there, the item
+ * last chosen inside it, as long as it is still there. */
+void inventory_select_slot(Inventory *inv, int slot);
+/* The slot inside the basket in a bar slot that it shows when closed, or -1. */
+int inventory_basket_choice(const Inventory *inv, int slot);
 /* The selected stack: the chosen item inside a container if there is one
  * there, otherwise whatever is in the selected bar slot. */
 const ItemStack *inventory_selected(const Inventory *inv);

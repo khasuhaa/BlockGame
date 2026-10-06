@@ -12,6 +12,7 @@ typedef enum {
     BENCH_PRESS_SLIDER,
     BENCH_PRESS_CRAFT,
     BENCH_PRESS_UPGRADE,
+    BENCH_PRESS_TELEPORT,
     BENCH_PRESS_FUEL_TAB,
     BENCH_PRESS_FUEL_ITEM,
     BENCH_PRESS_OPEN,
@@ -37,6 +38,7 @@ typedef struct {
     Vector2 press_mouse;
     float press_scroll;
     bool dragged;
+    bool teleported; /* set when the player has just been carried to a portal: the camera should go too */
 } BenchUi;
 
 /* Returns true while the mouse belongs to the bench interface. */

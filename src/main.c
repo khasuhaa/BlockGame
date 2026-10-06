@@ -131,7 +131,7 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
         benchui_close(bench, g);
     }
     for (int i = 0; i < INVENTORY_SLOTS; i++)
-        if (IsKeyPressed(KEY_ONE + i)) inventory_select(&g->inventory, i, -1);
+        if (IsKeyPressed(KEY_ONE + i)) inventory_select_slot(&g->inventory, i);
     game_set_move_input(g, (int)IsKeyDown(k[BIND_RIGHT]) - (int)IsKeyDown(k[BIND_LEFT]),
                         (int)IsKeyDown(k[BIND_DOWN]) - (int)IsKeyDown(k[BIND_UP]));
 
@@ -156,7 +156,15 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
     if (on_hud) return;
     if (playerui_handle_input(player, g)) return;
     if (tradeui_handle_input(trade, g, &ui_view)) return;
-    if (benchui_handle_input(bench, g, &ui_view)) return;
+    bool on_bench = benchui_handle_input(bench, g, &ui_view);
+    if (bench->teleported) {
+        /* Gone with the player. */
+        bench->teleported = false;
+        cam->follow = true;
+        cam->anchored = false;
+        cam->center = (Vector2){ (g->player.feet.x + 0.5f) * TILE_SIZE, (float)g->player.feet.y * TILE_SIZE };
+    }
+    if (on_bench) return;
 
     /* The wheel zooms, when it is not scrolling a menu under the cursor. */
     float wheel = GetMouseWheelMove();
@@ -228,6 +236,9 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
             /* A second click on a square with something queued takes it back. */
             else if (game_unqueue_tile(g, t.x, t.y)) {}
             else if (opens && def->removable) benchui_show_popup(bench, t);
+            /* A bench or a portal shows its menu from wherever the player is;
+             * a chest has to be walked to. */
+            else if (opens && game_open_bench(g, t.x, t.y)) {}
             else if (opens) game_queue_action(g, ACTION_USE, t.x, t.y);
             else game_click_tile(g, t.x, t.y);
         }

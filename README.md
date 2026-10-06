@@ -240,6 +240,8 @@ The bar along the bottom has a head button followed by 8 slots. Stacks hold up t
 - Drag a stack away without waiting to move all of it: equal stacks merge, anything else swaps.
 - Drag a stack off the inventory and let go over the world to drop it there - as many as were picked up, or the whole stack. It drops right where the player is, and stays there while they stand over it: it is only picked up again once they have walked out of reach of it and come back, or by tapping it to queue picking it up. A basket or chest is dropped with what is in it. Letting go over a menu drops nothing.
 - A basket can be put inside another basket and keeps its contents, but only baskets sitting in the bar can be opened. Baskets never stack.
+- Each basket in the bar remembers which item inside it was last chosen. Closed, it shows that item; choosing its bar slot (a tap, or its number key) chooses that item.
+- **Picking up a basket with no room for it** still works as long as some bar slot holds something that is not a basket: the basket takes that slot (the first such), and what was there goes inside the basket as its chosen item. So that slot still shows, and still gives, the same thing. If it was the selected slot, that item stays selected; if it was not, the selection does not change.
 - Clicking or dragging the world, or pressing a movement key, closes everything.
 - An item's picture is centred in its slot by what is actually drawn in it, whatever empty space its image has round it, and sits a little inside the slot.
 - A selected food has an "Eat" button above it (see Health, hunger and energy).
@@ -282,14 +284,14 @@ The player can mine, place, plant, open and pick up within the ten tiles around 
 
 With a block selected (dirt or a workbench), clicking an air tile that touches a block queues placing it there, marked with a green outline and a faded copy of the block. Other air tiles still queue a move. Select a slot that is not a block to walk onto tiles next to the ground.
 
-The spawn portal stands where the player spawns: two portal blocks on a base block set into the ground. It is a workbench that cannot be removed, so clicking it opens it straight away. Clicking a placed workbench shows "Open bench" and "Remove bench". Opening is a queued action: the player walks up to the bench first.
+The spawn portal stands where the player spawns: two portal blocks on a base block set into the ground. It is a workbench that cannot be removed, so clicking it opens it straight away. Clicking a placed workbench shows "Open bench" and "Remove bench". Opening a bench or a portal needs no walking: its menu comes up from wherever the player is. **Doing** anything at it does: crafting, upgrading, adding fuel, and buying, selling or exchanging at a trade portal are each done at once if the player is standing at it, and otherwise are queued - the player walks there, and it happens on arriving. (From a distance the Craft button reads "Go and craft".) A chest is not a bench: it still has to be walked to before it opens.
 
 An open bench shows a menu beside it in the world:
 
 - a row of the items it can make, lowest tier first, which scrolls sideways (wheel or drag) only when there are more than fit;
 - for the selected item, its recipe and output, a slider from 1 to 99 that stops at what the inventory can pay for, and a Craft button or "Not enough items".
 
-Each item takes 100 ms to craft. Output that does not fit in the inventory is dropped at the player's feet. The bench closes when the world is clicked, a movement key is pressed, or the player moves out of reach, and that ends any crafting still running.
+Each item takes 100 ms to craft. Output that does not fit in the inventory is dropped at the player's feet. The menu closes when the world is clicked or a movement key is pressed, and that ends any crafting still running; so does the player moving out of reach, though the menu itself then stays up.
 
 A bench can have tiers. Its menu shows its tier and, if it can go higher, an Upgrade button with the cost; upgrading happens in place and keeps the menu open. A recipe that needs a higher tier is still shown in the row, darkened with a padlock and the tier it needs, and cannot be selected. A bench that is removed comes back at the tier it had reached.
 
@@ -304,6 +306,10 @@ A bench can have tiers. Its menu shows its tier and, if it can go higher, an Upg
 | Campfire | Workbench | 10 sticks | Torch (1 stick); cooked dodo meat (1 dodo meat). Burns fuel like the kiln, and gives light while it does |
 | Metalwork bench | Workbench tier 3 | 3 iron ingots, 1 stone | Coins (see Money) |
 | Trade portal | Any portal | 1 portal, 1 gold coin | Nothing: it is where things are bought and sold |
+
+### Teleporting
+
+A portal's menu - the spawn portal's or one the player made, from Tier 1 - has a **Teleport** button on top of it, with what it costs in crystals. Since the menu opens from anywhere, a portal that is in view can be clicked and gone to: the player is put at its foot at once, whatever they were doing is dropped, and the camera goes with them. It costs 10 crystals for anything up to 100 blocks away, and 1 more for every 10 blocks beyond that. Standing at the portal already, the button reads "You are here". Which kind of bench offers it and the three numbers are `teleport` in `rules.json`.
 
 ### Portals
 

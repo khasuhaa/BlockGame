@@ -116,6 +116,7 @@ void inventory_init(Inventory *inv)
 {
     memset(inv, 0, sizeof *inv);
     inv->sel_inner = -1;
+    memset(inv->choice, -1, sizeof inv->choice);
     for (int i = 0; i < content.rules.start_item_count; i++)
         inventory_add(inv, content.rules.start_items[i].id, content.rules.start_items[i].count);
 }
@@ -195,6 +196,36 @@ static void fill_empty(Inventory *inv, ItemStack *slots, int n, ItemStack *stack
     }
 }
 
+/* With the inventory full, a basket coming in takes the first bar slot that
+ * holds something other than a basket, and keeps what was there inside
+ * itself - chosen, so the slot still shows and gives the same item. */
+static bool take_slot_for_basket(Inventory *inv, ItemStack basket)
+{
+    const ItemDef *def = item_def(basket.id);
+    if (!def->opens_in_bar) return false;
+    int room = def->container_slots < BASKET_SLOTS ? def->container_slots : BASKET_SLOTS;
+    for (int i = 0; i < INVENTORY_SLOTS; i++) {
+        ItemStack *held = &inv->slots[i];
+        if (is_empty(held) || item_def(held->id)->opens_in_bar) continue;
+        bool made = basket.container == 0;
+        uint16_t c = made ? container_alloc(inv) : basket.container;
+        if (c == 0) return false;
+        int free_slot = -1;
+        for (int j = 0; j < room && free_slot < 0; j++)
+            if (is_empty(&inv->containers[c].slots[j])) free_slot = j;
+        if (free_slot < 0) {
+            if (made) container_free(inv, c);
+            return false; /* the basket itself is full */
+        }
+        inv->containers[c].slots[free_slot] = *held;
+        *held = (ItemStack){ basket.id, 1, c };
+        inv->choice[i] = (int8_t)free_slot;
+        if (inv->sel_slot == i) inv->sel_inner = free_slot;
+        return true;
+    }
+    return false;
+}
+
 int inventory_add_stack(Inventory *inv, ItemStack stack)
 {
     if (stack.id <= ITEM_NONE || stack.id >= content.item_count) return stack.count;
@@ -216,6 +247,9 @@ int inventory_add_stack(Inventory *inv, ItemStack stack)
             else fill_empty(inv, slots, n, &stack);
         }
     }
+    /* A basket always finds room if anything in the bar is not a basket: it
+     * takes that thing's slot and takes the thing inside itself. */
+    if (stack.count == 1 && take_slot_for_basket(inv, stack)) return 0;
     /* Whatever merged into a matching stack no longer needs its own contents. */
     if (stack.count == 0) container_free(inv, stack.container);
     return stack.count;
@@ -442,6 +476,26 @@ int inventory_quick_move(Inventory *inv, SlotRef from, uint16_t container, int s
 void inventory_select(Inventory *inv, int slot, int inner)
 {
     if (slot < 0 || slot >= INVENTORY_SLOTS) return;
+    inv->sel_slot = slot;
+    inv->sel_inner = inner;
+    normalize_selection(inv);
+    inv->choice[slot] = (int8_t)(inventory_selection_inside(inv, slot) ? inv->sel_inner : -1);
+}
+
+int inventory_basket_choice(const Inventory *inv, int slot)
+{
+    if (slot < 0 || slot >= INVENTORY_SLOTS) return -1;
+    const ItemStack *holder = &inv->slots[slot];
+    int inner = inv->choice[slot];
+    if (is_empty(holder) || holder->container == 0 || !item_def(holder->id)->opens_in_bar) return -1;
+    if (inner < 0 || inner >= BASKET_SLOTS || is_empty(&inv->containers[holder->container].slots[inner])) return -1;
+    return inner;
+}
+
+void inventory_select_slot(Inventory *inv, int slot)
+{
+    if (slot < 0 || slot >= INVENTORY_SLOTS) return;
+    int inner = inventory_basket_choice(inv, slot);
     inv->sel_slot = slot;
     inv->sel_inner = inner;
     normalize_selection(inv);

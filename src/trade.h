@@ -24,4 +24,10 @@ bool game_trade_sell(Game *g, ItemId item, int count);
  * the lower as make one of the higher, or one of the higher for that many. */
 bool game_trade_convert(Game *g, int from, int to);
 
+/* The same three done on the spot, with the player at the trade block;
+ * the ones above walk the player there first if need be. */
+bool trade_buy_now(Game *g, ItemId item, int count);
+bool trade_sell_now(Game *g, ItemId item, int count);
+bool trade_convert_now(Game *g, int from, int to);
+
 #endif

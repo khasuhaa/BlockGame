@@ -121,7 +121,7 @@ static void handle_tap(Hud *hud, Inventory *inv)
         hud->armor_open = open;
         for (int i = 0; i < INVENTORY_SLOTS; i++) hud->basket_open[i] = open;
     } else if (s.kind == SLOT_BAR) {
-        inventory_select(inv, s.index, -1);
+        inventory_select_slot(inv, s.index);
         if (is_basket(inv, s.index)) hud->basket_open[s.index] = !hud->basket_open[s.index];
     } else if (s.kind == SLOT_BASKET) {
         /* An empty slot in a basket selects the basket itself. */
@@ -342,10 +342,11 @@ void hud_draw(const Hud *hud, const Inventory *inv)
         bool inside = inventory_selection_inside(inv, i);
         draw_box(r, inv->sel_slot == i && !(open && inside));
 
-        if (!open && inside) {
-            /* A closed basket shows the item selected inside it, with a small
+        int chosen = inside ? inv->sel_inner : inventory_basket_choice(inv, i);
+        if (!open && chosen >= 0) {
+            /* A closed basket shows the item chosen inside it, with a small
              * basket in the corner as a reminder of where it lives. */
-            SlotRef ref = { SLOT_BASKET, i, inv->sel_inner };
+            SlotRef ref = { SLOT_BASKET, i, chosen };
             draw_stack(inventory_slot(lookup, ref), r, 0);
             hud_draw_item_icon((ItemId)s->id, sub_rect(r, 0.04f, 0.04f, 0.42f, 0.42f));
         } else {

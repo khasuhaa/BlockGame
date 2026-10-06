@@ -116,6 +116,12 @@ static Rectangle upgrade_rect(Rectangle menu)
     return (Rectangle){ menu.x + menu.width - MENU_PAD - 132, menu.y + 7, 132, 26 };
 }
 
+/* The teleport button rides on top of a portal's menu, at its left end. */
+static Rectangle teleport_rect(Rectangle menu)
+{
+    return (Rectangle){ menu.x, menu.y - 34.0f, 196.0f, 30.0f };
+}
+
 static Rectangle popup_rect(const BenchUi *ui, const View *v)
 {
     float h = 2 * POPUP_BUTTON_HEIGHT + 3 * 6.0f;
@@ -179,6 +185,7 @@ bool benchui_mouse_over(const BenchUi *ui, const Game *g, const View *v)
         if (CheckCollisionPointRec(m, fuel_tab_rect(menu))) return true;
         if (ui->fuel_open && CheckCollisionPointRec(m, fuel_panel_rect(g, menu))) return true;
     }
+    if (game_teleport_cost(g) >= 0 && CheckCollisionPointRec(m, teleport_rect(menu))) return true;
     return CheckCollisionPointRec(m, menu);
 }
 
@@ -197,6 +204,7 @@ static BenchPress press_target(const BenchUi *ui, const Game *g, const View *v, 
         if (ui->fuel_open && CheckCollisionPointRec(m, fuel_panel_rect(g, menu)))
             return BENCH_PRESS_FUEL_ITEM;
     }
+    if (game_teleport_cost(g) >= 0 && CheckCollisionPointRec(m, teleport_rect(menu))) return BENCH_PRESS_TELEPORT;
     if (!CheckCollisionPointRec(m, menu)) return BENCH_PRESS_NONE;
     if (tile_def(open_bench(g))->storage_columns > 0) return BENCH_PRESS_PANEL;
     if (tile_def(open_bench(g))->upgrade_to != TILE_AIR &&
@@ -293,13 +301,17 @@ bool benchui_handle_input(BenchUi *ui, Game *g, const View *v)
         Rectangle panel = fuel_panel_rect(g, menu);
         for (int i = 0; i < rows; i++)
             if (CheckCollisionPointRec(m, fuel_row_rect(panel, i))) game_add_fuel(g, items[i]);
+    } else if (ui->press == BENCH_PRESS_TELEPORT && released == BENCH_PRESS_TELEPORT) {
+        if (game_teleport(g)) ui->teleported = true;
     } else if (ui->press == BENCH_PRESS_UPGRADE && released == BENCH_PRESS_UPGRADE) {
         game_upgrade_bench(g);
     } else if (ui->press == BENCH_PRESS_CRAFT && released == BENCH_PRESS_CRAFT) {
         game_craft(g, recipes[ui->selected], ui->amount);
     } else if (ui->press == BENCH_PRESS_OPEN && released == BENCH_PRESS_OPEN) {
         ui->popup = false;
-        game_queue_action(g, ACTION_USE, ui->popup_tile.x, ui->popup_tile.y);
+        /* A bench shows its menu from here; a chest is walked to. */
+        if (!game_open_bench(g, ui->popup_tile.x, ui->popup_tile.y))
+            game_queue_action(g, ACTION_USE, ui->popup_tile.x, ui->popup_tile.y);
     } else if (ui->press == BENCH_PRESS_REMOVE && released == BENCH_PRESS_REMOVE) {
         ui->popup = false;
         game_queue_action(g, ACTION_MINE, ui->popup_tile.x, ui->popup_tile.y);
@@ -485,7 +497,8 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
     } else {
         bool hot = CheckCollisionPointRec(GetMousePosition(), b);
         DrawRectangleRec(b, hot ? (Color){ 90, 160, 100, 255 } : button_color);
-        draw_centered("Craft", b, 18, RAYWHITE);
+        /* From a distance the player has to go there first. */
+        draw_centered(game_at_bench(g) ? "Craft" : "Go and craft", b, 18, RAYWHITE);
     }
 }
 
@@ -542,6 +555,24 @@ void benchui_draw(const BenchUi *ui, const Game *g, const View *v)
     int count = open_recipes(g, recipes);
     Rectangle menu = menu_rect(g, v);
     float bench_y = view_tile_pos(v, 0.0f, (float)g->bench_pos.y + 0.5f).y;
+
+    /* A portal offers to bring the player to it, for crystals. */
+    int fare = game_teleport_cost(g);
+    if (fare >= 0) {
+        Rectangle b = teleport_rect(menu);
+        bool can = g->crystals >= fare && !game_at_bench(g);
+        bool hot = can && CheckCollisionPointRec(GetMousePosition(), b);
+        DrawRectangleRec(b, !can ? (Color){ 44, 47, 60, 245 } : hot ? (Color){ 96, 120, 200, 255 } : (Color){ 66, 88, 160, 250 });
+        DrawRectangleLinesEx(b, 1.0f, edge_color);
+        DrawText(game_at_bench(g) ? "You are here" : "Teleport", (int)b.x + 8, (int)b.y + 8, 14, can ? RAYWHITE : GRAY);
+        if (!game_at_bench(g)) {
+            const char *n = TextFormat("%d", fare);
+            float x = b.x + b.width - 28;
+            assets_draw_image(content.trade.crystal_icon, (Rectangle){ x, b.y + 4, 22, 22 });
+            DrawText(n, (int)x - MeasureText(n, 14) - 4, (int)b.y + 8, 14,
+                     g->crystals >= fare ? RAYWHITE : (Color){ 235, 90, 90, 255 });
+        }
+    }
 
     /* Pointer joining the menu to its bench. */
     DrawTriangle((Vector2){ menu.x, bench_y + 9 }, (Vector2){ menu.x, bench_y - 9 },

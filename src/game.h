@@ -54,6 +54,19 @@ typedef enum {
     ACTION_ATTACK   /* go after a creature, and kill it */
 } ActionType;
 
+/* What can be done at an open bench or trade block. Its menu can be looked
+ * at from anywhere, but each of these is done standing at it: asked for from
+ * further off, it is queued, and the player walks there first. */
+typedef enum {
+    WORK_NONE,
+    WORK_CRAFT,   /* arg: which of content.recipes; amount: how many */
+    WORK_UPGRADE,
+    WORK_FUEL,    /* arg: the item to burn */
+    WORK_BUY,     /* arg: the item; amount: how many */
+    WORK_SELL,
+    WORK_CONVERT  /* arg: the coin given; amount: the coin wanted */
+} Work;
+
 typedef struct {
     ActionType type;
     TilePos target;
@@ -63,6 +76,9 @@ typedef struct {
                      when queued */
     uint32_t drop_id;
     uint8_t tries; /* ACTION_ATTACK: how often the route has been planned again */
+    /* ACTION_USE: something to do at the bench once there, if anything. */
+    uint8_t work; /* a Work */
+    int arg, amount;
 } Action;
 
 /* One voluntary move. Standing: walk (+-1,0), hop a one-block gap (+-2,0),
@@ -286,6 +302,24 @@ void game_tick(Game *g);
 float game_daylight(const Game *g);
 /* Progress through the current day or night, 0..1, and which it is. */
 float game_day_phase(const Game *g, bool *is_day);
+
+/* Shows the menu of the bench or trade block at a position, from wherever the
+ * player is. False for anything else, a chest included: that is walked to. */
+bool game_open_bench(Game *g, int x, int y);
+/* Whether the player is standing where the open bench can be worked. */
+bool game_at_bench(const Game *g);
+/* Does a piece of work at the open bench: at once if the player is at it,
+ * otherwise by queueing the walk there with the work to follow. game_craft
+ * and the rest below all go through this. False if it could not be done or
+ * queued. */
+bool game_bench_work(Game *g, Work work, int arg, int amount);
+/* What it would cost in crystals to teleport to the open bench, or -1 if it
+ * is not one that offers that. */
+int game_teleport_cost(const Game *g);
+/* Carries the player to the open bench for that many crystals. False if it
+ * does not offer it, they cannot pay, they are already there, or there is no
+ * room to stand. */
+bool game_teleport(Game *g);
 
 /* Starts crafting `count` of a recipe at the open bench, one every
  * CRAFT_TIME. Anything that does not fit in the inventory is dropped. */

@@ -802,6 +802,7 @@ static void clear_inventory(Game *g)
     Container shared = g->inventory.containers[SHARED_CONTAINER];
     memset(&g->inventory, 0, sizeof g->inventory);
     g->inventory.sel_inner = -1;
+    memset(g->inventory.choice, -1, sizeof g->inventory.choice);
     g->inventory.containers[SHARED_CONTAINER] = shared;
 }
 
@@ -867,10 +868,12 @@ static void test_bench(void)
     CHECK(count_item(&g, ITEM_WORKBENCH) == 5 && count_item(&g, ITEM_DIRT) == 0);
     CHECK(g.craft_remaining == 0);
 
-    /* Walking away shuts the bench. */
+    /* Walking away leaves its menu up - it can be read from anywhere - but
+     * the player is no longer at it. */
     CHECK(game_click_tile(&g, px + 5, s - 1));
     run(&g, 2.0f);
-    CHECK(!g.bench_open);
+    CHECK(g.bench_open && !game_at_bench(&g));
+    game_close_bench(&g);
 
     /* A placed workbench can be opened and makes its tier 1 benches. */
     inventory_select(&g.inventory, 2, -1);
@@ -959,7 +962,8 @@ static void test_work_benches(void)
     game_set_move_input(&g, 0, 0);
     run(&g, 0.5f);
     CHECK(!walk.climbed && !walk.hopped && walk.deepest == s - 1 && g.player.feet.y == s - 1);
-    CHECK(g.player.feet.x >= x + 2 && !g.bench_open);
+    CHECK(g.player.feet.x >= x + 2 && !game_at_bench(&g));
+    game_close_bench(&g);
     /* Standing right in front of it, it can still be opened. */
     g.player.feet = g.player.step_to = (TilePos){ x, s - 1 };
     CHECK(game_queue_action(&g, ACTION_USE, x, s - 1));
@@ -4133,6 +4137,194 @@ static void test_water(void)
     world_free(&t);
 }
 
+static void test_basket_pickup(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 101, WORLD_FLAT);
+    Inventory *inv = &g.inventory;
+    clear_inventory(&g);
+    for (int i = 0; i < MAX_MOBS; i++) g.mobs[i].active = false;
+    g.tick_rate = 0;
+
+    /* A full bar: a basket (itself full) in slot 0, seven different things after it. */
+    const char *things[] = { "dirt", "stone", "wood", "stick", "flint", "coal", "sand" };
+    inventory_add(inv, ITEM_BASKET, 1);
+    const char *inside[] = { "apple", "cherry", "acorn", "kelp" };
+    for (int i = 0; i < 4; i++) {
+        inventory_add(inv, item_id(inside[i]), 1);
+        CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 1, 0 }, (SlotRef){ SLOT_BASKET, 0, i }, MAX_STACK));
+    }
+    for (int i = 0; i < 7; i++) inventory_add(inv, item_id(things[i]), 10 + i);
+    for (int i = 0; i < INVENTORY_SLOTS; i++) CHECK(inv->slots[i].count > 0);
+    CHECK(inventory_add(inv, item_id("feather"), 1) == 1); /* full: nothing else goes in */
+    inventory_select(inv, 3, -1); /* holding the wood */
+    CHECK(inventory_selected(inv)->id == ITEM_WOOD);
+
+    /* A basket picked up now takes the first slot that is not a basket's -
+     * slot 1, the dirt - and the dirt goes inside it, chosen. */
+    CHECK(inventory_add(inv, ITEM_BASKET, 1) == 0);
+    CHECK(inv->slots[1].id == ITEM_BASKET && inv->slots[1].count == 1 && inv->slots[1].container != 0);
+    const ItemStack *moved = inventory_slot(inv, (SlotRef){ SLOT_BASKET, 1, 0 });
+    CHECK(moved && moved->id == ITEM_DIRT && moved->count == 10);
+    CHECK(inventory_count(inv, ITEM_DIRT) == 10 && inventory_basket_choice(inv, 1) == 0);
+    /* What was selected is still selected: that slot was not the one taken. */
+    CHECK(inv->sel_slot == 3 && inv->sel_inner == -1 && inventory_selected(inv)->id == ITEM_WOOD);
+    /* But the basket's own choice is the dirt: choosing its slot chooses that. */
+    inventory_select_slot(inv, 1);
+    CHECK(inventory_selected(inv)->id == ITEM_DIRT && inventory_selection_inside(inv, 1));
+    inventory_select_slot(inv, 3);
+    CHECK(inventory_selected(inv)->id == ITEM_WOOD);
+    /* The basket that was already there is untouched, and has no choice made. */
+    CHECK(inventory_basket_choice(inv, 0) == -1);
+    inventory_select_slot(inv, 0);
+    CHECK(inventory_selected(inv)->id == ITEM_BASKET);
+
+    /* If the slot taken was the selected one, its item is still what is selected. */
+    inventory_select(inv, 2, -1);
+    CHECK(inventory_selected(inv)->id == ITEM_STONE);
+    /* (The new basket in slot 1 has three free slots, which fill first.) */
+    const char *fill[] = { "feather", "carrot", "coral", "flax", "orange", "cactus" };
+    for (int i = 0; i < 3; i++) CHECK(inventory_add(inv, item_id(fill[i]), 1) == 0);
+    CHECK(inventory_add(inv, ITEM_BASKET, 1) == 0);
+    CHECK(inv->slots[2].id == ITEM_BASKET && inv->sel_slot == 2 && inventory_selection_inside(inv, 2));
+    CHECK(inventory_selected(inv)->id == ITEM_STONE && inventory_selected(inv)->count == 11);
+
+    /* A basket lying in the world is picked up that way too, by walking onto it. */
+    int px = g.player.feet.x, ground = g.player.feet.y;
+    for (int i = 3; i < 6; i++) CHECK(inventory_add(inv, item_id(fill[i]), 1) == 0);
+    game_drop_item(&g, ITEM_BASKET, px + 3, ground);
+    inventory_select(inv, 7, -1);
+    CHECK(game_click_tile(&g, px + 3, ground));
+    run(&g, 3.0f);
+    CHECK(count_drops(&g, ITEM_BASKET) == 0 && inv->slots[3].id == ITEM_BASKET && inventory_count(inv, ITEM_WOOD) == 12);
+
+    /* With nothing in the bar but baskets, and those full, there is no room for another. */
+    clear_inventory(&g);
+    for (int i = 0; i < INVENTORY_SLOTS; i++) {
+        inventory_add(inv, ITEM_BASKET, 1);
+        for (int j = 0; j < 4; j++) {
+            ItemStack *in = inventory_slot(inv, (SlotRef){ SLOT_BASKET, i, j });
+            if (in) *in = (ItemStack){ (uint8_t)ITEM_DIRT, 1, 0 };
+        }
+    }
+    CHECK(inventory_add(inv, ITEM_BASKET, 1) == 1);
+
+    /* The choices are kept by a save. */
+    clear_inventory(&g);
+    inventory_add(inv, ITEM_BASKET, 1);
+    inventory_add(inv, ITEM_DIRT, 5);
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 1, 0 }, (SlotRef){ SLOT_BASKET, 0, 2 }, MAX_STACK));
+    inventory_select(inv, 0, 2);
+    inventory_select(inv, 4, -1);
+    Game loaded;
+    CHECK(save_game(&g, "build/test_choice.world") && load_game(&loaded, "build/test_choice.world"));
+    CHECK(inventory_basket_choice(&loaded.inventory, 0) == 2 && inventory_basket_choice(&loaded.inventory, 1) == -1);
+    game_free(&loaded);
+    remove("build/test_choice.world");
+    game_free(&g);
+}
+
+static void test_remote_benches_and_teleport(void)
+{
+    Game g;
+    game_init(&g, 512, 64, 102, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    clear_inventory(&g);
+    for (int i = 0; i < MAX_MOBS; i++) g.mobs[i].active = false;
+    g.tick_rate = 0;
+    int px = g.player.feet.x, ground = g.player.feet.y, bx = px + 20;
+    world_set_at(w, BG, bx, ground, TILE_WORKBENCH);
+    const Recipe *basket = find_recipe(TILE_WORKBENCH, "woodwork_bench"); /* 1 wood each */
+    ItemId made = item_id("woodwork_bench");
+    CHECK(basket != NULL);
+
+    /* A bench's menu opens from wherever the player is: no walking. */
+    CHECK(game_open_bench(&g, bx, ground) && g.bench_open && g.bench_pos.x == bx && !game_at_bench(&g));
+    run(&g, 1.0f);
+    CHECK(g.player.feet.x == px && is_idle(&g) && g.bench_open);
+    /* Crafting from there is queued: the player walks to the bench, and it is made on arriving. */
+    inventory_add(inv, ITEM_WOOD, 30);
+    CHECK(game_craft(&g, basket, 2));
+    CHECK(count_item(&g, made) == 0 && g.craft_remaining == 0 && !is_idle(&g));
+    run(&g, 0.3f);
+    CHECK(count_item(&g, made) == 0 && inventory_count(inv, ITEM_WOOD) == 30);
+    run(&g, 6.0f);
+    CHECK(game_at_bench(&g) && abs(g.player.feet.x - bx) <= 2 && count_item(&g, made) == 2);
+    CHECK(inventory_count(inv, ITEM_WOOD) == 28 && g.bench_open);
+    /* Standing at it, the next lot starts at once. */
+    CHECK(game_craft(&g, basket, 1) && g.craft_remaining == 1 && is_idle(&g));
+    run(&g, 1.0f);
+    CHECK(count_item(&g, made) == 3);
+
+    /* Upgrading from afar is walked to as well. */
+    g.player.feet = g.player.step_to = (TilePos){ px, ground };
+    inventory_add(inv, ITEM_STONE, 5);
+    CHECK(game_open_bench(&g, bx, ground) && game_upgrade_bench(&g));
+    CHECK(world_get_at(w, BG, bx, ground) == TILE_WORKBENCH && !is_idle(&g));
+    run(&g, 6.0f);
+    CHECK(world_get_at(w, BG, bx, ground) == TILE_WORKBENCH_2 && inventory_count(inv, ITEM_STONE) == 0);
+    /* What cannot be reached is refused, not left hanging. */
+    game_close_bench(&g);
+
+    /* So is buying at a trade portal. */
+    clear_inventory(&g);
+    int tx = px - 20;
+    world_set_at(w, BG, tx, ground, tile_id("trade_portal"));
+    world_set_at(w, BG, tx, ground - 1, tile_id("trade_portal"));
+    g.player.feet = g.player.step_to = (TilePos){ px, ground };
+    inventory_add(inv, item_id("copper_coin"), 10);
+    CHECK(game_open_bench(&g, tx, ground) && game_trade_open(&g));
+    CHECK(game_trade_buy(&g, ITEM_DIRT, 3) && inventory_count(inv, ITEM_DIRT) == 0 && !is_idle(&g));
+    run(&g, 6.0f);
+    CHECK(inventory_count(inv, ITEM_DIRT) == 3 && inventory_count(inv, item_id("copper_coin")) == 7);
+    CHECK(game_trade_sell(&g, ITEM_DIRT, 1) && inventory_count(inv, ITEM_DIRT) == 2); /* there now: at once */
+    game_close_bench(&g);
+
+    /* A chest is not a bench: it still has to be walked to before it opens. */
+    int cx = px + 8;
+    world_set(w, cx, ground, tile_id("chest"));
+    g.player.feet = g.player.step_to = (TilePos){ px, ground };
+    CHECK(!game_open_bench(&g, cx, ground) && !g.bench_open);
+    world_set(w, cx, ground, TILE_AIR);
+
+    /* Teleporting. A portal's menu offers it, from Tier 1; a workbench's does not. */
+    const RulesDef *u = &content.rules;
+    CHECK(u->teleport_cost == 10 && u->teleport_free == 100 && u->teleport_per == 10 && u->teleport_level == 1);
+    CHECK(game_open_bench(&g, bx, ground) && game_teleport_cost(&g) == -1 && !game_teleport(&g));
+    /* 10 crystals up to 100 blocks, and one more for every 10 blocks beyond. */
+    int portal_x = w->spawn_x;
+    struct {
+        int away, cost;
+    } fares[] = { { 5, 10 }, { 100, 10 }, { 109, 10 }, { 110, 11 }, { 150, 15 }, { 200, 20 } };
+    for (int i = 0; i < 6; i++) {
+        g.player.feet = g.player.step_to = (TilePos){ world_wrap_x(w, portal_x + fares[i].away), ground };
+        CHECK(game_open_bench(&g, portal_x, ground) && game_teleport_cost(&g) == fares[i].cost);
+    }
+    /* Not without the crystals for it. */
+    g.player.feet = g.player.step_to = (TilePos){ world_wrap_x(w, portal_x + 150), ground };
+    g.crystals = 14;
+    CHECK(!game_teleport(&g) && g.player.feet.x == world_wrap_x(w, portal_x + 150) && g.crystals == 14);
+    /* With them, the player is at the portal at once, and has paid. */
+    g.crystals = 40;
+    CHECK(game_click_tile(&g, g.player.feet.x + 5, ground)); /* (whatever they were doing is dropped) */
+    CHECK(game_teleport(&g));
+    CHECK(g.player.feet.x == portal_x && g.player.feet.y == ground && g.crystals == 25 && is_idle(&g));
+    CHECK(game_at_bench(&g) && g.bench_open);
+    run(&g, 1.0f);
+    CHECK(g.player.feet.x == portal_x && g.player.feet.y == ground);
+    /* Already there, there is nowhere to go. */
+    CHECK(!game_teleport(&g) && g.crystals == 25);
+    /* A portal the player made works the same. */
+    int far = world_wrap_x(w, portal_x + 60);
+    world_set(w, far, ground + 1, TILE_PORTAL_BASE);
+    world_set_at(w, tile_def(tile_id("portal"))->layer, far, ground, tile_id("portal"));
+    world_set_at(w, tile_def(tile_id("portal"))->layer, far, ground - 1, tile_id("portal"));
+    CHECK(game_open_bench(&g, far, ground - 1) && game_teleport_cost(&g) == 10 && game_teleport(&g));
+    CHECK(g.player.feet.x == far && g.player.feet.y == ground && g.crystals == 15);
+    game_free(&g);
+}
+
 static void test_tools(void)
 {
     Game g;
@@ -4496,6 +4688,8 @@ int main(void)
     test_coffee_and_dropbears();
     test_dodo_tree();
     test_water();
+    test_basket_pickup();
+    test_remote_benches_and_teleport();
     test_decay_and_golden_chests();
     test_mobs();
     test_biomes();

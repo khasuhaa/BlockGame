@@ -56,7 +56,7 @@ static bool plan_payment(const Inventory *inv, long price, int *delta)
     return false;
 }
 
-bool game_trade_buy(Game *g, ItemId item, int count)
+bool trade_buy_now(Game *g, ItemId item, int count)
 {
     int price = trade_price(item), delta[MAX_CURRENCIES];
     if (!game_trade_open(g) || price <= 0 || count < 1) return false;
@@ -71,7 +71,7 @@ bool game_trade_buy(Game *g, ItemId item, int count)
     return true;
 }
 
-bool game_trade_sell(Game *g, ItemId item, int count)
+bool trade_sell_now(Game *g, ItemId item, int count)
 {
     const TradeDef *t = &content.trade;
     int price = trade_price(item);
@@ -82,7 +82,7 @@ bool game_trade_sell(Game *g, ItemId item, int count)
     return true;
 }
 
-bool game_trade_convert(Game *g, int from, int to)
+bool trade_convert_now(Game *g, int from, int to)
 {
     const TradeDef *t = &content.trade;
     if (!game_trade_open(g) || from < 0 || to < 0 || from >= t->currency_count ||
@@ -95,4 +95,19 @@ bool game_trade_convert(Game *g, int from, int to)
     inventory_remove(&g->inventory, t->currencies[from].item, give);
     game_give_items(g, t->currencies[to].item, get);
     return true;
+}
+
+bool game_trade_buy(Game *g, ItemId item, int count)
+{
+    return game_trade_open(g) && game_bench_work(g, WORK_BUY, item, count);
+}
+
+bool game_trade_sell(Game *g, ItemId item, int count)
+{
+    return game_trade_open(g) && game_bench_work(g, WORK_SELL, item, count);
+}
+
+bool game_trade_convert(Game *g, int from, int to)
+{
+    return game_trade_open(g) && game_bench_work(g, WORK_CONVERT, from, to);
 }
