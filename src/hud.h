@@ -44,6 +44,11 @@ typedef struct {
     int eat;          /* HUD_EAT_NONE, HUD_EAT_READY or HUD_EAT_FULL */
     bool eat_pressed; /* a press that began on it */
     bool eat_clicked; /* set for the frame it is clicked */
+    /* A stack dragged off the inventory and let go over the world: set for
+     * the frame it happens, for whoever runs the HUD to throw it out. */
+    bool discard;
+    SlotRef discard_slot;
+    int discard_count;
     bool press_head;
     SlotRef press_slot;
     Vector2 press_mouse;

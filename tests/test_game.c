@@ -3265,6 +3265,108 @@ static void test_vitals(void)
     CHECK(content.rules.max_tick_rate > 60 && content.rules.max_tick_rate <= MAX_TICK_RATE);
 }
 
+static int count_drops(const Game *g, ItemId item)
+{
+    int n = 0;
+    for (int i = 0; i < MAX_DROPS; i++) n += g->drops[i].active && g->drops[i].item == item;
+    return n;
+}
+
+static void test_discard(void)
+{
+    Game g;
+    game_init(&g, 128, 64, 52, WORLD_FLAT);
+    Inventory *inv = &g.inventory;
+    World *w = &g.world;
+    clear_inventory(&g);
+    for (int i = 0; i < MAX_MOBS; i++) g.mobs[i].active = false;
+    CHECK(content.rules.drop_lifetime == 600.0f);
+
+    /* Part of a stack thrown out of the bar lands two blocks in front of
+     * the player, and stays there rather than coming straight back. */
+    inventory_add(inv, ITEM_STONE, 20);
+    g.player.facing = 1;
+    int px = g.player.feet.x;
+    CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 5) == 5);
+    CHECK(inv->slots[0].count == 15 && count_drops(&g, ITEM_STONE) == 5);
+    for (int i = 0; i < MAX_DROPS; i++)
+        if (g.drops[i].active) CHECK(g.drops[i].x == px + 2);
+    run(&g, 3.0f);
+    CHECK(count_drops(&g, ITEM_STONE) == 5 && inventory_count(inv, ITEM_STONE) == 15);
+    /* Walking over to them picks them up as usual. */
+    inventory_select(inv, 5, -1); /* an empty hand, so the click is a walk and not a placing */
+    CHECK(game_click_tile(&g, px + 2, g.player.feet.y));
+    run(&g, 3.0f);
+    CHECK(count_drops(&g, ITEM_STONE) == 0 && inventory_count(inv, ITEM_STONE) == 20);
+
+    /* Asking for more than there is throws the whole stack; an empty slot throws nothing. */
+    CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 99) == 20 && inv->slots[0].count == 0);
+    CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 1) == 0 && count_drops(&g, ITEM_STONE) == 20);
+    /* Behind, when there is a block in front. */
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    world_set(w, g.player.feet.x + 1, g.player.feet.y - 1, TILE_STONE);
+    inventory_add(inv, ITEM_DIRT, 1);
+    CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 1) == 1);
+    for (int i = 0; i < MAX_DROPS; i++)
+        if (g.drops[i].active) CHECK(g.drops[i].x == g.player.feet.x - 2);
+    world_set(w, g.player.feet.x + 1, g.player.feet.y - 1, TILE_AIR);
+
+    /* A basket goes with what is in it, and comes back with it. */
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    clear_inventory(&g);
+    inventory_add(inv, ITEM_BASKET, 1);
+    inventory_add(inv, ITEM_WOOD, 7);
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 1, 0 }, (SlotRef){ SLOT_BASKET, 0, 2 }, MAX_STACK));
+    CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 1) == 1 && inventory_count(inv, ITEM_WOOD) == 0);
+    CHECK(count_drops(&g, ITEM_BASKET) == 1);
+    int at = 0;
+    for (int i = 0; i < MAX_DROPS; i++)
+        if (g.drops[i].active) at = g.drops[i].x;
+    CHECK(game_click_tile(&g, at, g.player.feet.y));
+    run(&g, 3.0f);
+    CHECK(inventory_count(inv, ITEM_BASKET) == 1 && inventory_count(inv, ITEM_WOOD) == 7);
+
+    /* Whatever is lying in the world is gone after ten minutes, however it
+     * got there: thrown out, left by a block, left by a creature. */
+    clear_inventory(&g);
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    int far = g.player.feet.x + 20, ground = g.player.feet.y;
+    game_drop_item(&g, ITEM_STICK, far, ground);
+    int dodo = mob_spawn(&g, mob_id("dodo"), far + 3, ground, true, false);
+    mob_kill(&g, dodo);
+    inventory_add(inv, ITEM_STONE, 3);
+    CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 3) == 3);
+    int lying = 0;
+    for (int i = 0; i < MAX_DROPS; i++) lying += g.drops[i].active;
+    CHECK(lying >= 6 && count_drops(&g, item_id("dodo_meat")) >= 1);
+    for (int i = 0; i < 599 * 10; i++) game_update(&g, 0.1f);
+    int still = 0;
+    for (int i = 0; i < MAX_DROPS; i++) still += g.drops[i].active;
+    CHECK(still == lying);
+    for (int i = 0; i < 2 * 10; i++) game_update(&g, 0.1f);
+    still = 0;
+    for (int i = 0; i < MAX_DROPS; i++) still += g.drops[i].active;
+    CHECK(still == 0);
+
+    /* Fruit on a tree is not lying anywhere: its ten minutes start when it falls. */
+    Drop *fruit = NULL;
+    game_drop_item(&g, ITEM_ACORN, far, ground - 6);
+    for (int i = 0; i < MAX_DROPS; i++)
+        if (g.drops[i].active) fruit = &g.drops[i];
+    CHECK(fruit != NULL);
+    if (fruit) {
+        world_set_at(w, BG, far, ground - 6, TILE_OAK_LEAVES);
+        fruit->attached = true;
+        fruit->age = 900.0f;
+        run(&g, 1.0f);
+        CHECK(fruit->active && fruit->attached);
+        world_set_at(w, BG, far, ground - 6, TILE_AIR);
+        run(&g, 1.0f);
+        CHECK(fruit->active && !fruit->attached && fruit->age < 5.0f);
+    }
+    game_free(&g);
+}
+
 static void test_tools(void)
 {
     Game g;
@@ -3624,6 +3726,7 @@ int main(void)
     test_tools();
     test_fog();
     test_vitals();
+    test_discard();
     test_mobs();
     test_biomes();
     test_plants();

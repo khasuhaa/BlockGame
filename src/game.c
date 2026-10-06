@@ -714,6 +714,8 @@ bool game_click_tile(Game *g, int tx, int ty)
  * for another drop it goes straight to the inventory instead. */
 static void vitals_tick(Game *g);
 
+#define DISCARD_GRACE 4.0f /* seconds before something dropped at the player's own feet can be picked up */
+
 static Drop *spawn_drop_stack(Game *g, ItemStack one, TilePos at)
 {
     if (one.id == ITEM_NONE) return NULL;
@@ -860,6 +862,12 @@ static void update_drops(Game *g, float dt)
         }
         d->age += dt;
         if (d->attached) continue;
+        /* Nothing lies about for ever, however it came to be there. */
+        if (DROP_LIFETIME > 0.0f && d->age >= DROP_LIFETIME) {
+            container_free(&g->inventory, d->container);
+            d->active = false;
+            continue;
+        }
 
         int rest = (int)d->y;
         while (!world_is_solid(&g->world, d->x, rest + 1)) rest++;
@@ -1328,6 +1336,23 @@ int game_tick_speed(const Game *g)
     return g->tick_rate * speed;
 }
 
+/* Where something the player lets go of lands: two blocks off at head
+ * height, in front if there is room and behind if not, so that it lies there
+ * instead of being picked straight back up. Their own square if boxed in. */
+static TilePos toss_tile(const Game *g)
+{
+    const Player *p = &g->player;
+    TilePos at = { p->feet.x, p->feet.y - 1 };
+    for (int side = 0; side < 2; side++) {
+        int d = side == 0 ? p->facing : -p->facing;
+        if (world_is_solid(&g->world, p->feet.x + d, at.y) || world_is_solid(&g->world, p->feet.x + 2 * d, at.y))
+            continue;
+        at.x = world_wrap_x(&g->world, p->feet.x + 2 * d);
+        break;
+    }
+    return at;
+}
+
 /* What meditating has brought: one thing from the list, by weight. It lands a
  * little way off, so that it lies there to be picked up. */
 static void meditation_reward(Game *g)
@@ -1342,16 +1367,30 @@ static void meditation_reward(Game *g)
         if (roll < u->loot[i].weight) item = u->loot[i].item;
         roll -= u->loot[i].weight;
     }
-    const Player *p = &g->player;
-    TilePos at = { p->feet.x, p->feet.y - 1 };
-    for (int side = 0; side < 2; side++) {
-        int d = side == 0 ? p->facing : -p->facing;
-        if (world_is_solid(&g->world, p->feet.x + d, at.y) || world_is_solid(&g->world, p->feet.x + 2 * d, at.y))
-            continue;
-        at.x = world_wrap_x(&g->world, p->feet.x + 2 * d);
-        break;
+    spawn_drop(g, item, toss_tile(g));
+}
+
+int game_discard(Game *g, SlotRef from, int count)
+{
+    Inventory *inv = &g->inventory;
+    ItemStack *s = inventory_slot(inv, from);
+    TilePos at = toss_tile(g);
+    int gone = 0;
+    while (s && s->count > 0 && gone < count) {
+        /* The last of a stack takes the contents with it; the others take a copy. */
+        bool ok = true;
+        uint16_t contents = s->count == 1 ? s->container : container_clone(inv, s->container, &ok);
+        if (!ok) break;
+        ItemStack one = { s->id, 1, contents };
+        if (--s->count == 0) *s = (ItemStack){ 0 };
+        Drop *d = spawn_drop_stack(g, one, at);
+        if (!d) break; /* no room in the world for more: it went back where it fits */
+        /* With nowhere to throw it but the player's own square, it is at
+         * least not snatched straight back. */
+        if (at.x == g->player.feet.x) d->age = -DISCARD_GRACE;
+        gone++;
     }
-    spawn_drop(g, item, at);
+    return gone;
 }
 
 static void vitals_tick(Game *g)
@@ -1414,8 +1453,10 @@ void game_tick(Game *g)
         Drop *d = &g->drops[i];
         if (!d->active) continue;
         /* Fruit whose leaf is gone falls like anything else. */
-        if (d->attached && tree_leaves_at(w, d->x, (int)d->y) < 0)
+        if (d->attached && tree_leaves_at(w, d->x, (int)d->y) < 0) {
             d->attached = false;
+            d->age = 0.0f; /* its time on the ground starts now */
+        }
         if (d->ttl > 0 && --d->ttl == 0 && d->collect == 0.0f) d->active = false;
     }
 }

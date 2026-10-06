@@ -192,10 +192,13 @@ The bar along the bottom has a head button followed by 8 slots. Stacks hold up t
 - Tap the head button to open the 4 armor slots (head, chest, legs, boots) and every basket at once.
 - Press and hold on a stack to pick items up from it: 1 after a moment, then 2, 3 … 10, then 15, 20, 25 … up to one fewer than the stack holds. The count stops rising once the cursor leaves the slot. Release over an empty slot or an equal stack to put them there; release anywhere else to put them back.
 - Drag a stack away without waiting to move all of it: equal stacks merge, anything else swaps.
+- Drag a stack off the inventory and let go over the world to drop it there - as many as were picked up, or the whole stack. It lands two blocks in front of the player (behind, if the way in front is blocked), far enough that it is not picked straight back up; walking over it or tapping it collects it again. A basket or chest is dropped with what is in it. Letting go over a menu drops nothing.
 - A basket can be put inside another basket and keeps its contents, but only baskets sitting in the bar can be opened. Baskets never stack.
 - Clicking or dragging the world, or pressing a movement key, closes everything.
 - An item's picture is centred in its slot by what is actually drawn in it, whatever empty space its image has round it, and sits a little inside the slot.
 - A selected food has an "Eat" button above it (see Health, hunger and energy).
+
+Anything lying in the world - mined, dropped by the player, spilled from a bench, left by a creature, fallen from a tree - is gone 10 minutes after it landed, and blinks for its last 10 seconds. Fruit still on its tree does not count as lying anywhere. The time is `lifetime` under `drops` in `rules.json`.
 
 A mined block drops as an item where it was. It is collected when the player is on or next to its tile, a moment after it drops, as long as there is room in the bar or in a basket in the bar.
 

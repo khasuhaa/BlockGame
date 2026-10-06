@@ -162,6 +162,7 @@ bool hud_handle_input(Hud *hud, Inventory *inv)
 
     /* The "Eat" button takes a press before the slots do. */
     hud->eat_clicked = false;
+    hud->discard = false;
     bool on_eat = hud->eat != HUD_EAT_NONE && CheckCollisionPointRec(mouse, eat_rect(hud, inv));
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && on_eat) {
         hud->eat_pressed = true;
@@ -204,7 +205,14 @@ bool hud_handle_input(Hud *hud, Inventory *inv)
     }
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
         if (hud->dragging) {
-            if (on_hud && !head) inventory_move(inv, hud->press_slot, over, hud->picked);
+            if (on_hud && !head) {
+                inventory_move(inv, hud->press_slot, over, hud->picked);
+            } else if (!on_hud) {
+                /* Let go clear of the inventory: out into the world it goes. */
+                hud->discard = true;
+                hud->discard_slot = hud->press_slot;
+                hud->discard_count = hud->picked;
+            }
         } else if (hud->picked == 0) {
             handle_tap(hud, inv);
         }

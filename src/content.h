@@ -332,6 +332,7 @@ typedef struct {
     float drop_fall_speed;   /* tiles per second */
     float drop_pickup_delay; /* how long a fresh drop lies before it can be collected */
     float drop_collect_time; /* flight into the player once collected */
+    float drop_lifetime;     /* seconds an item lies in the world before it is gone; 0 for ever */
     float denial_time;       /* how long a refused action's marker shows */
 
     /* Light, 0..15. Open sky is as bright as the sun or moon; light loses

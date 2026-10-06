@@ -12,7 +12,7 @@
       { "item": "gold_coin", "count": 1 }
     ]
   },
-  "drops": { "fall_speed": 12.0, "pickup_delay": 0.45, "collect_time": 0.15 },
+  "drops": { "fall_speed": 12.0, "pickup_delay": 0.45, "collect_time": 0.15, "lifetime": 600 },
   "light": { "sun": 15, "moon": 5, "air_falloff": 1, "solid_falloff": 2, "minimum": 2, "water_depth_per_level": 4 },
   "vitals": {
     "hunger_ticks": 3600, "energy_ticks": 1800, "sleep_ticks": 600,

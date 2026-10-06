@@ -31,6 +31,7 @@
 #define DROP_FALL_SPEED (content.rules.drop_fall_speed)
 #define DROP_PICKUP_DELAY (content.rules.drop_pickup_delay)
 #define DROP_COLLECT_TIME (content.rules.drop_collect_time)
+#define DROP_LIFETIME (content.rules.drop_lifetime)
 #define DEFAULT_TICK_RATE (content.rules.tick_rate)
 #define DAY_TICKS (content.rules.day_ticks)
 #define NIGHT_TICKS (content.rules.night_ticks)
@@ -129,7 +130,7 @@ typedef struct {
     uint8_t item;
     int x;         /* tile column */
     float y;       /* tile row; fractional while falling */
-    float age;
+    float age;     /* seconds it has lain there; at DROP_LIFETIME it is gone */
     float collect; /* 0 while lying; otherwise 0..1 progress flying to the player */
     bool attached; /* growing on a leaf */
     int ttl;       /* ticks until it disappears; 0 lasts forever */
@@ -303,6 +304,11 @@ int game_tick_speed(const Game *g);
  * it set off. A diagonal step goes round the corner rather than through it:
  * `rise_first` picks up-or-down then across, otherwise across first. */
 void game_step_offset(int dx, int dy, bool rise_first, float t, float *ox, float *oy);
+
+/* Throws up to `count` items out of an inventory slot into the world, with
+ * whatever is inside them. They land a couple of blocks from the player, far
+ * enough not to be picked straight back up. Returns how many went. */
+int game_discard(Game *g, SlotRef from, int count);
 
 /* Leaves one of an item lying in a tile. */
 void game_drop_item(Game *g, ItemId id, int x, int y);

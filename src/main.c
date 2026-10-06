@@ -25,6 +25,7 @@
 #define AUTOSAVE_SECONDS 120.0f
 #define BACKGROUND_DIM 0.18f /* how much darker the background layer is drawn */
 #define WALL_DIM 0.5f        /* and the backwall behind that */
+#define DROP_WARNING 10.0f   /* seconds before it vanishes that a dropped item starts to blink */
 #define ZOOM_SPEED 10.0f     /* how fast the view eases to a new zoom */
 #define MAP_REFRESH 0.5f     /* seconds between redrawings of the world map */
 
@@ -143,6 +144,11 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
     /* A press that starts on the inventory never reaches the world. */
     bool on_hud = hud_handle_input(hud, &g->inventory);
     if (hud->eat_clicked) game_eat(g);
+    /* A stack dragged out of the inventory and let go over the world is
+     * dropped into it - but not one let go over a menu. */
+    if (hud->discard && !playerui_mouse_over(player) && !benchui_mouse_over(bench, g, &ui_view) &&
+        !tradeui_mouse_over(trade, g, &ui_view))
+        game_discard(g, hud->discard_slot, hud->discard_count);
     if (on_hud) return;
     if (playerui_handle_input(player, g)) return;
     if (tradeui_handle_input(trade, g, &ui_view)) return;
@@ -582,6 +588,11 @@ static void draw_drops(const Game *g, Vector2 origin)
         /* Collected ones fly into the player. */
         p.x += (origin.x + player.x - p.x) * d->collect;
         p.y += (origin.y + player.y - p.y) * d->collect;
+        /* One about to be gone for good blinks for its last few seconds. */
+        float left = DROP_LIFETIME - d->age;
+        if (DROP_LIFETIME > 0.0f && !d->attached && d->collect == 0.0f && left < DROP_WARNING &&
+            fmodf(left, 0.5f) < 0.2f)
+            continue;
         hud_draw_item_icon((ItemId)d->item, (Rectangle){ p.x - size / 2, p.y - size / 2, size, size });
     }
 }

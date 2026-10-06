@@ -723,6 +723,7 @@ static bool read_rules(Reader *r, const cJSON *root)
     if (drops) {
         u->drop_fall_speed = (float)num(drops, "fall_speed", u->drop_fall_speed);
         u->drop_pickup_delay = (float)num(drops, "pickup_delay", u->drop_pickup_delay);
+        u->drop_lifetime = (float)num(drops, "lifetime", u->drop_lifetime);
         u->drop_collect_time = (float)num(drops, "collect_time", u->drop_collect_time);
     }
     if (ui) u->denial_time = (float)num(ui, "denial_time", u->denial_time);
