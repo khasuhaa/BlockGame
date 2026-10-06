@@ -65,7 +65,7 @@ static Pose pose_rest(const World *w, Pose p)
 
 static Pose pose_after(const World *w, Pose p, Step s)
 {
-    p.feet.x += s.dx;
+    p.feet.x = world_wrap_x(w, p.feet.x + s.dx);
     p.feet.y += s.dy;
     p.climbing = s.climb;
     return pose_rest(w, p);
@@ -176,17 +176,24 @@ static bool on_body(TilePos feet, TilePos t)
     return t.x == feet.x && (t.y == feet.y || t.y == feet.y - 1);
 }
 
-static bool in_use_range(TilePos feet, TilePos bench)
+/* game_in_mine_range, measured the short way round the world. */
+static bool in_reach(const World *w, TilePos feet, TilePos target)
 {
-    return on_body(feet, bench) || game_in_mine_range(feet, bench);
+    return game_in_mine_range((TilePos){ 0, feet.y },
+                              (TilePos){ world_dx(w, feet.x, target.x), target.y });
 }
 
-static bool is_goal(Pose p, Action a)
+static bool in_use_range(const World *w, TilePos feet, TilePos bench)
+{
+    return on_body(feet, bench) || in_reach(w, feet, bench);
+}
+
+static bool is_goal(const World *w, Pose p, Action a)
 {
     switch (a.type) {
     case ACTION_MINE:
-    case ACTION_PLACE: return game_in_mine_range(p.feet, a.target);
-    case ACTION_USE: return in_use_range(p.feet, a.target);
+    case ACTION_PLACE: return in_reach(w, p.feet, a.target);
+    case ACTION_USE: return in_use_range(w, p.feet, a.target);
     default: return on_body(p.feet, a.target);
     }
 }
@@ -240,14 +247,15 @@ static bool plan_action(Game *g, const World *w, Pose start, Action a,
     int goal_idx = -1;
     int head = 0, tail = 0;
 
-    memset(g->bfs_parent, -1, sizeof(int32_t) * 2 * (size_t)w->width * w->height);
-    g->bfs_parent[start_idx] = start_idx;
+    /* Stamping poses with the search number saves clearing them every time. */
+    uint32_t gen = ++g->bfs_gen;
+    g->bfs_seen[start_idx] = gen;
     g->bfs_queue[tail++] = start_idx;
 
     while (head < tail) {
         int idx = g->bfs_queue[head++];
         Pose pose = pose_at_index(w, idx);
-        if (is_goal(pose, a)) {
+        if (is_goal(w, pose, a)) {
             goal_idx = idx;
             break;
         }
@@ -255,7 +263,8 @@ static bool plan_action(Game *g, const World *w, Pose start, Action a,
         int n = list_moves(w, pose, moves);
         for (int i = 0; i < n; i++) {
             int next_idx = pose_index(w, pose_after(w, pose, moves[i]));
-            if (g->bfs_parent[next_idx] != -1) continue;
+            if (g->bfs_seen[next_idx] == gen) continue;
+            g->bfs_seen[next_idx] = gen;
             g->bfs_parent[next_idx] = idx;
             g->bfs_step[next_idx] = moves[i];
             g->bfs_queue[tail++] = next_idx;
@@ -310,7 +319,8 @@ static Pose sim_pending(Game *g)
     const Player *p = &g->player;
     memcpy(g->sim.tiles, g->world.tiles, (size_t)g->world.width * g->world.height);
     Pose pos = { p->feet, p->climbing };
-    if (p->activity == ACTIVITY_STEPPING) pos = (Pose){ p->step_to, p->step.climb };
+    if (p->activity == ACTIVITY_STEPPING)
+        pos = (Pose){ { world_wrap_x(&g->world, p->step_to.x), p->step_to.y }, p->step.climb };
     pos = pose_rest(&g->sim, pos);
     if (g->has_current) {
         for (int i = g->step_index; i < g->step_count; i++)
@@ -346,7 +356,7 @@ static bool queue_checked(Game *g, Pose pos, Action a)
 
 bool game_queue_action(Game *g, ActionType type, int tx, int ty)
 {
-    Action a = { type, { tx, ty }, 0 };
+    Action a = { type, { world_wrap_x(&g->world, tx), ty }, 0 };
     if (type == ACTION_PLACE) a.item = inventory_selected(&g->inventory)->id;
     return queue_checked(g, sim_pending(g), a);
 }
@@ -354,6 +364,7 @@ bool game_queue_action(Game *g, ActionType type, int tx, int ty)
 bool game_click_tile(Game *g, int tx, int ty)
 {
     Pose pos = sim_pending(g);
+    tx = world_wrap_x(&g->world, tx);
     Action a = { ACTION_MOVE, { tx, ty }, 0 };
     const ItemStack *held = inventory_selected(&g->inventory);
 
@@ -401,7 +412,7 @@ static void update_drops(Game *g, float dt)
         if (d->y > (float)rest) d->y = (float)rest;
 
         /* Collected from the tiles the player occupies or touches. */
-        int dx = d->x - feet.x, dy = (int)(d->y + 0.5f) - feet.y;
+        int dx = world_dx(&g->world, feet.x, d->x), dy = (int)(d->y + 0.5f) - feet.y;
         if (d->age < DROP_PICKUP_DELAY || dx < -1 || dx > 1 || dy < -2 || dy > 1) continue;
         if (inventory_add(&g->inventory, (ItemId)d->item, 1) == 0) d->collect = 0.001f;
     }
@@ -433,7 +444,9 @@ static void finish_activity(Game *g)
 {
     Player *p = &g->player;
     if (p->activity == ACTIVITY_STEPPING) {
-        p->feet = p->step_to;
+        /* A step across the seam lands on the far side of the world. */
+        p->feet = (TilePos){ world_wrap_x(&g->world, p->step_to.x), p->step_to.y };
+        p->step_to = p->feet;
         p->climbing = p->step.climb;
     } else if (p->activity == ACTIVITY_MINING) {
         TilePos t = g->current.target;
@@ -476,10 +489,12 @@ static bool start_next_activity(Game *g)
                     begin_step(g, s);
                     return true;
                 }
-            } else if (target_valid(w, g->current) && is_goal(pose, g->current)) {
+            } else if (target_valid(w, g->current) && is_goal(w, pose, g->current)) {
                 switch (g->current.type) {
                 case ACTION_MINE:
-                    begin_work(g, ACTIVITY_MINING, MINE_TIME);
+                    begin_work(g, ACTIVITY_MINING,
+                               tile_def(world_get(w, g->current.target.x, g->current.target.y))
+                                   ->mine_time);
                     return true;
                 case ACTION_PLACE:
                     if (inventory_count(&g->inventory, (ItemId)g->current.item) < 1) break;
@@ -544,7 +559,7 @@ static void update_bench(Game *g, float dt)
     if (!g->bench_open) return;
     /* The bench shuts if it is removed or the player leaves it. */
     TileType t = world_get(&g->world, g->bench_pos.x, g->bench_pos.y);
-    if (!tile_def(t)->bench || !in_use_range(g->player.feet, g->bench_pos)) {
+    if (!tile_def(t)->bench || !in_use_range(&g->world, g->player.feet, g->bench_pos)) {
         game_close_bench(g);
         return;
     }
@@ -625,23 +640,25 @@ int game_player_grip_side(const Game *g)
 
 /* ---- setup ------------------------------------------------------------- */
 
-bool game_init(Game *g, int width, int height, uint32_t seed)
+bool game_init(Game *g, int width, int height, uint32_t seed, WorldKind kind)
 {
     memset(g, 0, sizeof *g);
     size_t cells = (size_t)width * height;
-    bool ok = world_init(&g->world, width, height, seed) &&
-              world_init(&g->sim, width, height, seed);
+    bool ok = world_init(&g->world, width, height, seed, kind) &&
+              world_init(&g->sim, width, height, seed, WORLD_FLAT);
     g->steps = malloc(sizeof(Step) * cells);
     /* The search visits two poses per tile: standing and climbing. */
     g->bfs_step = malloc(sizeof(Step) * cells * 2);
     g->bfs_parent = malloc(sizeof(int32_t) * cells * 2);
     g->bfs_queue = malloc(sizeof(int32_t) * cells * 2);
-    if (!ok || !g->steps || !g->bfs_step || !g->bfs_parent || !g->bfs_queue) {
+    g->bfs_seen = calloc(cells * 2, sizeof(uint32_t));
+    if (!ok || !g->steps || !g->bfs_step || !g->bfs_parent || !g->bfs_queue ||
+        !g->bfs_seen) {
         game_free(g);
         return false;
     }
 
-    g->player.feet = pose_rest(&g->world, (Pose){ { g->world.spawn_x, 1 }, false }).feet;
+    g->player.feet = (TilePos){ g->world.spawn_x, g->world.spawn_y };
     g->player.facing = 1;
     inventory_init(&g->inventory);
     g->player.step_to = g->player.feet;
@@ -656,5 +673,6 @@ void game_free(Game *g)
     free(g->bfs_step);
     free(g->bfs_parent);
     free(g->bfs_queue);
+    free(g->bfs_seen);
     memset(g, 0, sizeof *g);
 }

@@ -2,6 +2,7 @@
 #include "../src/game.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 static int failures;
 
@@ -26,11 +27,11 @@ static bool is_idle(const Game *g)
 static void test_world(void)
 {
     Game g;
-    CHECK(game_init(&g, 64, 48, 1234));
+    CHECK(game_init(&g, 64, 48, 1234, WORLD_FLAT));
     int s = g.world.surface_y;
     for (int x = 0; x < g.world.width; x++) {
         CHECK(world_get(&g.world, x, s - 1) == (x == g.world.spawn_x ? TILE_SPAWN_PORTAL : TILE_AIR));
-        CHECK(world_get(&g.world, x, s) == TILE_DIRT);
+        CHECK(world_get(&g.world, x, s) == (x == g.world.spawn_x ? TILE_PORTAL_BASE : TILE_DIRT));
         CHECK(world_get(&g.world, x, g.world.height - 1) == TILE_DIRT);
     }
     CHECK(g.player.feet.x == g.world.spawn_x);
@@ -55,7 +56,7 @@ static void test_mine_range(void)
 static void test_keys(void)
 {
     Game g;
-    game_init(&g, 64, 48, 1);
+    game_init(&g, 64, 48, 1, WORLD_FLAT);
     TilePos start = g.player.feet;
 
     game_set_move_input(&g, 1, 0);
@@ -83,7 +84,7 @@ static void test_keys(void)
 static void test_click_move(void)
 {
     Game g;
-    game_init(&g, 64, 48, 2);
+    game_init(&g, 64, 48, 2, WORLD_FLAT);
     TilePos start = g.player.feet;
 
     /* Feet block onto the clicked tile. */
@@ -99,7 +100,7 @@ static void test_click_move(void)
     /* Nothing to stand on up there, and out of the world entirely. */
     CHECK(!game_click_tile(&g, start.x, start.y - 2));
     CHECK(!game_click_tile(&g, start.x + 3, start.y - 6));
-    CHECK(!game_click_tile(&g, -1, start.y));
+    CHECK(!game_click_tile(&g, start.x, -1));
     CHECK(g.queue_count == 0);
     run(&g, 1.0f);
     CHECK(g.player.feet.x == start.x - 2);
@@ -109,7 +110,7 @@ static void test_click_move(void)
 static void test_click_mine(void)
 {
     Game g;
-    game_init(&g, 64, 48, 3);
+    game_init(&g, 64, 48, 3, WORLD_FLAT);
     TilePos start = g.player.feet;
     int s = g.world.surface_y;
 
@@ -140,7 +141,7 @@ static void test_click_mine(void)
 static void test_queue(void)
 {
     Game g;
-    game_init(&g, 64, 48, 4);
+    game_init(&g, 64, 48, 4, WORLD_FLAT);
     TilePos start = g.player.feet;
     int s = g.world.surface_y;
 
@@ -213,7 +214,7 @@ static Trace run_traced(Game *g, float seconds)
 static void test_hop_gap(void)
 {
     Game g;
-    game_init(&g, 64, 48, 5);
+    game_init(&g, 64, 48, 5, WORLD_FLAT);
     TilePos start = g.player.feet;
     int s = g.world.surface_y;
     dig_pit(&g, start.x + 2, start.x + 2, 4);
@@ -243,7 +244,7 @@ static void test_hop_gap(void)
 static void test_climb_drop(void)
 {
     Game g;
-    game_init(&g, 64, 48, 6);
+    game_init(&g, 64, 48, 6, WORLD_FLAT);
     TilePos start = g.player.feet;
     int s = g.world.surface_y;
     dig_pit(&g, start.x + 2, start.x + 7, 3);
@@ -271,7 +272,7 @@ static void test_wall_hop(void)
 {
     for (int width = 2; width <= 3; width++) {
         Game g;
-        game_init(&g, 64, 48, 7);
+        game_init(&g, 64, 48, 7, WORLD_FLAT);
         TilePos start = g.player.feet;
         int s = g.world.surface_y;
         dig_pit(&g, start.x + 2, start.x + 1 + width, 5);
@@ -296,7 +297,7 @@ static void test_wall_hop(void)
 static void test_step_down(void)
 {
     Game g;
-    game_init(&g, 64, 48, 8);
+    game_init(&g, 64, 48, 8, WORLD_FLAT);
     TilePos start = g.player.feet;
     dig_pit(&g, start.x + 2, start.x + 6, 1);
 
@@ -317,7 +318,7 @@ static int count_item(Game *g, ItemId id)
 static void test_inventory(void)
 {
     Game g;
-    game_init(&g, 64, 48, 9);
+    game_init(&g, 64, 48, 9, WORLD_FLAT);
     Inventory *inv = &g.inventory;
     SlotRef bar0 = { SLOT_BAR, 0, 0 }, bar1 = { SLOT_BAR, 1, 0 }, bar2 = { SLOT_BAR, 2, 0 };
 
@@ -346,26 +347,36 @@ static void test_inventory(void)
     /* Moving: swap, merge, and no armor slot for dirt. */
     inv->slots[2].count = 40;
     inv->slots[1].count = 90;
-    CHECK(inventory_move(inv, bar2, bar1));
+    CHECK(inventory_move(inv, bar2, bar1, MAX_STACK));
     CHECK(inv->slots[1].count == 99 && inv->slots[2].count == 31);
-    CHECK(!inventory_move(inv, bar1, (SlotRef){ SLOT_ARMOR, 0, 0 }));
-    CHECK(inventory_move(inv, bar0, bar2));
+    CHECK(!inventory_move(inv, bar1, (SlotRef){ SLOT_ARMOR, 0, 0 }, MAX_STACK));
+
+    /* Part of a stack goes to an empty slot or an equal stack, never a swap. */
+    SlotRef in0 = { SLOT_BASKET, 0, 2 };
+    CHECK(inventory_move(inv, bar2, in0, 10));
+    CHECK(inv->slots[2].count == 21 && inventory_slot(inv, in0)->count == 10);
+    CHECK(inventory_move(inv, bar2, in0, 5));
+    CHECK(inv->slots[2].count == 16 && inventory_slot(inv, in0)->count == 15);
+    CHECK(!inventory_move(inv, bar2, bar0, 5));
+    CHECK(inventory_move(inv, in0, bar2, MAX_STACK));
+    CHECK(inv->slots[2].count == 31 && inventory_slot(inv, in0)->count == 0);
+    CHECK(inventory_move(inv, bar0, bar2, MAX_STACK));
     CHECK(inv->slots[2].id == ITEM_BASKET && inv->slots[0].count == 31);
     CHECK(inventory_slot(inv, (SlotRef){ SLOT_BASKET, 2, 0 })->count == 99);
     CHECK(inventory_slot(inv, (SlotRef){ SLOT_BASKET, 0, 0 }) == NULL);
 
     /* A basket cannot go into itself, but can go into another basket, where
      * its contents come along but are out of reach. */
-    CHECK(!inventory_move(inv, bar2, (SlotRef){ SLOT_BASKET, 2, 2 }));
+    CHECK(!inventory_move(inv, bar2, (SlotRef){ SLOT_BASKET, 2, 2 }, MAX_STACK));
     inv->slots[0] = (ItemStack){ 0 };
     inv->slots[1] = (ItemStack){ 0 };
     CHECK(inventory_add(inv, ITEM_BASKET, 1) == 0);
     CHECK(inv->slots[0].id == ITEM_BASKET && inv->slots[0].container != inv->slots[2].container);
-    CHECK(inventory_move(inv, bar2, (SlotRef){ SLOT_BASKET, 0, 1 }));
+    CHECK(inventory_move(inv, bar2, (SlotRef){ SLOT_BASKET, 0, 1 }, MAX_STACK));
     CHECK(inv->slots[2].count == 0);
     CHECK(inventory_slot(inv, (SlotRef){ SLOT_BASKET, 2, 0 }) == NULL);
-    CHECK(!inventory_move(inv, (SlotRef){ SLOT_BASKET, 0, 1 }, bar0));
-    CHECK(inventory_move(inv, (SlotRef){ SLOT_BASKET, 0, 1 }, bar1));
+    CHECK(!inventory_move(inv, (SlotRef){ SLOT_BASKET, 0, 1 }, bar0, MAX_STACK));
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BASKET, 0, 1 }, bar1, MAX_STACK));
     CHECK(inventory_slot(inv, (SlotRef){ SLOT_BASKET, 1, 0 })->count == 99);
     game_free(&g);
 }
@@ -373,13 +384,13 @@ static void test_inventory(void)
 static void test_drops(void)
 {
     Game g;
-    game_init(&g, 64, 48, 10);
+    game_init(&g, 64, 48, 10, WORLD_FLAT);
     TilePos start = g.player.feet;
     int s = g.world.surface_y;
 
     /* A mined block lies in the world first, then is collected. */
     CHECK(game_click_tile(&g, start.x + 1, s));
-    run(&g, MINE_TIME + 0.05f);
+    run(&g, tile_def(TILE_DIRT)->mine_time + 0.05f);
     CHECK(world_get(&g.world, start.x + 1, s) == TILE_AIR);
     CHECK(g.drops[0].active && g.drops[0].item == ITEM_DIRT && count_item(&g, ITEM_DIRT) == 0);
     run(&g, 1.0f);
@@ -405,7 +416,7 @@ static void test_drops(void)
 static void test_place(void)
 {
     Game g;
-    game_init(&g, 64, 48, 11);
+    game_init(&g, 64, 48, 11, WORLD_FLAT);
     TilePos start = g.player.feet;
     int s = g.world.surface_y;
 
@@ -448,12 +459,16 @@ static void test_place(void)
 static void test_bench(void)
 {
     Game g;
-    game_init(&g, 64, 48, 12);
+    game_init(&g, 64, 48, 12, WORLD_FLAT);
     int s = g.world.surface_y, px = g.world.spawn_x;
     int n;
 
     CHECK(world_get(&g.world, px, s - 1) == TILE_SPAWN_PORTAL);
     CHECK(world_get(&g.world, px, s - 2) == TILE_SPAWN_PORTAL);
+    CHECK(world_get(&g.world, px, s - 3) == TILE_SPAWN_PORTAL);
+    CHECK(world_get(&g.world, px, s - 4) == TILE_AIR);
+    CHECK(world_get(&g.world, px, s) == TILE_PORTAL_BASE);
+    CHECK(!game_queue_action(&g, ACTION_MINE, px, s));
     CHECK(tile_def(TILE_SPAWN_PORTAL)->bench && !tile_def(TILE_SPAWN_PORTAL)->removable);
     CHECK(tile_def(TILE_WORKBENCH)->bench && tile_def(TILE_WORKBENCH)->removable);
 
@@ -510,6 +525,104 @@ static void test_bench(void)
     game_free(&g);
 }
 
+static void test_wrap(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 13, WORLD_FLAT);
+    World *w = &g.world;
+    int s = w->surface_y;
+
+    CHECK(world_wrap_x(w, -1) == 63 && world_wrap_x(w, 64) == 0 && world_wrap_x(w, 130) == 2);
+    CHECK(world_dx(w, 62, 1) == 3 && world_dx(w, 1, 62) == -3 && world_dx(w, 5, 9) == 4);
+    CHECK(world_get(w, -1, s) == world_get(w, 63, s));
+
+    /* Walking off one edge arrives at the other, and that is the short way. */
+    g.player.feet = g.player.step_to = (TilePos){ 1, s - 1 };
+    CHECK(game_click_tile(&g, 62, s - 1));
+    run(&g, WALK_TIME * 3 + 0.05f);
+    CHECK(is_idle(&g) && g.player.feet.x == 62);
+    game_set_move_input(&g, 1, 0);
+    run(&g, WALK_TIME * 4 + 0.05f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 0.5f);
+    CHECK(g.player.feet.x >= 2 && g.player.feet.x <= 4);
+
+    /* Reach works across the seam: mine at 63 while standing at 0. */
+    g.player.feet = g.player.step_to = (TilePos){ 0, s - 1 };
+    CHECK(game_click_tile(&g, 63, s));
+    run(&g, 1.5f);
+    CHECK(g.player.feet.x == 0 && world_get(w, 63, s) == TILE_AIR);
+    CHECK(count_item(&g, ITEM_DIRT) == 1);
+    game_free(&g);
+}
+
+/* Feet level of a column: the height of its lowest air tile. */
+static int column_level(const World *w, int x)
+{
+    int row = 0;
+    while (row < w->height && !tile_def(world_get(w, x, row))->solid) row++;
+    return world_row_to_y(w, row) + 1;
+}
+
+static void test_terrain(void)
+{
+    bool saw_mountain = false, saw_valley = false;
+    for (uint32_t seed = 1; seed <= 12; seed++) {
+        World w;
+        CHECK(world_init(&w, 2048, 401, seed, WORLD_TERRAIN));
+        CHECK(world_row_to_y(&w, 0) == 200 && world_row_to_y(&w, 400) == -200);
+
+        /* Spawn at Y 0, standing on the portal's base inside a 3-tall portal. */
+        CHECK(world_row_to_y(&w, w.spawn_y) == 0);
+        CHECK(world_get(&w, w.spawn_x, w.spawn_y + 1) == TILE_PORTAL_BASE);
+        for (int i = 0; i < 3; i++)
+            CHECK(world_get(&w, w.spawn_x, w.spawn_y - i) == TILE_SPAWN_PORTAL);
+        CHECK(world_get(&w, w.spawn_x, w.spawn_y - 3) == TILE_AIR);
+
+        int lo = 1000, hi = -1000, max_step = 0, bad = 0;
+        for (int x = 0; x < w.width; x++) {
+            int level = column_level(&w, x);
+            int step = abs(level - column_level(&w, x + 1)); /* x + 1 wraps at the seam */
+            int top = world_y_to_row(&w, level - 1);
+            if (level < lo) lo = level;
+            if (level > hi) hi = level;
+            if (step > max_step) max_step = step;
+
+            /* Top to bottom: at most one grass, then dirt, then stone all the way. */
+            int dirt = 0, y = top;
+            if (world_get(&w, x, y) == TILE_GRASS || world_get(&w, x, y) == TILE_PORTAL_BASE) y++, dirt++;
+            while (world_get(&w, x, y) == TILE_DIRT) y++, dirt++;
+            for (; y < w.height; y++)
+                if (world_get(&w, x, y) != TILE_STONE) bad++;
+            if (dirt > 6) bad++;
+            /* High peaks and deep floors are bare stone; the plains are not. */
+            if ((level > 45 || level < -25) && dirt != 0) bad++;
+            if (world_get(&w, x, top) == TILE_DIRT) bad++;
+        }
+        CHECK(bad == 0);
+        CHECK(lo >= -FEATURE_MAX_SIZE - 2 && hi <= PLAINS_MAX_LEVEL + FEATURE_MAX_SIZE + 2);
+        CHECK(max_step <= 6);
+        if (hi >= 40) saw_mountain = true;
+        if (lo <= -20) saw_valley = true;
+
+        /* Flat ground either side of the spawn. */
+        for (int d = -3; d <= 3; d++) CHECK(column_level(&w, w.spawn_x + d) == 0);
+        world_free(&w);
+    }
+    CHECK(saw_mountain && saw_valley);
+
+    /* The full-size world can be walked and mined like the small ones. */
+    Game g;
+    CHECK(game_init(&g, 2048, 401, 3, WORLD_TERRAIN));
+    TilePos start = g.player.feet;
+    CHECK(game_click_tile(&g, start.x + 2, start.y + 1));
+    CHECK(!game_click_tile(&g, start.x + 2, start.y - 30));
+    run(&g, 2.0f);
+    CHECK(is_idle(&g) && world_get(&g.world, start.x + 2, start.y + 1) == TILE_AIR);
+    CHECK(count_item(&g, ITEM_DIRT) == 1);
+    game_free(&g);
+}
+
 int main(void)
 {
     test_world();
@@ -526,6 +639,8 @@ int main(void)
     test_drops();
     test_place();
     test_bench();
+    test_wrap();
+    test_terrain();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;

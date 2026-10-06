@@ -3,6 +3,7 @@
 
 #include "game.h"
 #include "raylib.h"
+#include "view.h"
 
 typedef enum {
     BENCH_PRESS_NONE,
@@ -34,13 +35,12 @@ typedef struct {
     bool dragged;
 } BenchUi;
 
-/* `origin` is the screen position of the world's top-left corner. Returns
- * true while the mouse belongs to the bench interface. */
-bool benchui_handle_input(BenchUi *ui, Game *g, Vector2 origin, float tile_size);
+/* Returns true while the mouse belongs to the bench interface. */
+bool benchui_handle_input(BenchUi *ui, Game *g, const View *v);
 void benchui_show_popup(BenchUi *ui, TilePos tile);
 /* Dismisses the popup and closes the open bench. */
 void benchui_close(BenchUi *ui, Game *g);
-bool benchui_mouse_over(const BenchUi *ui, const Game *g, Vector2 origin, float tile_size);
-void benchui_draw(const BenchUi *ui, const Game *g, Vector2 origin, float tile_size);
+bool benchui_mouse_over(const BenchUi *ui, const Game *g, const View *v);
+void benchui_draw(const BenchUi *ui, const Game *g, const View *v);
 
 #endif

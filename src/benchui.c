@@ -20,11 +20,11 @@ static const Color button_color = { 70, 130, 80, 255 };
 
 /* ---- layout ------------------------------------------------------------ */
 
-static Rectangle menu_rect(const Game *g, Vector2 origin, float ts)
+static Rectangle menu_rect(const Game *g, const View *v)
 {
-    return (Rectangle){ origin.x + (g->bench_pos.x + 1) * ts + 14.0f,
-                        origin.y + (g->bench_pos.y + 1) * ts - MENU_HEIGHT, MENU_WIDTH,
-                        MENU_HEIGHT };
+    Vector2 tile = view_tile_pos(v, (float)g->bench_pos.x, (float)g->bench_pos.y);
+    return (Rectangle){ tile.x + v->tile_size + 14.0f, tile.y + v->tile_size - MENU_HEIGHT,
+                        MENU_WIDTH, MENU_HEIGHT };
 }
 
 static Rectangle list_rect(Rectangle menu)
@@ -44,11 +44,12 @@ static Rectangle craft_rect(Rectangle menu)
                         menu.width - 2 * MENU_PAD, 34 };
 }
 
-static Rectangle popup_rect(const BenchUi *ui, Vector2 origin, float ts)
+static Rectangle popup_rect(const BenchUi *ui, const View *v)
 {
     float h = 2 * POPUP_BUTTON_HEIGHT + 3 * 6.0f;
-    return (Rectangle){ origin.x + (ui->popup_tile.x + 0.5f) * ts - POPUP_WIDTH / 2,
-                        origin.y + ui->popup_tile.y * ts - h - 8.0f, POPUP_WIDTH, h };
+    Vector2 tile = view_tile_pos(v, (float)ui->popup_tile.x, (float)ui->popup_tile.y);
+    return (Rectangle){ tile.x + v->tile_size / 2 - POPUP_WIDTH / 2, tile.y - h - 8.0f,
+                        POPUP_WIDTH, h };
 }
 
 static Rectangle popup_button(Rectangle popup, int i)
@@ -88,25 +89,24 @@ void benchui_close(BenchUi *ui, Game *g)
     game_close_bench(g);
 }
 
-bool benchui_mouse_over(const BenchUi *ui, const Game *g, Vector2 origin, float ts)
+bool benchui_mouse_over(const BenchUi *ui, const Game *g, const View *v)
 {
     Vector2 m = GetMousePosition();
     if (ui->press != BENCH_PRESS_NONE) return true;
-    if (ui->popup && CheckCollisionPointRec(m, popup_rect(ui, origin, ts))) return true;
-    return g->bench_open && CheckCollisionPointRec(m, menu_rect(g, origin, ts));
+    if (ui->popup && CheckCollisionPointRec(m, popup_rect(ui, v))) return true;
+    return g->bench_open && CheckCollisionPointRec(m, menu_rect(g, v));
 }
 
-static BenchPress press_target(const BenchUi *ui, const Game *g, Vector2 origin, float ts,
-                               Vector2 m)
+static BenchPress press_target(const BenchUi *ui, const Game *g, const View *v, Vector2 m)
 {
     if (ui->popup) {
-        Rectangle popup = popup_rect(ui, origin, ts);
+        Rectangle popup = popup_rect(ui, v);
         if (CheckCollisionPointRec(m, popup_button(popup, 0))) return BENCH_PRESS_OPEN;
         if (CheckCollisionPointRec(m, popup_button(popup, 1))) return BENCH_PRESS_REMOVE;
         if (CheckCollisionPointRec(m, popup)) return BENCH_PRESS_PANEL;
     }
     if (!g->bench_open) return BENCH_PRESS_NONE;
-    Rectangle menu = menu_rect(g, origin, ts);
+    Rectangle menu = menu_rect(g, v);
     if (!CheckCollisionPointRec(m, menu)) return BENCH_PRESS_NONE;
     if (CheckCollisionPointRec(m, list_rect(menu))) return BENCH_PRESS_LIST;
     if (ui->selected < 0) return BENCH_PRESS_PANEL;
@@ -118,7 +118,7 @@ static BenchPress press_target(const BenchUi *ui, const Game *g, Vector2 origin,
     return BENCH_PRESS_PANEL;
 }
 
-bool benchui_handle_input(BenchUi *ui, Game *g, Vector2 origin, float ts)
+bool benchui_handle_input(BenchUi *ui, Game *g, const View *v)
 {
     Vector2 m = GetMousePosition();
 
@@ -136,7 +136,7 @@ bool benchui_handle_input(BenchUi *ui, Game *g, Vector2 origin, float ts)
 
     int count = 0;
     const Recipe *recipes = g->bench_open ? open_recipes(g, &count) : NULL;
-    Rectangle menu = menu_rect(g, origin, ts);
+    Rectangle menu = menu_rect(g, v);
     Rectangle list = list_rect(menu);
     if (ui->selected >= count) ui->selected = -1;
 
@@ -151,7 +151,7 @@ bool benchui_handle_input(BenchUi *ui, Game *g, Vector2 origin, float ts)
     }
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-        ui->press = press_target(ui, g, origin, ts, m);
+        ui->press = press_target(ui, g, v, m);
         ui->press_mouse = m;
         ui->press_scroll = ui->scroll;
         ui->dragged = false;
@@ -173,7 +173,7 @@ bool benchui_handle_input(BenchUi *ui, Game *g, Vector2 origin, float ts)
     if (ui->press == BENCH_PRESS_NONE) return false;
     if (!IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) return true;
 
-    BenchPress released = press_target(ui, g, origin, ts, m);
+    BenchPress released = press_target(ui, g, v, m);
     if (ui->press == BENCH_PRESS_LIST && !ui->dragged && released == BENCH_PRESS_LIST) {
         float offset = m.x - list.x + ui->scroll;
         int i = (int)(offset / (LIST_CELL + LIST_GAP));
@@ -202,10 +202,10 @@ static void draw_centered(const char *text, Rectangle r, int size, Color c)
              (int)(r.y + (r.height - size) / 2), size, c);
 }
 
-static void draw_popup(const BenchUi *ui, Vector2 origin, float ts)
+static void draw_popup(const BenchUi *ui, const View *v)
 {
     static const char *labels[2] = { "Open bench", "Remove bench" };
-    Rectangle popup = popup_rect(ui, origin, ts);
+    Rectangle popup = popup_rect(ui, v);
     Vector2 m = GetMousePosition();
     DrawRectangleRec(popup, panel_color);
     DrawRectangleLinesEx(popup, 2.0f, edge_color);
@@ -290,15 +290,15 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
     }
 }
 
-void benchui_draw(const BenchUi *ui, const Game *g, Vector2 origin, float ts)
+void benchui_draw(const BenchUi *ui, const Game *g, const View *v)
 {
-    if (ui->popup && !g->bench_open) draw_popup(ui, origin, ts);
+    if (ui->popup && !g->bench_open) draw_popup(ui, v);
     if (!g->bench_open) return;
 
     int count;
     const Recipe *recipes = open_recipes(g, &count);
-    Rectangle menu = menu_rect(g, origin, ts);
-    float bench_y = origin.y + (g->bench_pos.y + 0.5f) * ts;
+    Rectangle menu = menu_rect(g, v);
+    float bench_y = view_tile_pos(v, 0.0f, (float)g->bench_pos.y + 0.5f).y;
 
     /* Pointer joining the menu to its bench. */
     DrawTriangle((Vector2){ menu.x, bench_y + 9 }, (Vector2){ menu.x, bench_y - 9 },

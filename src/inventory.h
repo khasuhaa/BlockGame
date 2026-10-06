@@ -14,6 +14,7 @@ typedef enum {
     ITEM_BASKET = 1,
     ITEM_DIRT = 2,
     ITEM_WORKBENCH = 3,
+    ITEM_STONE = 4,
     ITEM_COUNT
 } ItemId;
 
@@ -87,9 +88,10 @@ int inventory_add(Inventory *inv, ItemId id, int count);
 int inventory_count(const Inventory *inv, ItemId id);
 int inventory_remove(Inventory *inv, ItemId id, int count);
 
-/* Moves the stack in `from` onto `to`: merging equal stacks, otherwise
- * swapping. Returns false if nothing could move. */
-bool inventory_move(Inventory *inv, SlotRef from, SlotRef to);
+/* Moves up to `count` items from `from` onto `to`. A whole stack merges with
+ * an equal stack or swaps with anything else; part of a stack can only go to
+ * an empty slot or an equal stack. Returns false if nothing could move. */
+bool inventory_move(Inventory *inv, SlotRef from, SlotRef to, int count);
 
 void inventory_select(Inventory *inv, int slot, int inner);
 /* The selected stack: the chosen item inside a basket if there is one there,

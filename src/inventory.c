@@ -7,6 +7,7 @@ static const ItemDef item_defs[ITEM_COUNT] = {
     [ITEM_BASKET] = { "Basket", 1, true, EQUIP_NONE, TILE_AIR },
     [ITEM_DIRT] = { "Dirt", MAX_STACK, false, EQUIP_NONE, TILE_DIRT },
     [ITEM_WORKBENCH] = { "Workbench", MAX_STACK, false, EQUIP_NONE, TILE_WORKBENCH },
+    [ITEM_STONE] = { "Stone", MAX_STACK, false, EQUIP_NONE, TILE_STONE },
 };
 
 const ItemDef *item_def(ItemId id)
@@ -17,7 +18,9 @@ const ItemDef *item_def(ItemId id)
 ItemId item_for_tile(TileType t)
 {
     switch (t) {
-    case TILE_DIRT: return ITEM_DIRT;
+    case TILE_DIRT:
+    case TILE_GRASS: return ITEM_DIRT;
+    case TILE_STONE: return ITEM_STONE;
     case TILE_WORKBENCH: return ITEM_WORKBENCH;
     default: return ITEM_NONE;
     }
@@ -180,20 +183,29 @@ static void normalize_selection(Inventory *inv)
         inv->sel_inner = -1;
 }
 
-bool inventory_move(Inventory *inv, SlotRef from, SlotRef to)
+bool inventory_move(Inventory *inv, SlotRef from, SlotRef to, int count)
 {
     ItemStack *a = inventory_slot(inv, from);
     ItemStack *b = inventory_slot(inv, to);
-    if (!a || !b || a == b || is_empty(a)) return false;
+    if (!a || !b || a == b || is_empty(a) || count < 1) return false;
     if (!slot_accepts(inv, to, a)) return false;
+    if (count > a->count) count = a->count;
 
     int max = item_def(a->id)->max_stack;
     if (!is_empty(b) && b->id == a->id && max > 1) {
-        int moved = max - b->count < a->count ? max - b->count : a->count;
+        int moved = max - b->count < count ? max - b->count : count;
         if (moved == 0) return false;
         b->count = (uint8_t)(b->count + moved);
         a->count = (uint8_t)(a->count - moved);
         if (a->count == 0) *a = (ItemStack){ 0 };
+        return true;
+    }
+
+    if (count < a->count) {
+        /* Splitting a stack needs somewhere empty to put the part taken. */
+        if (!is_empty(b)) return false;
+        *b = (ItemStack){ a->id, (uint8_t)count, 0 };
+        a->count = (uint8_t)(a->count - count);
         return true;
     }
 

@@ -16,7 +16,6 @@
 #define CLIMB_TIME 0.16f
 #define HOP_TIME 0.2f
 #define HOP_HEIGHT 0.35f /* peak of a hop's arc, in tiles */
-#define MINE_TIME 0.35f
 #define PLACE_TIME 0.15f
 #define CRAFT_TIME 0.1f /* per item crafted */
 #define DENIAL_TIME 0.6f
@@ -124,11 +123,13 @@ typedef struct {
     /* Scratch space for planning. */
     World sim;
     int32_t *bfs_parent;
+    uint32_t *bfs_seen; /* poses reached in search number bfs_gen */
+    uint32_t bfs_gen;
     int32_t *bfs_queue;
     Step *bfs_step;
 } Game;
 
-bool game_init(Game *g, int width, int height, uint32_t seed);
+bool game_init(Game *g, int width, int height, uint32_t seed, WorldKind kind);
 void game_free(Game *g);
 void game_update(Game *g, float dt);
 
@@ -152,7 +153,7 @@ void game_set_move_input(Game *g, int dx, int dy);
 void game_cancel_actions(Game *g);
 
 /* True if a player standing at `feet` can mine `target`: the 10 tiles
- * surrounding the player's two blocks. */
+ * surrounding the player's two blocks. Takes no account of the world wrapping. */
 bool game_in_mine_range(TilePos feet, TilePos target);
 
 /* Feet position in tile units, interpolated across the step in progress. */

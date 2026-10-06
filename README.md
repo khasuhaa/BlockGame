@@ -41,6 +41,19 @@ Holding a direction, or a queued click, takes the player:
 - from one wall to a facing wall up to two columns away with a hop, so a pit two or three blocks wide is crossed near the top without going to the bottom;
 - up any wall, pulling onto the top.
 
+## World
+
+The world is 2048 blocks round and wraps: keep going right and you come back to where you started. Height runs from Y −200 to Y 200, and the player spawns at Y 0. The top line of the window shows the player's X and Y.
+
+The land is plains broken up by mountains and valleys, always with a stretch of plains between two of them:
+
+- **Plains** roll gently between Y 0 and Y 20.
+- **Mountains** rise 10 to 60 blocks above the plains in ledges of up to 3 blocks.
+- **Steep valleys** drop 10 to 60 blocks down sheer walls to a flat floor.
+- **Smooth valleys** drop 10 to 60 blocks along a long, gentle slope.
+
+Columns are grass over dirt over stone. The dirt is 4 or 5 blocks deep on the plains and thins out gradually up a mountain or down a valley, so peaks and valley floors are bare stone. Stone takes twice as long to mine as dirt. Grass drops dirt.
+
 ## Inventory
 
 The bar along the bottom has a head button followed by 8 slots. Stacks hold up to 99. The player starts with one basket (item ID 1).
@@ -48,7 +61,8 @@ The bar along the bottom has a head button followed by 8 slots. Stacks hold up t
 - Tap a slot to select it. Tapping a basket also opens or closes its 4 slots, which extend upward from it.
 - Tap an item inside a basket to select it; the closed basket then shows that item. Tapping an empty basket slot selects the basket.
 - Tap the head button to open the 4 armor slots (head, chest, legs, boots) and every basket at once.
-- Drag an item onto another slot to move it: equal stacks merge, anything else swaps.
+- Press and hold on a stack to pick items up from it: 1 after a moment, then 2, 3 … 10, then 15, 20, 25 … up to one fewer than the stack holds. The count stops rising once the cursor leaves the slot. Release over an empty slot or an equal stack to put them there; release anywhere else to put them back.
+- Drag a stack away without waiting to move all of it: equal stacks merge, anything else swaps.
 - A basket can be put inside another basket and keeps its contents, but only baskets sitting in the bar can be opened.
 - Clicking or dragging the world, or pressing a movement key, closes everything.
 
@@ -58,7 +72,7 @@ A mined block drops as an item where it was. It is collected when the player is 
 
 With a block selected (dirt or a workbench), clicking an air tile that touches a block queues placing it there, marked with a green outline and a faded copy of the block. Other air tiles still queue a move. Select a slot that is not a block to walk onto tiles next to the ground.
 
-The spawn portal stands where the player spawns and is a workbench that cannot be removed, so clicking it opens it straight away. Clicking a placed workbench shows "Open bench" and "Remove bench". Opening is a queued action: the player walks up to the bench first.
+The spawn portal stands where the player spawns, three blocks tall on a base block set into the ground. It is a workbench that cannot be removed, so clicking it opens it straight away. Clicking a placed workbench shows "Open bench" and "Remove bench". Opening is a queued action: the player walks up to the bench first.
 
 An open bench shows a menu beside it in the world:
 
@@ -74,11 +88,12 @@ Each item takes 100 ms to craft. Output that does not fit in the inventory is dr
 
 ## Layout
 
-- `src/world.c` — tile grid and world generation
+- `src/world.c` — tile kinds, the wrapping tile grid and terrain generation
 - `src/inventory.c` — items, stacks, baskets and the rules for moving them
 - `src/craft.c` — recipes for each kind of bench
 - `src/game.c` — player, movement rules, path planning, action queue, item drops, crafting
 - `src/hud.c` — the on-screen inventory bar
 - `src/benchui.c` — the bench popup and crafting menu
+- `src/view.h` — placing the wrapping world on screen
 - `src/main.c` — window, input, camera and rendering
 - `tests/test_game.c` — tests for the rules, with no window

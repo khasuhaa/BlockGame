@@ -11,8 +11,12 @@ typedef struct {
     bool armor_open;
     bool basket_open[INVENTORY_SLOTS];
 
-    /* Mouse press that started on the inventory. */
+    /* Mouse press that started on the inventory. Holding it on a stack picks
+     * items up one tick at a time; `picked` is how many are on the cursor, and
+     * `dragging` is set once the cursor has left the slot they came from. */
     bool pressed, dragging;
+    float hold_time;
+    int picked;
     bool press_head;
     SlotRef press_slot;
     Vector2 press_mouse;
