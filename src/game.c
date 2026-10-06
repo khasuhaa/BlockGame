@@ -353,14 +353,35 @@ static bool beside_block(const World *w, TilePos t)
  * soil for that tree, and there is room above for the first trunk block. */
 static bool can_plant(const World *w, ItemId item, TilePos t)
 {
-    int kind = item_def(item)->plants;
-    if (kind < 0 || !world_in_bounds(w, t.x, t.y) || !world_in_bounds(w, t.x, t.y - 1)) return false;
-    const TreeDef *def = &content.trees[kind];
+    const ItemDef *it = item_def(item);
+    if (!world_in_bounds(w, t.x, t.y) || !world_in_bounds(w, t.x, t.y - 1)) return false;
     TileType ground = world_get(w, t.x, t.y);
-    bool soil = false;
-    for (int i = 0; i < def->soil_count; i++) soil = soil || def->soil[i] == ground;
-    return soil && world_get_at(w, def->layer, t.x, t.y - 1) == TILE_AIR &&
-           !world_is_solid(w, t.x, t.y - 1);
+    bool soil = false, wet = world_is_water(w, t.x, t.y - 1);
+    int layer;
+    if (it->plants >= 0) {
+        const TreeDef *def = &content.trees[it->plants];
+        for (int i = 0; i < def->soil_count; i++) soil = soil || def->soil[i] == ground;
+        if (def->needs_water && !wet) return false;
+        layer = def->layer;
+    } else if (it->sows != TILE_AIR) {
+        /* A plant: its first block goes on top of soil it can live on. */
+        const TileDef *def = tile_def(it->sows);
+        for (int i = 0; i < def->soil_count; i++) soil = soil || def->soil[i] == ground;
+        if (def->needs_water && !wet) return false;
+        layer = def->layer;
+    } else {
+        return false;
+    }
+    return soil && world_get_at(w, layer, t.x, t.y - 1) == TILE_AIR && !world_is_solid(w, t.x, t.y - 1);
+}
+
+/* Puts down what a planted item grows into: a tree's first trunk block, or a
+ * plant's first stage. */
+static void plant_item(World *w, ItemId item, TilePos soil)
+{
+    const ItemDef *it = item_def(item);
+    if (it->plants >= 0) tree_plant(w, soil.x, soil.y - 1, it->plants);
+    else if (it->sows != TILE_AIR) world_set_at(w, tile_def(it->sows)->layer, soil.x, soil.y - 1, it->sows);
 }
 
 static void place_tile(World *w, TilePos t, TileType tile);
@@ -461,7 +482,7 @@ static Pose sim_effect(Game *g, Pose pose, Action a)
     else if (a.type == ACTION_PLACE)
         place_tile(&g->sim, a.target, item_def((ItemId)a.item)->places);
     else if (a.type == ACTION_PLANT)
-        tree_plant(&g->sim, a.target.x, a.target.y - 1, item_def((ItemId)a.item)->plants);
+        plant_item(&g->sim, (ItemId)a.item, a.target);
     return pose_rest(&g->sim, pose);
 }
 
@@ -489,6 +510,7 @@ static void deny(Game *g, TilePos pos)
 static Pose sim_pending(Game *g)
 {
     const Player *p = &g->player;
+    g->sim.sea_row = g->world.sea_row;
     for (int layer = 0; layer < LAYER_COUNT; layer++)
         memcpy(g->sim.layers[layer], g->world.layers[layer],
                (size_t)g->world.width * g->world.height);
@@ -846,6 +868,16 @@ static bool room_for(const World *w, TilePos t, TileType tile)
     return true;
 }
 
+/* Leaves what a removed block leaves: `count` of its main drop, the first
+ * carrying `inside`, and whatever else it gives. */
+static void drop_block_items(Game *g, const TileDef *def, TilePos at, uint16_t inside, int count)
+{
+    for (int i = 0; i < count; i++)
+        spawn_drop_stack(g, (ItemStack){ (uint8_t)def->drop, 1, i == 0 ? inside : 0 }, at);
+    for (int k = 0; k < def->extra_drop_count; k++)
+        for (int i = 0; i < def->extra_drops[k].count; i++) spawn_drop(g, def->extra_drops[k].id, at);
+}
+
 static void begin_work(Game *g, Activity activity, float duration)
 {
     g->player.activity = activity;
@@ -877,9 +909,14 @@ static void finish_activity(Game *g)
             /* A tall block comes down whole, and lands at its foot. */
             int bottom;
             world_structure(&g->world, layer, t.x, t.y, &bottom);
-            for (int i = 0; i < count; i++)
-                spawn_drop_stack(g, (ItemStack){ (uint8_t)def->drop, 1, i == 0 ? inside : 0 },
-                                 (TilePos){ t.x, bottom });
+            /* Something like kelp comes away from the cut upward: every block
+             * of it stacked above goes too, each leaving what it leaves. */
+            TileType tile = world_get_at(&g->world, layer, t.x, t.y);
+            for (int y = t.y - 1; def->breaks_above && world_get_at(&g->world, layer, t.x, y) == tile; y--) {
+                drop_block_items(g, def, (TilePos){ t.x, y }, 0, 1);
+                world_set_at(&g->world, layer, t.x, y, TILE_AIR);
+            }
+            drop_block_items(g, def, (TilePos){ t.x, bottom }, inside, count);
             replace_block(&g->world, layer, t, TILE_AIR);
         }
         g->has_current = false;
@@ -892,7 +929,7 @@ static void finish_activity(Game *g)
             deny(g, t);
         } else if (g->current.type == ACTION_PLANT) {
             container_free(&g->inventory, one.container);
-            tree_plant(&g->world, t.x, t.y - 1, item_def(item)->plants);
+            plant_item(&g->world, item, t);
         } else if (!needs_storage(tile_def(tile))) {
             container_free(&g->inventory, one.container);
             place_tile(&g->world, t, tile);
@@ -1113,6 +1150,14 @@ static void random_event(Game *g, int x, int y)
             if ((int)d->y < growth.top - 2 || (int)d->y > growth.top + MAX_TREE_ROWS) continue;
             if (tree_leaves_at(w, d->x, (int)d->y - 1) >= 0) d->y -= 1.0f;
         }
+        return;
+    }
+
+    /* A plant grows on to its next stage, if it is where it can live. */
+    for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
+        const TileDef *def = tile_def(world_get_at(w, layer, x, y));
+        if (def->grows_into == TILE_AIR) continue;
+        if (!def->needs_water || world_is_water(w, x, y)) world_set_at(w, layer, x, y, def->grows_into);
         return;
     }
 

@@ -50,6 +50,11 @@ void light_compute(const Game *g, int x0, int y0, int width, int height, uint8_t
             else if (y < w->height && !world_is_solid(w, x, y) &&
                      world_get_at(w, LAYER_WALL, x, y) == TILE_AIR)
                 v = sky; /* open air with nothing behind it */
+            /* Under water the sky is dimmer the deeper it is. */
+            if (v == sky && u->light_water_depth > 0 && world_is_water(w, x, y)) {
+                v = sky - (y - w->sea_row) / u->light_water_depth;
+                if (v < 0) v = 0;
+            }
             if (y >= 0 && y < w->height) {
                 int e = emitted(g, x, y);
                 if (e > v) v = e;

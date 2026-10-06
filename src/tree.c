@@ -1,5 +1,7 @@
 #include "tree.h"
 
+#include <stdlib.h>
+
 typedef struct {
     int dx;  /* columns from the trunk */
     int off; /* rows below the trunk's top block; -1 is the row above it */
@@ -60,6 +62,9 @@ static int leaf_cells(const TreeDef *def, int trunk_x, int height, LeafCell *out
         if (row->left > widest) widest = row->left;
         if (row->right > widest) widest = row->right;
     }
+    for (int i = 0; i < def->row_count; i++)
+        for (int k = 0; k < def->rows[i].cell_count; k++)
+            if (abs(def->rows[i].cells[k]) > widest) widest = abs(def->rows[i].cells[k]);
     for (int d = 1; d <= widest; d++) {
         for (int i = 0; i < def->row_count; i++) {
             const TreeRow *row = &def->rows[i];
@@ -67,6 +72,11 @@ static int leaf_cells(const TreeDef *def, int trunk_x, int height, LeafCell *out
             for (int side = -1; side <= 1; side += 2) {
                 int reach = (side < 0) != mirror ? row->left : row->right;
                 if (reach >= d && n < TREE_MAX_LEAVES) out[n++] = (LeafCell){ side * d, row->offset };
+            }
+            /* Single leaves at stated distances: an arm, not a full row. */
+            for (int k = 0; k < row->cell_count; k++) {
+                int dx = mirror ? -row->cells[k] : row->cells[k];
+                if (abs(dx) == d && n < TREE_MAX_LEAVES) out[n++] = (LeafCell){ dx, row->offset };
             }
         }
     }
@@ -88,7 +98,7 @@ TreeGrowth tree_grow(World *w, int x, int y, uint32_t *rng)
     result.top = top;
 
     LeafCell cells[TREE_MAX_LEAVES];
-    int count = leaf_cells(def, result.x, height, cells);
+    int count = def->leaves != TILE_AIR ? leaf_cells(def, result.x, height, cells) : 0;
 
     /* Leaves fill in ring by ring: pick among the nearest empty places. */
     int open[TREE_MAX_LEAVES], open_count = 0, ring = -1;
@@ -101,7 +111,8 @@ TreeGrowth tree_grow(World *w, int x, int y, uint32_t *rng)
 
     TileType above = world_get_at(w, layer, x, top - 1);
     bool can_extend = height < def->max_height && top - 1 >= 0 && !world_is_solid(w, x, top - 1) &&
-                      (above == TILE_AIR || above == def->leaves);
+                      (above == TILE_AIR || (def->leaves != TILE_AIR && above == def->leaves)) &&
+                      (!def->needs_water || world_is_water(w, x, top - 1));
 
     uint32_t roll = next_random(rng);
     if (open_count > 0 && (!can_extend || (roll & 1))) {

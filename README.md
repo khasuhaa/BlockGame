@@ -19,11 +19,11 @@ Everything the game contains is defined in `data/`, not in the code, so it can b
 
 | File | Defines |
 | --- | --- |
-| `tiles.json` | Blocks: whether they are solid, climbable or minable, which layer they are placed in, how many blocks tall they stand and how the top and bottom of one look, names they used to have, how long they take to mine and with what kind of tool, what they drop, their textures, for benches their kind, tier, upgrade and how much fuel they hold, and for storage blocks their grid of slots |
-| `items.json` | Items: label, stack size, how many slots they hold inside them and whether those open from the bar, what block they place, what tree they plant, how long they burn as fuel, what kind of tool they are and how fast, their trade category and price, and their texture |
+| `tiles.json` | Blocks: whether they are solid, climbable or minable, what they grow into and on what soil, everything they drop, which layer they are placed in, how many blocks tall they stand and how the top and bottom of one look, names they used to have, how long they take to mine and with what kind of tool, what they drop, their textures, for benches their kind, tier, upgrade and how much fuel they hold, and for storage blocks their grid of slots |
+| `items.json` | Items: label, stack size, how many slots they hold inside them and whether those open from the bar, what block they place, what tree or plant they grow, how long they burn as fuel, what kind of tool they are and how fast, their trade category and price, and their texture |
 | `recipes.json` | What each kind of bench makes, from what, for how many crystals, and at what bench tier |
-| `trees.json` | Tree kinds: their blocks, fruit, full height, the shape of the crown row by row, which layer they grow in, and what they can be planted on |
-| `worldgen.json` | World size, the plains, the mountains and valleys (any number of kinds), soil layers, caves and what is set into them, veins (what, in what, how big, how deep, how common, what shape), the spawn and its portal, and how trees are scattered |
+| `trees.json` | Tree kinds: their blocks, fruit, full height, the shape of the crown row by row or leaf by leaf, which layer they grow in, what they can be planted on, and whether they need water |
+| `worldgen.json` | World size, the plains, the mountains and valleys (any number of kinds), soil layers, sea level, the climate maps and the biomes (their ground, trees and plants), caves and what is set into them, veins (what, in what, how big, how deep, how common, what shape), the spawn and its portal, and how trees are scattered |
 | `trade.json` | The categories items are sold in, the coins and what each is worth, the default price, and the crystals a new player starts with |
 | `rules.json` | Tick rate, day and night length, how bright the sun and moon are and how fast light fades, player step timings, starting items, and how drops behave |
 | `textures/` | PNG images, 32 pixels to the block. A block can list several to vary between; one larger than a block overhangs it |
@@ -90,6 +90,17 @@ The land is plains broken up by mountains and valleys, always with a stretch of 
 - **Steep valleys** drop 10 to 60 blocks down sheer walls to a flat floor.
 - **Smooth valleys** drop 10 to 60 blocks along a long, gentle slope.
 
+**Biomes.** Two smooth maps run round the world, one of heat and one of dryness, and what kind of country a column is follows from them and from the sea:
+
+- **Plains** are the ordinary country: grass over dirt, with oak, cherry, apple and orange trees, and carrots and flax growing wild.
+- **Desert** is where it is both hot and dry: sand instead of grass and dirt, and cacti instead of trees. The spawn is always on plains.
+- **Ocean** is everything below Y 0. Its bed is sand, kelp and coral grow on it, and the open space above it is water up to Y 0. Valleys reach below Y 0, so every valley is a sea.
+- **Beach** is the land within nine columns of a sea: sand, more of it the nearer the water.
+
+One biome gives way to another gradually: toward the edge fewer and fewer columns belong to it, so the ground changes over a stretch rather than at a line.
+
+**Water** is not a block: it is wherever the sky is open below sea level, with nothing solid and no backwall. There is no swimming; the player walks the sea bed and climbs kelp. Sunlight fades with depth. A hole dug into the sea bed has a backwall, so it stays dry.
+
 **Caves** wander through the stone, mostly sideways. They are carved out of stone and nothing else: a cave stops dead at the dirt, so none opens onto the plains, but where a mountain is bare stone a cave can break out through its side. Set into the caves, against a wall or on the floor:
 
 - **Gems** - amethyst, sapphire, emerald, ruby, diamond, each rarer and deeper than the one before. They glow, more faintly than a torch. Tap one to pick it up; with a gem selected, click a backwall to hang it there as decoration.
@@ -130,6 +141,12 @@ Trees are generated on the plains at every stage of growth, and keep growing:
 
 With an acorn or a cherry selected, clicking dirt or grass that has room above it queues planting: the player walks over and a single trunk block appears on top, which then grows by random events like any other tree. Where it cannot be planted (other blocks, or something in the way above), the click mines as usual.
 
+An **apple** tree and an **orange** tree are smaller round-crowned trees with their own trunks and leaves, bearing apples and oranges; planting the fruit grows the tree.
+
+A **cactus** grows on sand: a trunk up to 5 blocks, with two arms that leave it sideways and turn up, and no leaves. Prickly pears grow on the arms, and planting one on sand grows a cactus.
+
+**Kelp** grows on the sea bed, one straight stem up through the water and never above it, with no leaves and no fruit. It can be climbed. Cutting it part-way up takes away everything above the cut as well; what is below stays.
+
 An **oak** grows to a 7-block trunk with a ball of leaves on top: rows 3, 5, 5 and 3 wide over 4 blocks of bare trunk. A **cherry** grows to an 8-block trunk with leaf rows 3, 3, 4, 4, 5 and 5 wide from the top down, over 2 blocks of bare trunk.
 
 Breaking a leaf drops a stick; breaking a trunk drops wood, which can be placed as an ordinary block.
@@ -137,6 +154,18 @@ Breaking a leaf drops a stick; breaking a trunk drops wood, which can be placed 
 Trees stand in the background layer. The player walks straight past them, but can hold on to them: `W` in front of a tree climbs it, and the movement keys go up, down and sideways through the crown. Clicking any part of a tree queues mining that block, and the player climbs the tree to get within reach. A block in the foreground is always mined before the tree behind it.
 
 The world has four layers from back to front: the backwall; the background layer, which holds the trees and the benches and is drawn slightly dimmed; the foreground layer, which holds the terrain and everything the player collides with; and the item layer, where dropped items and fruit are drawn in front of the blocks.
+
+## Plants
+
+Carrots, flax and coral are single blocks that grow through four stages, one stage for each random event that lands on them. They can be pulled up at any stage, and give more the further they have grown.
+
+| Plant | Grows | Planted with | On | Gives, by stage |
+| --- | --- | --- | --- | --- |
+| Carrot | Plains | A carrot | Dirt or grass | 1, 1, 2, 4 carrots |
+| Flax | Plains | Flax seeds | Dirt or grass | 1 seed; 1 seed; 1 seed and 1 flax; 2 seeds and 3 flax |
+| Coral | Ocean | Coral | Sand, under water | 1, 1, 2, 3 coral |
+
+Coral only grows while it is under water. Plants stand in the background layer: they are walked past, and clicking one pulls it up.
 
 ## Inventory
 

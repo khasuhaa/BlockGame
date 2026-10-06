@@ -19,6 +19,12 @@
 #define MAX_FEATURES 16
 #define MAX_VEINS 48
 #define MAX_DECOR 16
+#define MAX_BIOMES 8
+#define MAX_BIOME_TREES 8
+#define MAX_BIOME_PLANTS 8
+#define MAX_TILE_SOILS 4
+#define MAX_EXTRA_DROPS 2
+#define MAX_ROW_CELLS 4
 #define MAX_TOOL_CLASSES 16
 #define MAX_CATEGORIES 16
 #define MAX_CURRENCIES 8
@@ -80,6 +86,16 @@ typedef struct {
     bool light_needs_fuel; /* only while it has fuel burning */
     bool ore;        /* what it drops is multiplied by an ore-multiplying tool */
     int drop_count;  /* how many of its drop it leaves */
+    RecipeItem extra_drops[MAX_EXTRA_DROPS]; /* other things it leaves as well */
+    int extra_drop_count;
+
+    /* Plants. One that grows is a chain of blocks, each turning into the
+     * next when a random event lands on it. */
+    TileType grows_into; /* TILE_AIR when full grown, or not a plant */
+    TileType soil[MAX_TILE_SOILS]; /* blocks it can be sown on top of */
+    int soil_count;
+    bool needs_water;  /* only lives and grows under water */
+    bool breaks_above; /* removing one removes every one of it stacked on top */
     bool storage_shared; /* its slots are the one store shared by every such block, in every world */
     float mine_time; /* seconds to mine, with bare hands */
     int tool_class;  /* the kind of tool that mines it faster, or -1 */
@@ -127,6 +143,7 @@ typedef struct {
     int ore_multiplier; /* how many times over it makes ore blocks drop; 1 for no effect */
     int crystals;    /* crystals it turns into when picked up; such an item is never held */
     int plants;      /* tree it grows into when planted, or -1 */
+    TileType sows;   /* plant block it puts down when planted, or TILE_AIR */
     char plants_name[CONTENT_NAME_LEN];
     char texture[CONTENT_PATH_LEN];
 } ItemDef;
@@ -145,6 +162,10 @@ typedef struct {
     int offset;      /* rows below the top of the trunk; -1 is the row above it */
     int left, right; /* how far the leaves reach either side of the trunk */
     bool center;     /* also a leaf in the trunk's own column (rows above the trunk) */
+    /* Leaves at exact distances from the trunk (negative is left), for shapes
+     * that are not a solid row: the arm of a cactus, say. */
+    int cells[MAX_ROW_CELLS];
+    int cell_count;
 } TreeRow;
 
 typedef struct {
@@ -156,6 +177,7 @@ typedef struct {
     int max_height;  /* trunk blocks when full grown */
     int weight;      /* how common it is relative to other trees */
     bool mirror_by_column; /* swap left and right on odd columns */
+    bool needs_water;      /* only grows where the block above it is under water */
     TreeRow rows[MAX_TREE_ROWS];
     int row_count;
     TileType soil[MAX_TREE_SOILS]; /* blocks it can be planted on */
@@ -210,6 +232,28 @@ typedef struct {
     bool on_floor; /* only where there is a block directly beneath */
 } DecorDef;
 
+/* A kind of country. Which one a column is comes from how hot and how dry it
+ * is there, from whether it is under the sea, and from how near the sea it is. */
+typedef struct {
+    char name[CONTENT_NAME_LEN];
+    bool has_climate;  /* chosen by heat and dryness, each -1..1 */
+    float heat_min, heat_max, dry_min, dry_max;
+    bool below_sea;    /* this is what land under sea level is */
+    int near_sea;      /* this is the shore: it reaches this many columns from the sea */
+    TileType surface, soil;
+    float soil_depth;  /* a fixed depth of soil, or 0 for the usual rule */
+    int tree_one_in, tree_spacing;
+    struct {
+        int tree, weight;
+    } trees[MAX_BIOME_TREES];
+    int tree_count;
+    struct {
+        TileType tile; /* its first stage; it is put down at any stage */
+        int one_in;
+    } plants[MAX_BIOME_PLANTS];
+    int plant_count;
+} BiomeDef;
+
 typedef struct {
     float amplitude;
     int wavelength;
@@ -232,6 +276,14 @@ typedef struct {
     int flat_radius, ease_radius; /* level ground round the spawn, and the slope down to it */
     TileType portal_base, portal_body, portal_top;
     int portal_height;
+
+    /* The sea: everything open to the sky below this height is under water. */
+    bool has_sea;
+    int sea_level;
+    /* Climate: two smooth maps round the world, which pick the biome. */
+    int heat_wavelength, dryness_wavelength;
+    float climate_blend;       /* how far into a climate its border is still mixed */
+    int climate_spawn_clearance; /* columns round the spawn kept as the first biome */
 
     /* Caves: tunnels that wander through the rock and nothing else. */
     float cave_per_100_columns;
@@ -268,6 +320,8 @@ typedef struct {
     int light_sun, light_moon;
     int light_air_falloff, light_solid_falloff;
     int light_minimum; /* the least anything is ever lit, so the dark is not blind */
+    int light_water_depth; /* blocks of water that cost one level of sky light */
+    int water_color[4];    /* red, green, blue, alpha of the tint drawn over water */
 } RulesDef;
 
 /* Buying and selling, and the money it is done with. */
@@ -304,6 +358,8 @@ typedef struct {
     int vein_count;
     DecorDef decor[MAX_DECOR];
     int decor_count;
+    BiomeDef biomes[MAX_BIOMES]; /* the first is the one a column is unless another claims it */
+    int biome_count;
     /* Kinds of tool, such as "shovel". There is no fixed list: a kind exists
      * because some block or item names it. */
     char tool_classes[MAX_TOOL_CLASSES][CONTENT_NAME_LEN];

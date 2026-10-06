@@ -211,6 +211,13 @@ static void draw_world(const World *w, Vector2 origin)
                     assets_draw_tile(behind, wx, y, px, py, TILE_SIZE, BACKGROUND_DIM, TILE_PART_BODY);
             }
             if (!tile_def(t)->front) assets_draw_tile(t, wx, y, px, py, TILE_SIZE, 0.0f, TILE_PART_BODY);
+            if (world_is_water(w, x, y)) {
+                /* Water tints what is in it; its surface is a lighter line. */
+                const int *c = content.rules.water_color;
+                Color water = { (unsigned char)c[0], (unsigned char)c[1], (unsigned char)c[2], (unsigned char)c[3] };
+                DrawRectangle((int)px, (int)py, TILE_SIZE, TILE_SIZE, water);
+                if (y == w->sea_row + 1) DrawRectangle((int)px, (int)py, TILE_SIZE, 3, Fade(WHITE, 0.35f));
+            }
         }
     }
     /* Tiles marked "front" go on last: their textures overhang their

@@ -30,6 +30,22 @@
     "portal": { "base": "portal_base", "body": "spawn_portal", "height": 2 }
   },
 
+  "sea_level": 0,
+  "climate": { "heat_wavelength": 320, "dryness_wavelength": 230, "blend": 0.25, "spawn_clearance": 40 },
+
+  "biomes": [
+    { "name": "plains", "surface": "grass", "soil": "dirt", "tree_one_in": 10,
+      "trees": [ { "tree": "oak", "weight": 4 }, { "tree": "cherry", "weight": 3 },
+                 { "tree": "apple", "weight": 2 }, { "tree": "orange", "weight": 2 } ],
+      "plants": [ { "tile": "carrot_0", "one_in": 45 }, { "tile": "flax_0", "one_in": 35 } ] },
+    { "name": "desert", "heat": [0.1, 1], "dryness": [0.05, 1], "surface": "sand", "soil": "sand",
+      "tree_one_in": 12, "trees": [ { "tree": "cactus", "weight": 1 } ] },
+    { "name": "beach", "near_sea": 9, "surface": "sand", "soil": "sand", "soil_depth": 3 },
+    { "name": "ocean", "below_sea": true, "surface": "sand", "soil": "sand", "soil_depth": 3,
+      "tree_one_in": 5, "tree_spacing": 2, "trees": [ { "tree": "kelp", "weight": 1 } ],
+      "plants": [ { "tile": "coral_0", "one_in": 9 } ] }
+  ],
+
   "caves": { "per_100_columns": 5, "length": [30, 140], "radius": [1.4, 3.0], "depth": [2, 190] },
 
   "cave_decor": [

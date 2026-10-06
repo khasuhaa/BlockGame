@@ -233,11 +233,38 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->light_needs_fuel = flag(e, "light_needs_fuel", false);
         t->ore = flag(e, "ore", false);
         t->drop_count = (int)num(e, "drop_count", 1);
+        t->needs_water = flag(e, "needs_water", false);
+        t->breaks_above = flag(e, "breaks_above", false);
+        t->grows_into = TILE_AIR;
+        if (!tile_ref(r, e, "grows_into", &t->grows_into)) return false;
+        const cJSON *ground;
+        t->soil_count = 0;
+        cJSON_ArrayForEach(ground, field(e, "soil")) {
+            TileType tile = cJSON_IsString(ground) ? tile_id(ground->valuestring) : -1;
+            if (tile < 0) return fail(r, "tile \"%s\": \"soil\" names a tile that does not exist", t->name);
+            if (t->soil_count < MAX_TILE_SOILS) t->soil[t->soil_count++] = tile;
+        }
         t->shade = (int)num(e, "shade", 0);
         t->front = flag(e, "front", false);
         t->pulse = (float)num(e, "pulse", 0.0);
         t->drop = ITEM_NONE;
         if (!item_ref(r, e, "drop", &t->drop)) return false;
+        /* "drops" lists several things: the first is the main drop. */
+        const cJSON *each;
+        int listed = 0;
+        t->extra_drop_count = 0;
+        cJSON_ArrayForEach(each, field(e, "drops")) {
+            RecipeItem one;
+            if (!stack_ref(r, each, &one)) return false;
+            if (listed++ == 0) {
+                t->drop = one.id;
+                t->drop_count = one.count;
+            } else if (t->extra_drop_count < MAX_EXTRA_DROPS) {
+                t->extra_drops[t->extra_drop_count++] = one;
+            } else {
+                return fail(r, "tile \"%s\" drops too many kinds of thing", t->name);
+            }
+        }
         copy_name(t->label, sizeof t->label, str(e, "label") ? str(e, "label") : t->name);
 
         /* A bench is of its own kind, at level 1, unless it says otherwise. */
@@ -318,6 +345,8 @@ static bool read_items(Reader *r, const cJSON *root)
             return fail(r, "item \"%s\": a tool needs a \"class\" and a \"speed\" above 0", it->name);
         it->places = TILE_AIR;
         if (!tile_ref(r, e, "places", &it->places)) return false;
+        it->sows = TILE_AIR;
+        if (!tile_ref(r, e, "sows", &it->sows)) return false;
         /* Trees are read later; the name is matched to one once they are. */
         copy_name(it->plants_name, sizeof it->plants_name, str(e, "plants"));
         it->equip = EQUIP_NONE;
@@ -384,8 +413,9 @@ static bool read_trees(Reader *r, const cJSON *root)
         if (!tile_ref(r, e, "log", &t->log) || !tile_ref(r, e, "leaves", &t->leaves) ||
             !item_ref(r, e, "fruit", &t->fruit))
             return false;
-        if (t->log == TILE_AIR || t->leaves == TILE_AIR)
-            return fail(r, "tree \"%s\" needs a \"log\" and \"leaves\"", name);
+        /* Leaves are optional: kelp is all stem. */
+        if (t->log == TILE_AIR) return fail(r, "tree \"%s\" needs a \"log\"", name);
+        t->needs_water = flag(e, "needs_water", false);
         t->fruit_ticks = (int)num(e, "fruit_ticks", 1800);
         t->max_height = (int)num(e, "max_height", 6);
         t->weight = (int)num(e, "weight", 1);
@@ -400,11 +430,17 @@ static bool read_trees(Reader *r, const cJSON *root)
         }
         cJSON_ArrayForEach(row, field(e, "rows")) {
             if (t->row_count >= MAX_TREE_ROWS) return fail(r, "tree \"%s\" has too many rows", name);
-            t->rows[t->row_count++] = (TreeRow){ (int)num(row, "offset", 0), (int)num(row, "left", 0),
-                                                 (int)num(row, "right", 0), flag(row, "center", false) };
+            TreeRow *tr = &t->rows[t->row_count++];
+            *tr = (TreeRow){ .offset = (int)num(row, "offset", 0), .left = (int)num(row, "left", 0),
+                             .right = (int)num(row, "right", 0), .center = flag(row, "center", false) };
+            const cJSON *cell;
+            cJSON_ArrayForEach(cell, field(row, "cells")) {
+                if (tr->cell_count < MAX_ROW_CELLS && cJSON_IsNumber(cell))
+                    tr->cells[tr->cell_count++] = (int)cell->valuedouble;
+            }
         }
         content.tiles[t->log].log_of = id;
-        content.tiles[t->leaves].leaves_of = id;
+        if (t->leaves != TILE_AIR) content.tiles[t->leaves].leaves_of = id;
     }
     return true;
 }
@@ -461,6 +497,69 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         f->profile = PROFILE_BOWL;
         for (int i = 0; profile && i < 3; i++)
             if (strcmp(profile, profiles[i]) == 0) f->profile = (FeatureProfile)i;
+    }
+
+    if (cJSON_IsNumber(field(root, "sea_level"))) {
+        g->has_sea = true;
+        g->sea_level = (int)num(root, "sea_level", 0);
+    }
+    const cJSON *climate = field(root, "climate");
+    if (climate) {
+        g->heat_wavelength = (int)num(climate, "heat_wavelength", 300);
+        g->dryness_wavelength = (int)num(climate, "dryness_wavelength", 220);
+        g->climate_blend = (float)num(climate, "blend", 0.2);
+        g->climate_spawn_clearance = (int)num(climate, "spawn_clearance", 40);
+    }
+    cJSON_ArrayForEach(e, field(root, "biomes")) {
+        const char *name = str(e, "name");
+        if (!name) return fail(r, "a biome has no \"name\"");
+        int id = -1;
+        for (int i = 0; i < content.biome_count; i++)
+            if (strcmp(content.biomes[i].name, name) == 0) id = i;
+        if (id < 0) {
+            if (content.biome_count >= MAX_BIOMES) return fail(r, "too many biomes");
+            id = content.biome_count++;
+        }
+        BiomeDef *b = &content.biomes[id];
+        memset(b, 0, sizeof *b);
+        copy_name(b->name, sizeof b->name, name);
+        if (!tile_ref(r, e, "surface", &b->surface) || !tile_ref(r, e, "soil", &b->soil)) return false;
+        if (b->surface == TILE_AIR || b->soil == TILE_AIR)
+            return fail(r, "biome \"%s\" needs a \"surface\" and a \"soil\"", name);
+        b->soil_depth = (float)num(e, "soil_depth", 0.0);
+        b->below_sea = flag(e, "below_sea", false);
+        b->near_sea = (int)num(e, "near_sea", 0);
+        b->tree_one_in = (int)num(e, "tree_one_in", 0);
+        b->tree_spacing = (int)num(e, "tree_spacing", 0);
+        b->heat_min = b->dry_min = -2.0f;
+        b->heat_max = b->dry_max = 2.0f;
+        const cJSON *range;
+        if (cJSON_GetArraySize(range = field(e, "heat")) == 2) {
+            b->has_climate = true;
+            b->heat_min = (float)cJSON_GetArrayItem(range, 0)->valuedouble;
+            b->heat_max = (float)cJSON_GetArrayItem(range, 1)->valuedouble;
+        }
+        if (cJSON_GetArraySize(range = field(e, "dryness")) == 2) {
+            b->has_climate = true;
+            b->dry_min = (float)cJSON_GetArrayItem(range, 0)->valuedouble;
+            b->dry_max = (float)cJSON_GetArrayItem(range, 1)->valuedouble;
+        }
+        const cJSON *one;
+        cJSON_ArrayForEach(one, field(e, "trees")) {
+            int tree = str(one, "tree") ? tree_id(str(one, "tree")) : -1;
+            if (tree < 0) return fail(r, "biome \"%s\" names a tree that does not exist", name);
+            if (b->tree_count >= MAX_BIOME_TREES) return fail(r, "biome \"%s\" has too many trees", name);
+            b->trees[b->tree_count].tree = tree;
+            b->trees[b->tree_count++].weight = (int)num(one, "weight", 1);
+        }
+        cJSON_ArrayForEach(one, field(e, "plants")) {
+            TileType tile = TILE_AIR;
+            if (!tile_ref(r, one, "tile", &tile) || tile == TILE_AIR)
+                return fail(r, "biome \"%s\": a plant needs a \"tile\"", name);
+            if (b->plant_count >= MAX_BIOME_PLANTS) return fail(r, "biome \"%s\" has too many plants", name);
+            b->plants[b->plant_count].tile = tile;
+            b->plants[b->plant_count++].one_in = (int)num(one, "one_in", 20);
+        }
     }
 
     const cJSON *caves = field(root, "caves");
@@ -601,6 +700,9 @@ static bool read_rules(Reader *r, const cJSON *root)
         u->drop_collect_time = (float)num(drops, "collect_time", u->drop_collect_time);
     }
     if (ui) u->denial_time = (float)num(ui, "denial_time", u->denial_time);
+    const cJSON *water = field(field(root, "water"), "color");
+    for (int i = 0; i < 4 && cJSON_GetArraySize(water) == 4; i++)
+        u->water_color[i] = (int)cJSON_GetArrayItem(water, i)->valuedouble;
     const cJSON *light = field(root, "light");
     if (light) {
         u->light_sun = (int)num(light, "sun", u->light_sun);
@@ -608,6 +710,7 @@ static bool read_rules(Reader *r, const cJSON *root)
         u->light_air_falloff = (int)num(light, "air_falloff", u->light_air_falloff);
         u->light_solid_falloff = (int)num(light, "solid_falloff", u->light_solid_falloff);
         u->light_minimum = (int)num(light, "minimum", u->light_minimum);
+        u->light_water_depth = (int)num(light, "water_depth_per_level", u->light_water_depth);
     }
     return true;
 }
@@ -743,6 +846,21 @@ static bool validate(Reader *r)
         return fail(r, "worldgen has a bad \"gap\" or spawn \"column\" range");
     if (u->tick_rate < 1 || u->day_ticks < 1 || u->night_ticks < 1 || u->chunk_width < 1)
         return fail(r, "rules need a tick rate, day and night length and chunk width");
+    /* With no biomes given, the whole world is one: the plain layers, and every tree. */
+    if (content.biome_count == 0) {
+        BiomeDef *b = &content.biomes[content.biome_count++];
+        memset(b, 0, sizeof *b);
+        snprintf(b->name, sizeof b->name, "land");
+        b->surface = g->surface;
+        b->soil = g->soil;
+        b->tree_one_in = g->tree_one_in;
+        for (int i = 0; i < content.tree_count && i < MAX_BIOME_TREES; i++) {
+            b->trees[b->tree_count].tree = i;
+            b->trees[b->tree_count++].weight = content.trees[i].weight > 0 ? content.trees[i].weight : 1;
+        }
+    }
+    if (content.biomes[0].has_climate || content.biomes[0].below_sea || content.biomes[0].near_sea > 0)
+        return fail(r, "the first biome is the default one: it cannot depend on climate or the sea");
     /* Light that lost nothing as it went would never stop spreading. */
     if (u->light_sun <= 0) content.rules.light_sun = 15;
     if (u->light_air_falloff < 1) content.rules.light_air_falloff = 1;

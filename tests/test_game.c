@@ -1175,7 +1175,7 @@ static bool vein_in(TileType t, TileType host)
 
 static bool in_soil(TileType t)
 {
-    return t == TILE_DIRT || vein_in(t, TILE_DIRT);
+    return t == TILE_DIRT || t == tile_id("sand") || vein_in(t, TILE_DIRT);
 }
 
 static bool in_rock(TileType t)
@@ -1226,7 +1226,7 @@ static void test_terrain(void)
             }
             if (dirt > 6) bad++;
             /* High peaks and deep floors are bare stone; the plains are not. */
-            if ((level > 45 || level < -25) && dirt != 0) bad++;
+            if (level > 45 && dirt != 0) bad++;
             if (world_get(&w, x, top) == TILE_DIRT) bad++;
 
             /* Trees stand on grass: a trunk has trunk or grass under it. */
@@ -1234,7 +1234,8 @@ static void test_terrain(void)
                 TileType t = world_get_at(&w, BG, x, r);
                 if (is_tree(world_get(&w, x, r))) bad++; /* trees keep to the background */
                 if (tile_def(t)->log_of < 0) continue;
-                if (world_get_at(&w, BG, x, r + 1) != t && world_get(&w, x, r + 1) != TILE_GRASS) bad++;
+                TileType ground = world_get(&w, x, r + 1);
+                if (world_get_at(&w, BG, x, r + 1) != t && ground != TILE_GRASS && ground != tile_id("sand")) bad++;
                 if (t == TILE_OAK_LOG) saw_oak = true;
                 if (t == TILE_CHERRY_LOG) saw_cherry = true;
             }
@@ -2543,6 +2544,281 @@ static void test_portal_chest(void)
     remove("build/test_shared.world");
 }
 
+/* Climate, the sea, and what grows where. */
+static void test_biomes(void)
+{
+    TileType sand = tile_id("sand"), kelp = tile_id("kelp"), cactus = tile_id("cactus");
+    int deserts = 0, cacti = 0, kelps = 0, corals = 0, carrots = 0, flax = 0, apples = 0, oranges = 0;
+    int shore_sand = 0, shore_all = 0, inland_sand_runs = 0;
+
+    CHECK(content.biome_count == 4 && content.worldgen.has_sea && content.worldgen.sea_level == 0);
+    CHECK(!content.biomes[0].has_climate && content.biomes[1].has_climate && content.biomes[3].below_sea);
+
+    for (uint32_t seed = 1; seed <= 10; seed++) {
+        World w;
+        CHECK(world_init(&w, 2048, 401, seed, WORLD_TERRAIN));
+        CHECK(world_row_to_y(&w, w.sea_row) == 0);
+        int bad = 0;
+        for (int x = 0; x < w.width; x++) {
+            int level = column_level(&w, x), top = world_y_to_row(&w, level - 1), feet = top - 1;
+            TileType surface = world_get(&w, x, top);
+            if (level < 0) {
+                /* Below Y 0 is ocean: a sand bed, never grass, under water up to sea level. */
+                if (surface != sand && !vein_in(surface, TILE_STONE) && surface != TILE_STONE) bad++;
+                if (surface == TILE_GRASS || surface == TILE_DIRT) bad++;
+                if (surface == sand && world_get(&w, x, top + 1) != sand) bad++;
+                for (int y = w.sea_row + 1; y <= feet; y++)
+                    if (!world_is_water(&w, x, y)) bad++;
+                if (world_is_water(&w, x, w.sea_row)) bad++;
+            } else {
+                for (int y = 0; y <= feet; y++)
+                    if (world_is_water(&w, x, y)) bad++;
+                /* The shore: land beside the sea is mostly sand, and less so further in. */
+                bool by_sea = column_level(&w, x - 1) < 0 || column_level(&w, x + 1) < 0;
+                bool far = true;
+                for (int d = 1; d <= 30; d++)
+                    if (column_level(&w, x - d) < 0 || column_level(&w, x + d) < 0) far = false;
+                if (by_sea) shore_all++, shore_sand += surface == sand;
+                if (far && surface == sand) deserts++;
+                if (far && surface == sand && world_get(&w, x - 1, world_y_to_row(&w, column_level(&w, x - 1) - 1)) != sand)
+                    inland_sand_runs++;
+            }
+            /* What grows: each thing in its own country, on its own ground. */
+            TileType growing = world_get_at(&w, BG, x, feet);
+            const char *name = tile_def(growing)->name;
+            if (growing == kelp) {
+                kelps++;
+                if (level >= 0 || surface != sand) bad++;
+                /* Kelp is one straight stem, all of it under water. */
+                int h = 0;
+                while (world_get_at(&w, BG, x, feet - h) == kelp) h++;
+                if (h > content.trees[tree_id("kelp")].max_height || !world_is_water(&w, x, feet - h + 1)) bad++;
+                if (world_get_at(&w, BG, x - 1, feet) == kelp && world_get_at(&w, BG, x + 1, feet) == kelp) bad++;
+            }
+            if (growing == cactus) {
+                cacti++;
+                if (surface != sand || level < 0) bad++;
+            }
+            if (strncmp(name, "coral_", 6) == 0) corals++, bad += !world_is_water(&w, x, feet) || surface != sand;
+            if (strncmp(name, "carrot_", 7) == 0) carrots++, bad += surface != TILE_GRASS;
+            if (strncmp(name, "flax_", 5) == 0) flax++, bad += surface != TILE_GRASS;
+            if (growing == tile_id("apple_log")) apples++, bad += surface != TILE_GRASS;
+            if (growing == tile_id("orange_log")) oranges++, bad += surface != TILE_GRASS;
+        }
+        CHECK(bad == 0);
+        /* The spawn stands on ordinary ground, with dirt to hand. */
+        for (int d = -20; d <= 20; d++) {
+            int top = world_y_to_row(&w, column_level(&w, w.spawn_x + d) - 1);
+            CHECK(world_get(&w, w.spawn_x + d, top) == (d == 0 ? TILE_PORTAL_BASE : TILE_GRASS));
+        }
+        world_free(&w);
+    }
+    CHECK(kelps > 20 && corals > 20 && carrots > 5 && flax > 5 && apples > 0 && oranges > 0);
+    /* Deserts turn up, with cacti in them, but most worlds are not all desert. */
+    CHECK(deserts > 100 && deserts < 10 * 2048 / 2 && cacti > 3);
+    /* Sand does not start at a line: where a desert begins there are several edges, not one. */
+    CHECK(inland_sand_runs > 10);
+    CHECK(shore_all > 10 && shore_sand * 10 >= shore_all * 7);
+}
+
+static void test_plants(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 36, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    TilePos start = g.player.feet;
+    int s = w->surface_y, x = start.x + 2;
+    TileType sand = tile_id("sand"), kelp = tile_id("kelp");
+
+    /* A plant is a chain of blocks, each stage giving more than the last. */
+    static const char *kinds[] = { "carrot", "flax", "coral" };
+    for (int k = 0; k < 3; k++) {
+        int last = 0;
+        for (int i = 0; i < 4; i++) {
+            const TileDef *def = tile_def(tile_id(TextName("%s_", kinds[k]) ) );
+            (void)def;
+            char name[32];
+            snprintf(name, sizeof name, "%s_%d", kinds[k], i);
+            const TileDef *stage = tile_def(tile_id(name));
+            CHECK(tile_id(name) > 0 && stage->removable && !stage->solid && stage->layer == LAYER_BACKGROUND);
+            snprintf(name, sizeof name, "%s_%d", kinds[k], i + 1);
+            CHECK(stage->grows_into == (i < 3 ? tile_id(name) : TILE_AIR));
+            int total = stage->drop_count;
+            for (int e = 0; e < stage->extra_drop_count; e++) total += stage->extra_drops[e].count;
+            CHECK(total >= last && total >= 1);
+            last = total;
+        }
+        CHECK(last >= 3);
+    }
+    CHECK(tile_def(tile_id("flax_3"))->drop == item_id("flax_seeds") &&
+          tile_def(tile_id("flax_3"))->extra_drops[0].id == item_id("flax"));
+    CHECK(tile_def(tile_id("coral_0"))->needs_water && !tile_def(tile_id("carrot_0"))->needs_water);
+
+    /* A carrot is sown on dirt, and grows a stage at a time by random events. */
+    clear_inventory(&g);
+    inventory_add(inv, item_id("carrot"), 2);
+    inventory_add(inv, item_id("coral"), 1);
+    inventory_select(inv, 0, -1);
+    CHECK(game_click_tile(&g, x, s) && g.queue[0].type == ACTION_PLANT);
+    run(&g, 2.0f);
+    CHECK(world_get_at(w, BG, x, s - 1) == tile_id("carrot_0") && count_item(&g, item_id("carrot")) == 1);
+    /* Not on stone, and coral not on dry land. */
+    world_set(w, x + 2, s, TILE_STONE);
+    CHECK(game_click_tile(&g, x + 2, s) && g.queue[0].type == ACTION_MINE);
+    game_cancel_actions(&g);
+    world_set(w, x + 3, s, sand);
+    inventory_select(inv, 1, -1);
+    CHECK(game_click_tile(&g, x + 3, s) && g.queue[0].type == ACTION_MINE);
+    game_cancel_actions(&g);
+    for (int i = 0; i < 300000 && world_get_at(w, BG, x, s - 1) != tile_id("carrot_3"); i++) game_tick(&g);
+    CHECK(world_get_at(w, BG, x, s - 1) == tile_id("carrot_3"));
+    for (int i = 0; i < 5000; i++) game_tick(&g);
+    CHECK(world_get_at(w, BG, x, s - 1) == tile_id("carrot_3")); /* full grown stays so */
+    /* Pulled up ripe it gives four; pulled up at once, only what was sown. */
+    clear_inventory(&g);
+    CHECK(game_click_tile(&g, x, s - 1) && g.queue[0].type == ACTION_MINE);
+    run(&g, 3.0f);
+    CHECK(world_get_at(w, BG, x, s - 1) == TILE_AIR && count_item(&g, item_id("carrot")) == 4);
+    inventory_select(inv, 0, -1);
+    CHECK(game_click_tile(&g, x, s));
+    run(&g, 2.0f);
+    CHECK(count_item(&g, item_id("carrot")) == 3);
+    CHECK(game_click_tile(&g, x, s - 1));
+    run(&g, 3.0f);
+    CHECK(count_item(&g, item_id("carrot")) == 4);
+    /* Ripe flax gives seeds and flax both. */
+    clear_inventory(&g);
+    world_set_at(w, BG, x, s - 1, tile_id("flax_3"));
+    CHECK(game_click_tile(&g, x, s - 1));
+    run(&g, 3.0f);
+    CHECK(count_item(&g, item_id("flax_seeds")) == 2 && count_item(&g, item_id("flax")) == 3);
+
+    /* A little sea: coral is planted on sand under water, and only grows there. */
+    int ox = start.x - 8;
+    w->sea_row = s - 6;
+    for (int cx = ox - 2; cx <= ox + 2; cx++) {
+        for (int y = s - 5; y <= s - 1; y++) world_set_at(w, LAYER_WALL, cx, y, TILE_AIR);
+        world_set(w, cx, s, sand);
+    }
+    CHECK(world_is_water(w, ox, s - 1) && world_is_water(w, ox, s - 5) && !world_is_water(w, ox, s - 6));
+    /* Not in the ground, and not where there is a backwall: that is indoors. */
+    world_set_at(w, LAYER_WALL, x + 3, s - 1, TILE_DIRT);
+    CHECK(!world_is_water(w, ox, s) && !world_is_water(w, x + 3, s - 1));
+    clear_inventory(&g);
+    inventory_add(inv, item_id("coral"), 1);
+    inventory_select(inv, 0, -1);
+    CHECK(game_click_tile(&g, ox, s) && g.queue[0].type == ACTION_PLANT);
+    run(&g, 4.0f);
+    CHECK(world_get_at(w, BG, ox, s - 1) == tile_id("coral_0") && count_item(&g, item_id("coral")) == 0);
+    world_set_at(w, BG, x + 3, s - 1, tile_id("coral_0")); /* one left high and dry */
+    for (int i = 0; i < 300000 && world_get_at(w, BG, ox, s - 1) != tile_id("coral_3"); i++) game_tick(&g);
+    CHECK(world_get_at(w, BG, ox, s - 1) == tile_id("coral_3") && world_get_at(w, BG, x + 3, s - 1) == tile_id("coral_0"));
+    /* Water dims the light with depth. */
+    g.tick = (uint64_t)DAY_TICKS / 2;
+    CHECK(light_at(&g, ox, s - 5) <= content.rules.light_sun && light_at(&g, ox, s - 1) < light_at(&g, ox, s - 5));
+
+    /* Kelp grows straight up, to the surface and no further. */
+    int kx = ox + 2, kind = tree_id("kelp");
+    uint32_t rng = 9;
+    CHECK(content.trees[kind].needs_water && content.trees[kind].leaves == TILE_AIR && tile_def(kelp)->climbable);
+    tree_plant(w, kx, s - 1, kind);
+    while (tree_grow(w, kx, s - 1, &rng).grew) {}
+    for (int y = s - 5; y <= s - 1; y++) CHECK(world_get_at(w, BG, kx, y) == kelp);
+    CHECK(world_get_at(w, BG, kx, s - 6) == TILE_AIR);
+    CHECK(world_get_at(w, BG, kx - 1, s - 3) == TILE_AIR && world_get_at(w, BG, kx + 1, s - 3) == TILE_AIR);
+    /* It can be climbed. */
+    g.player.feet = g.player.step_to = (TilePos){ kx, s - 1 };
+    game_set_move_input(&g, 0, -1);
+    run(&g, CLIMB_TIME * 2.5f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 0.5f);
+    CHECK(g.player.climbing && g.player.feet.y < s - 1);
+    game_set_move_input(&g, 0, 1);
+    run(&g, 2.0f);
+    game_set_move_input(&g, 0, 0);
+    /* Cut part-way up, everything above the cut goes too; what is below stays. */
+    clear_inventory(&g);
+    g.player.feet = g.player.step_to = (TilePos){ kx - 1, s - 1 };
+    CHECK(game_queue_action(&g, ACTION_MINE, kx, s - 3));
+    run(&g, 4.0f);
+    CHECK(world_get_at(w, BG, kx, s - 1) == kelp && world_get_at(w, BG, kx, s - 2) == kelp);
+    for (int y = s - 5; y <= s - 3; y++) CHECK(world_get_at(w, BG, kx, y) == TILE_AIR);
+    int got = count_item(&g, item_id("kelp"));
+    for (int i = 0; i < MAX_DROPS; i++) got += g.drops[i].active && g.drops[i].item == item_id("kelp");
+    CHECK(got == 3);
+    game_free(&g);
+}
+
+static void test_new_trees(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 37, WORLD_FLAT);
+    World *w = &g.world;
+    int s = w->surface_y, base = s - 1;
+    uint32_t rng = 4;
+
+    /* Apple and orange trees: their own blocks, their own fruit, planted from it. */
+    static const char *fruit[] = { "apple", "orange" };
+    for (int k = 0; k < 2; k++) {
+        int kind = tree_id(fruit[k]), x = 10 + k * 12;
+        const TreeDef *def = &content.trees[kind];
+        CHECK(kind >= 0 && def->fruit == item_id(fruit[k]) && item_def(def->fruit)->plants == kind);
+        CHECK(def->log != TILE_OAK_LOG && def->leaves != TILE_OAK_LEAVES && tile_def(def->log)->drop == ITEM_WOOD);
+        tree_plant(w, x, base, kind);
+        while (tree_grow(w, x, base, &rng).grew) {}
+        CHECK(trunk_height(w, x, base) == def->max_height);
+        int leaves = 0;
+        for (int y = 0; y < s; y++)
+            for (int dx = -3; dx <= 3; dx++) leaves += world_get_at(w, BG, x + dx, y) == def->leaves;
+        CHECK(leaves >= 8);
+    }
+    /* Fruit turns up on them in time. */
+    for (int i = 0; i < 60000; i++) game_tick(&g);
+    int apples = 0, oranges = 0;
+    for (int i = 0; i < MAX_DROPS; i++) {
+        apples += g.drops[i].active && g.drops[i].item == item_id("apple");
+        oranges += g.drops[i].active && g.drops[i].item == item_id("orange");
+    }
+    CHECK(apples > 0 && oranges > 0);
+
+    /* A cactus: a trunk with arms that branch off and turn up - no leaves
+     * round it - on sand, bearing prickly pears. */
+    int kind = tree_id("cactus"), cx = 40;
+    const TreeDef *def = &content.trees[kind];
+    world_set(w, cx, s, tile_id("sand"));
+    CHECK(def->fruit == item_id("prickly_pear") && item_def(def->fruit)->plants == kind && def->soil[0] == tile_id("sand"));
+    tree_plant(w, cx, base, kind);
+    while (tree_grow(w, cx, base, &rng).grew) {}
+    CHECK(trunk_height(w, cx, base) == def->max_height);
+    int arms = 0, beside_trunk = 0, far = 0;
+    for (int y = 0; y < s; y++) {
+        for (int dx = -3; dx <= 3; dx++) {
+            if (world_get_at(w, BG, cx + dx, y) != def->leaves) continue;
+            arms++;
+            if (dx == -1 || dx == 1) beside_trunk++;
+            if (dx == -2 || dx == 2) far++;
+        }
+    }
+    /* Each arm leaves the trunk by one block and then stands off it: far
+     * fewer blocks than a crown of leaves would be. */
+    CHECK(arms == 6 && beside_trunk == 2 && far == 4);
+    CHECK(world_get_at(w, BG, cx, base - def->max_height) == TILE_AIR);
+    clear_inventory(&g);
+    inventory_add(&g.inventory, item_id("prickly_pear"), 1);
+    inventory_select(&g.inventory, 0, -1);
+    world_set(w, cx + 6, s, tile_id("sand"));
+    g.player.feet = g.player.step_to = (TilePos){ cx + 5, s - 1 };
+    CHECK(game_click_tile(&g, cx + 6, s) && g.queue[0].type == ACTION_PLANT);
+    run(&g, 2.0f);
+    CHECK(world_get_at(w, BG, cx + 6, s - 1) == tile_id("cactus"));
+    /* A prickly pear will not take on dirt. */
+    inventory_add(&g.inventory, item_id("prickly_pear"), 1);
+    inventory_select(&g.inventory, 0, -1);
+    CHECK(game_click_tile(&g, cx + 4, s) && g.queue[0].type == ACTION_MINE);
+    game_free(&g);
+}
+
 static void test_tools(void)
 {
     Game g;
@@ -2900,6 +3176,9 @@ int main(void)
     test_bench();
     test_work_benches();
     test_tools();
+    test_biomes();
+    test_plants();
+    test_new_trees();
     test_caves();
     test_backwall();
     test_light();

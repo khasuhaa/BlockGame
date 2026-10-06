@@ -292,17 +292,109 @@ static bool place_decor(World *w, const int *level, uint32_t *rng)
     return true;
 }
 
-static int pick_tree(uint32_t *rng)
+/* ---- biomes ------------------------------------------------------------ */
+
+/* How far inside a range a value is, as a share of `blend`: 0 at the edge or
+ * outside, 1 once it is `blend` or more inside. */
+static float inside(float v, float lo, float hi, float blend)
+{
+    float margin = fminf(v - lo, hi - v);
+    if (margin <= 0.0f) return 0.0f;
+    return blend > 0.0f ? fminf(1.0f, margin / blend) : 1.0f;
+}
+
+/* Decides what kind of country every column is. The sea claims everything
+ * below its level outright. On land, heat and dryness - two smooth maps round
+ * the world - pick the climate, and the shore biome reaches in from the sea.
+ * Toward the edge of a biome fewer and fewer columns belong to it, so one
+ * kind of ground gives way to another gradually rather than at a line. */
+static void assign_biomes(World *w, const int *level, int *biome)
+{
+    const WorldGenDef *gen = &content.worldgen;
+    int width = w->width, reach = 0;
+    for (int b = 0; b < content.biome_count; b++)
+        if (content.biomes[b].near_sea > reach) reach = content.biomes[b].near_sea;
+
+    for (int x = 0; x < width; x++) {
+        bool sea = gen->has_sea && level[x] < gen->sea_level;
+        int to_sea = reach + 1;
+        for (int d = 1; gen->has_sea && !sea && d <= reach && to_sea > reach; d++)
+            if (level[world_wrap_x(w, x + d)] < gen->sea_level || level[world_wrap_x(w, x - d)] < gen->sea_level)
+                to_sea = d;
+        float heat = ring_noise(w->seed ^ 0xE5u, x, width, gen->heat_wavelength);
+        float dry = ring_noise(w->seed ^ 0xF6u, x, width, gen->dryness_wavelength);
+        bool near_spawn = abs(world_dx(w, w->spawn_x, x)) < gen->climate_spawn_clearance;
+
+        biome[x] = 0;
+        for (int b = 1; b < content.biome_count; b++) {
+            const BiomeDef *def = &content.biomes[b];
+            float share = 0.0f;
+            if (def->below_sea) share = sea ? 1.0f : 0.0f;
+            else if (sea) share = 0.0f;
+            else if (def->near_sea > 0) share = 1.0f - (float)(to_sea - 1) / (float)def->near_sea;
+            else if (def->has_climate && !near_spawn)
+                share = fminf(inside(heat, def->heat_min, def->heat_max, gen->climate_blend),
+                              inside(dry, def->dry_min, def->dry_max, gen->climate_blend));
+            if (share > 0.0f && hash01(w->seed ^ (0x1B0u + (uint32_t)b), x) < share) biome[x] = b;
+        }
+    }
+}
+
+bool world_is_water(const World *w, int x, int y)
+{
+    return w->sea_row >= 0 && y > w->sea_row && y < w->height && !world_is_solid(w, x, y) &&
+           world_get_at(w, LAYER_WALL, x, y) == TILE_AIR;
+}
+
+static int pick_tree(const BiomeDef *b, uint32_t *rng)
 {
     int total = 0;
-    for (int i = 0; i < content.tree_count; i++) total += content.trees[i].weight;
+    for (int i = 0; i < b->tree_count; i++) total += b->trees[i].weight;
     if (total <= 0) return -1;
     int roll = rng_range(rng, 0, total - 1);
-    for (int i = 0; i < content.tree_count; i++) {
-        roll -= content.trees[i].weight;
-        if (roll < 0) return i;
+    for (int i = 0; i < b->tree_count; i++) {
+        roll -= b->trees[i].weight;
+        if (roll < 0) return b->trees[i].tree;
     }
     return -1;
+}
+
+/* Trees and plants, each kind of country with its own, at every stage of
+ * growth from just planted to full size. */
+static void plant_world(World *w, const int *level, const int *biome, uint32_t *rng)
+{
+    const WorldGenDef *gen = &content.worldgen;
+    int last_tree = -1000;
+    for (int x = 0; x < w->width; x++) {
+        const BiomeDef *b = &content.biomes[biome[x]];
+        int feet = world_y_to_row(w, level[x]);
+        if (world_get(w, x, feet + 1) != b->surface || world_get(w, x, feet) != TILE_AIR) continue;
+        if (abs(world_dx(w, w->spawn_x, x)) < gen->tree_spawn_clearance) continue;
+
+        int spacing = b->tree_spacing > 0 ? b->tree_spacing : gen->tree_spacing;
+        if (b->tree_one_in > 0 && x - last_tree >= spacing && rng_range(rng, 0, b->tree_one_in - 1) == 0) {
+            int kind = pick_tree(b, rng);
+            if (kind >= 0 && (!content.trees[kind].needs_water || world_is_water(w, x, feet))) {
+                tree_plant(w, x, feet, kind);
+                int steps = rng_unit(rng) < gen->tree_grown_chance ? 1000
+                                                                  : rng_range(rng, 0, gen->tree_young_steps);
+                while (steps-- > 0 && tree_grow(w, x, feet, rng).grew) {}
+                last_tree = x;
+                continue;
+            }
+        }
+        for (int i = 0; i < b->plant_count; i++) {
+            TileType t = b->plants[i].tile;
+            if (b->plants[i].one_in <= 0 || rng_range(rng, 0, b->plants[i].one_in - 1) != 0) continue;
+            if (tile_def(t)->needs_water && !world_is_water(w, x, feet)) continue;
+            if (world_get_at(w, tile_def(t)->layer, x, feet) != TILE_AIR) continue;
+            /* Anywhere along its growth, from sown to ripe. */
+            for (int stage = rng_range(rng, 0, 3); stage > 0 && tile_def(t)->grows_into != TILE_AIR; stage--)
+                t = tile_def(t)->grows_into;
+            world_set_at(w, tile_def(t)->layer, x, feet, t);
+            break;
+        }
+    }
 }
 
 static bool generate_terrain(World *w)
@@ -366,19 +458,32 @@ static bool generate_terrain(World *w)
     for (int x = 0; x < width; x++) level[x] = (int)floorf(c.level[x] + 0.5f);
     for (int i = 0; i < span_count; i++) limit_steps(w, level, spans[i][0], spans[i][1], spans[i][2]);
 
-    /* Fill the columns: surface over soil over rock. The soil thins out into
-     * a feature until it is bare rock. */
+    int *biome = calloc((size_t)width, sizeof(int));
+    if (!biome) {
+        free(c.level);
+        free(c.shape);
+        free(level);
+        return false;
+    }
+    w->sea_row = gen->has_sea ? world_y_to_row(w, gen->sea_level) : -1;
+    assign_biomes(w, level, biome);
+
+    /* Fill the columns: the biome's surface over its soil over rock. The
+     * soil thins out into a feature until it is bare rock, unless the biome
+     * keeps a depth of its own, as the sea bed does. */
     for (int x = 0; x < width; x++) {
+        const BiomeDef *b = &content.biomes[biome[x]];
         float bare = smoothstep(gen->bare_at > 0.0f ? c.shape[x] / gen->bare_at : 1.0f);
         float depth = (gen->soil_depth +
                        gen->soil_variation * ring_noise(w->seed ^ 0xC3u, x, width, 12)) *
                       (1.0f - bare);
         depth += (hash01(w->seed ^ 0xD4u, x) - 0.5f) * 0.8f * (bare > 0.0f ? 1.0f : 0.0f);
+        if (b->soil_depth > 0.0f) depth = b->soil_depth + (hash01(w->seed ^ 0xD4u, x) - 0.5f) * 0.8f;
         int soil = (int)floorf(depth + 0.5f);
         int top = world_y_to_row(w, level[x] - 1);
         for (int y = top < 0 ? 0 : top; y < w->height; y++) {
             int below = y - top;
-            world_set(w, x, y, below >= soil ? gen->rock : below == 0 ? gen->surface : gen->soil);
+            world_set(w, x, y, below >= soil ? gen->rock : below == 0 ? b->surface : b->soil);
         }
     }
 
@@ -388,27 +493,12 @@ static bool generate_terrain(World *w)
         free(c.level);
         free(c.shape);
         free(level);
+        free(biome);
         return false;
     }
     place_veins(w, level, &rng);
-
-    /* Trees stand on the plains' surface, at every stage of growth from a
-     * lone trunk block to full size. */
-    int last_tree = -gen->tree_spacing;
-    for (int x = 0; x < width && gen->tree_one_in > 0; x++) {
-        int feet = world_y_to_row(w, level[x]);
-        if (c.shape[x] > 0.0f || world_get(w, x, feet + 1) != gen->surface) continue;
-        if (x - last_tree < gen->tree_spacing) continue;
-        if (abs(world_dx(w, w->spawn_x, x)) < gen->tree_spawn_clearance) continue;
-        if (rng_range(&rng, 0, gen->tree_one_in - 1) != 0) continue;
-        int kind_of_tree = pick_tree(&rng);
-        if (kind_of_tree < 0) break;
-        tree_plant(w, x, feet, kind_of_tree);
-        int steps = rng_unit(&rng) < gen->tree_grown_chance ? 1000
-                                                           : rng_range(&rng, 0, gen->tree_young_steps);
-        while (steps-- > 0 && tree_grow(w, x, feet, &rng).grew) {}
-        last_tree = x;
-    }
+    plant_world(w, level, biome, &rng);
+    free(biome);
 
     free(c.level);
     free(c.shape);
@@ -448,6 +538,7 @@ bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind)
     w->height = height;
     w->seed = seed;
     w->y_top = height / 2;
+    w->sea_row = -1;
 
     if (kind == WORLD_BLANK) return true;
     if (kind == WORLD_FLAT) {

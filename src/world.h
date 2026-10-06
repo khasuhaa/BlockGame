@@ -24,6 +24,7 @@ typedef struct {
     int spawn_x;      /* tile where the player's feet start */
     int spawn_y;
     int surface_y;    /* WORLD_FLAT only: row of the ground's top layer */
+    int sea_row;      /* row of sea level: open sky below it is water; -1 for a world with no sea */
     uint8_t *layers[LAYER_COUNT];
 } World;
 
@@ -46,6 +47,10 @@ void world_set_at(World *w, int layer, int x, int y, TileType t);
 /* The foreground. */
 TileType world_get(const World *w, int x, int y);
 void world_set(World *w, int x, int y, TileType t);
+/* Water is not a block. It is wherever the sky is open - nothing solid, and no
+ * backwall - below sea level. */
+bool world_is_water(const World *w, int x, int y);
+
 /* Some blocks stand several tiles tall and are one thing. Given any tile of
  * one, this returns how many tiles it has and sets `bottom` to its lowest
  * row; its tiles are that row and the ones above it. 1 for an ordinary block. */

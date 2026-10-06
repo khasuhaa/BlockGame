@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 5u
+#define SAVE_VERSION 6u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -20,6 +20,13 @@ typedef struct {
     uint32_t rng, next_drop_id;
     uint32_t inventory_size, drops_size;
 } SaveHeader;
+
+/* From version 6 a second fixed-size part follows the first, with room to
+ * grow, so adding to it does not move what comes after. */
+typedef struct {
+    int32_t sea_row; /* -1 for a world with no sea */
+    int32_t reserved[7];
+} SaveExtra;
 
 /* How the inventory and drops were laid out before version 3, when a
  * container had four slots and a drop could not carry contents. */
@@ -163,7 +170,8 @@ bool save_game(const Game *g, const char *path)
         h.climbing = g->player.step.climb;
     }
 
-    bool ok = fwrite(&h, sizeof h, 1, f) == 1 &&
+    SaveExtra extra = { .sea_row = w->sea_row };
+    bool ok = fwrite(&h, sizeof h, 1, f) == 1 && fwrite(&extra, sizeof extra, 1, f) == 1 &&
               write_names(f, content.tile_count, content.tiles[0].name, sizeof content.tiles[0]) &&
               write_names(f, content.item_count, content.items[0].name, sizeof content.items[0]);
     for (int layer = 0; layer < LAYER_COUNT && ok; layer++)
@@ -192,6 +200,9 @@ bool load_game(Game *g, const char *path)
               h.inventory_size == (h.version < 3 ? sizeof(OldInventory) : sizeof g->inventory) &&
               h.drops_size == (h.version < 3 ? sizeof(OldDrop) * MAX_DROPS : sizeof g->drops) &&
               h.width > 0 && h.height > 0 && h.width <= 1 << 16 && h.height <= 1 << 12;
+    /* A world from before there was a sea has none: nothing floods. */
+    SaveExtra extra = { .sea_row = -1 };
+    if (ok && h.version >= 6) ok = fread(&extra, sizeof extra, 1, f) == 1;
     if (ok && h.version == 1) {
         legacy_names(tiles, legacy_tiles, (int)(sizeof legacy_tiles / sizeof legacy_tiles[0]),
                      tile_id_or_alias);
@@ -261,6 +272,7 @@ bool load_game(Game *g, const char *path)
         memset(&g->inventory.containers[SHARED_CONTAINER], 0, sizeof(Container));
 
         w->y_top = h.y_top;
+        w->sea_row = extra.sea_row;
         w->spawn_x = h.spawn_x;
         w->spawn_y = h.spawn_y;
         w->surface_y = h.surface_y;
@@ -290,6 +302,8 @@ bool save_read_preview(const char *path, WorldPreview *out)
     bool ok = fread(&h, sizeof h, 1, f) == 1 && h.magic == SAVE_MAGIC && h.version >= 1 &&
               h.version <= SAVE_VERSION && h.width > 0 && h.height > 0 && h.width <= 1 << 16 &&
               h.height <= 1 << 12;
+    SaveExtra extra;
+    if (ok && h.version >= 6) ok = fread(&extra, sizeof extra, 1, f) == 1;
     if (ok && h.version == 1)
         legacy_names(tiles, legacy_tiles, (int)(sizeof legacy_tiles / sizeof legacy_tiles[0]),
                      tile_id_or_alias);
