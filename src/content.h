@@ -81,6 +81,8 @@ typedef enum {
 
 #define MAX_ZOOM_LEVELS 16
 #define MAX_RECIPE_CHOICES 8
+#define MAX_ISLAND_TREES 8
+#define MAX_WORLD_CHOICES 8
 #define MAX_SIGN_TEXTS 512 /* different texts a world's signs can carry */
 #define SIGN_LINES 3
 #define SIGN_LINE_MAX 20
@@ -506,6 +508,32 @@ typedef struct {
     float cave_min_radius, cave_max_radius;
     int cave_min_depth, cave_max_depth;
 
+    /* Islands in the sky: so many to every 100 columns, each a wedge of rock
+     * - widest at its top, narrowing to a point below - under a few blocks of
+     * soil and a surface. None hangs lower than `island_min_y`. Some carry
+     * one of a few kinds of tree, the rarer ones only higher up. */
+    float island_rate;
+    int island_min_y, island_max_y;
+    int island_min_length, island_max_length, island_min_depth, island_max_depth;
+    int island_min_soil, island_max_soil;
+    TileType island_surface, island_soil, island_base;
+    float island_tree_chance;
+    struct {
+        int tree, weight, min_y;
+    } island_trees[MAX_ISLAND_TREES];
+    int island_tree_count;
+    /* What a new world can be made as: how wide, and how much bigger or
+     * smaller than usual its mountains, its valleys and seas, and its veins. */
+    struct {
+        char label[CONTENT_NAME_LEN];
+        int width;
+    } sizes[MAX_WORLD_CHOICES];
+    int size_count;
+    struct {
+        char label[CONTENT_NAME_LEN];
+        float scale;
+    } scales[MAX_WORLD_CHOICES];
+    int scale_count;
     int tree_one_in, tree_spacing, tree_spawn_clearance;
     float tree_grown_chance; /* share of generated trees that start full grown */
     int tree_young_steps;    /* most growth steps given to the rest */

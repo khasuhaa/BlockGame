@@ -56,10 +56,15 @@ static bool grows_from(TileType first, TileType t)
     return false;
 }
 
-/* The biomes a tree grows in, as a list; false if there are none. */
+/* The biomes a tree grows in, as a list; false if there are none. (One that
+ * grows on the islands in the sky is said to, with how high up.) */
 static bool tree_biomes(int tree, char *out, size_t size)
 {
     int found = 0;
+    for (int i = 0; i < content.worldgen.island_tree_count && content.worldgen.island_rate > 0.0f; i++) {
+        if (content.worldgen.island_trees[i].tree != tree) continue;
+        say(out, size, "%sislands in the sky, above Y %d", found++ ? ", " : "", content.worldgen.island_trees[i].min_y);
+    }
     for (int b = 0; b < content.biome_count; b++) {
         for (int i = 0; i < content.biomes[b].tree_count; i++) {
             if (content.biomes[b].trees[i].tree != tree) continue;

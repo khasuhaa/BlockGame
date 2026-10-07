@@ -2670,7 +2670,13 @@ static void test_biomes(void)
     }
     CHECK(kelps > 20 && corals > 20 && carrots > 5 && flax > 5 && apples > 0 && oranges > 0);
     CHECK(strays == 0);
-    for (int k = 0; k < content.tree_count; k++) CHECK(seen[k] > 0);
+    for (int k = 0; k < content.tree_count; k++) {
+        /* (Every tree that some country grows. The ones that only grow on islands in the sky are seen to elsewhere.) */
+        bool grown = false;
+        for (int b = 0; b < content.biome_count; b++)
+            for (int i = 0; i < content.biomes[b].tree_count; i++) grown = grown || content.biomes[b].trees[i].tree == k;
+        CHECK(seen[k] > 0 || !grown);
+    }
     for (int k = 0; k < content.biome_count; k++) CHECK(biomes_seen[k] > 0);
     CHECK(strcmp(content.biomes[0].label, "Plains") == 0 && tree_id("coffee") >= 0);
     /* Deserts turn up, with cacti in them, but most worlds are not all desert. */
@@ -2710,6 +2716,7 @@ static void test_biomes(void)
 }
 
 static int shipped_torch_light;
+static float shipped_island_rate;
 static TradeDef shipped_trade;
 static int shipped_price[MAX_ITEMS];
 static TileDef *tile_def_mut(TileType t) { return &content.tiles[t]; }
@@ -4832,6 +4839,123 @@ static void test_gate_compost_ember_boat_sign(void)
     const char *nothing[SIGN_LINES] = { "", "", "" };
     CHECK(game_sign_write(&g, px - 10, ground, nothing) && game_sign_at(&g, px - 10, ground) == NULL);
     game_free(&g);
+}
+
+/* Islands in the sky, the trees on them, and worlds made bigger or smaller. */
+static void test_islands_and_options(void)
+{
+    const WorldGenDef *gen = &content.worldgen;
+    static const char *gems[] = { "amethyst", "sapphire", "emerald", "ruby", "diamond" };
+    float off = content.worldgen.island_rate;
+    content.worldgen.island_rate = shipped_island_rate;
+    CHECK(gen->island_rate > 0.0f && gen->island_min_y == 80 && gen->island_min_length == 15 && gen->island_max_length == 30);
+    CHECK(gen->island_min_depth == 10 && gen->island_max_depth == 15 && gen->island_base == tile_id("marble") && gen->island_surface == TILE_GRASS);
+    CHECK(gen->island_soil == TILE_DIRT && gen->island_min_soil == 2 && gen->island_max_soil == 3 && gen->island_tree_count == 5);
+    /* The gem trees: wood and sticks when cut, a shard of their gem for fruit, nothing to plant them with; the rarer the higher. */
+    int kind[5];
+    for (int k = 0; k < 5; k++) {
+        char name[48];
+        snprintf(name, sizeof name, "%s_tree", gems[k]);
+        kind[k] = tree_id(name);
+        CHECK(kind[k] >= 0 && gen->island_trees[k].tree == kind[k]);
+        const TreeDef *tree = &content.trees[kind[k]];
+        snprintf(name, sizeof name, "%s_shard", gems[k]);
+        CHECK(tree->fruit == item_id(name) && item_def(tree->fruit)->plants < 0);
+        CHECK(tile_def(tree->log)->drop == item_id("wood") && tile_def(tree->leaves)->drop == ITEM_STICK);
+        CHECK(k == 0 || (gen->island_trees[k].weight < gen->island_trees[k - 1].weight && gen->island_trees[k].min_y > gen->island_trees[k - 1].min_y));
+        for (ItemId i = 1; i < content.item_count; i++) CHECK(content.items[i].plants != kind[k]);
+    }
+
+    int islands = 0, low = 0, bad_shape = 0, trees[5] = { 0 }, too_low_tree = 0, with_wall = 0, over_spawn = 0;
+    for (uint32_t seed = 1; seed <= 6; seed++) {
+        World w;
+        CHECK(world_init(&w, 2048, 401, seed, WORLD_TERRAIN));
+        TileType marble = tile_id("marble");
+        for (int x = 0; x < w.width; x++) {
+            /* The ground: where the backwalls begin. Anything solid above that is an island. */
+            int land = 0;
+            while (land < w.height && world_get_at(&w, LAYER_WALL, x, land) == TILE_AIR) land++;
+            for (int y = 0; y < land; y++) {
+                TileType t = world_get_at(&w, BG, x, y);
+                for (int k = 0; k < 5; k++) {
+                    if (t != content.trees[kind[k]].log) continue;
+                    trees[k]++;
+                    if (world_row_to_y(&w, y) < gen->island_trees[k].min_y) too_low_tree++;
+                }
+            }
+            /* (One island may hang over another: each run of blocks down a column is looked at by itself.) */
+            for (int top = 0; top < land; top++) {
+                if (!world_is_solid(&w, x, top) || world_is_solid(&w, x, top - 1)) continue;
+                int bottom = top;
+                while (world_is_solid(&w, x, bottom + 1)) bottom++;
+                for (int y = top; y <= bottom; y++)
+                    if (world_get_at(&w, LAYER_WALL, x, y) != TILE_AIR) with_wall++;
+                if (abs(world_dx(&w, w.spawn_x, x)) < 10) over_spawn++;
+                /* Nothing of it below 80; grass on top, 2 or 3 of dirt, then marble. */
+                if (world_row_to_y(&w, bottom) < gen->island_min_y) low++;
+                if (world_get(&w, x, top) != TILE_GRASS) bad_shape++;
+                int dirt = 0;
+                for (int y = top + 1; y <= bottom; y++) {
+                    TileType t = world_get(&w, x, y);
+                    if (t == TILE_DIRT) dirt++;
+                    else if (t != marble) bad_shape++;
+                    if (t == TILE_DIRT && y > top + 3) bad_shape++;
+                }
+                if (dirt > 3 || bottom - top + 1 > gen->island_max_depth) bad_shape++;
+                /* (The left end of one: it is counted, and measured.) */
+                if (world_is_solid(&w, x - 1, top)) continue;
+                islands++;
+                int length = 0, deepest = 0, deepest_at = 0;
+                for (; world_is_solid(&w, x + length, top); length++) {
+                    int b2 = top;
+                    while (world_is_solid(&w, x + length, b2 + 1)) b2++;
+                    if (world_is_solid(&w, x + length, top - 1)) bad_shape++; /* flat on top */
+                    if (b2 - top + 1 > deepest) deepest = b2 - top + 1, deepest_at = length;
+                }
+                if (length < gen->island_min_length || length > gen->island_max_length) bad_shape++;
+                /* A wedge: deepest about the middle, shallow at the ends. */
+                if (deepest < gen->island_min_depth - 2 || deepest_at < length / 4 || deepest_at > length * 3 / 4) bad_shape++;
+                top = bottom;
+            }
+        }
+        world_free(&w);
+    }
+    CHECK(islands > 40 && low == 0 && bad_shape == 0 && with_wall == 0 && over_spawn == 0);
+    CHECK(trees[0] > 0 && trees[1] > 0 && trees[0] >= trees[3] && too_low_tree == 0);
+    content.worldgen.island_rate = off;
+
+    /* A world can be made in other sizes, and with bigger or smaller mountains, valleys and veins. */
+    CHECK(gen->size_count == 4 && gen->sizes[0].width == 2048 && gen->sizes[0].width == gen->width && gen->sizes[3].width > gen->sizes[2].width);
+    CHECK(gen->scale_count == 4 && gen->scales[1].scale == 1.0f && gen->scales[0].scale < 1.0f && gen->scales[3].scale > gen->scales[2].scale);
+    int peak[3], floor_[3], copper[3], widest = 0;
+    for (int k = 0; k < 3; k++) {
+        float scale = k == 0 ? gen->scales[0].scale : k == 1 ? 1.0f : gen->scales[3].scale;
+        WorldOptions options = { scale, scale, scale };
+        World w;
+        CHECK(world_init_with(&w, k == 2 ? gen->sizes[1].width : gen->width, 401, 5, WORLD_TERRAIN, &options));
+        if (w.width > widest) widest = w.width;
+        peak[k] = -1000;
+        floor_[k] = 1000;
+        copper[k] = 0;
+        for (int x = 0; x < w.width; x++) {
+            int level = column_level(&w, x);
+            if (level > peak[k]) peak[k] = level;
+            if (level < floor_[k]) floor_[k] = level;
+        }
+        VeinStats st = vein_stats(&w, tile_id("coal_ore"), 1000);
+        copper[k] = st.groups > 0 ? st.blocks / st.groups : 0;
+        CHECK(world_row_to_y(&w, w.spawn_y) == 0);
+        world_free(&w);
+    }
+    CHECK(peak[0] < peak[1] && peak[1] < peak[2] && floor_[0] > floor_[1] && floor_[1] > floor_[2]);
+    CHECK(copper[0] < copper[1] && copper[1] < copper[2] && widest == gen->sizes[1].width);
+    /* Asked for nothing in particular, a world is the same as it ever was. */
+    World plain, same;
+    WorldOptions usual = { 1.0f, 1.0f, 1.0f };
+    CHECK(world_init(&plain, 512, 401, 9, WORLD_TERRAIN) && world_init_with(&same, 512, 401, 9, WORLD_TERRAIN, &usual));
+    CHECK(memcmp(plain.layers[0], same.layers[0], (size_t)512 * 401 * sizeof(uint16_t)) == 0);
+    world_free(&plain);
+    world_free(&same);
 }
 
 static void test_plants(void)
@@ -8012,6 +8136,11 @@ static void test_guide(void)
     n = guide_sources(item_id("mango"), s, 64);
     CHECK(source_of(s, n, SOURCE_FRUIT, "Mango tree") && strstr(s[0].where, "Tropics"));
     CHECK(guide_sources(item_id("marble_column"), s, 64) == 0); /* (only ever there because it was put there) */
+    /* Shards grow on the gem trees of the islands in the sky. */
+    n = guide_sources(item_id("ruby_shard"), s, 64);
+    CHECK(source_of(s, n, SOURCE_FRUIT, "Ruby tree tree") || source_of(s, n, SOURCE_FRUIT, "Ruby tree"));
+    for (int i = 0; i < n; i++)
+        if (s[i].kind == SOURCE_FRUIT) CHECK(strstr(s[i].where, "islands in the sky"));
     CHECK(guide_sources(ITEM_NONE, s, 64) == 0);
 
     /* Every recipe is found again under what it makes and under each thing it takes. */
@@ -8227,6 +8356,9 @@ int main(void)
     }
     /* Likewise the creatures that came later keep out of the tests written
      * before them: each is let in by the test that is about it. */
+    /* And no islands in the sky, which came after the tests of the land under it. */
+    shipped_island_rate = content.worldgen.island_rate;
+    content.worldgen.island_rate = 0.0f;
     /* And one random event to a chunk, as there was when they were written. */
     content.rules.random_events_per_chunk = 1;
     /* And trade as it was: everything a copper coin, to buy or to sell, found or not. (The prices, the
@@ -8289,6 +8421,7 @@ int main(void)
     test_trade_rules();
     test_furniture_cages_paint();
     test_gate_compost_ember_boat_sign();
+    test_islands_and_options();
     test_new_trees();
     test_caves();
     test_backwall();

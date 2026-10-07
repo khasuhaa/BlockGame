@@ -421,6 +421,191 @@
      "right": 1
     }
    ]
+  },
+  {
+   "name": "amethyst_tree",
+   "log": "amethyst_tree_log",
+   "leaves": "amethyst_tree_leaves",
+   "fruit": "amethyst_shard",
+   "fruit_ticks": 1800,
+   "layer": "background",
+   "soil": [
+    "dirt",
+    "grass",
+    "compost"
+   ],
+   "max_height": 5,
+   "rows": [
+    {
+     "offset": -1,
+     "left": 1,
+     "right": 1,
+     "center": true
+    },
+    {
+     "offset": 0,
+     "left": 2,
+     "right": 2
+    },
+    {
+     "offset": 1,
+     "left": 2,
+     "right": 2
+    },
+    {
+     "offset": 2,
+     "left": 1,
+     "right": 1
+    }
+   ]
+  },
+  {
+   "name": "sapphire_tree",
+   "log": "sapphire_tree_log",
+   "leaves": "sapphire_tree_leaves",
+   "fruit": "sapphire_shard",
+   "fruit_ticks": 1800,
+   "layer": "background",
+   "soil": [
+    "dirt",
+    "grass",
+    "compost"
+   ],
+   "max_height": 5,
+   "rows": [
+    {
+     "offset": -1,
+     "left": 1,
+     "right": 1,
+     "center": true
+    },
+    {
+     "offset": 0,
+     "left": 2,
+     "right": 2
+    },
+    {
+     "offset": 1,
+     "left": 2,
+     "right": 2
+    },
+    {
+     "offset": 2,
+     "left": 1,
+     "right": 1
+    }
+   ]
+  },
+  {
+   "name": "emerald_tree",
+   "log": "emerald_tree_log",
+   "leaves": "emerald_tree_leaves",
+   "fruit": "emerald_shard",
+   "fruit_ticks": 1800,
+   "layer": "background",
+   "soil": [
+    "dirt",
+    "grass",
+    "compost"
+   ],
+   "max_height": 5,
+   "rows": [
+    {
+     "offset": -1,
+     "left": 1,
+     "right": 1,
+     "center": true
+    },
+    {
+     "offset": 0,
+     "left": 2,
+     "right": 2
+    },
+    {
+     "offset": 1,
+     "left": 2,
+     "right": 2
+    },
+    {
+     "offset": 2,
+     "left": 1,
+     "right": 1
+    }
+   ]
+  },
+  {
+   "name": "ruby_tree",
+   "log": "ruby_tree_log",
+   "leaves": "ruby_tree_leaves",
+   "fruit": "ruby_shard",
+   "fruit_ticks": 1800,
+   "layer": "background",
+   "soil": [
+    "dirt",
+    "grass",
+    "compost"
+   ],
+   "max_height": 5,
+   "rows": [
+    {
+     "offset": -1,
+     "left": 1,
+     "right": 1,
+     "center": true
+    },
+    {
+     "offset": 0,
+     "left": 2,
+     "right": 2
+    },
+    {
+     "offset": 1,
+     "left": 2,
+     "right": 2
+    },
+    {
+     "offset": 2,
+     "left": 1,
+     "right": 1
+    }
+   ]
+  },
+  {
+   "name": "diamond_tree",
+   "log": "diamond_tree_log",
+   "leaves": "diamond_tree_leaves",
+   "fruit": "diamond_shard",
+   "fruit_ticks": 1800,
+   "layer": "background",
+   "soil": [
+    "dirt",
+    "grass",
+    "compost"
+   ],
+   "max_height": 5,
+   "rows": [
+    {
+     "offset": -1,
+     "left": 1,
+     "right": 1,
+     "center": true
+    },
+    {
+     "offset": 0,
+     "left": 2,
+     "right": 2
+    },
+    {
+     "offset": 1,
+     "left": 2,
+     "right": 2
+    },
+    {
+     "offset": 2,
+     "left": 1,
+     "right": 1
+    }
+   ]
   }
  ]
 }

@@ -3236,9 +3236,14 @@ int game_player_grip_side(const Game *g)
 
 bool game_init(Game *g, int width, int height, uint32_t seed, WorldKind kind)
 {
+    return game_init_with(g, width, height, seed, kind, NULL);
+}
+
+bool game_init_with(Game *g, int width, int height, uint32_t seed, WorldKind kind, const WorldOptions *options)
+{
     memset(g, 0, sizeof *g);
     size_t cells = (size_t)width * height;
-    bool ok = world_init(&g->world, width, height, seed, kind) &&
+    bool ok = world_init_with(&g->world, width, height, seed, kind, options) &&
               world_init(&g->sim, width, height, seed, WORLD_FLAT);
     g->steps = malloc(sizeof(Step) * cells);
     /* The search visits two poses per tile: standing and climbing. */

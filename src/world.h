@@ -9,6 +9,12 @@ typedef enum {
     WORLD_BLANK    /* nothing at all: filled in from a save file */
 } WorldKind;
 
+/* What a world is made as, over and above what the data says: how many times
+ * the usual size its mountains, its valleys and seas, and its veins are. */
+typedef struct {
+    float mountains, valleys, veins;
+} WorldOptions;
+
 /* Tile grid that wraps around horizontally: column `width` is column 0 again.
  * Tile coordinates have x growing right and y growing down from the top row.
  * World "Y" is height: it grows upward and is 0 at the spawn point's feet.
@@ -35,6 +41,7 @@ typedef struct {
     /* A number kept with a square, for a block there that is more than its
      * kind says: the two colours of a two-tone flower (see tone_pack). 0 for none. */
     uint16_t *meta;
+    WorldOptions options; /* what it is being made as; only looked at while it is generated */
     /* Paint: which of content.tints, plus one, the block in the foreground
      * of each square has been painted, and the backwall of it; 0 for unpainted. */
     uint8_t *paint[2];
@@ -42,6 +49,8 @@ typedef struct {
 
 /* Allocates the grid and generates terrain from the seed. */
 bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind);
+/* The same, with options: NULL for everything as usual. */
+bool world_init_with(World *w, int width, int height, uint32_t seed, WorldKind kind, const WorldOptions *options);
 void world_free(World *w);
 
 /* The kind of country a column is. */

@@ -48,6 +48,9 @@ typedef struct {
 
 typedef struct {
     bool creating; /* on the "new world" screen */
+    /* What the new world is to be made as: which of the sizes the data offers, and which of its scales for each of three things. */
+    int size, mountains, valleys, veins;
+    bool deleting; /* asking whether the chosen world is really to be deleted */
     char name[WORLD_NAME_MAX + 1];
     char error[96];
     char path[256];
@@ -60,6 +63,10 @@ typedef struct {
     int selected;
     float slide;    /* where the row has slid to, in worlds; eases toward `selected` */
 } MainMenu;
+
+/* What the "new world" screen was set to, as the generator wants it. */
+int main_menu_world_width(const MainMenu *m);
+WorldOptions main_menu_world_options(const MainMenu *m);
 
 /* Runs and draws one frame of the main menu. Call between BeginDrawing and
  * EndDrawing. */

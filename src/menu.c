@@ -123,6 +123,11 @@ static void begin_creating(MainMenu *m)
     char path[256];
     m->creating = true;
     m->error[0] = '\0';
+    /* The smallest size, and everything else as usual. */
+    m->size = 0;
+    m->mountains = m->valleys = m->veins = 0;
+    for (int i = 0; i < content.worldgen.scale_count; i++)
+        if (content.worldgen.scales[i].scale == 1.0f) m->mountains = m->valleys = m->veins = i;
     /* Offer the first "World N" that is not taken. */
     for (int n = 1; n < 1000; n++) {
         snprintf(m->name, sizeof m->name, "World %d", n);
@@ -131,10 +136,39 @@ static void begin_creating(MainMenu *m)
     }
 }
 
+int main_menu_world_width(const MainMenu *m)
+{
+    const WorldGenDef *gen = &content.worldgen;
+    return m->size >= 0 && m->size < gen->size_count ? gen->sizes[m->size].width : gen->width;
+}
+
+WorldOptions main_menu_world_options(const MainMenu *m)
+{
+    const WorldGenDef *gen = &content.worldgen;
+    WorldOptions o = { 1.0f, 1.0f, 1.0f };
+    if (m->mountains >= 0 && m->mountains < gen->scale_count) o.mountains = gen->scales[m->mountains].scale;
+    if (m->valleys >= 0 && m->valleys < gen->scale_count) o.valleys = gen->scales[m->valleys].scale;
+    if (m->veins >= 0 && m->veins < gen->scale_count) o.veins = gen->scales[m->veins].scale;
+    return o;
+}
+
+/* One thing to choose about a new world: its name on the left, and the choice between two arrows on the right. */
+static void choice_row(Rectangle row, const char *what, const char *chosen, int *value, int count)
+{
+    float side = 36.0f, wide = 220.0f;
+    Rectangle less = { row.x + row.width - wide, row.y, side, row.height };
+    Rectangle more = { row.x + row.width - side, row.y, side, row.height };
+    DrawText(what, (int)row.x, (int)row.y + 10, 20, RAYWHITE);
+    if (button(less, "<", *value > 0)) (*value)--;
+    if (button(more, ">", *value < count - 1)) (*value)++;
+    draw_centered(chosen, (Rectangle){ less.x + side, row.y, wide - 2 * side, row.height }, 18, RAYWHITE);
+}
+
 static MainMenuResult create_screen(MainMenu *m)
 {
-    float top = GetScreenHeight() * 0.3f;
-    title("New world", top - 100, 40);
+    const WorldGenDef *gen = &content.worldgen;
+    float top = 150.0f;
+    title("New world", 60, 40);
 
     size_t len = strlen(m->name);
     for (int c = GetCharPressed(); c > 0; c = GetCharPressed()) {
@@ -147,14 +181,25 @@ static MainMenuResult create_screen(MainMenu *m)
     if ((IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) && len > 0)
         m->name[--len] = '\0';
 
-    Rectangle box = column_button(top, 0);
+    /* A wider column than the buttons have: a name, and four things to choose. */
+    float wide = 460.0f, x = ((float)GetScreenWidth() - wide) / 2.0f;
+    Rectangle box = { x, top, wide, BUTTON_HEIGHT };
     DrawText("Name", (int)box.x, (int)box.y - 24, 18, LIGHTGRAY);
     DrawRectangleRec(box, (Color){ 18, 19, 24, 255 });
     DrawRectangleLinesEx(box, 2.0f, RAYWHITE);
     bool blink = (int)(GetTime() * 2.0) % 2 == 0;
     DrawText(TextFormat("%s%s", m->name, blink ? "_" : ""), (int)box.x + 10, (int)box.y + 10, 20,
              RAYWHITE);
-    DrawText("A new world is generated with a random seed.", (int)box.x, (int)(box.y + 52), 14, GRAY);
+    float row_y = top + 60.0f;
+    if (gen->size_count > 0)
+        choice_row((Rectangle){ x, row_y, wide, 36 }, "World size", gen->sizes[m->size].label, &m->size, gen->size_count), row_y += 46.0f;
+    if (gen->scale_count > 0) {
+        choice_row((Rectangle){ x, row_y, wide, 36 }, "Mountains", gen->scales[m->mountains].label, &m->mountains, gen->scale_count);
+        choice_row((Rectangle){ x, row_y + 46, wide, 36 }, "Valleys and seas", gen->scales[m->valleys].label, &m->valleys, gen->scale_count);
+        choice_row((Rectangle){ x, row_y + 92, wide, 36 }, "Ore veins", gen->scales[m->veins].label, &m->veins, gen->scale_count);
+        row_y += 138.0f;
+    }
+    top = row_y - 80.0f;
 
     while (len > 0 && m->name[len - 1] == ' ') len--;
     bool create = button(column_button(top + 90, 0), "Create", len > 0) ||
@@ -287,6 +332,23 @@ MainMenuResult main_menu_frame(MainMenu *m)
     title("BlockGame", 36, 56);
     if (m->error[0]) title(m->error, 100, 18);
 
+    /* Asked whether a world is really to go: nothing else until that is answered. */
+    if (m->deleting && m->world_count > 0) {
+        const ListedWorld *gone = &m->worlds[m->selected];
+        float mid = sh / 2.0f;
+        title(TextFormat("Delete \"%s\"?", gone->name), mid - 80, 28);
+        title("It cannot be got back.", mid - 40, 18);
+        if (button(column_button(mid, 0), "Delete it", true)) {
+            remove(gone->path);
+            m->deleting = false;
+            m->listed = false;
+            if (m->selected > 0) m->selected--;
+        }
+        if (button(column_button(mid, 1), "Keep it", true) || IsKeyPressed(KEY_ESCAPE)) m->deleting = false;
+        return MAIN_MENU_STAY;
+    }
+    m->deleting = false;
+
     /* Left and right: the arrow keys, the wheel, or a click on a world to the side. */
     int step = (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) -
                (IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT));
@@ -332,7 +394,11 @@ MainMenuResult main_menu_frame(MainMenu *m)
     float buttons = mid_y + size / 2.0f + 64.0f;
     if (button(column_button(buttons, 0), "Play", m->world_count > 0)) play = true;
     if (button(column_button(buttons, 1), "New world", true)) begin_creating(m);
-    if (button(column_button(buttons, 2), "Quit", true)) result = MAIN_MENU_QUIT;
+    /* (Delete and Quit share a row, so the column still fits a short window.) */
+    Rectangle last = column_button(buttons, 2);
+    float half = (last.width - BUTTON_GAP) / 2.0f;
+    if (button((Rectangle){ last.x, last.y, half, last.height }, "Delete", m->world_count > 0)) m->deleting = true;
+    if (button((Rectangle){ last.x + half + BUTTON_GAP, last.y, half, last.height }, "Quit", true)) result = MAIN_MENU_QUIT;
 
     if (play && m->world_count > 0) {
         snprintf(m->path, sizeof m->path, "%s", m->worlds[m->selected].path);
@@ -357,13 +423,12 @@ static void world_page(PauseMenu *p, Game *g, float top)
     title("World settings", top - 60, 32);
 
     Rectangle row = column_button(top, 0);
-    DrawText(TextFormat("Tick rate: %d per second", g->tick_rate), (int)row.x, (int)row.y, 20,
-             RAYWHITE);
+    draw_centered(TextFormat("Tick rate: %d a second", g->tick_rate), (Rectangle){ row.x, row.y - 6, row.width, 28 }, 20, RAYWHITE);
 
-    /* Slider from 1 to 60, with a button either side for single steps. */
-    Rectangle minus = { row.x, row.y + 34, 40, 36 };
-    Rectangle plus = { row.x + row.width - 40, row.y + 34, 40, 36 };
-    Rectangle track = { minus.x + 56, row.y + 34, row.width - 112, 36 };
+    /* A slider, with a button either side for single steps. */
+    Rectangle minus = { row.x, row.y + 28, 40, 36 };
+    Rectangle plus = { row.x + row.width - 40, row.y + 28, 40, 36 };
+    Rectangle track = { minus.x + 56, row.y + 28, row.width - 112, 36 };
     if (button(minus, "-", g->tick_rate > 1)) g->tick_rate--;
     if (button(plus, "+", g->tick_rate < MAX_SLIDER_TICK_RATE)) g->tick_rate++;
 
@@ -383,30 +448,17 @@ static void world_page(PauseMenu *p, Game *g, float top)
     DrawRectangleRec((Rectangle){ track.x, mid - 3, knob - track.x, 6 }, accent_color);
     DrawRectangleRec((Rectangle){ knob - 5, mid - 12, 10, 24 }, RAYWHITE);
 
-    float day = (float)DAY_TICKS / (float)g->tick_rate, night = (float)NIGHT_TICKS / (float)g->tick_rate;
-    DrawText(TextFormat("Day: %d ticks (%.0f s)    Night: %d ticks (%.0f s)", DAY_TICKS, day,
-                        NIGHT_TICKS, night),
-             (int)row.x, (int)row.y + 86, 14, LIGHTGRAY);
-    DrawText("Trees and fruit grow by ticks; movement does not.", (int)row.x, (int)row.y + 106, 14,
-             GRAY);
-
-    /* Fog of war: on, the world is dark until the player has been near it. */
-    if (button(column_button(top + 150, 0), g->fog ? "Fog of war: on" : "Fog of war: off", true)) g->fog = !g->fog;
-    DrawText("What has been uncovered is remembered either way.", (int)row.x, (int)(top + 196), 14, GRAY);
-
     /* Random ticks: how many blocks in each chunk the weather gets at every tick. */
-    Rectangle ticks = column_button(top + 226, 0);
+    Rectangle ticks = column_button(top + 84, 0);
     int most = content.rules.max_random_events;
-    DrawText(TextFormat("Random ticks: %d per chunk", g->random_events), (int)ticks.x + 50, (int)ticks.y + 10, 20, RAYWHITE);
-    if (button((Rectangle){ ticks.x, ticks.y, 40, 36 }, "-", g->random_events > 0)) g->random_events--;
-    if (button((Rectangle){ ticks.x + ticks.width - 40, ticks.y, 40, 36 }, "+", g->random_events < most)) g->random_events++;
-    DrawText("Freezing, thawing and snow go faster with more. Growth does not.", (int)row.x, (int)(top + 268), 14, GRAY);
+    if (button((Rectangle){ ticks.x, ticks.y, 40, ticks.height }, "-", g->random_events > 0)) g->random_events--;
+    if (button((Rectangle){ ticks.x + ticks.width - 40, ticks.y, 40, ticks.height }, "+", g->random_events < most)) g->random_events++;
+    draw_centered(TextFormat("Random ticks: %d", g->random_events), (Rectangle){ ticks.x + 40, ticks.y, ticks.width - 80, ticks.height }, 20, RAYWHITE);
 
-    /* Crafting times: as the recipes give them, or everything made in a tick. */
-    if (button(column_button(top + 296, 0), g->quick_craft ? "Crafting times: off (1 tick)" : "Crafting times: on", true))
+    if (button(column_button(top + 84, 1), g->fog ? "Fog of war: on" : "Fog of war: off", true)) g->fog = !g->fog;
+    if (button(column_button(top + 84, 2), g->quick_craft ? "Crafting times: off" : "Crafting times: on", true))
         g->quick_craft = !g->quick_craft;
-
-    if (button(column_button(top + 346, 0), "Back", true)) p->page = PAUSE_PAGE_MAIN;
+    if (button(column_button(top + 84, 3), "Back", true)) p->page = PAUSE_PAGE_MAIN;
 }
 
 static void keys_page(PauseMenu *p, Keybinds *k, float top)

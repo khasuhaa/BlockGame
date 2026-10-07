@@ -609,6 +609,8 @@ static bool read_items(Reader *r, const cJSON *root)
     return true;
 }
 
+static char island_tree_names[MAX_ISLAND_TREES][CONTENT_NAME_LEN];
+
 /* ---- recipes and trees ------------------------------------------------- */
 
 static bool read_recipes(Reader *r, const cJSON *root)
@@ -957,6 +959,51 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         }
     }
 
+    /* (Islands name trees, which are read after this: the names are kept and matched up at the end.) */
+    const cJSON *isles = field(root, "islands"), *one_tree, *pick;
+    if (isles) {
+        g->island_rate = (float)num(isles, "per_100_columns", 0.0);
+        g->island_min_y = 80;
+        g->island_max_y = 180;
+        pair(isles, "height", &g->island_min_y, &g->island_max_y);
+        g->island_min_length = 15, g->island_max_length = 30, g->island_min_depth = 10, g->island_max_depth = 15;
+        g->island_min_soil = 2, g->island_max_soil = 3;
+        pair(isles, "length", &g->island_min_length, &g->island_max_length);
+        pair(isles, "depth", &g->island_min_depth, &g->island_max_depth);
+        pair(isles, "soil_depth", &g->island_min_soil, &g->island_max_soil);
+        if (!tile_ref(r, isles, "surface", &g->island_surface) || !tile_ref(r, isles, "soil", &g->island_soil) ||
+            !tile_ref(r, isles, "base", &g->island_base))
+            return false;
+        if (g->island_rate > 0.0f && (g->island_surface == TILE_AIR || g->island_soil == TILE_AIR || g->island_base == TILE_AIR ||
+                                       g->island_min_length < 3 || g->island_max_length < g->island_min_length ||
+                                       g->island_min_depth < 1 || g->island_max_depth < g->island_min_depth))
+            return fail(r, "\"islands\" need a \"surface\", a \"soil\" and a \"base\" block, a \"length\" and a \"depth\"");
+        g->island_tree_chance = (float)num(isles, "tree_chance", 0.0);
+        g->island_tree_count = 0;
+        cJSON_ArrayForEach(one_tree, field(isles, "trees")) {
+            if (g->island_tree_count >= MAX_ISLAND_TREES || !str(one_tree, "tree"))
+                return fail(r, "\"islands\" list at most %d trees, each with a \"tree\"", MAX_ISLAND_TREES);
+            copy_name(island_tree_names[g->island_tree_count], CONTENT_NAME_LEN, str(one_tree, "tree"));
+            g->island_trees[g->island_tree_count].weight = (int)num(one_tree, "weight", 1);
+            g->island_trees[g->island_tree_count++].min_y = (int)num(one_tree, "above", 0);
+        }
+    }
+    const cJSON *options = field(root, "options");
+    if (options) {
+        g->size_count = g->scale_count = 0;
+        cJSON_ArrayForEach(pick, field(options, "sizes")) {
+            if (g->size_count >= MAX_WORLD_CHOICES || !str(pick, "label") || num(pick, "width", 0) < 64)
+                return fail(r, "a world size needs a \"label\" and a \"width\" of 64 or more; there can be %d", MAX_WORLD_CHOICES);
+            copy_name(g->sizes[g->size_count].label, CONTENT_NAME_LEN, str(pick, "label"));
+            g->sizes[g->size_count++].width = (int)num(pick, "width", 0);
+        }
+        cJSON_ArrayForEach(pick, field(options, "scales")) {
+            if (g->scale_count >= MAX_WORLD_CHOICES || !str(pick, "label") || num(pick, "scale", 0) <= 0)
+                return fail(r, "a scale needs a \"label\" and a \"scale\" above 0; there can be %d", MAX_WORLD_CHOICES);
+            copy_name(g->scales[g->scale_count].label, CONTENT_NAME_LEN, str(pick, "label"));
+            g->scales[g->scale_count++].scale = (float)num(pick, "scale", 1.0);
+        }
+    }
     const cJSON *trees = field(root, "tree_placement");
     if (trees) {
         g->tree_one_in = (int)num(trees, "one_in", 10);
@@ -1403,6 +1450,11 @@ static bool validate(Reader *r)
         return fail(r, "worldgen has a bad \"gap\" or spawn \"column\" range");
     if (u->tick_rate < 1 || u->day_ticks < 1 || u->night_ticks < 1 || u->chunk_width < 1)
         return fail(r, "rules need a tick rate, day and night length and chunk width");
+    for (int i = 0; i < content.worldgen.island_tree_count; i++) {
+        content.worldgen.island_trees[i].tree = tree_id(island_tree_names[i]);
+        if (content.worldgen.island_trees[i].tree < 0)
+            return fail(r, "the islands name a tree that does not exist: \"%s\"", island_tree_names[i]);
+    }
     /* Things that come in two halves, and things with a creature in them: each side told of the other. */
     for (TileType t = 1; t < content.tile_count; t++) content.tiles[t].pair_of = TILE_AIR;
     for (TileType t = 1; t < content.tile_count; t++)

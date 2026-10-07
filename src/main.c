@@ -276,10 +276,9 @@ static void draw_nobody(const Game *g, const char *name, TilePos create_at)
     if (name[0]) DrawText(TextFormat("%s%s", name, blink ? "_" : ""), (int)field.x + 8, (int)field.y + 7, 18, RAYWHITE);
     else DrawText(blink ? "Type a name_" : "Type a name", (int)field.x + 8, (int)field.y + 7, 18, GRAY);
     bool spawn = create_at.x == g->world.spawn_x;
-    const char *where = TextFormat("At the %s at X %d, Y %d.  Click another portal to start there:", spawn ? "spawn portal" : "portal",
-                                   create_at.x, world_row_to_y(&g->world, create_at.y));
-    DrawText(where, (int)p.x + 16, (int)p.y + 84, 10, LIGHTGRAY);
-    DrawText("zoom out to the map to find the ones you have discovered.", (int)p.x + 16, (int)p.y + 98, 10, LIGHTGRAY);
+    const char *where = TextFormat("At the %s, X %d, Y %d", spawn ? "spawn portal" : "portal", create_at.x,
+                                   world_row_to_y(&g->world, create_at.y));
+    DrawText(where, (int)(p.x + (p.width - (float)MeasureText(where, 10)) / 2), (int)p.y + 90, 10, LIGHTGRAY);
     bool hot = CheckCollisionPointRec(GetMousePosition(), b);
     DrawRectangleRec(b, hot ? (Color){ 90, 160, 100, 255 } : (Color){ 70, 130, 80, 255 });
     const char *label = "Create character  (Enter)";
@@ -1599,8 +1598,9 @@ int main(void)
             if (r == MAIN_MENU_LOAD) ok = load_game(&session.game, menu.path);
             if (r == MAIN_MENU_CREATE) {
                 uint32_t seed = (uint32_t)time(NULL) ^ (uint32_t)(GetTime() * 1000000.0);
-                ok = game_init(&session.game, content.worldgen.width, content.worldgen.height, seed,
-                               WORLD_TERRAIN);
+                WorldOptions options = main_menu_world_options(&menu);
+                ok = game_init_with(&session.game, main_menu_world_width(&menu), content.worldgen.height, seed,
+                                    WORLD_TERRAIN, &options);
                 /* A new world has nobody in it: its first character is made by the player. */
                 if (ok) game_clear_characters(&session.game);
             }

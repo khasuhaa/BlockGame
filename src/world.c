@@ -158,7 +158,12 @@ static void place_vein(World *w, const VeinDef *v, uint32_t *rng, int x, int y)
 {
     static const int dirs[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
     Cell cells[MAX_VEIN_SIZE];
-    int count = 0, target = rng_range(rng, v->min_size, v->max_size);
+    int count = 0, target = (int)((float)rng_range(rng, v->min_size, v->max_size) * w->options.veins + 0.5f);
+    int least = (int)((float)v->min_size * w->options.veins + 0.5f);
+    if (target > MAX_VEIN_SIZE) target = MAX_VEIN_SIZE;
+    if (target < 1) target = 1;
+    if (least > target) least = target;
+    if (least < 1) least = 1;
     if (!vein_add(w, v, cells, &count, x, y)) return;
 
     if (v->shape == VEIN_STREAK) {
@@ -179,7 +184,7 @@ static void place_vein(World *w, const VeinDef *v, uint32_t *rng, int x, int y)
         }
     }
 
-    if (count < v->min_size) return;
+    if (count < least) return;
     for (int i = 0; i < count; i++) world_set(w, cells[i].x, cells[i].y, v->tile);
 }
 
@@ -188,7 +193,9 @@ static void place_vein(World *w, const VeinDef *v, uint32_t *rng, int x, int y)
  * whatever it crosses that it may replace, earlier scars included. */
 static void place_scar(World *w, const VeinDef *v, uint32_t *rng, int x, int y)
 {
-    int length = rng_range(rng, v->min_size, v->max_size), thick = rng_range(rng, v->min_thick, v->max_thick);
+    int length = (int)((float)rng_range(rng, v->min_size, v->max_size) * w->options.veins + 0.5f);
+    int thick = (int)((float)rng_range(rng, v->min_thick, v->max_thick) * sqrtf(w->options.veins) + 0.5f);
+    if (thick < 1) thick = 1;
     int dir = rng_range(rng, 0, 1) ? 1 : -1;
     float fy = (float)y, slope = rng_unit(rng) * 1.6f - 0.8f;
     for (int step = 0; step < length; step++) {
@@ -224,6 +231,59 @@ static void place_veins(World *w, const int *level, uint32_t *rng)
             if (v->shape == VEIN_SCAR) place_scar(w, v, rng, x, y);
             else place_vein(w, v, rng, x, y);
         }
+    }
+}
+
+/* ---- islands in the sky ------------------------------------------------ */
+
+/* Scatters islands through the sky: each a wedge, widest at its top and
+ * narrowing to a point underneath, of the base rock under a few blocks of
+ * soil and a surface. One goes only where there is nothing but air for it
+ * and for a tree on top of it, and never over the spawn. */
+static void place_islands(World *w, uint32_t *rng)
+{
+    const WorldGenDef *gen = &content.worldgen;
+    if (gen->island_rate <= 0.0f || gen->island_base == TILE_AIR) return;
+    float wanted = gen->island_rate * (float)w->width / 100.0f;
+    int attempts = (int)wanted + (rng_unit(rng) < wanted - floorf(wanted) ? 1 : 0);
+    for (int i = 0; i < attempts; i++) {
+        int length = rng_range(rng, gen->island_min_length, gen->island_max_length);
+        int depth = rng_range(rng, gen->island_min_depth, gen->island_max_depth);
+        int soil = rng_range(rng, gen->island_min_soil, gen->island_max_soil);
+        int x0 = rng_range(rng, 0, w->width - 1);
+        /* (Its lowest point is no lower than islands go: so its top is that much higher.) */
+        int lowest = gen->island_min_y + depth, highest = gen->island_max_y > lowest ? gen->island_max_y : lowest;
+        int top_y = rng_range(rng, lowest, highest), top = world_y_to_row(w, top_y);
+        if (top - 14 < 0 || top + depth + 3 >= w->height) continue;
+        bool clear = abs(world_dx(w, w->spawn_x, x0 + length / 2)) > length + 16;
+        for (int dx = -3; clear && dx < length + 3; dx++)
+            for (int y = top - 14; clear && y <= top + depth + 3; y++)
+                clear = world_get(w, x0 + dx, y) == TILE_AIR && world_get_at(w, LAYER_BACKGROUND, x0 + dx, y) == TILE_AIR;
+        if (!clear) continue;
+        for (int dx = 0; dx < length; dx++) {
+            float across = ((float)dx + 0.5f) / (float)length, in = 1.0f - fabsf(2.0f * across - 1.0f);
+            int deep = (int)floorf((float)depth * powf(in, 0.85f) + (rng_unit(rng) - 0.5f) * 1.6f + 0.5f);
+            if (deep < 1) deep = 1;
+            if (deep > depth) deep = depth;
+            for (int k = 0; k < deep; k++)
+                world_set(w, x0 + dx, top + k, k == 0 ? gen->island_surface : k <= soil ? gen->island_soil : gen->island_base);
+        }
+        /* A tree on some: one of the kinds that grow at this height, the commoner the likelier. */
+        if (gen->island_tree_count == 0 || rng_unit(rng) >= gen->island_tree_chance) continue;
+        int total = 0;
+        for (int k = 0; k < gen->island_tree_count; k++)
+            if (gen->island_trees[k].min_y <= top_y) total += gen->island_trees[k].weight;
+        if (total <= 0) continue;
+        int roll = rng_range(rng, 0, total - 1), kind = -1;
+        for (int k = 0; k < gen->island_tree_count && kind < 0; k++) {
+            if (gen->island_trees[k].min_y > top_y) continue;
+            roll -= gen->island_trees[k].weight;
+            if (roll < 0) kind = gen->island_trees[k].tree;
+        }
+        int tx = world_wrap_x(w, x0 + length / 2 + rng_range(rng, -2, 2));
+        if (kind < 0 || world_get(w, tx, top) != gen->island_surface) continue;
+        tree_plant(w, tx, top - 1, kind);
+        for (int steps = 0; steps < 400 && tree_grow(w, tx, top - 1, rng).grew; steps++) {}
     }
 }
 
@@ -509,7 +569,11 @@ static bool generate_terrain(World *w)
     while (kind >= 0) {
         const FeatureDef *f = &content.features[kind];
         int plains = rng_range(&rng, gen->gap_min, gen->gap_max);
-        int size = rng_range(&rng, f->min_size, f->max_size);
+        /* (Bigger or smaller than the data says, by what the world was asked for.) */
+        float asked = f->direction > 0 ? w->options.mountains : w->options.valleys;
+        int size = (int)((float)rng_range(&rng, f->min_size, f->max_size) * asked + 0.5f);
+        if (size < 2) size = 2;
+        if (size > w->height / 2 - 60) size = w->height / 2 - 60;
         int half = (int)((float)size * f->width_per_size) + f->width_base;
         int center = pos + plains + half;
         if (half < 1 || center + half + gen->gap_min > width) break;
@@ -634,6 +698,8 @@ static bool generate_terrain(World *w)
     }
     place_veins(w, level, &rng);
     bury(w, level, biome);
+    /* (After the backwalls were raised: an island has only the sky behind it.) */
+    place_islands(w, &rng);
     /* The sea, before anything that only grows under it is planted. */
     water_fill_sea(w);
     plant_world(w, level, biome, &rng);
@@ -663,7 +729,16 @@ static void generate_flat(World *w)
 
 bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind)
 {
+    return world_init_with(w, width, height, seed, kind, NULL);
+}
+
+bool world_init_with(World *w, int width, int height, uint32_t seed, WorldKind kind, const WorldOptions *options)
+{
     memset(w, 0, sizeof *w);
+    w->options = options ? *options : (WorldOptions){ 1.0f, 1.0f, 1.0f };
+    if (w->options.mountains <= 0.0f) w->options.mountains = 1.0f;
+    if (w->options.valleys <= 0.0f) w->options.valleys = 1.0f;
+    if (w->options.veins <= 0.0f) w->options.veins = 1.0f;
     if (width < 4 || height < 8) return false;
     for (int i = 0; i < LAYER_COUNT; i++) {
         w->layers[i] = calloc((size_t)width * (size_t)height, sizeof(uint16_t));

@@ -368,6 +368,8 @@ typedef struct {
 } Game;
 
 bool game_init(Game *g, int width, int height, uint32_t seed, WorldKind kind);
+/* The same, with what the world is to be made as: NULL for everything as usual. */
+bool game_init_with(Game *g, int width, int height, uint32_t seed, WorldKind kind, const WorldOptions *options);
 
 /* Characters. Each has a body, a bar of items, a queue of actions and needs
  * of their own, and all of them carry on with what they have been told to

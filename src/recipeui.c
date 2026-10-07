@@ -431,9 +431,7 @@ bool recipeui_frame(RecipeUi *ui, bool escape)
     }
     Rectangle detail = { right_x, top.y + top.height + 10, top.width, panel.y + panel.height - PAD - (top.y + top.height + 10) };
     if (ui->shown == ITEM_NONE) {
-        wrapped("Pick an item to see what makes it. Pick anything in a recipe to see what makes that, down to the things "
-                "that are dug, grown, hunted or found - and where.",
-                detail.x, detail.y + 10, detail.width, 20, GRAY);
+        DrawText("Pick an item", (int)detail.x, (int)detail.y + 10, 20, GRAY);
     } else {
         if (mouse_in(detail)) ui->detail_scroll -= GetMouseWheelMove() * 60.0f;
         float far = ui->detail_height - detail.height;
