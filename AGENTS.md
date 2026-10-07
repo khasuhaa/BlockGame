@@ -2,6 +2,61 @@
 
 A 2D block-based game engine in C (raylib). See `README.md` for what the game does and how to build it.
 
+## Quick guide: read this before adding anything
+
+A checklist for a new session. The sections after it give the reasons.
+
+**Before starting**
+
+- `git fetch origin`, then `git status`. The owner edits files between sessions (recipes, the plans in `ModDescriptions/`, sometimes data). An uncommitted change that is not yours is theirs: do not revert it and do not commit it without asking. If it breaks a test, say so and ask.
+- `saves/` is the owner's real worlds and is not in git. Only ever read it. Never write there from a test or a script; tests write under `build/`.
+- Run `arch -arm64 make all test` first, so that you know it passed before you touched anything.
+
+**Where a new thing goes**
+
+| Adding | Do this |
+| --- | --- |
+| A block, item, recipe, creature, tree, ore vein | Data only: `data/*.json` and a texture. No C. |
+| Something no existing field can express | A new field: declare it in `src/content.h`, read it in `src/content.c` with a default that leaves old data working and an error that names the file, then write the engine against the field. |
+| Something that belongs to a mod | The mod's own files under `mods/<name>/`. If it needs the engine to do something new, that is a new field the base game could use too. Never `if (mod is on)`. |
+| A new kind of saved state | Bump `SAVE_VERSION` in `src/save.c` and keep every older version loading (see below). |
+| Interface text | A control's name and nothing else; explanations go in `README.md`. Check it fits at 1280x720. |
+
+**Every time, without being asked**
+
+1. **An item needs a `"category"` and a `"price"`**, or the game will not start. That includes the item that places a new block, and each tier of a bench.
+2. **A block that holds things** (`"storage"`) needs its item to have `"container": {"slots": N}`, or its contents are lost when it is picked up.
+3. **Add or change a test** in `tests/test_game.c` for each rule. When shipped recipes change, fix the counts in `test_shipped_recipes`; when a mod's content changes, the counts in its `test_*_mod`. Leave `tests/legacy/` alone.
+4. **Regenerate `obtainment.txt`** when recipes, drops or world generation change: `python3 tools/obtain.py .`
+5. **A new way of getting an item** (a new kind of drop, loot or reward) needs a line in `src/guide.c`, or the recipe book says it cannot be got.
+6. **Update `README.md`** (what it does, for a player) and this file (what a future session must know).
+7. **Check the owner's saves still load** after any change to `src/save.c` or to a saved structure, by loading each `saves/*.world` in a throwaway program. Read only.
+8. **Commit and push** each finished change, with a short message that says what changed. No `Co-authored-by` or tool attribution in commit messages. Never rewrite history.
+
+**Things that have gone wrong before**
+
+- **The art is 16x16 pixels drawn double** (32x32 files for blocks and creatures; item icons are 48x48 - a block's icon is its 32x32 texture pasted at 8,8). Single-pixel detail at 32x32 looks out of place and was rejected. Use the palettes of the existing textures; `tools/bench_art.py` shows the manner.
+- **Ids change from run to run.** Anything saved that names a block, item or recipe has to be translated on load. Blocks, items and creatures are (by name tables). Recipe positions are not: a machine's chosen recipe (`Storage.recipe`) and a door's kept look are only checked for sense after loading.
+- **`World.meta` is one number per square, shared**: tulip colours, ice, a lift motor's power flag, a sign's text, a door's look. A new use must clear it when the block goes (`world_set_at`) and must not collide with a block that already uses it in the other layer.
+- **`Storage` is written to saves raw.** Adding a field to it (or to `Vitals`, `Inventory`, `Drop`, `Mob`) changes the file layout: add a `StorageNN` copy of the old layout and a reader for it, as `read_storages_26` does.
+- **A click means one thing.** `game_click_tile` and the chain in `handle_input` (`src/main.c`) decide by what is in hand and what is under the cursor, in order. A new use of a click goes in that chain at the right place, and the test should drive it through the click, not through `game_queue_action` - a rule that works when queued directly can still be unreachable by clicking.
+- **The tests' `clear_inventory` frees every container**, including those of chests and machines already set down in the test world. Set bar slots directly when the test has machines in it.
+- **World generation shares one random stream.** Drawing a number in a new place changes every world made afterwards from the same seed. Guard new draws so that with the feature off (a rate of 0, a list that is empty) none is made - the legacy tests rely on it.
+- **Background blocks behind a solid block are hidden**: not drawn, not opened (`usable_at`), not glowing. Wire is the exception: it is drawn over the block and comes off first.
+- **Two mods that define the same name cannot both be on**, and both turn off. Give a mod's things names of its own; only redefine a base thing (as both Magic and Mayhem and Industry redefine `workbench_4`) when you accept that it will clash with any other mod that does.
+- **Tools that do not survive the session**: scratch scripts and screenshot harnesses live outside the repository and are gone next time. Anything worth keeping goes in `tools/`.
+
+**Checking what cannot be tested**
+
+Rendering and menus have no tests. To look at them, write a small C file that does `#define main real_main`, `#include "main.c"`, `#undef main`, then its own `main` that loads content, sets a scene up, calls `session_draw` and `TakeScreenshot` - built against every `src/*.c` but `main.c`, and run from the repository root. Keep such files out of the repository. Say plainly in the report what was checked this way and what was not.
+
+**`tools/`** (each takes the repository root as its argument; rerunning one with nothing changed changes nothing)
+
+- `obtain.py` - writes `obtainment.txt` from the data.
+- `prices.py` - reprices items from their recipes. It overwrites prices in `data/items.json`: run it on purpose, not as routine.
+- `mod_magic_mayhem.py`, `mod_industry.py`, `mod_digital_storage.py` - each wrote one mod's data files and textures from its plan. Either edit the script and rerun it, or edit the mod's files by hand and stop using the script: not both, or the script will undo the hand edits.
+- `bench_art.py` - drew the bench textures in `data/textures/tiles/`.
+
 ## Core directive: keep everything data driven
 
 The goal is mod support. Anything a mod might want to add or change must live in data, not in C.
@@ -56,9 +111,11 @@ The loader enforces the category: an item with none that is neither a currency n
 - The game and the tests read `data/` relative to the directory they are run from: run them from the repository root.
 - The recipe book in the pause menu (`src/recipeui.c`) is drawn from `src/guide.c`, which works out from the tables where each item comes from. A new way of getting an item (a new kind of drop, loot or reward) needs a line there, or the book will say the item cannot be got.
 - `recipes.txt` is the list the newest batch of recipes was written out from (the earlier batches are in its history); nothing is removed from `data/recipes.json` because it is not in that file. `obtainment.txt` lists what they leave unobtainable or without a use; it is produced from the data, so regenerate or correct it when recipes, drops or world generation change.
-- Block ids take two bytes in the world and in saves (up to 1023 kinds of block; 341 are in use). A feature that wants a great many look-alike blocks (a colour, a size) should still keep a number with the block (`World.meta`, as two-tone flowers do) rather than add a block for each.
+- Block ids take two bytes in the world and in saves (up to 1023 kinds of block; 341 are in use by the game itself, and about 400 with the largest pair of mods on). A feature that wants a great many look-alike blocks (a colour, a size) should still keep a number with the block (`World.meta`, as two-tone flowers do) rather than add a block for each.
 - The interface carries no explanations: a menu names its controls and nothing else, and what a thing does is said in `README.md`. Check that new text fits where it is drawn at 1280 by 720.
 - `tests/legacy/` is a small fixed set of recipes and benches that the tests of how the game works run against, so that changing what the game ships with does not break them. The shipped recipes have a test of their own (`test_shipped_recipes`) which runs first, against `data/` alone. When recipes change, change that test; leave `tests/legacy` alone.
 - `tests/test_game.c` is headless and covers the rules. It looks content up by name, and its last test loads a small mod on top of the shipped data. Add a test with each rule change.
 - Rendering code (`main.c`, `hud.c`, `benchui.c`, `menu.c`, `assets.c`) needs a window and is not covered by tests.
 - `third_party/cjson` is vendored; do not edit it.
+- The save format is at version 28 (`SAVE_VERSION` in `src/save.c`). Every earlier version still loads; keep it so.
+- The plans the owner writes for mods are in `ModDescriptions/`. Where a plan leaves something open, choose, and say what was chosen in the report and in `README.md`.
