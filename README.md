@@ -159,6 +159,15 @@ Veins of other blocks run through the ground:
 
 Veins of the same material never touch, so each stays within its size. Mining flint gives flint and mining any ore gives that ore; **clay** lies in the dirt in veins of its own, by exactly the rules flint does (4 to 10 blocks, 1 to 6 down, never touching the open air), and is dug the same way; the harder ores take longer to mine.
 
+**Poles.** Every world made from now on has four poles, a quarter of the way round the world from one to the next: going right from where the world begins, the **east pole**, the **south pole**, the **west pole** and the **north pole** - so that the world begins half way between the north pole, to the left, and the east pole, to the right. A pole is a post ten blocks tall, standing on the ground in the background (in the sea it stands on the bottom and rises ten blocks above the water); it cannot be taken down. North and south are candy canes, red and white and blue and white; east and west are carved tropical posts. Floating on top of each is a piece of **pole armour**, taken like any block - which means getting up there:
+
+- the **north hat**, from the north pole: to be worn, and nothing more, for now;
+- the **grass skirt**, from the east pole: wearing it, energy never runs down;
+- the **pole boots**, from the south pole: wearing them, walking, crawling and hopping go twice as fast;
+- the **cornucopia hat**, from the west pole: wearing it, hunger never runs down.
+
+Where the poles are, how tall, what they are made of and what is on top is `"poles"` in `data/worldgen.json`; what the armour does is `"walk_speed"`, `"tireless"` and `"sated"` on the items.
+
 **Islands in the sky.** High over the land hang islands, none any lower than Y 80: each 15 to 30 blocks long and 10 to 15 deep or a little more, a ragged wedge of marble under dirt and a grass top. Nothing about one is a straight line: its top rises and falls by up to three blocks along its length, the dirt runs one to four blocks deep and the line where it meets the marble wavers with it, and the underside bulges, pinches and hangs down in spurs (`"jag"`). And none is solid: a **cave** one or two blocks high winds through the marble of every island from end to end, under a roof of it and over a floor of it, with a hole down through the floor somewhere along it to get in by from underneath (`"cave"`). They have no backwall: there is only sky behind them. About half carry a **gem tree**, which is cut for ordinary wood and sticks but bears shards of its gem among its leaves in place of fruit, and cannot be planted. An amethyst tree may be on any island; sapphire only above Y 105, emerald above 125, ruby above 145 and diamond above 165, each rarer than the last - so the rarer gems are found further up as they are further down. (`"islands"` in `worldgen.json`.)
 
 **Basalt** lies in patches deep in the rock - 14 to 40 blocks to a patch, from 110 blocks down - dark and slow to mine.

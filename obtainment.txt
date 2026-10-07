@@ -12,10 +12,10 @@ Everything is treated as an item unless it can actually be put down in the world
 (the "X block" things, benches, and the blocks the game already had). Beds, doors,
 columns, stairs, ladders and the like are items for now.
 
-Totals: 411 items, 497 recipes, 30 kinds of bench.
+Totals: 415 items, 497 recipes, 30 kinds of bench.
 
 ==============================================================================
-1. UNOBTAINABLE ITEMS  (5 of 411)
+1. UNOBTAINABLE ITEMS  (5 of 415)
 ==============================================================================
 The Workbench is made at any portal (1 dirt), so the benches can all be started.
 The list is split in two: what has no source at all (1a), and what has a recipe that
@@ -24,7 +24,7 @@ cannot be completed because of something in 1a (1b).
 Clay is now dug from veins in the dirt, which opens the kiln, and with it charcoal, the
 furnace, bronze and the press.
 
-406 of the 411 items can be got as things stand.
+410 of the 415 items can be got as things stand.
 
 1a. NOTHING MAKES OR GIVES THESE  (5) - the roots: settle these and most of 1b follows
     (after each: what it is wanted for)
@@ -38,7 +38,7 @@ furnace, bronze and the press.
     (after each: the bench, and what is missing)
 
 
-For reference, what CAN be got as things stand (406): 
+For reference, what CAN be got as things stand (410): 
     Acorn, Amethyst, Amethyst block, Amethyst chandelier, Amethyst column
     Amethyst dodo egg, Amethyst pickaxe, Amethyst shard, Amethyst stairs, Apple
     Armor bench, Armor bench II, Armor bench III, Basalt, Basalt column
@@ -59,14 +59,14 @@ For reference, what CAN be got as things stand (406):
     Coal, Coconut, Coffee, Coffee cherry, Compost, Compost bin, Cooked dodo meat
     Cooked fish, Copper block, Copper blue, Copper boiler, Copper bow & arrows
     Copper coin, Copper column, Copper dodo egg, Copper ingot, Copper ore
-    Copper stairs, Copper wire, Coral, Corn, Craft bench, Craft bench II
-    Craft bench III, Craft bench IV, Crowbar, Crushed limestone, Cup, Dev portal
-    Diamond, Diamond block, Diamond chandelier, Diamond column, Diamond dodo egg
-    Diamond pickaxe, Diamond shard, Diamond stairs, Dirt, Dirt dodo egg
-    Display cabinet, Dodo egg, Dodo feather, Dodo stew, Dough, Dye bench, Easel
-    Egg extractor, Electric elevator motor, Electric furnace, Electric kiln
-    Electric metalwork bench, Electric motor, Electric press, Electric sluice
-    Electric stove, Elevator shaft, Ember, Emerald, Emerald block
+    Copper stairs, Copper wire, Coral, Corn, Cornucopia hat, Craft bench
+    Craft bench II, Craft bench III, Craft bench IV, Crowbar, Crushed limestone, Cup
+    Dev portal, Diamond, Diamond block, Diamond chandelier, Diamond column
+    Diamond dodo egg, Diamond pickaxe, Diamond shard, Diamond stairs, Dirt
+    Dirt dodo egg, Display cabinet, Dodo egg, Dodo feather, Dodo stew, Dough
+    Dye bench, Easel, Egg extractor, Electric elevator motor, Electric furnace
+    Electric kiln, Electric metalwork bench, Electric motor, Electric press
+    Electric sluice, Electric stove, Elevator shaft, Ember, Emerald, Emerald block
     Emerald chandelier, Emerald column, Emerald dodo egg, Emerald green
     Emerald pickaxe, Emerald shard, Emerald stairs, Epoxy, Feeder chest, Fish curry
     Fishing rod, Flatbread, Flax, Flax seeds, Flint, Flint axe, Flint dodo egg
@@ -74,8 +74,8 @@ For reference, what CAN be got as things stand (406):
     Fur, Fur boots, Fur coat, Furnace, Furnace II, Furnace III, Glass, Glass column
     Glass stairs, Gold block, Gold bow & poison arrows, Gold coin, Gold column
     Gold dodo egg, Gold ingot, Gold nugget, Gold pickaxe, Gold spade, Gold stairs
-    Golden chest, Gravel, Green coffee bean, Ice, Ice column, Ice stairs
-    Indian yellow, Iron armor leggings, Iron axe, Iron block, Iron boots
+    Golden chest, Grass skirt, Gravel, Green coffee bean, Ice, Ice column
+    Ice stairs, Indian yellow, Iron armor leggings, Iron axe, Iron block, Iron boots
     Iron chestplate, Iron column, Iron dodo egg, Iron door, Iron helmet, Iron ingot
     Iron machete, Iron ore, Iron pickaxe, Iron pot, Iron stairs, Iron sword
     Iron trapdoor, Jet engine, Jetpack, Jetpack chassis, Kelp, Kiln, Ladder
@@ -84,15 +84,15 @@ For reference, what CAN be got as things stand (406):
     Limestone dodo egg, Limestone stairs, Linen, Linen brimmed hat, Linen cap
     Linen pants, Linen shirt, Luminous plaster, Magnet, Mango, Maple seed, Marble
     Marble column, Marble dodo egg, Marble stairs, Marble white, Metalwork bench
-    Metalwork bench II, Milk, Mirror, Mixing bench, Mozzarella, New player, Oil
-    Oil lantern, Orange, Paint, Paint stripper, Pig iron, Pine cone, Pizza
-    Pizza oven, Plaster, Plaster column, Plaster stairs, Platinum block
+    Metalwork bench II, Milk, Mirror, Mixing bench, Mozzarella, New player
+    North hat, Oil, Oil lantern, Orange, Paint, Paint stripper, Pig iron, Pine cone
+    Pizza, Pizza oven, Plaster, Plaster column, Plaster stairs, Platinum block
     Platinum coin, Platinum column, Platinum dodo egg, Platinum ingot, Platinum ore
-    Platinum stairs, Poison, Portal, Portal II, Portal III, Portal IV, Portal V
-    Portal VI, Portal chest, Press, Press II, Press III, Prickly pear, Rainbow cake
-    Rainbow essence, Raw dodo meat, Raw fish, Raw resin, Razor, Red brick
-    Red marble, Red marble column, Red marble dodo egg, Red marble stairs, Red ochre
-    Refinery, Reinforced platform, Roasted coffee bean, Ruby, Ruby block
+    Platinum stairs, Poison, Pole boots, Portal, Portal II, Portal III, Portal IV
+    Portal V, Portal VI, Portal chest, Press, Press II, Press III, Prickly pear
+    Rainbow cake, Rainbow essence, Raw dodo meat, Raw fish, Raw resin, Razor
+    Red brick, Red marble, Red marble column, Red marble dodo egg, Red marble stairs
+    Red ochre, Refinery, Reinforced platform, Roasted coffee bean, Ruby, Ruby block
     Ruby chandelier, Ruby column, Ruby dodo egg, Ruby pickaxe, Ruby shard
     Ruby stairs, Safe, Salt, Sand, Sandstone, Sandstone column, Sandstone dodo egg
     Sandstone stairs, Sapphire, Sapphire block, Sapphire chandelier, Sapphire column
@@ -145,10 +145,10 @@ working tool, a weapon, money, can be planted, or carries something.
   Tools (4):
     Camera, Carrot on a stick, Crowbar, Fishing rod
 
-3b. CAN BE WORN, BUT WEARING THEM DOES NOTHING  (1)
+3b. CAN BE WORN, BUT WEARING THEM DOES NOTHING  (5)
     (Everything else that is worn - linen, fur, leather, tin, iron, titanium and carbon
     fiber - stops a share of every attack. These go in a slot and stop none of it.)
-    Tin foil hat
+    Cornucopia hat, Grass skirt, North hat, Pole boots, Tin foil hat
 
 3c. TOOLS THAT ARE TOOLS IN NAME ONLY
     (no kind of block is dug faster by them and they do no extra damage)
@@ -271,25 +271,26 @@ has in it: they only exist once a player makes and places them.
     Apple leaves, Apple trunk, Basalt, Black sand, Cactus, Carrot, Cherry leaves
     Cherry trunk, Chilli plant, Clay, Coal, Coconut palm leaves, Coconut palm trunk
     Coffee leaves, Coffee trunk, Copper dodo egg, Copper ore, Copper-bearing dirt
-    Coral, Corn, Decayed apple leaves, Decayed apple trunk, Decayed cactus
-    Decayed cherry leaves, Decayed cherry trunk, Decayed coconut palm leaves
-    Decayed coconut palm trunk, Decayed coffee leaves, Decayed coffee trunk
-    Decayed mango leaves, Decayed mango trunk, Decayed maple leaves
-    Decayed maple trunk, Decayed oak leaves, Decayed oak trunk
+    Coral, Corn, Cornucopia hat, Decayed apple leaves, Decayed apple trunk
+    Decayed cactus, Decayed cherry leaves, Decayed cherry trunk
+    Decayed coconut palm leaves, Decayed coconut palm trunk, Decayed coffee leaves
+    Decayed coffee trunk, Decayed mango leaves, Decayed mango trunk
+    Decayed maple leaves, Decayed maple trunk, Decayed oak leaves, Decayed oak trunk
     Decayed orange leaves, Decayed orange trunk, Decayed pine needles
     Decayed pine trunk, Diamond, Diamond dodo egg, Diamond tree leaves
-    Diamond tree trunk, Dirt, Dirt dodo egg, Dodo egg, Emerald, Emerald dodo egg
-    Emerald tree leaves, Emerald tree trunk, Flax, Flint, Flint dodo egg
-    Gold dodo egg, Gold ore, Golden chest, Grass, Ice, Iron dodo egg, Iron ore, Kelp
-    Lapis dodo egg, Lapis lazuli, Limestone, Limestone dodo egg, Mango leaves
-    Mango trunk, Maple leaves, Maple trunk, Marble, Marble dodo egg, Oak leaves
-    Oak trunk, Orange leaves, Orange trunk, Pine needles, Pine trunk
-    Platinum dodo egg, Platinum ore, Portal base, Red marble, Red marble dodo egg
-    Ruby, Ruby dodo egg, Ruby tree leaves, Ruby tree trunk, Sand, Sandstone
-    Sandstone dodo egg, Sapphire, Sapphire dodo egg, Sapphire tree leaves
-    Sapphire tree trunk, Stone, Stone dodo egg, Sunflower, Time crystal
-    Tin dodo egg, Tin ore, Tin-bearing dirt, Titanium dodo egg, Titanium ore
-    Tomato plant, Tulip, Vine, Wheat, Wood dodo egg
+    Diamond tree trunk, Dirt, Dirt dodo egg, Dodo egg, East pole, Emerald
+    Emerald dodo egg, Emerald tree leaves, Emerald tree trunk, Flax, Flint
+    Flint dodo egg, Gold dodo egg, Gold ore, Golden chest, Grass, Grass skirt, Ice
+    Iron dodo egg, Iron ore, Kelp, Lapis dodo egg, Lapis lazuli, Limestone
+    Limestone dodo egg, Mango leaves, Mango trunk, Maple leaves, Maple trunk, Marble
+    Marble dodo egg, North hat, North pole, Oak leaves, Oak trunk, Orange leaves
+    Orange trunk, Pine needles, Pine trunk, Platinum dodo egg, Platinum ore
+    Pole boots, Portal base, Red marble, Red marble dodo egg, Ruby, Ruby dodo egg
+    Ruby tree leaves, Ruby tree trunk, Sand, Sandstone, Sandstone dodo egg, Sapphire
+    Sapphire dodo egg, Sapphire tree leaves, Sapphire tree trunk, South pole, Stone
+    Stone dodo egg, Sunflower, Time crystal, Tin dodo egg, Tin ore, Tin-bearing dirt
+    Titanium dodo egg, Titanium ore, Tomato plant, Tulip, Vine, West pole, Wheat
+    Wood dodo egg
 
 ==============================================================================
 5. NAMED IN recipes.txt BUT WITH NO SOURCE IN THE WORLD

@@ -56,6 +56,8 @@ bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind);
 bool world_init_with(World *w, int width, int height, uint32_t seed, WorldKind kind, const WorldOptions *options);
 void world_free(World *w);
 
+/* The column a pole stands in (which of content.worldgen.poles): a fixed way round from where the world begins. */
+int world_pole_x(const World *w, int pole);
 /* The kind of country a column is. */
 int world_biome(const World *w, int x);
 /* Works the biomes out again from the land as it lies: for a world saved

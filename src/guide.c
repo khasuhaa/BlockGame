@@ -143,6 +143,10 @@ static bool natural(TileType t, char *out, size_t size, int depth)
         else say(out, size, "On the %s of caves, %d to %d blocks down.", d->on_floor ? "floors" : "walls", d->min_depth, d->max_depth);
         return true;
     }
+    for (int i = 0; i < wg->pole_count; i++) {
+        if (wg->poles[i].tile == t) return say(out, size, "The %s stands of it.", wg->poles[i].label), true;
+        if (wg->poles[i].top == t) return say(out, size, "On top of the %s.", wg->poles[i].label), true;
+    }
     if (t == wg->rock) return say(out, size, "The rock under everything."), true;
     {
         int found = 0;

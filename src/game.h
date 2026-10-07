@@ -558,6 +558,10 @@ bool game_rest(Game *g, Rest kind);
 /* What is left of the character's shield, as a share of a health bar; 0 for none. */
 /* How many ticks an item burns for in the bench that is open: what the item says, or what the bench says of it. 0 if it does not burn there. */
 int game_fuel_value(const Game *g, ItemId item);
+/* What the character has on: how many times as fast it makes them walk (1 for no faster), and whether any of it keeps them from tiring, or from hungering. */
+float game_walk_speed(const Game *g);
+bool game_tireless(const Game *g);
+bool game_sated(const Game *g);
 float game_shield(const Game *g);
 /* The same for any character of the world, by number. */
 float game_character_shield(const Game *g, int c);

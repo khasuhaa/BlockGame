@@ -2159,6 +2159,10 @@ static void test_caves(void)
             for (int x = 0; x < w.width; x++) {
                 const TileDef *def = tile_def(world_get_at(&w, BG, x, y));
                 if (def->light == 0 || def->log_of >= 0 || def->leaves_of >= 0 || def->storage_columns > 0) continue;
+                /* (What floats over a pole is out in the open air, and nothing to do with the caves.) */
+                bool over_pole = false;
+                for (int k = 0; k < content.worldgen.pole_count; k++) over_pole = over_pole || content.worldgen.poles[k].top == world_get_at(&w, BG, x, y);
+                if (over_pole) continue;
                 /* Gems and crystals sit in open cave, against a block; crystals on the floor. */
                 if (world_get(&w, x, y) != TILE_AIR || world_get_at(&w, WALL, x, y) != TILE_STONE) bad++;
                 bool held = world_is_solid(&w, x, y + 1) || world_is_solid(&w, x + 1, y) ||
@@ -9032,6 +9036,122 @@ static void test_shipped_recipes(void)
     CHECK(item_def(item_id("iron_helmet"))->equip == EQUIP_HEAD && item_def(item_id("fur_boots"))->equip == EQUIP_BOOTS);
 }
 
+/* The four poles, and what floats over each. */
+static void test_poles(void)
+{
+    const WorldGenDef *gen = &content.worldgen;
+    static const struct {
+        const char *name, *tile, *gives;
+    } want[4] = { { "north", "north_pole", "north_hat" }, { "east", "east_pole", "grass_skirt" }, { "south", "south_pole", "pole_boots" }, { "west", "west_pole", "cornucopia_hat" } };
+    CHECK(gen->pole_count == 4);
+    int at[4] = { 0 };
+    Game g;
+    CHECK(game_init(&g, 2048, 401, 9, WORLD_TERRAIN));
+    World *w = &g.world;
+    g.tick_rate = 0;
+    clear_mobs(&g);
+    for (int k = 0; k < 4; k++) {
+        int pole = -1;
+        for (int i = 0; i < gen->pole_count; i++)
+            if (strcmp(gen->poles[i].name, want[k].name) == 0) pole = i;
+        CHECK(pole >= 0);
+        if (pole < 0) continue;
+        TileType tile = tile_id(want[k].tile);
+        char top_name[64];
+        snprintf(top_name, sizeof top_name, "%s_afloat", want[k].gives);
+        CHECK(gen->poles[pole].tile == tile && gen->poles[pole].top == tile_id(top_name) && gen->poles[pole].height == 10);
+        /* In the background, and not to be taken down; what is on top of it is. */
+        CHECK(tile != TILE_AIR && tile_def(tile)->layer == LAYER_BACKGROUND && !tile_def(tile)->solid && !tile_def(tile)->removable);
+        CHECK(tile_def(tile_id(top_name))->removable && tile_def(tile_id(top_name))->drop == item_id(want[k].gives));
+        int x = at[k] = world_pole_x(w, pole), top = 0, count = 0;
+        while (top < w->height && world_get_at(w, BG, x, top) != tile && world_get_at(w, BG, x, top) != tile_id(top_name)) top++;
+        CHECK(top < w->height && world_get_at(w, BG, x, top) == tile_id(top_name)); /* the first thing met coming down is what floats on it */
+        int y = top + 1;
+        for (; y < w->height && world_get_at(w, BG, x, y) == tile; y++) count++;
+        /* Ten blocks of it above the ground - or above the sea, with as much again as it takes to reach the bottom. */
+        bool wet = world_is_water(w, x, y - 1);
+        CHECK(world_is_solid(w, x, y) && (wet ? count > 10 : count == 10));
+        for (int k2 = top; k2 < y; k2++) CHECK(world_get(w, x, k2) == TILE_AIR);
+    }
+    /* A quarter of the way round the world from one to the next: north, east, south, west; and the world begins half way between north and east. */
+    int quarter = w->width / 4;
+    CHECK(world_dx(w, at[0], at[1]) == quarter && world_dx(w, at[1], at[2]) == quarter && world_dx(w, at[2], at[3]) == quarter);
+    CHECK(world_dx(w, at[0], w->spawn_x) == quarter / 2 && world_dx(w, w->spawn_x, at[1]) == quarter / 2);
+    /* The same in a world of another size, and none in a world that is only level soil. */
+    World big, flat;
+    CHECK(world_init(&big, 4096, 401, 9, WORLD_TERRAIN) && world_init(&flat, 256, 96, 9, WORLD_FLAT));
+    CHECK(world_dx(&big, world_pole_x(&big, 0), big.spawn_x) == 512 && count_tile(&big, BG, tile_id("north_pole")) >= 10 && count_tile(&big, BG, tile_id("north_hat_afloat")) == 1);
+    CHECK(count_tile(&flat, BG, tile_id("north_pole")) == 0);
+    world_free(&big);
+    world_free(&flat);
+
+    /* What floats over a pole is taken like any block, and is then the thing itself. */
+    int nx = at[0], hy = 0;
+    while (world_get_at(w, BG, nx, hy) != tile_id("north_hat_afloat")) hy++;
+    clear_inventory(&g);
+    for (int y = hy + 1; y < hy + 12; y++) world_set(w, nx + 1, y, TILE_STONE); /* (something to stand on, up beside it) */
+    g.player.feet = g.player.step_to = (TilePos){ nx + 1, hy };
+    CHECK(game_queue_action(&g, ACTION_MINE, nx, hy));
+    run(&g, 5.0f);
+    CHECK(world_get_at(w, BG, nx, hy) == TILE_AIR && count_item(&g, item_id("north_hat")) + drops_of(&g, item_id("north_hat")) == 1);
+    CHECK(!game_queue_action(&g, ACTION_MINE, nx, hy + 1)); /* the pole stays */
+    game_free(&g);
+
+    /* What each does, worn. */
+    const ItemDef *hat = item_def(item_id("north_hat")), *boots = item_def(item_id("pole_boots")), *skirt = item_def(item_id("grass_skirt")),
+                  *horn = item_def(item_id("cornucopia_hat"));
+    CHECK(hat->equip == EQUIP_HEAD && boots->equip == EQUIP_BOOTS && skirt->equip == EQUIP_LEGS && horn->equip == EQUIP_HEAD);
+    CHECK(hat->walk_speed == 0.0f && !hat->tireless && !hat->sated && hat->armor == 0.0f); /* the north hat is only to be worn */
+    CHECK(boots->walk_speed == 2.0f && skirt->tireless && horn->sated);
+    game_init(&g, 128, 64, 4, WORLD_FLAT);
+    g.tick_rate = 0;
+    clear_mobs(&g);
+    clear_inventory(&g);
+    Inventory *inv = &g.inventory;
+    CHECK(game_walk_speed(&g) == 1.0f && !game_tireless(&g) && !game_sated(&g));
+    /* Without them: a step takes its time, and hunger and energy run down. */
+    game_set_move_input(&g, 1, 0);
+    game_update(&g, 0.001f);
+    CHECK(g.player.activity == ACTIVITY_STEPPING && g.player.duration == WALK_TIME);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 1.0f);
+    g.vitals.hunger = g.vitals.energy = 0.8f;
+    g.vitals.saturation = 0.0f;
+    for (int t = 0; t < 200; t++) game_tick(&g);
+    CHECK(g.vitals.hunger < 0.8f && g.vitals.energy < 0.8f);
+    /* The boots: twice as fast on foot. (Carried and not worn, they do nothing.) */
+    inventory_add(inv, item_id("pole_boots"), 1);
+    CHECK(game_walk_speed(&g) == 1.0f);
+    clear_inventory(&g);
+    inv->armor[EQUIP_BOOTS] = (ItemStack){ .id = (uint16_t)item_id("pole_boots"), .count = 1 };
+    CHECK(game_walk_speed(&g) == 2.0f);
+    game_set_move_input(&g, 1, 0);
+    game_update(&g, 0.001f);
+    CHECK(g.player.activity == ACTIVITY_STEPPING && g.player.duration == WALK_TIME / 2.0f);
+    game_set_move_input(&g, 0, 0);
+    int from = g.player.feet.x;
+    run(&g, 1.0f);
+    CHECK(game_queue_action(&g, ACTION_MOVE, from + 21, g.player.feet.y));
+    run(&g, 10.0f * WALK_TIME + 0.3f);
+    CHECK(g.player.feet.x >= from + 19); /* twenty blocks in the time ten take */
+    run(&g, 5.0f);
+    /* The grass skirt: energy stays where it is. The cornucopia hat: hunger does. Neither does the other's work. */
+    inv->armor[EQUIP_LEGS] = (ItemStack){ .id = (uint16_t)item_id("grass_skirt"), .count = 1 };
+    g.vitals.hunger = g.vitals.energy = 0.8f;
+    for (int t = 0; t < 200; t++) game_tick(&g);
+    CHECK(game_tireless(&g) && !game_sated(&g) && g.vitals.energy == 0.8f && g.vitals.hunger < 0.8f);
+    inv->armor[EQUIP_LEGS] = (ItemStack){ 0 };
+    inv->armor[EQUIP_HEAD] = (ItemStack){ .id = (uint16_t)item_id("cornucopia_hat"), .count = 1 };
+    g.vitals.hunger = g.vitals.energy = 0.8f;
+    for (int t = 0; t < 200; t++) game_tick(&g);
+    CHECK(game_sated(&g) && !game_tireless(&g) && g.vitals.hunger == 0.8f && g.vitals.energy < 0.8f);
+    inv->armor[EQUIP_HEAD] = (ItemStack){ .id = (uint16_t)item_id("north_hat"), .count = 1 };
+    g.vitals.hunger = g.vitals.energy = 0.8f;
+    for (int t = 0; t < 200; t++) game_tick(&g);
+    CHECK(g.vitals.hunger < 0.8f && g.vitals.energy < 0.8f && game_protection(&g) == 0.0f);
+    game_free(&g);
+}
+
 /* Mods: which there are, which are on, and the worlds each set of them has to itself. */
 static void test_mods(void)
 {
@@ -10351,6 +10471,7 @@ int main(void)
     test_background_trees();
     test_planting();
     test_chests();
+    test_poles();
     test_content();
     test_mods();
     test_magic_mod();

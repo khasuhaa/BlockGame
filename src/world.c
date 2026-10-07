@@ -697,6 +697,37 @@ static void plant_world(World *w, const int *level, const int *biome, uint32_t *
     }
 }
 
+int world_pole_x(const World *w, int pole)
+{
+    if (pole < 0 || pole >= content.worldgen.pole_count) return w->spawn_x;
+    return world_wrap_x(w, w->spawn_x + (int)floorf(content.worldgen.poles[pole].at * (float)w->width + 0.5f));
+}
+
+/* Stands the poles up: each on the ground of its column - or from the sea
+ * bed up through the sea, where it is in the sea - and so many blocks above
+ * that, with what goes on top of it on top. (Nothing random about it.) */
+static void place_poles(World *w)
+{
+    const WorldGenDef *gen = &content.worldgen;
+    for (int i = 0; i < gen->pole_count; i++) {
+        int x = world_pole_x(w, i), ground = 0;
+        while (ground < w->height - 1 && !world_is_solid(w, x, ground)) ground++;
+        int foot = ground - 1, level = w->sea_row >= 0 && foot > w->sea_row ? w->sea_row : foot;
+        int top = level - gen->poles[i].height + 1;
+        if (top < 2) continue;
+        int layer = tile_def(gen->poles[i].tile)->layer;
+        for (int y = top; y <= foot; y++) {
+            if (world_get(w, x, y) != TILE_AIR && layer != LAYER_FOREGROUND) world_set(w, x, y, TILE_AIR);
+            world_set_at(w, layer, x, y, gen->poles[i].tile);
+        }
+        if (gen->poles[i].top != TILE_AIR) {
+            int over = tile_def(gen->poles[i].top)->layer;
+            for (int l = 0; l < BLOCK_LAYERS; l++) world_set_at(w, l, x, top - 1, TILE_AIR);
+            world_set_at(w, over, x, top - 1, gen->poles[i].top);
+        }
+    }
+}
+
 static bool generate_terrain(World *w)
 {
     const WorldGenDef *gen = &content.worldgen;
@@ -868,6 +899,7 @@ static bool generate_terrain(World *w)
     /* The sea, before anything that only grows under it is planted. */
     water_fill_sea(w);
     plant_world(w, level, biome, &rng);
+    place_poles(w);
     free(biome);
 
     free(c.level);

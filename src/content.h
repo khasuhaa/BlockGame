@@ -20,6 +20,7 @@
 #define MAX_FEATURES 64
 #define MAX_VEINS 192
 #define MAX_DECOR 64
+#define MAX_POLES 16
 #define MAX_CAVE_BIOMES 16
 #define MAX_CAVE_GROWTH 8 /* kinds of thing on the floor, or hanging from the roof, of one kind of cave */
 #define MAX_BIOMES 64
@@ -408,6 +409,9 @@ typedef struct {
     int cast_time;         /* -1 for none; 0 for sunrise, 1 for moonrise */
     int cell_bytes;        /* a storage cell: how much it holds, in bytes (8 things to a byte, and a little for each kind); 0 for anything else */
     bool remote;           /* in hand, it opens the storage network whose access point is in range */
+    /* Worn: walking goes so many times as fast (0 or 1 for no faster); energy does not run down; hunger does not run down. */
+    float walk_speed;
+    bool tireless, sated;
     ItemId cooks_into;     /* what it is when a spell that cooks has killed what dropped it; ITEM_NONE for no different */
     bool becomes_player; /* made at a bench, it is not an item at all but another character to play */
     int plants;      /* tree it grows into when planted, or -1 */
@@ -621,6 +625,18 @@ typedef struct {
     int island_min_y, island_max_y;
     int island_min_length, island_max_length, island_min_depth, island_max_depth;
     int island_min_soil, island_max_soil;
+    /* Poles: markers a fixed way round the world from where it begins - `at`
+     * is that way as a share of the whole world, to the right for more than
+     * nothing and to the left for less. Each is so many blocks of its tile
+     * standing on the ground (on the sea, where there is sea), in the
+     * background, with one block of something else on top. */
+    struct {
+        char name[CONTENT_NAME_LEN], label[CONTENT_NAME_LEN];
+        float at;
+        TileType tile, top;
+        int height;
+    } poles[MAX_POLES];
+    int pole_count;
     /* How ragged they are: how many rows the top of one rises and falls by
      * along its length, and its underside juts by; 0 for a smooth wedge. And
      * how tall the cave through the base rock of each is, least and most; 0 for none. */

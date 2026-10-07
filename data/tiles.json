@@ -340,6 +340,14 @@
     {"name": "basalt", "label": "Basalt", "solid": true, "removable": true, "mine_time": 1.0, "drop": "basalt", "texture": ["tiles/basalt_0.png", "tiles/basalt_1.png"], "shade": 10, "tool": "pickaxe"},
     {"name": "window", "label": "Window", "solid": false, "layer": "background", "removable": true, "mine_time": 0.2, "drop": "window", "texture": "tiles/window.png", "tool": "axe", "window": {}},
     {"name": "black_window", "label": "Black window", "solid": false, "layer": "background", "removable": true, "mine_time": 0.3, "drop": "black_window", "texture": "tiles/black_window.png", "tool": "pickaxe", "window": {"dark": true}},
-    {"name": "reinforced_platform", "label": "Reinforced platform", "solid": true, "removable": true, "mine_time": 0.6, "drop": "reinforced_platform", "texture": "tiles/reinforced_platform.png", "tool": "axe", "wall": false}
+    {"name": "reinforced_platform", "label": "Reinforced platform", "solid": true, "removable": true, "mine_time": 0.6, "drop": "reinforced_platform", "texture": "tiles/reinforced_platform.png", "tool": "axe", "wall": false},
+    {"name": "north_pole", "label": "North pole", "solid": false, "layer": "background", "texture": "tiles/north_pole.png", "wall": false},
+    {"name": "south_pole", "label": "South pole", "solid": false, "layer": "background", "texture": "tiles/south_pole.png", "wall": false},
+    {"name": "east_pole", "label": "East pole", "solid": false, "layer": "background", "texture": "tiles/east_pole.png", "wall": false},
+    {"name": "west_pole", "label": "West pole", "solid": false, "layer": "background", "texture": "tiles/west_pole.png", "wall": false},
+    {"name": "north_hat_afloat", "label": "North hat", "solid": false, "layer": "background", "removable": true, "mine_time": 0.3, "drop": "north_hat", "texture": "tiles/north_hat_afloat.png", "light": 8, "floats": true, "tool": "axe"},
+    {"name": "pole_boots_afloat", "label": "Pole boots", "solid": false, "layer": "background", "removable": true, "mine_time": 0.3, "drop": "pole_boots", "texture": "tiles/pole_boots_afloat.png", "light": 8, "floats": true, "tool": "axe"},
+    {"name": "grass_skirt_afloat", "label": "Grass skirt", "solid": false, "layer": "background", "removable": true, "mine_time": 0.3, "drop": "grass_skirt", "texture": "tiles/grass_skirt_afloat.png", "light": 8, "floats": true, "tool": "axe"},
+    {"name": "cornucopia_hat_afloat", "label": "Cornucopia hat", "solid": false, "layer": "background", "removable": true, "mine_time": 0.3, "drop": "cornucopia_hat", "texture": "tiles/cornucopia_hat_afloat.png", "light": 8, "floats": true, "tool": "axe"}
   ]
 }

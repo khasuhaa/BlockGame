@@ -410,6 +410,10 @@
     {"name": "lapis_dodo_egg", "label": "Lapis dodo egg", "places": "lapis_dodo_egg_placed", "texture": "items/lapis_dodo_egg.png", "category": "food", "food": 0.2, "price": 900},
     {"name": "caged_lapis_dodo", "label": "Caged lapis dodo", "texture": "items/caged_lapis_dodo.png", "category": "animals", "max_stack": 1, "price": 1350},
     {"name": "red_marble_dodo_egg", "label": "Red marble dodo egg", "places": "red_marble_dodo_egg_placed", "texture": "items/red_marble_dodo_egg.png", "category": "food", "food": 0.2, "price": 1200},
-    {"name": "caged_red_marble_dodo", "label": "Caged red marble dodo", "texture": "items/caged_red_marble_dodo.png", "category": "animals", "max_stack": 1, "price": 1350}
+    {"name": "caged_red_marble_dodo", "label": "Caged red marble dodo", "texture": "items/caged_red_marble_dodo.png", "category": "animals", "max_stack": 1, "price": 1350},
+    {"name": "north_hat", "label": "North hat", "texture": "items/north_hat.png", "category": "clothing", "equip": "head", "max_stack": 1, "price": 20000},
+    {"name": "pole_boots", "label": "Pole boots", "texture": "items/pole_boots.png", "category": "clothing", "equip": "boots", "max_stack": 1, "walk_speed": 2.0, "price": 20000},
+    {"name": "grass_skirt", "label": "Grass skirt", "texture": "items/grass_skirt.png", "category": "clothing", "equip": "legs", "max_stack": 1, "tireless": true, "price": 20000},
+    {"name": "cornucopia_hat", "label": "Cornucopia hat", "texture": "items/cornucopia_hat.png", "category": "clothing", "equip": "head", "max_stack": 1, "sated": true, "price": 20000}
   ]
 }

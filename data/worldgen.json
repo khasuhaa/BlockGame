@@ -124,6 +124,12 @@
       "size": [30, 90], "thickness": [2, 5], "per_100_columns": 0.4, "depth": [60, 195] }
   ],
 
+  "poles": [
+    { "name": "north", "label": "North pole", "at": -0.125, "tile": "north_pole", "top": "north_hat_afloat", "height": 10 },
+    { "name": "east", "label": "East pole", "at": 0.125, "tile": "east_pole", "top": "grass_skirt_afloat", "height": 10 },
+    { "name": "south", "label": "South pole", "at": 0.375, "tile": "south_pole", "top": "pole_boots_afloat", "height": 10 },
+    { "name": "west", "label": "West pole", "at": -0.375, "tile": "west_pole", "top": "cornucopia_hat_afloat", "height": 10 }
+  ],
   "islands": {
     "per_100_columns": 0.8, "height": [80, 185], "length": [15, 30], "depth": [10, 15],
     "surface": "grass", "soil": "dirt", "soil_depth": [2, 3], "base": "marble", "jag": 3, "cave": [1, 2],

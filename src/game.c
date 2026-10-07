@@ -1442,11 +1442,11 @@ static void begin_step(Game *g, Step s)
     p->step_boat = boat;
     if (boat) p->duration = content.rules.swim_time / (content.rules.boat_speed > 0.0f ? content.rules.boat_speed : 2.0f);
     else if (ride) p->duration = (content.rules.lift_time > 0.0f ? content.rules.lift_time : 0.04f) * (float)abs(s.dy);
-    else if (hop) p->duration = HOP_TIME;
+    else if (hop) p->duration = HOP_TIME / game_walk_speed(g);
     else if (swim) p->duration = content.rules.swim_time * (s.dx != 0 && s.dy != 0 ? 1.4142f : 1.0f);
     else if (s.climb || p->climbing) p->duration = CLIMB_TIME;
     else if (s.dy > 0) p->duration = FALL_TIME;
-    else p->duration = crawl ? CRAWL_TIME : WALK_TIME;
+    else p->duration = (crawl ? CRAWL_TIME : WALK_TIME) / game_walk_speed(g); /* (quicker in boots that make it so) */
     if (s.dx != 0) p->facing = s.dx > 0 ? 1 : -1;
 }
 
@@ -3119,7 +3119,7 @@ static void vitals_tick(Game *g)
     bool still = v->rest == REST_MEDITATE;
 
     /* Hunger waits for a full stomach to wear off, then runs down. */
-    if (still) {}
+    if (still || game_sated(g)) {} /* (nor with something on that keeps hunger off) */
     else if (v->saturation > 0.0f) v->saturation = v->saturation > 1.0f ? v->saturation - 1.0f : 0.0f;
     else if (u->hunger_ticks > 0) v->hunger = clamp01(v->hunger - 1.0f / (float)u->hunger_ticks);
 
@@ -3155,7 +3155,7 @@ static void vitals_tick(Game *g)
             if (v->energy > most) v->energy = most;
         }
         if (v->energy >= most || u->sleep_ticks <= 0) game_wake(g);
-    } else if (u->energy_ticks > 0 && !still) {
+    } else if (u->energy_ticks > 0 && !still && !game_tireless(g)) {
         v->energy -= 1.0f / (float)u->energy_ticks;
         if (v->energy < 0.0f) v->energy = 0.0f;
     }
@@ -3341,6 +3341,29 @@ void game_weather_event(Game *g, int x, int y)
         world_set_water(w, x, y, level > 0 && level <= WATER_FULL ? level : WATER_FULL);
         water_wake(w, x);
     }
+}
+
+float game_walk_speed(const Game *g)
+{
+    float best = 1.0f;
+    for (int i = 0; i < ARMOR_SLOTS; i++)
+        if (g->inventory.armor[i].count > 0 && item_def((ItemId)g->inventory.armor[i].id)->walk_speed > best)
+            best = item_def((ItemId)g->inventory.armor[i].id)->walk_speed;
+    return best;
+}
+
+bool game_tireless(const Game *g)
+{
+    for (int i = 0; i < ARMOR_SLOTS; i++)
+        if (g->inventory.armor[i].count > 0 && item_def((ItemId)g->inventory.armor[i].id)->tireless) return true;
+    return false;
+}
+
+bool game_sated(const Game *g)
+{
+    for (int i = 0; i < ARMOR_SLOTS; i++)
+        if (g->inventory.armor[i].count > 0 && item_def((ItemId)g->inventory.armor[i].id)->sated) return true;
+    return false;
 }
 
 float game_protection(const Game *g)

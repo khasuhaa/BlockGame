@@ -646,6 +646,10 @@ static bool read_items(Reader *r, const cJSON *root)
             it->meter_max = MAX_CELLS - 1;
             it->meter_start = 0;
         }
+        it->walk_speed = (float)num(e, "walk_speed", 0.0);
+        it->tireless = flag(e, "tireless", false);
+        it->sated = flag(e, "sated", false);
+        if (it->walk_speed < 0.0f) return fail(r, "item \"%s\": \"walk_speed\" is not less than nothing", it->name);
         it->cooks_into = ITEM_NONE;
         if (str(e, "cooks_into") && !item_ref(r, e, "cooks_into", &it->cooks_into)) return false;
         it->places = TILE_AIR;
@@ -1044,6 +1048,27 @@ static bool read_worldgen(Reader *r, const cJSON *root)
             return fail(r, "\"vein_rares\": each needs a \"vein\" that exists, a \"tile\" and a \"one_in\"");
         v->rare = tile;
         v->rare_one_in = (int)num(e, "one_in", 0);
+    }
+
+    /* "poles": markers round the world. */
+    cJSON_ArrayForEach(e, field(root, "poles")) {
+        const char *name = str(e, "name");
+        if (!name) return fail(r, "a pole has no \"name\"");
+        int id = -1;
+        for (int i = 0; i < g->pole_count; i++)
+            if (strcmp(g->poles[i].name, name) == 0) id = i;
+        if (id < 0) {
+            if (g->pole_count >= MAX_POLES) return fail(r, "too many poles");
+            id = g->pole_count++;
+        }
+        memset(&g->poles[id], 0, sizeof g->poles[id]);
+        copy_name(g->poles[id].name, CONTENT_NAME_LEN, name);
+        copy_name(g->poles[id].label, CONTENT_NAME_LEN, str(e, "label") ? str(e, "label") : name);
+        g->poles[id].at = (float)num(e, "at", 0.0);
+        g->poles[id].height = (int)num(e, "height", 10);
+        if (!tile_ref(r, e, "tile", &g->poles[id].tile) || !tile_ref(r, e, "top", &g->poles[id].top)) return false;
+        if (g->poles[id].tile == TILE_AIR || g->poles[id].height < 1 || g->poles[id].height > 64 || g->poles[id].at < -0.5f || g->poles[id].at > 0.5f)
+            return fail(r, "pole \"%s\" needs a \"tile\", a \"height\" of 1 to 64 and an \"at\" from -0.5 to 0.5", name);
     }
 
     /* "cave_biomes": kinds of cave. */
