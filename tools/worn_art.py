@@ -81,6 +81,12 @@ def base_skin():
         im.putpixel((fx + c, fy + 4), (250, 250, 250, 255))
         im.putpixel((fx + c + 1, fy + 4), eye + (255,))
     for c in (3, 4): im.putpixel((fx + c, fy + 6), shade(skin, 0.72))
+    # Seen from the side: an eye and the corner of the mouth, at the front edge (the first column of the right
+    # side, the last of the left).
+    for side, front, step in (('right', 0, 1), ('left', 7, -1)):
+        sx, sy = faces('head')[side][:2]
+        im.putpixel((sx + front + step, sy + 4), eye + (255,))
+        im.putpixel((sx + front, sy + 6), shade(skin, 0.72))
     # An undershirt, cut low at the neck and with no sleeves.
     band(im, 'body', 0, 12, white, edge=shade(white, 0.85))
     lid(im, 'body', lambda c, r: white if c in (0, 1, 6, 7) else None)
@@ -137,7 +143,10 @@ def worn(name, slot, icon):
         else:
             # A helmet: all but the face, with a guard down over the nose.
             lid(im, 'head', lambda c, r: light if 2 <= c <= 5 and 2 <= r <= 5 else mid)
-            band(im, 'head', 0, 8, mid, sides=('left', 'right', 'back'), edge=dark)
+            band(im, 'head', 0, 8, mid, sides=('back',), edge=dark)
+            # (Open at the front of each side as well, so that the eye shows side on.)
+            band(im, 'head', 0, 8, lambda c, r: None if c <= 1 and 3 <= r <= 5 else mid, sides=('right',), edge=dark)
+            band(im, 'head', 0, 8, lambda c, r: None if c >= 6 and 3 <= r <= 5 else mid, sides=('left',), edge=dark)
             band(im, 'head', 0, 3, mid, sides=('front',), edge=dark)
             band(im, 'head', 3, 8, lambda c, r: mid if c in (0, 7) else None, sides=('front',))
             band(im, 'head', 3, 5, lambda c, r: dark if c in (3, 4) else None, sides=('front',))

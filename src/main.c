@@ -1255,7 +1255,7 @@ static void draw_player_asleep(const Game *g, float px, float py)
     float ground = py + TILE_SIZE;
     if (side == 0) {
         /* Nowhere to lie: slumped where they sat. */
-        draw_body(g, px + TILE_SIZE / 2.0f, ground, (BodyPose){ .facing = p->facing, .lean = 25.0f, .sink = 10.0f, .leg = { 80.0f, 80.0f }, .arm = { 20.0f, 20.0f }, .tint = WHITE });
+        draw_body(g, px + TILE_SIZE / 2.0f, ground, (BodyPose){ .facing = p->facing, .lean = 25.0f, .sink = 10.0f, .leg = { 80.0f, 80.0f }, .arm = { 20.0f, 20.0f }, .turn = PLAYERMODEL_SIDE, .tint = WHITE });
     } else {
         /* On their back, feet where they stood and head on the square beside. */
         draw_body(g, side > 0 ? px + 4.0f : px + TILE_SIZE - 4.0f, ground, (BodyPose){ .facing = -side, .pitch = -90.0f, .tint = WHITE });
@@ -1281,7 +1281,7 @@ static void draw_player_meditating(const Game *g, float px, float py)
                  Fade((Color){ 170, 220, 255, 255 }, (1.0f - t) * 0.55f));
     }
     float y = ground - lift;
-    draw_body(g, cx, y, (BodyPose){ .facing = g->player.facing, .sink = 10.0f, .leg = { 82.0f, 82.0f }, .arm = { 35.0f, 35.0f }, .turn = 20.0f, .tint = WHITE });
+    draw_body(g, cx, y, (BodyPose){ .facing = g->player.facing, .sink = 10.0f, .leg = { 82.0f, 82.0f }, .arm = { 35.0f, 35.0f }, .turn = PLAYERMODEL_SIDE, .tint = WHITE });
 
     /* How far along the meditation is, in a little box over the head. */
     Rectangle box = { cx - 34, y - 78, 68, 22 };

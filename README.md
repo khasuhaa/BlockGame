@@ -597,9 +597,9 @@ Clothes and armour worn in the four slots each stop a share of every **attack** 
 
 ### How the character looks
 
-The character is made of six boxes - a cube for the head, and a block each for the body, the two arms and the two legs - seen a little from above. They wear an undershirt and a pair of shorts.
+The character is made of six boxes - a cube for the head, and a block each for the body, the two arms and the two legs - seen dead level, never from above. They wear an undershirt and a pair of shorts.
 
-Stood doing nothing, they face straight out of the screen. To walk, climb, crawl, swim, dig, build or strike they turn to the side they are going or working toward, and turn back to the front a moment after they stop. The arms and legs swing from the shoulder and the hip, and every change - of pose, and of which way they are turned - is eased into rather than jumped to. The stride keeps time of its own, a little under two a second at a walk, whatever the pace over the ground; digging is a quick chop, the arm drawn back and brought down between two and three times a second.
+Stood doing nothing, they face straight out of the screen. To walk, climb, crawl, swim, dig, build or strike they turn square to the side they are going or working toward, so that they face the way they walk, and turn back to the front a moment after they stop. The arms and legs swing from the shoulder and the hip, and every change - of pose, and of which way they are turned - is eased into rather than jumped to. The stride keeps time of its own, a little under two a second at a walk, whatever the pace over the ground; digging is a quick chop, the arm drawn back and brought down between two and three times a second.
 
 The **jetpack** is worn on the body, in the slot a breastplate goes in: straps over the shoulders, the tanks and burners on the back. Wearing it does nothing yet.
 

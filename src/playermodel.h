@@ -4,14 +4,14 @@
 #include "raylib.h"
 
 /* The character, built of boxes: a cube for the head and a block each for
- * the body, the arms and the legs, seen a little from the front and a little
- * from above, so that they read as solid. Each box is wrapped in its part of
+ * the body, the arms and the legs, seen dead level: face on when they stand
+ * idle, square side on when they go anywhere. Each box is wrapped in its part of
  * a skin (64 by 32, laid out as the boxes unfold: see playermodel.c); what
  * is worn is more skins of the same layout, drawn on the same boxes a little
  * larger, wherever they are not clear. */
 
 /* How far round from facing the viewer they stand when they face along the world, in degrees. */
-#define PLAYERMODEL_SIDE 64.0f
+#define PLAYERMODEL_SIDE 90.0f
 
 typedef struct {
     int facing;        /* 1 looking right, -1 looking left */

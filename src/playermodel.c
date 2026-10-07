@@ -15,7 +15,6 @@
 #define SKIN_W 64.0f
 #define SKIN_H 32.0f
 #define VIEW_YAW PLAYERMODEL_SIDE
-#define VIEW_PITCH 14.0f /* how far down on them the viewer looks */
 #define MAX_QUADS 256
 
 typedef struct {
@@ -69,7 +68,7 @@ static V3 place(const Part *part, const BodyPose *pose, V3 local)
     v = rot_x(v, pose->pitch);
     /* (The viewer is on the -z side: they are turned most of the way round, to show their front.) */
     v = rot_y(v, (float)pose->facing * (180.0f - VIEW_YAW + pose->turn));
-    return rot_x(v, -VIEW_PITCH);
+    return v;
 }
 
 static void add_quad(const Part *part, const BodyPose *pose, const V3 corner[4], float u, float v, float w, float h, bool flip, float shade, unsigned int texture)
