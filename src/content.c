@@ -179,6 +179,7 @@ static bool item_ref(Reader *r, const cJSON *obj, const char *key, ItemId *out)
 static bool stack_ref(Reader *r, const cJSON *obj, RecipeItem *out)
 {
     out->count = (int)num(obj, "count", 1);
+    out->full = flag(obj, "full", false);
     if (!str(obj, "item")) return fail(r, "an item stack needs an \"item\"");
     return item_ref(r, obj, "item", &out->id) && out->count > 0;
 }
@@ -335,6 +336,7 @@ static bool read_tiles(Reader *r, const cJSON *root)
         if (!tool_class_ref(r, str(e, "tool"), &t->tool_class)) return false;
         t->upgrade_to = TILE_AIR;
         t->upgrade_cost_count = 0;
+        t->upgrade_time = 0.0f;
         const cJSON *upgrade = field(e, "upgrade"), *cost;
         if (upgrade) {
             if (!str(upgrade, "to") || !tile_ref(r, upgrade, "to", &t->upgrade_to))
@@ -344,6 +346,7 @@ static bool read_tiles(Reader *r, const cJSON *root)
                     return fail(r, "tile \"%s\": an upgrade costs too many kinds of item", t->name);
                 if (!stack_ref(r, cost, &t->upgrade_cost[t->upgrade_cost_count++])) return false;
             }
+            t->upgrade_time = (float)num(upgrade, "time", 0.0);
         }
 
         /* "texture" is one file, or a list to vary between. */
@@ -410,6 +413,12 @@ static bool read_items(Reader *r, const cJSON *root)
         if (it->meter_max < 0 || it->meter_max > 250)
             return fail(r, "item \"%s\": a meter reads at most 250", it->name);
         it->damage = (int)num(e, "damage", 0);
+        it->tinted = flag(e, "tinted", false);
+        if (it->tinted) {
+            it->holds_water = false;
+            it->meter_max = MAX_TINTS;
+            it->meter_start = 0;
+        }
         it->places = TILE_AIR;
         it->sized = false;
         /* "places" is one block, or a list of them: the block for each size of a sized thing. */
@@ -471,6 +480,14 @@ static bool read_recipes(Reader *r, const cJSON *root)
         /* "bench" is one kind of bench, or a list of kinds that all offer the recipe. */
         recipe.level = (int)num(e, "level", 1);
         recipe.crystals = (int)num(e, "crystals", 0);
+        recipe.time = (float)num(e, "time", 0.0);
+        /* "tint": what it makes comes out that colour. */
+        const cJSON *tint = field(e, "tint");
+        if (cJSON_GetArraySize(tint) == 3) {
+            if (content.tint_count >= MAX_TINTS) return fail(r, "too many tints");
+            for (int c = 0; c < 3; c++) content.tints[content.tint_count][c] = (unsigned char)cJSON_GetArrayItem(tint, c)->valuedouble;
+            recipe.tint = ++content.tint_count;
+        }
         const cJSON *bench = field(e, "bench"), *one;
         int kinds = 0;
         if (cJSON_IsString(bench)) {

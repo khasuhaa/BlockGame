@@ -114,6 +114,10 @@ ItemStack *inventory_find(Inventory *inv, ItemId id);
  * none; and setting it. */
 int inventory_meter(const Inventory *inv, const ItemStack *s);
 bool inventory_set_meter(Inventory *inv, ItemStack *s, int value);
+/* How many of an item are held whose meter reads full, and emptying that
+ * many: a bucket of water counted, and poured out. */
+int inventory_count_full(const Inventory *inv, ItemId id);
+int inventory_drain(Inventory *inv, ItemId id, int count);
 /* Wears the best tool of a kind by one use, if it is one that wears: the one
  * on top of its stack, which is gone when it reads nothing. */
 void inventory_wear_tool(Inventory *inv, int tool_class);

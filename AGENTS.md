@@ -43,6 +43,8 @@ The loader enforces this: an item with no category that is neither of those stop
 
 - Build with `make`, run with `make run`, test with `make test`. In a shell running under Rosetta, prefix with `arch -arm64`.
 - The game and the tests read `data/` relative to the directory they are run from: run them from the repository root.
+- The recipes are written out from `recipes.txt`. `obtainment.txt` lists what they leave unobtainable or without a use; it is produced from the data, so regenerate or correct it when recipes, drops or world generation change.
+- `tests/legacy/` is a small fixed set of recipes and benches that the tests of how the game works run against, so that changing what the game ships with does not break them. The shipped recipes have a test of their own (`test_shipped_recipes`) which runs first, against `data/` alone. When recipes change, change that test; leave `tests/legacy` alone.
 - `tests/test_game.c` is headless and covers the rules. It looks content up by name, and its last test loads a small mod on top of the shipped data. Add a test with each rule change.
 - Rendering code (`main.c`, `hud.c`, `benchui.c`, `menu.c`, `assets.c`) needs a window and is not covered by tests.
 - `third_party/cjson` is vendored; do not edit it.

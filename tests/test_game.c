@@ -5294,6 +5294,61 @@ static void test_death(void)
     game_free(&g);
 }
 
+static void test_timed_work(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 161, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    clear_mobs(&g);
+    g.tick_rate = 0;
+    int s = w->surface_y, x = g.player.feet.x + 2;
+    CHECK(place_and_open(&g, "workbench", x));
+
+    /* A recipe takes as long as it says: nothing comes of it before that, and
+     * each one after takes as long again. */
+    Recipe *r = (Recipe *)find_recipe(TILE_WORKBENCH, "woodwork_bench");
+    CHECK(r && game_craft_time(r) == CRAFT_TIME);
+    r->time = 2.0f;
+    ItemId made = item_id("woodwork_bench");
+    clear_inventory(&g);
+    inventory_add(inv, ITEM_WOOD, 5);
+    CHECK(game_craft_time(r) == 2.0f && game_craft(&g, r, 2) && game_craft_progress(&g) == 0.0f);
+    run(&g, 1.0f);
+    CHECK(count_item(&g, made) == 0 && inventory_count(inv, ITEM_WOOD) == 5);
+    CHECK(game_craft_progress(&g) > 0.4f && game_craft_progress(&g) < 0.6f);
+    run(&g, 1.1f);
+    CHECK(count_item(&g, made) == 1 && inventory_count(inv, ITEM_WOOD) == 4 && g.craft_remaining == 1);
+    run(&g, 2.0f);
+    CHECK(count_item(&g, made) == 2 && g.craft_remaining == 0 && game_craft_progress(&g) == -1.0f);
+    r->time = 0.0f;
+
+    /* An upgrade that takes time is begun, and is paid for and done when the time is up. */
+    TileDef *bench = &content.tiles[TILE_WORKBENCH];
+    float was = bench->upgrade_time;
+    bench->upgrade_time = 3.0f;
+    clear_inventory(&g);
+    CHECK(!game_upgrade_bench(&g) && game_upgrade_progress(&g) == -1.0f); /* nothing to pay with */
+    inventory_add(inv, bench->upgrade_cost[0].id, bench->upgrade_cost[0].count);
+    CHECK(game_upgrade_bench(&g) && world_get_at(w, BG, x, s - 1) == TILE_WORKBENCH);
+    CHECK(inventory_count(inv, bench->upgrade_cost[0].id) == bench->upgrade_cost[0].count && !game_upgrade_bench(&g));
+    run(&g, 1.5f);
+    CHECK(game_upgrade_progress(&g) > 0.4f && game_upgrade_progress(&g) < 0.6f && world_get_at(w, BG, x, s - 1) == TILE_WORKBENCH);
+    run(&g, 1.6f);
+    CHECK(world_get_at(w, BG, x, s - 1) == TILE_WORKBENCH_2 && inventory_count(inv, bench->upgrade_cost[0].id) == 0);
+    CHECK(game_upgrade_progress(&g) == -1.0f);
+    /* Shut the menu part-way and it comes to nothing, and costs nothing. */
+    world_set_at(w, BG, x, s - 1, TILE_WORKBENCH);
+    inventory_add(inv, bench->upgrade_cost[0].id, bench->upgrade_cost[0].count);
+    CHECK(game_upgrade_bench(&g));
+    run(&g, 1.0f);
+    game_close_bench(&g);
+    run(&g, 5.0f);
+    CHECK(world_get_at(w, BG, x, s - 1) == TILE_WORKBENCH && inventory_count(inv, bench->upgrade_cost[0].id) == bench->upgrade_cost[0].count);
+    bench->upgrade_time = was;
+    game_free(&g);
+}
+
 static void test_tools(void)
 {
     Game g;
@@ -5536,15 +5591,6 @@ static void test_start_items(void)
     CHECK(g.inventory.slots[0].id == ITEM_BASKET && g.inventory.slots[0].count == 1);
     CHECK(count_item(&g, item_id("trade_portal")) == 1 && count_item(&g, item_id("gold_coin")) == 1);
 
-    /* The spawn portal also hands out a trade portal or a gold coin for 1 dirt each. */
-    const Recipe *list[MAX_BENCH_RECIPES];
-    int n = bench_recipes(TILE_SPAWN_PORTAL, list, MAX_BENCH_RECIPES), cheap_portal = 0, cheap_coin = 0;
-    for (int i = 0; i < n; i++) {
-        if (!costs(list[i], "dirt", 1, NULL, 0) || list[i]->output.count != 1) continue;
-        if (list[i]->output.id == item_id("trade_portal")) cheap_portal++;
-        if (list[i]->output.id == item_id("gold_coin")) cheap_coin++;
-    }
-    CHECK(cheap_portal == 1 && cheap_coin == 1);
     game_free(&g);
 }
 
@@ -5615,8 +5661,199 @@ static void test_content(void)
     CHECK(!content_load("build/mod", err, sizeof err) && strstr(err, "not valid JSON"));
 
     content_reset();
-    CHECK(content_load("data", err, sizeof err) && content.tile_count == tiles);
+    CHECK(content_load("data", err, sizeof err) && content.tile_count > 100 && content.tile_count <= tiles);
     CHECK(content.rules.start_item_count == 3);
+}
+
+/* A shipped recipe: at a kind of bench, making so many of a thing from a first input. */
+static const Recipe *shipped(const char *bench, const char *output, const char *first_input)
+{
+    for (int i = 0; i < content.recipe_count; i++) {
+        const Recipe *r = &content.recipes[i];
+        if (strcmp(r->bench, bench) != 0 || r->output.id != item_id(output)) continue;
+        if (first_input && (r->input_count == 0 || r->inputs[0].id != item_id(first_input))) continue;
+        return r;
+    }
+    return NULL;
+}
+
+static bool needs(const Recipe *r, const char *item, int count)
+{
+    for (int i = 0; r && i < r->input_count; i++)
+        if (r->inputs[i].id == item_id(item) && r->inputs[i].count == count) return true;
+    return false;
+}
+
+static int shipped_count(const char *bench)
+{
+    int n = 0;
+    for (int i = 0; i < content.recipe_count; i++) n += strcmp(content.recipes[i].bench, bench) == 0;
+    return n;
+}
+
+/* The recipes the game ships with, against the list they were written from. */
+static void test_shipped_recipes(void)
+{
+    /* How many each bench has. */
+    static const struct {
+        const char *bench;
+        int count;
+    } benches[] = { { "workbench", 30 }, { "campfire", 6 }, { "tool_bench", 25 }, { "craft_bench", 18 }, { "woodwork_bench", 12 },
+                    { "tailor_bench", 12 }, { "kiln", 8 }, { "furnace", 11 }, { "press", 29 }, { "compost_bin", 24 },
+                    { "builder_bench", 55 }, { "armor_bench", 16 }, { "metalwork_bench", 27 }, { "pizza_oven", 2 },
+                    { "mixing_bench", 93 }, { "portal", 0 }, { "dye_bench", 0 }, { "easel", 0 }, { "refinery", 0 } };
+    int total = 0;
+    for (int i = 0; i < (int)(sizeof benches / sizeof benches[0]); i++) {
+        CHECK(shipped_count(benches[i].bench) == benches[i].count);
+        total += benches[i].count;
+    }
+    CHECK(content.recipe_count == total);
+
+    /* A sample of them: what goes in, how many come out, how long it takes, and at what tier. */
+    const Recipe *r = shipped("workbench", "campfire", NULL);
+    CHECK(r && r->input_count == 1 && needs(r, "stick", 10) && r->time == 20.0f && r->level == 1);
+    r = shipped("workbench", "portal", NULL);
+    CHECK(r && needs(r, "stone", 1) && r->crystals == 120 && r->time == 80.0f && r->level == 2);
+    r = shipped("workbench", "trade_portal", NULL);
+    CHECK(r && needs(r, "wood", 1) && needs(r, "gold_coin", 1) && r->time == 120.0f && r->level == 2);
+    CHECK(strcmp(item_def(item_id("trade_portal"))->label, "Shop") == 0);
+    r = shipped("workbench", "refinery", NULL);
+    CHECK(r && r->level == 4 && r->input_count == 4 && needs(r, "electric_furnace", 1) && needs(r, "oil", 10) && r->time == 180.0f);
+    r = shipped("tool_bench", "copper_bow", NULL);
+    CHECK(r && r->level == 2 && needs(r, "stick", 50) && needs(r, "copper_ingot", 5) && needs(r, "feather", 5) && needs(r, "string", 1));
+    r = shipped("tool_bench", "titanium_pickaxe", NULL);
+    CHECK(r && r->level == 7 && needs(r, "titanium_ingot", 5) && r->time == 180.0f);
+    r = shipped("furnace", "bronze_ingot", NULL);
+    CHECK(r && r->output.count == 3 && needs(r, "copper_ingot", 2) && needs(r, "tin_ingot", 1) && r->time == 40.0f);
+    r = shipped("craft_bench", "basket", NULL);
+    CHECK(r && needs(r, "stick", 5) && r->time == 5.0f);
+    r = shipped("craft_bench", "jetpack", NULL);
+    CHECK(r && r->level == 4 && needs(r, "carbon_fiber_wing", 2) && needs(r, "jet_engine", 2) && needs(r, "fuel", 10) && r->time == 300.0f);
+    r = shipped("builder_bench", "platinum_stairs", NULL);
+    CHECK(r && r->output.count == 2 && needs(r, "platinum_block", 1));
+    r = shipped("builder_bench", "carbon_fiber_column", NULL);
+    CHECK(r && r->output.count == 2 && needs(r, "carbon_fiber_sheet", 2));
+    r = shipped("armor_bench", "titanium_chestplate", NULL);
+    CHECK(r && r->level == 3 && needs(r, "titanium_ingot", 5) && r->time == 240.0f);
+    r = shipped("metalwork_bench", "steel_lantern", NULL);
+    CHECK(r && r->output.count == 5 && r->time == 10.0f && needs(r, "oil", 1));
+    r = shipped("pizza_oven", "pizza", NULL);
+    CHECK(r && needs(r, "mozzarella", 1) && needs(r, "tomato", 1) && r->time == 160.0f);
+
+    /* One output, several recipes: each is its own, told apart by what goes in. */
+    CHECK(shipped("furnace", "gold_ingot", "gold_ore") && shipped("furnace", "gold_ingot", "gold_coin") &&
+          shipped("furnace", "gold_ingot", "golden_chest"));
+    CHECK(needs(shipped("furnace", "gold_ingot", "gold_ore"), "gold_ore", 3) && needs(shipped("furnace", "gold_ingot", "gold_coin"), "gold_coin", 10));
+    CHECK(shipped("furnace", "copper_ingot", "copper_ore") && shipped("furnace", "copper_ingot", "copper_coin"));
+    CHECK(shipped("press", "oil", "flax_seeds") && shipped("press", "oil", "sunflower_seed") && shipped("craft_bench", "yeast", "yeast"));
+    CHECK(shipped("compost_bin", "compost", "kelp") && shipped("compost_bin", "compost", "fish") && needs(shipped("compost_bin", "compost", "apple"), "apple", 5));
+
+    /* A bucket of water is a tin bucket that is full; it is asked for full, and handed back empty. */
+    r = shipped("campfire", "salt", NULL);
+    CHECK(r && r->output.count == 10 && r->input_count == 1 && r->inputs[0].id == item_id("bucket") && r->inputs[0].full);
+    r = shipped("workbench", "mixing_bench", NULL);
+    CHECK(r && needs(r, "bucket", 1) && !r->inputs[1].full); /* (this one takes the bucket itself) */
+    Inventory inv;
+    inventory_init(&inv);
+    memset(inv.slots, 0, sizeof inv.slots);
+    inventory_add(&inv, item_id("bucket"), 2);
+    int crystals = 0;
+    r = shipped("campfire", "salt", NULL);
+    CHECK(recipe_max_crafts(&inv, r, 0) == 0);
+    inventory_set_meter(&inv, &inv.slots[0], 5);
+    CHECK(recipe_max_crafts(&inv, r, 0) == 0); /* part full is not a bucket of water */
+    inventory_set_meter(&inv, &inv.slots[0], 8);
+    CHECK(inventory_count_full(&inv, item_id("bucket")) == 1 && recipe_max_crafts(&inv, r, 0) == 1);
+    CHECK(recipe_craft(&inv, r, &crystals) == 0);
+    CHECK(inventory_count(&inv, item_id("salt")) == 10 && inventory_count(&inv, item_id("bucket")) == 2);
+    CHECK(inventory_count_full(&inv, item_id("bucket")) == 0 && recipe_max_crafts(&inv, r, 0) == 0);
+
+    /* Paint: a bucket, 5 oil and one to three pigments - 8 + 28 + 56 mixes, each its own colour. */
+    int paints = 0, singles = 0;
+    for (int i = 0; i < content.recipe_count; i++) {
+        const Recipe *p = &content.recipes[i];
+        if (p->output.id != item_id("paint")) continue;
+        paints++;
+        singles += p->input_count == 3;
+        CHECK(p->tint > 0 && p->tint <= content.tint_count && needs(p, "bucket", 1) && needs(p, "oil", 5) && p->input_count >= 3 && p->input_count <= 5);
+    }
+    CHECK(paints == 92 && singles == 8 && content.tint_count == 92 && item_def(item_id("paint"))->tinted);
+    memset(inv.slots, 0, sizeof inv.slots);
+    inventory_add(&inv, item_id("bucket"), 1);
+    inventory_add(&inv, item_id("oil"), 5);
+    inventory_add(&inv, item_id("ultramarine_blue"), 1);
+    for (int i = 0; i < content.recipe_count; i++) {
+        const Recipe *p = &content.recipes[i];
+        if (p->output.id != item_id("paint") || p->input_count != 3 || !needs(p, "ultramarine_blue", 1)) continue;
+        CHECK(recipe_craft(&inv, p, &crystals) == 0);
+        const ItemStack *made = NULL;
+        for (int k = 0; k < INVENTORY_SLOTS; k++)
+            if (inv.slots[k].id == item_id("paint")) made = &inv.slots[k];
+        CHECK(made && inventory_meter(&inv, made) == p->tint);
+        CHECK(content.tints[p->tint - 1][2] > content.tints[p->tint - 1][0]); /* blue */
+    }
+
+    /* Tiers, and what each costs to reach. */
+    static const struct {
+        const char *from, *to, *item;
+        int count;
+        float time;
+    } tiers[] = { { "workbench", "workbench_2", "stone", 5, 0 }, { "workbench_2", "workbench_3", "bronze_ingot", 5, 0 },
+                  { "workbench_3", "workbench_4", "steel_ingot", 5, 0 }, { "tool_bench", "tool_bench_2", "stone", 5, 0 },
+                  { "tool_bench_4", "tool_bench_5", "steel_ingot", 5, 0 }, { "tool_bench_6", "tool_bench_7", "titanium_ingot", 5, 0 },
+                  { "craft_bench", "craft_bench_2", "limestone", 1, 0 }, { "craft_bench_2", "craft_bench_3", "marble", 1, 80 },
+                  { "craft_bench_3", "craft_bench_4", "carbon_fiber_sheet", 5, 0 }, { "tailor_bench", "tailor_bench_2", "leather", 1, 0 },
+                  { "furnace", "furnace_2", "iron_ore", 3, 0 }, { "furnace_2", "furnace_3", "gold_ore", 3, 80 },
+                  { "press", "press_2", "bronze_ingot", 1, 0 }, { "press_2", "press_3", "steel_ingot", 1, 80 },
+                  { "armor_bench", "armor_bench_2", "iron_ingot", 5, 0 }, { "armor_bench_2", "armor_bench_3", "titanium_ingot", 5, 0 },
+                  { "metalwork_bench", "metalwork_bench_2", "iron_block", 1, 0 } };
+    for (int i = 0; i < (int)(sizeof tiers / sizeof tiers[0]); i++) {
+        const TileDef *t = tile_def(tile_id(tiers[i].from));
+        CHECK(tile_id(tiers[i].from) > 0 && t->upgrade_to == tile_id(tiers[i].to) && t->upgrade_cost[0].id == item_id(tiers[i].item));
+        CHECK(t->upgrade_cost[0].count == tiers[i].count && t->upgrade_time == tiers[i].time);
+        CHECK(tile_def(t->upgrade_to)->bench_level == t->bench_level + 1 && strcmp(tile_def(t->upgrade_to)->bench_kind, t->bench_kind) == 0);
+    }
+    CHECK(tile_def(tile_id("press_2"))->upgrade_cost_count == 2 && tile_def(tile_id("press_2"))->upgrade_cost[1].id == item_id("diamond"));
+    CHECK(tile_def(tile_id("metalwork_bench_2"))->upgrade_to == TILE_AIR && tile_id("metalwork_bench_3") < 0);
+    CHECK(tile_id_or_alias("metalwork_bench_3") == tile_id("metalwork_bench_2"));
+
+    /* Every recipe is made at a bench that exists, at a tier that bench can reach; and
+     * everything it names has a picture to show. */
+    for (int i = 0; i < content.recipe_count; i++) {
+        const Recipe *p = &content.recipes[i];
+        int top = 0;
+        for (TileType t = 1; t < content.tile_count; t++)
+            if (content.tiles[t].bench && strcmp(content.tiles[t].bench_kind, p->bench) == 0 && content.tiles[t].bench_level > top)
+                top = content.tiles[t].bench_level;
+        CHECK(top >= p->level && p->time > 0.0f && p->output.count >= 1);
+    }
+    int missing = 0;
+    for (ItemId i = 1; i < content.item_count; i++) {
+        char path[160];
+        snprintf(path, sizeof path, "data/textures/%s", content.items[i].texture);
+        FILE *f = fopen(path, "rb");
+        if (f) fclose(f);
+        else missing++, printf("no picture for %s\n", content.items[i].name);
+    }
+    for (TileType t = 1; t < content.tile_count; t++) {
+        for (int k = 0; k < content.tiles[t].texture_count; k++) {
+            char path[160];
+            snprintf(path, sizeof path, "data/textures/%s", content.tiles[t].textures[k]);
+            FILE *f = fopen(path, "rb");
+            if (f) fclose(f);
+            else missing++, printf("no picture for %s\n", content.tiles[t].name);
+        }
+    }
+    CHECK(missing == 0);
+    /* The things with "block" in their name are blocks: they can be put down, and dug up again. */
+    const char *blocks[] = { "copper_block", "steel_block", "platinum_block", "carbon_fiber_block", "diamond_block" };
+    for (int i = 0; i < 5; i++) {
+        TileType t = tile_id(blocks[i]);
+        CHECK(t > 0 && tile_def(t)->solid && item_def(item_id(blocks[i]))->places == t && tile_def(t)->drop == item_id(blocks[i]));
+    }
+    /* Nothing else that is new is: a column, say, is a thing to carry. */
+    CHECK(item_def(item_id("marble_column"))->places == TILE_AIR && item_def(item_id("wooden_door"))->places == TILE_AIR);
+    CHECK(item_def(item_id("iron_helmet"))->equip == EQUIP_HEAD && item_def(item_id("fur_boots"))->equip == EQUIP_BOOTS);
 }
 
 int main(void)
@@ -5630,6 +5867,18 @@ int main(void)
      * Every other test assumes a bare start: one basket. */
     test_start_items();
     content.rules.start_item_count = 1;
+
+    /* What the game ships with is checked first, as it is. The tests after
+     * that are of how the game works, and are run against a small fixed set
+     * of content of their own - the recipes and benches in tests/legacy -
+     * so that changing what the game ships with does not change them. */
+    test_shipped_recipes();
+    content.recipe_count = 0;
+    content.tint_count = 0;
+    if (!content_load("tests/legacy", err, sizeof err)) {
+        printf("could not load tests/legacy: %s\n", err);
+        return 1;
+    }
 
     test_world();
     test_mine_range();
@@ -5658,6 +5907,7 @@ int main(void)
     test_dodo_tree();
     test_water();
     test_basket_pickup();
+    test_timed_work();
     test_death();
     test_fluid_creatures();
     test_characters();

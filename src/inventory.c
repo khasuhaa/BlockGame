@@ -526,6 +526,58 @@ bool inventory_take_one(Inventory *inv, ItemId id, ItemStack *out)
     return inventory_split(inv, find_stack(inv, id), 1, out);
 }
 
+/* Every stack of an item that counts as held: in the bar, and in the baskets open in it. */
+static int held_stacks(Inventory *inv, ItemId id, ItemStack **out, int max)
+{
+    int n = 0;
+    for (int i = 0; i < INVENTORY_SLOTS; i++) {
+        ItemStack *s = &inv->slots[i];
+        if (is_empty(s)) continue;
+        if (s->id == id && n < max) out[n++] = s;
+        if (s->container == 0 || !item_def(s->id)->opens_in_bar) continue;
+        for (int j = 0; j < BASKET_SLOTS; j++) {
+            ItemStack *inner = &inv->containers[s->container].slots[j];
+            if (!is_empty(inner) && inner->id == id && n < max) out[n++] = inner;
+        }
+    }
+    return n;
+}
+
+int inventory_count_full(const Inventory *inv, ItemId id)
+{
+    static Meters m;
+    ItemStack *stacks[INVENTORY_SLOTS * (1 + BASKET_SLOTS)];
+    int n = held_stacks((Inventory *)inv, id, stacks, INVENTORY_SLOTS * (1 + BASKET_SLOTS)), total = 0;
+    int full = item_def(id)->meter_max;
+    if (full <= 0) return 0;
+    for (int i = 0; i < n; i++) {
+        meters_read(inv, stacks[i], &m);
+        for (int k = 0; k < m.count; k++) total += m.reads[k] == full;
+    }
+    return total;
+}
+
+int inventory_drain(Inventory *inv, ItemId id, int count)
+{
+    static Meters m;
+    ItemStack *stacks[INVENTORY_SLOTS * (1 + BASKET_SLOTS)];
+    int n = held_stacks(inv, id, stacks, INVENTORY_SLOTS * (1 + BASKET_SLOTS)), done = 0;
+    int full = item_def(id)->meter_max;
+    for (int i = 0; i < n && done < count && full > 0; i++) {
+        meters_read(inv, stacks[i], &m);
+        bool changed = false;
+        /* From the top of the stack down. */
+        for (int k = m.count - 1; k >= 0 && done < count; k--) {
+            if (m.reads[k] != full) continue;
+            m.reads[k] = (uint8_t)item_def(id)->meter_start;
+            changed = true;
+            done++;
+        }
+        if (changed && !meters_write(inv, stacks[i], &m)) break;
+    }
+    return done;
+}
+
 void inventory_wear_tool(Inventory *inv, int tool_class)
 {
     if (tool_class < 0) return;

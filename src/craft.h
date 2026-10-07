@@ -4,7 +4,7 @@
 #include "inventory.h"
 
 #define MAX_CRAFT_AMOUNT 99
-#define MAX_BENCH_RECIPES 64
+#define MAX_BENCH_RECIPES 192
 
 /* Every recipe of a bench tile's kind, whatever level it needs: fills `out`
  * with up to `max` and returns how many. A tile that is not a bench has none. */
@@ -15,6 +15,9 @@ bool recipe_locked(TileType bench, const Recipe *r);
 /* Whether the inventory holds everything on a list, and taking it. */
 bool inventory_has_all(const Inventory *inv, const RecipeItem *items, int count);
 void inventory_remove_all(Inventory *inv, const RecipeItem *items, int count);
+
+/* How many of an input are held: of a "full" one, only those that are full. */
+int recipe_input_held(const Inventory *inv, RecipeItem item);
 
 /* How many times the recipe can be made from what the inventory holds and the
  * crystals there are, up to MAX_CRAFT_AMOUNT. */

@@ -345,21 +345,52 @@ An open bench shows a menu beside it in the world:
 - a row of the items it can make, lowest tier first, which scrolls sideways (wheel or drag) only when there are more than fit;
 - for the selected item, its recipe and output, a slider from 1 to 99 that stops at what the inventory can pay for, and a Craft button or "Not enough items".
 
-Each item takes 100 ms to craft. Output that does not fit in the inventory is dropped at the player's feet. The menu closes when the world is clicked or a movement key is pressed, and that ends any crafting still running; so does the player moving out of reach, though the menu itself then stays up.
+Each recipe says how long one takes to craft. Output that does not fit in the inventory is dropped at the player's feet. The menu closes when the world is clicked or a movement key is pressed, and that ends any crafting still running; so does the player moving out of reach, though the menu itself then stays up.
 
 A bench can have tiers. Its menu shows its tier and, if it can go higher, an Upgrade button with the cost; upgrading happens in place and keeps the menu open. A recipe that needs a higher tier is still shown in the row, darkened with a padlock and the tier it needs, and cannot be selected. A bench that is removed comes back at the tier it had reached.
 
-| Bench | Made at | From | Makes |
+Every recipe is in `data/recipes.json`, written out from the list in `recipes.txt`; `obtainment.txt` is the reckoning of what that list leaves without a source or without a use. This table is drawn from the data:
+
+| Bench | Made at the | Further tiers cost | Recipes |
 | --- | --- | --- | --- |
-| Workbench | Any portal | 1 dirt | The other benches, and a portal (1 stone, 100 crystals). Tier 2 costs 5 stone, tier 3 costs 5 iron ingots |
-| Woodwork bench | Workbench | 1 wood | Chest (1 wood) |
-| Tool bench | Workbench | 1 stone, 1 flint | Tools, a tier at a time (see Tools) |
-| Craft bench | Workbench | 1 dirt | Basket (10 sticks) |
-| Kiln | Workbench tier 2 | 10 dirt, 1 stick | Charcoal (1 stick) |
-| Furnace | Workbench tier 2 | 5 stone, 1 stick | One ingot from one ore: copper and tin. Tier 2, for 5 iron ore: iron and gold. Tier 3, for 5 titanium ore: platinum and titanium |
-| Campfire | Workbench | 10 sticks | Torch (1 stick); cooked dodo meat (1 dodo meat). Burns fuel like the kiln, and gives light while it does |
-| Metalwork bench | Workbench tier 3 | 3 iron ingots, 1 stone | Coins (see Money) |
-| Trade portal | Any portal | 1 portal, 1 gold coin | Nothing: it is where things are bought and sold |
+| Campfire | Workbench: 10 stick, 20s | - | 6 |
+| Craft bench | Workbench: 1 dirt, 1 stick, 20s | 2: 1 limestone; 3: 1 marble (1m 20s); 4: 5 carbon fiber sheet | 18 |
+| Tool bench | Workbench: 1 dirt, 1 flint, 20s | 2: 5 stone; 3: 5 bronze ingot; 4: 5 iron ingot; 5: 5 steel ingot; 6: 5 gold ingot; 7: 5 titanium ingot | 25 |
+| Woodwork bench | Workbench: 1 wood, 20s | - | 12 |
+| Builder's bench | Workbench tier 2: 1 stone, 1 limestone, 1 marble, 1m 20s | - | 55 |
+| Compost bin | Workbench tier 2: 1 wood, 1 dirt, 5 worms, 1m 20s | - | 24 |
+| Easel | Workbench tier 2: 1 wood, 1m 20s | - | none yet |
+| Furnace | Workbench tier 2: 1 stone, 10 charcoal, 1m 20s | 2: 3 iron ore; 3: 3 gold nugget (1m 20s) | 11 |
+| Kiln | Workbench tier 2: 1 dirt, 1 clay, 10 stick, 1m 20s | - | 8 |
+| Press | Workbench tier 2: 1 stone, 1 wood, 1m 20s | 2: 1 bronze ingot; 3: 1 steel ingot, 1 diamond (1m 20s) | 29 |
+| Tailor's bench | Workbench tier 2: 1 stone, 5 flax, 1m 20s | 2: 1 leather | 12 |
+| Armor bench | Workbench tier 3: 1 stone, 5 tin ingot, 2m | 2: 5 iron ingot; 3: 5 titanium ingot | 16 |
+| Dye bench | Workbench tier 3: 1 stone, 1 bucket of water, 1 linen, 2m | - | none yet |
+| Metalwork bench | Workbench tier 3: 5 bronze ingot, 2 coal, 2m | 2: 1 iron block | 27 |
+| Mixing bench | Workbench tier 3: 1 stone, 1 tin bucket, 5 oil, 2m | - | 93 |
+| Pizza oven | Workbench tier 3: 5 clay, 1 sand, 1 red brick, 1 plaster, 2m | - | 2 |
+| Train yard | Workbench tier 3: 1 stone, 5 steel ingot, 2m | - | none yet |
+| Egg extractor | Workbench tier 4: 1 steel block, 1 electric motor, 1 dodo egg, 10 copper wire, 3m | - | none yet |
+| Electric furnace | Workbench tier 4: 1 steel block, 10 copper wire, 1 iron ingot, 3m | - | none yet |
+| Electric kiln | Workbench tier 4: 1 steel block, 1 red brick, 10 copper wire, 3m | - | none yet |
+| Electric metalwork bench | Workbench tier 4: 1 steel block, 10 copper wire, 1 steel ingot, 3m | - | none yet |
+| Electric press | Workbench tier 4: 1 steel block, 10 copper wire, 1 copper block, 3m | - | none yet |
+| Electric sluice | Workbench tier 4: 1 steel block, 10 copper wire, 1 bucket of water, 1 electric motor, 3m | - | none yet |
+| Electric stove | Workbench tier 4: 1 steel block, 1 iron pot, 10 copper wire, 3m | - | none yet |
+| Flywheel | Workbench tier 4: 1 steel block, 1 copper block, 1 electric motor, 10 copper wire, 3m | - | none yet |
+| Refinery | Workbench tier 4: 1 electric furnace, 1 copper boiler, 10 copper wire, 10 oil, 3m | - | none yet |
+| Solar panel | Workbench tier 4: 1 steel block, 3 silicon wafer, 10 copper wire, 3m | - | none yet |
+| Steam generator | Workbench tier 4: 1 steel block, 1 steam engine, 1 electric motor, 3m | - | none yet |
+| Workbench | nothing makes it yet | 2: 5 stone; 3: 5 bronze ingot; 4: 5 steel ingot | 30 |
+
+Some things about recipes:
+
+- **Each takes time**: from 5 seconds for a basic torch to 5 minutes for a jetpack. The menu shows it beside the name, and the Craft button fills as the one being made comes along. Some upgrades take time too: the button fills, and the cost is paid when it is done, the player still being there. Shutting the menu part-way costs nothing.
+- **A bucket of water** as an ingredient is a tin bucket that is full, 8/8. It is emptied by the recipe and handed back, not used up. (A recipe that asks for a tin bucket uses the bucket itself up.)
+- **One thing, several recipes**: where a bench makes the same thing more than one way - a gold ingot from nuggets, from coins or from a golden chest - each recipe's picture has what it is made from, small, in its top right corner.
+- **Paint** is one item in many colours. The mixing bench makes it from a tin bucket, 5 oil and one, two or three of the eight pigments - 92 mixes - and each paint carries the colour of its mix, shown as a band on its picture. Like buckets, paints stack whatever colour they are.
+- **Things with "block" in their name are blocks**, and can be put down. Everything else that is new - beds, doors, ladders, columns, stairs, lanterns - is an item to carry, for now.
+- The clothes and armour go in the four armour slots. Wearing them does nothing yet.
 
 ### Teleporting
 
@@ -369,7 +400,7 @@ A portal's menu - the spawn portal's or one the player made, from Tier 1 - has a
 
 The portal made at the workbench and the spawn portal are the same kind of bench: they offer the same recipes and climb the same tiers. Every portal is one base block with two portal blocks on it. The spawn portal's base is set into the ground, so two blocks of it stand above the surface; a made portal or a trade portal stands on the ground, base and all, three blocks tall. Each is one thing: placing it needs room for all three blocks, any of its blocks opens it, upgrading changes all of it, and removing any block takes the whole portal down and gives one item back. The spawn portal cannot be removed.
 
-A portal makes a workbench (1 dirt) and a trade portal (1 portal and 1 gold coin), and has six tiers, each bought with one gem and each unlocking that gem's pickaxe (3 of the gem and 1 stick):
+Nothing is made at a portal any more (its old recipes - the workbench, the gem pickaxes, the portal chest, a new player - have no line in `recipes.txt`, and are listed in `obtainment.txt`). It still has six tiers, each bought with one gem; the table shows what each used to unlock:
 
 | Portal tier | Costs | Unlocks | Ore multiplier |
 | --- | --- | --- | --- |
@@ -387,7 +418,7 @@ The **portal chest** (1 golden chest and 100 crystals, at a tier 6 portal) opens
 
 **Crystals** belong to the player, not to a world: the same number is there in every world. They are shown in a box at the top right, kept in `saves/profile.txt`, and written as soon as they change. A new player starts with 1000. They are spent on the portal and portal chest recipes, and gained by mining time crystals in caves.
 
-**Coins** are ordinary items, in stacks of up to 99: 100 copper coins are worth 1 gold coin, and 100 gold coins 1 platinum coin. The metalwork bench makes and exchanges them:
+**Coins** are ordinary items, in stacks of up to 99: 100 copper coins are worth 1 gold coin, and 100 gold coins 1 platinum coin. The furnace makes and melts them: at tier 2, 1 copper ingot makes 10 copper coins and 10 copper coins 1 copper ingot; at tier 3, 1 gold ingot makes 1 gold coin and 10 gold coins 1 gold ingot. (Nothing makes a platinum coin now. The table below is how it was before, at the metalwork bench.)
 
 | Tier | Recipes |
 | --- | --- |
@@ -395,9 +426,11 @@ The **portal chest** (1 golden chest and 100 crystals, at a tier 6 portal) opens
 | 2 (5 copper ingots) | 1 gold ingot → 1 gold coin; 100 copper coins → 1 gold coin; 1 platinum coin → 100 gold coins |
 | 3 (5 gold ingots) | 5 platinum ingots → 1 platinum coin; 100 gold coins → 1 platinum coin |
 
-### Trade portal
+### The Shop
 
-For trying things out, a new world starts the player with a trade portal and 1 gold coin as well as the basket, and any portal makes a trade portal or a gold coin for 1 dirt each. Both are in the data (`rules.json` and `recipes.json`) and are meant to come out again.
+The trade portal is called the **Shop** now, and is made at a tier 2 workbench from 1 wood and 1 gold coin.
+
+For trying things out, a new world starts the player with a trade portal and 1 gold coin as well as the basket, These are in the data (`rules.json`) and are meant to come out again.
 
 Clicking a placed trade portal offers to open or remove it. Open, it shows the coins held and a tab for each category of item - blocks, benches, materials, tools, food - plus a Convert tab.
 
@@ -418,22 +451,35 @@ Every block that can be mined belongs to one kind of tool, and a tool of that ki
 | Pickaxe | Stone, coal, all ores, kiln, furnace |
 | Axe | Tree trunks and leaves, wood, chest, workbench, woodwork bench, tool bench, craft bench |
 
-Every tool also takes 1 stick.
-
-| Tool bench tier | Costs | Tools | From | Speed |
+| Tool bench tier | Makes | From | Takes | It is a |
 | --- | --- | --- | --- | --- |
-| 1 | | Wooden pickaxe, wooden shovel | 1 wood | 1.5× |
-| 1 | | Flint axe, flint shovel | 2 flint | 2× |
-| 2 | 5 stone | Stone pickaxe, stone shovel | 5 stone | 3× |
-| 3 | 5 bronze ingots | Bronze pickaxe, bronze axe | 5 bronze ingots | 4× |
-| 3 | | Tin spade (a shovel) | 3 tin ingots | 4× |
-| 4 | 5 iron ingots | Iron pickaxe, iron axe | 5 iron ingots | 5.5× |
-| 4 | | Gold shovel | 3 gold ingots | 5.5× |
-| 5 | 5 titanium ingots | Titanium pickaxe, titanium axe | 5 titanium ingots | 8× |
+| 1 | Flint spade | 1 stick, 2 flint | 40s | shovel, 2× |
+| 1 | Flint machete | 1 stick, 2 flint | 40s | nothing yet |
+| 1 | Flint axe | 1 stick, 3 flint | 40s | axe, 2× |
+| 1 | Flint pickaxe | 1 stick, 5 flint | 40s | pickaxe, 2× |
+| 1 | Flint spear | 1 stick, 1 flint | 40s | weapon, 3 a blow |
+| 2 | Stone axe | 1 stick, 3 stone | 1m | axe, 3× |
+| 2 | Stone pickaxe | 1 stick, 5 stone | 1m | pickaxe, 3× |
+| 2 | Stone spade | 1 stick, 2 stone | 1m | shovel, 3× |
+| 2 | Copper bow & arrows | 50 stick, 5 copper ingot, 5 dodo feather, 1 string | 1m | nothing yet |
+| 3 | Bronze pickaxe | 1 stick, 5 bronze ingot | 1m 10s | pickaxe, 4× |
+| 3 | Bronze machete | 1 stick, 2 bronze ingot | 1m 10s | nothing yet |
+| 3 | Bronze sword | 1 stick, 3 bronze ingot | 1m 10s | weapon, 5 a blow |
+| 3 | Tin spade | 1 stick, 2 tin ingot | 1m 10s | shovel, 4× |
+| 4 | Iron pickaxe | 1 stick, 5 iron ingot | 1m 20s | pickaxe, 5.5× |
+| 4 | Iron machete | 1 stick, 2 iron ingot | 1m 20s | nothing yet |
+| 4 | Iron sword | 1 stick, 3 iron ingot | 1m 20s | weapon, 10 a blow |
+| 4 | Iron axe | 1 stick, 3 iron ingot | 1m 20s | axe, 5.5× |
+| 5 | Steel pickaxe | 1 stick, 5 steel ingot | 1m 40s | pickaxe, 6.75× |
+| 5 | Crowbar | 2 steel ingot | 1m 40s | nothing yet |
+| 5 | Razor | 1 yak horn, 1 steel ingot | 1m 40s | nothing yet |
+| 6 | Gold spade | 1 stick, 2 gold ingot | 2m | shovel, 5.5× |
+| 6 | Gold pickaxe | 1 stick, 5 gold ingot | 2m | pickaxe, 5.5× |
+| 6 | Gold bow & poison arrows | 50 stick, 5 gold ingot, 5 dodo feather, 5 poison | 2m | nothing yet |
+| 7 | Titanium sword | 1 stick, 3 titanium ingot | 3m | weapon, 20 a blow |
+| 7 | Titanium pickaxe | 1 stick, 5 titanium ingot | 3m | pickaxe, 8× |
 
-Bronze ingots are made at the metalwork bench, tier 1, from 1 copper ingot and 2 tin ingots.
-
-Without the right tool a block takes its ordinary time. Tools do not stack and do not wear out.
+Without the right tool a block takes its ordinary time. Tools stack; none of them wears out. (A spade is a shovel.)
 
 Benches are placed in the background layer, like trees: the player walks in front of them, and an ordinary block can be placed in front of one. Chests are still solid blocks.
 

@@ -1,0 +1,481 @@
+OBTAINMENT
+Worked out from the data files (data/*.json) by a script, not by hand.
+
+"Obtainable" means it can be got by playing, WITHOUT the Shop: dug or picked in a
+generated world, left by a creature, found in a golden chest, brought by meditating,
+given to a new character, or made from such things at a bench that can itself be got
+and raised to the tier needed. The Shop sells every item for 1 copper coin, so counting
+it would make everything obtainable.
+
+Everything is treated as an item unless it can actually be put down in the world today
+(the "X block" things, benches, and the blocks the game already had). Beds, doors,
+columns, stairs, ladders and the like are items for now.
+
+Totals: 370 items, 368 recipes, 30 kinds of bench.
+
+==============================================================================
+1. UNOBTAINABLE ITEMS  (311 of 370)
+==============================================================================
+*** THE WORKBENCH ITSELF CANNOT BE MADE. ***
+Its old recipe (1 dirt, at any portal) was removed with the rest and recipes.txt has no
+line for it. Every bench is made at a Workbench, so as the data stands almost nothing
+can be made at all. To keep this list useful it is split three ways: what has no source
+(1a), what is still blocked even supposing a Workbench (1b), and what is held up by
+nothing but the missing Workbench (1c).
+
+*** THE KILN, THE FURNACE AND THE PRESS WAIT ON EACH OTHER. ***
+Even with a Workbench, none of the three can be started:
+    Kiln      needs 1 clay           - clay is only made at a Press tier 2
+    Press II  needs 1 bronze ingot   - bronze is only made at a Furnace
+    Furnace   needs 10 charcoal      - charcoal is only made at a Kiln
+Nothing in the world gives clay, charcoal or bronze, so the loop has no way in. One
+source for any one of them breaks it: clay to dig, say, or charcoal from the campfire.
+With a Workbench alone 103 of the 370 items can be got; with a Workbench and a source of
+clay, 208 can. Most of 1b is this loop and nothing else.
+
+1a. NOTHING MAKES OR GIVES THESE  (47) - the roots: settle these and most of 1b follows
+    (after each: what it is wanted for)
+
+  - Workbench              -> EVERYTHING: every other bench is made at it
+  - Carbon fiber sheet     -> a bench upgrade, Carbon fiber armor leggings, Carbon fiber block, Carbon fiber boots, Carbon fiber chestplate (+6 more)
+  - Limestone              -> a bench upgrade, Builder's bench, Compost, Crushed limestone, Limestone column (+1 more)
+  - Marble                 -> a bench upgrade, Builder's bench, Marble column, Marble stairs, Marble white
+  - Leather                -> a bench upgrade, Leather boots, Leather jacket, Leather pants
+  - Lapis lazuli           -> Lapis lazuli column, Lapis lazuli stairs, Ultramarine blue
+  - Basalt                 -> Basalt column, Basalt stairs
+  - Ice                    -> Ice column, Ice stairs
+  - Mango                  -> Compost, Indian yellow
+  - Red marble             -> Red marble column, Red marble stairs
+  - Sandstone              -> Sandstone column, Sandstone stairs
+  - Sunflower seed         -> Compost, Oil
+  - Tomato                 -> Compost, Pizza
+  - Wheat                  -> Compost, Flour
+  - Worms                  -> Compost bin, Fishing rod
+  - Amethyst shard         -> Amethyst
+  - Carbon                 -> Compost
+  - Chilli                 -> Compost
+  - Coconut                -> Compost
+  - Diamond shard          -> Diamond
+  - Emerald shard          -> Emerald
+  - Fuel                   -> Jetpack
+  - Maple seed             -> Compost
+  - Milk                   -> Mozzarella
+  - Pig iron               -> Black sand
+  - Pine cone              -> Compost
+  - Platinum ingot         -> Platinum block
+  - Poison                 -> Gold bow & poison arrows
+  - Ruby shard             -> Ruby
+  - Sapphire shard         -> Sapphire
+  - Silicon crystal        -> Silicon wafer
+  - Tulip bulb             -> Compost
+  - Tulip seed             -> Compost
+  - Vine                   -> Compost
+  - Yak horn               -> Razor
+  - Yak shavings           -> Plaster
+
+    Left over from before, wanted for nothing, and now with no recipe:
+      Amethyst pickaxe, Bronze axe, Diamond pickaxe, Emerald pickaxe, Platinum coin
+      Portal chest, Ruby pickaxe, Sapphire pickaxe, Titanium axe, Wooden pickaxe
+      Wooden spade
+
+1b. HAVE A RECIPE, BUT COULD NOT BE MADE EVEN WITH A WORKBENCH  (220)
+    (after each: the bench, and what is missing)
+
+  - Amethyst block                 Press tier 3             needs: tier 3 of the bench
+  - Amethyst chandelier            Craft bench tier 3       needs: tier 3 of the bench, Glass
+  - Amethyst column                Builder's bench          needs: the bench itself, Amethyst block
+  - Amethyst stairs                Builder's bench          needs: the bench itself, Amethyst block
+  - Armor bench                    Workbench tier 3         needs: tier 3 of the bench, Tin ingot
+  - Armor bench (tier 2)           raise the bench          needs: the tier below
+  - Armor bench (tier 3)           raise the bench          needs: the tier below
+  - Basalt column                  Builder's bench          needs: the bench itself, Basalt
+  - Basalt stairs                  Builder's bench          needs: the bench itself, Basalt
+  - Black glass                    Kiln                     needs: the bench itself, Black sand
+  - Black glass column             Builder's bench          needs: the bench itself, Black glass
+  - Black glass stairs             Builder's bench          needs: the bench itself, Black glass
+  - Black sand                     Press tier 2             needs: tier 2 of the bench, Pig iron
+  - Black window                   Kiln                     needs: the bench itself, Black glass
+  - Bread                          Pizza oven               needs: the bench itself, Dough
+  - Brick column                   Builder's bench          needs: the bench itself, Red brick
+  - Brick stairs                   Builder's bench          needs: the bench itself, Red brick
+  - Bronze block                   Metalwork bench          needs: the bench itself, Bronze ingot
+  - Bronze column                  Builder's bench          needs: the bench itself, Bronze block
+  - Bronze ingot                   Furnace                  needs: the bench itself, Copper ingot, Tin ingot
+  - Bronze machete                 Tool bench tier 3        needs: tier 3 of the bench, Bronze ingot
+  - Bronze pickaxe                 Tool bench tier 3        needs: tier 3 of the bench, Bronze ingot
+  - Bronze stairs                  Builder's bench          needs: the bench itself, Bronze block
+  - Bronze sword                   Tool bench tier 3        needs: tier 3 of the bench, Bronze ingot
+  - Builder's bench                Workbench tier 2         needs: Limestone, Marble
+  - Cage                           Metalwork bench          needs: the bench itself
+  - Camera                         Craft bench tier 2       needs: tier 2 of the bench, Glass
+  - Carbon black                   Press                    needs: Charcoal
+  - Carbon fiber armor leggings    Armor bench tier 3       needs: the bench itself, Carbon fiber sheet
+  - Carbon fiber block             Craft bench tier 4       needs: tier 4 of the bench, Carbon fiber sheet
+  - Carbon fiber boots             Armor bench tier 3       needs: the bench itself, Carbon fiber sheet
+  - Carbon fiber chestplate        Armor bench tier 3       needs: the bench itself, Carbon fiber sheet
+  - Carbon fiber column            Builder's bench          needs: the bench itself, Carbon fiber sheet
+  - Carbon fiber helmet            Armor bench tier 3       needs: the bench itself, Carbon fiber sheet
+  - Carbon fiber stairs            Builder's bench          needs: the bench itself, Carbon fiber sheet
+  - Carbon fiber wing              Craft bench tier 4       needs: tier 4 of the bench, Carbon fiber sheet
+  - Carrot on a stick              Craft bench tier 2       needs: tier 2 of the bench
+  - Charcoal                       Kiln                     needs: the bench itself
+  - Clay                           Press tier 2             needs: tier 2 of the bench, Tin bucket
+  - Compost                        Compost bin              needs: the bench itself
+  - Compost bin                    Workbench tier 2         needs: Worms
+  - Cooked fish                    Campfire                 needs: Tin foil
+  - Copper block                   Metalwork bench          needs: the bench itself, Copper ingot
+  - Copper blue                    Press tier 2             needs: tier 2 of the bench
+  - Copper boiler                  Metalwork bench tier 2   needs: the bench itself, Copper ingot, Tin bucket
+  - Copper bow & arrows            Tool bench tier 2        needs: Copper ingot
+  - Copper coin                    Furnace tier 2           needs: the bench itself, Copper ingot
+  - Copper column                  Builder's bench          needs: the bench itself, Copper block
+  - Copper ingot                   Furnace                  needs: the bench itself
+  - Copper stairs                  Builder's bench          needs: the bench itself, Copper block
+  - Copper wire                    Metalwork bench tier 2   needs: the bench itself, Copper ingot
+  - Craft bench (tier 2)           raise the bench          needs: Limestone
+  - Craft bench (tier 3)           raise the bench          needs: Marble
+  - Craft bench (tier 4)           raise the bench          needs: Carbon fiber sheet
+  - Crowbar                        Tool bench tier 5        needs: tier 5 of the bench, Steel ingot
+  - Crushed limestone              Press tier 2             needs: tier 2 of the bench, Limestone
+  - Cup                            Kiln                     needs: the bench itself, Clay
+  - Diamond block                  Press tier 3             needs: tier 3 of the bench
+  - Diamond chandelier             Craft bench tier 3       needs: tier 3 of the bench, Glass
+  - Diamond column                 Builder's bench          needs: the bench itself, Diamond block
+  - Diamond stairs                 Builder's bench          needs: the bench itself, Diamond block
+  - Display cabinet                Metalwork bench tier 2   needs: the bench itself, Black glass
+  - Dough                          Craft bench tier 2       needs: tier 2 of the bench, Flour, Tin bucket, Yeast, Salt
+  - Dye bench                      Workbench tier 3         needs: tier 3 of the bench, Tin bucket
+  - Egg extractor                  Workbench tier 4         needs: tier 4 of the bench, Steel block, Electric motor, Copper wire
+  - Electric elevator motor        Metalwork bench tier 2   needs: the bench itself, Steel block, Electric motor, Copper wire
+  - Electric furnace               Workbench tier 4         needs: tier 4 of the bench, Steel block, Copper wire
+  - Electric kiln                  Workbench tier 4         needs: tier 4 of the bench, Steel block, Red brick, Copper wire
+  - Electric metalwork bench       Workbench tier 4         needs: tier 4 of the bench, Steel block, Copper wire, Steel ingot
+  - Electric motor                 Metalwork bench tier 2   needs: the bench itself, Steel ingot, Magnet, Copper wire
+  - Electric press                 Workbench tier 4         needs: tier 4 of the bench, Steel block, Copper wire, Copper block
+  - Electric sluice                Workbench tier 4         needs: tier 4 of the bench, Steel block, Copper wire, Tin bucket, Electric motor
+  - Electric stove                 Workbench tier 4         needs: tier 4 of the bench, Steel block, Iron pot, Copper wire
+  - Elevator shaft                 Metalwork bench tier 2   needs: the bench itself, Steel block, Copper wire
+  - Emerald block                  Press tier 3             needs: tier 3 of the bench
+  - Emerald chandelier             Craft bench tier 3       needs: tier 3 of the bench, Glass
+  - Emerald column                 Builder's bench          needs: the bench itself, Emerald block
+  - Emerald green                  Press tier 2             needs: tier 2 of the bench
+  - Emerald stairs                 Builder's bench          needs: the bench itself, Emerald block
+  - Feeder chest                   Woodwork bench           needs: Tin bucket
+  - Fishing rod                    Craft bench tier 2       needs: tier 2 of the bench, Worms
+  - Flatbread                      Campfire                 needs: Flour, Tin bucket, Salt
+  - Flour                          Press tier 2             needs: tier 2 of the bench, Wheat
+  - Flywheel                       Workbench tier 4         needs: tier 4 of the bench, Steel block, Copper block, Electric motor, Copper wire
+  - Fur boots                      Tailor's bench tier 2    needs: tier 2 of the bench
+  - Fur coat                       Tailor's bench tier 2    needs: tier 2 of the bench
+  - Furnace                        Workbench tier 2         needs: Charcoal
+  - Furnace II (tier 2)            raise the bench          needs: the tier below
+  - Furnace III (tier 3)           raise the bench          needs: the tier below
+  - Glass                          Kiln                     needs: the bench itself
+  - Glass column                   Builder's bench          needs: the bench itself, Glass
+  - Glass stairs                   Builder's bench          needs: the bench itself, Glass
+  - Gold block                     Metalwork bench tier 2   needs: the bench itself, Gold ingot
+  - Gold bow & poison arrows       Tool bench tier 6        needs: tier 6 of the bench, Gold ingot, Poison
+  - Gold column                    Builder's bench          needs: the bench itself, Gold block
+  - Gold ingot                     Furnace tier 3           needs: the bench itself
+  - Gold pickaxe                   Tool bench tier 6        needs: tier 6 of the bench, Gold ingot
+  - Gold spade                     Tool bench tier 6        needs: tier 6 of the bench, Gold ingot
+  - Gold stairs                    Builder's bench          needs: the bench itself, Gold block
+  - Ice column                     Builder's bench          needs: the bench itself, Ice
+  - Ice stairs                     Builder's bench          needs: the bench itself, Ice
+  - Indian yellow                  Press                    needs: Mango
+  - Iron armor leggings            Armor bench tier 2       needs: the bench itself
+  - Iron axe                       Tool bench tier 4        needs: tier 4 of the bench
+  - Iron block                     Metalwork bench          needs: the bench itself
+  - Iron boots                     Armor bench tier 2       needs: the bench itself
+  - Iron chestplate                Armor bench tier 2       needs: the bench itself
+  - Iron column                    Builder's bench          needs: the bench itself, Iron block
+  - Iron door                      Metalwork bench tier 2   needs: the bench itself, Iron block
+  - Iron helmet                    Armor bench tier 2       needs: the bench itself
+  - Iron machete                   Tool bench tier 4        needs: tier 4 of the bench
+  - Iron pickaxe                   Tool bench tier 4        needs: tier 4 of the bench
+  - Iron pot                       Metalwork bench          needs: the bench itself
+  - Iron stairs                    Builder's bench          needs: the bench itself, Iron block
+  - Iron sword                     Tool bench tier 4        needs: tier 4 of the bench
+  - Iron trapdoor                  Metalwork bench tier 2   needs: the bench itself, Iron block
+  - Jet engine                     Metalwork bench tier 2   needs: the bench itself, Carbon fiber sheet
+  - Jetpack                        Craft bench tier 4       needs: tier 4 of the bench, Carbon fiber wing, Jetpack chassis, Jet engine, Fuel
+  - Jetpack chassis                Craft bench tier 4       needs: tier 4 of the bench, Carbon fiber sheet
+  - Kiln                           Workbench tier 2         needs: Clay
+  - Lapis lazuli column            Builder's bench          needs: the bench itself, Lapis lazuli
+  - Lapis lazuli stairs            Builder's bench          needs: the bench itself, Lapis lazuli
+  - Leather boots                  Tailor's bench tier 2    needs: tier 2 of the bench, Leather
+  - Leather jacket                 Tailor's bench tier 2    needs: tier 2 of the bench, Leather
+  - Leather pants                  Tailor's bench tier 2    needs: tier 2 of the bench, Leather
+  - Limestone column               Builder's bench          needs: the bench itself, Limestone
+  - Limestone stairs               Builder's bench          needs: the bench itself, Limestone
+  - Luminous plaster               Press tier 3             needs: tier 3 of the bench, Plaster, Rainbow essence
+  - Magnet                         Metalwork bench          needs: the bench itself, Black sand
+  - Marble column                  Builder's bench          needs: the bench itself, Marble
+  - Marble stairs                  Builder's bench          needs: the bench itself, Marble
+  - Marble white                   Press                    needs: Marble
+  - Metalwork bench                Workbench tier 3         needs: tier 3 of the bench, Bronze ingot
+  - Metalwork bench II (tier 2)    raise the bench          needs: Iron block
+  - Mirror                         Woodwork bench           needs: Glass, Tin foil
+  - Mixing bench                   Workbench tier 3         needs: tier 3 of the bench, Tin bucket
+  - Mozzarella                     Craft bench tier 2       needs: tier 2 of the bench, Milk, Salt
+  - Oil lantern                    Kiln                     needs: the bench itself, Clay
+  - Paint                          Mixing bench             needs: the bench itself, Tin bucket, Carbon black
+  - Paint stripper                 Mixing bench             needs: the bench itself, Tin bucket
+  - Pizza                          Pizza oven               needs: the bench itself, Mozzarella, Tomato
+  - Pizza oven                     Workbench tier 3         needs: tier 3 of the bench, Clay, Red brick, Plaster
+  - Plaster                        Builder's bench          needs: the bench itself, Crushed limestone, Yak shavings, Tin bucket
+  - Plaster column                 Builder's bench          needs: the bench itself, Plaster
+  - Plaster stairs                 Builder's bench          needs: the bench itself, Plaster
+  - Platinum block                 Metalwork bench tier 2   needs: the bench itself, Platinum ingot
+  - Platinum column                Builder's bench          needs: the bench itself, Platinum block
+  - Platinum stairs                Builder's bench          needs: the bench itself, Platinum block
+  - Press (tier 2)                 raise the bench          needs: Bronze ingot
+  - Press (tier 3)                 raise the bench          needs: Steel ingot
+  - Rainbow essence                Press tier 3             needs: tier 3 of the bench
+  - Razor                          Tool bench tier 5        needs: tier 5 of the bench, Yak horn, Steel ingot
+  - Red brick                      Kiln                     needs: the bench itself, Clay
+  - Red marble column              Builder's bench          needs: the bench itself, Red marble
+  - Red marble stairs              Builder's bench          needs: the bench itself, Red marble
+  - Red ochre                      Press                    needs: Clay
+  - Refinery                       Workbench tier 4         needs: tier 4 of the bench, Electric furnace, Copper boiler, Copper wire
+  - Ruby block                     Press tier 3             needs: tier 3 of the bench
+  - Ruby chandelier                Craft bench tier 3       needs: tier 3 of the bench, Glass
+  - Ruby column                    Builder's bench          needs: the bench itself, Ruby block
+  - Ruby stairs                    Builder's bench          needs: the bench itself, Ruby block
+  - Safe                           Metalwork bench tier 2   needs: the bench itself
+  - Salt                           Campfire                 needs: Tin bucket
+  - Sandstone column               Builder's bench          needs: the bench itself, Sandstone
+  - Sandstone stairs               Builder's bench          needs: the bench itself, Sandstone
+  - Sapphire block                 Press tier 3             needs: tier 3 of the bench
+  - Sapphire chandelier            Craft bench tier 3       needs: tier 3 of the bench, Glass
+  - Sapphire column                Builder's bench          needs: the bench itself, Sapphire block
+  - Sapphire stairs                Builder's bench          needs: the bench itself, Sapphire block
+  - Silicon wafer                  Metalwork bench tier 2   needs: the bench itself, Silicon crystal
+  - Soft bed                       Tailor's bench tier 2    needs: tier 2 of the bench
+  - Solar panel                    Workbench tier 4         needs: tier 4 of the bench, Steel block, Silicon wafer, Copper wire
+  - Steam engine                   Metalwork bench tier 2   needs: the bench itself, Steel ingot, Copper boiler
+  - Steam generator                Workbench tier 4         needs: tier 4 of the bench, Steel block, Steam engine, Electric motor
+  - Steel block                    Metalwork bench tier 2   needs: the bench itself, Steel ingot
+  - Steel column                   Builder's bench          needs: the bench itself, Steel block
+  - Steel downlight                Metalwork bench          needs: the bench itself, Steel ingot, Glass
+  - Steel ingot                    Furnace tier 3           needs: the bench itself
+  - Steel lantern                  Metalwork bench          needs: the bench itself, Steel ingot, Glass
+  - Steel pickaxe                  Tool bench tier 5        needs: tier 5 of the bench, Steel ingot
+  - Steel stairs                   Builder's bench          needs: the bench itself, Steel block
+  - Steel uplight                  Metalwork bench          needs: the bench itself, Steel ingot, Glass
+  - Stone column                   Builder's bench          needs: the bench itself
+  - Stone stairs                   Builder's bench          needs: the bench itself
+  - Tailor's bench (tier 2)        raise the bench          needs: Leather
+  - Tin armor leggings             Armor bench              needs: the bench itself, Tin ingot
+  - Tin block                      Metalwork bench          needs: the bench itself, Tin ingot
+  - Tin boots                      Armor bench              needs: the bench itself, Tin ingot
+  - Tin bucket                     Metalwork bench          needs: the bench itself, Tin ingot
+  - Tin chestplate                 Armor bench              needs: the bench itself, Tin ingot
+  - Tin column                     Builder's bench          needs: the bench itself, Tin block
+  - Tin foil                       Press tier 2             needs: tier 2 of the bench, Tin ingot
+  - Tin foil hat                   Craft bench tier 2       needs: tier 2 of the bench, Tin foil
+  - Tin helmet                     Armor bench              needs: the bench itself, Tin ingot
+  - Tin ingot                      Furnace                  needs: the bench itself
+  - Tin spade                      Tool bench tier 3        needs: tier 3 of the bench, Tin ingot
+  - Tin stairs                     Builder's bench          needs: the bench itself, Tin block
+  - Titanium armor leggings        Armor bench tier 3       needs: the bench itself
+  - Titanium block                 Metalwork bench tier 2   needs: the bench itself
+  - Titanium boots                 Armor bench tier 3       needs: the bench itself
+  - Titanium chestplate            Armor bench tier 3       needs: the bench itself
+  - Titanium column                Builder's bench          needs: the bench itself, Titanium block
+  - Titanium helmet                Armor bench tier 3       needs: the bench itself
+  - Titanium pickaxe               Tool bench tier 7        needs: tier 7 of the bench
+  - Titanium stairs                Builder's bench          needs: the bench itself, Titanium block
+  - Titanium sword                 Tool bench tier 7        needs: tier 7 of the bench
+  - Tool bench (tier 6)            raise the bench          needs: Gold ingot
+  - Tool bench (tier 7)            raise the bench          needs: the tier below
+  - Tool bench III (tier 3)        raise the bench          needs: Bronze ingot
+  - Tool bench IV (tier 4)         raise the bench          needs: the tier below
+  - Tool bench V (tier 5)          raise the bench          needs: Steel ingot
+  - Train yard                     Workbench tier 3         needs: tier 3 of the bench, Steel ingot
+  - Tyrian purple                  Press tier 2             needs: tier 2 of the bench
+  - Ultramarine blue               Press tier 2             needs: tier 2 of the bench, Lapis lazuli
+  - Window                         Kiln                     needs: the bench itself, Glass
+  - Wood column                    Builder's bench          needs: the bench itself
+  - Wood stairs                    Builder's bench          needs: the bench itself
+  - Workbench (tier 4)             raise the bench          needs: Steel ingot
+  - Workbench III (tier 3)         raise the bench          needs: Bronze ingot
+  - Yeast                          Craft bench tier 2       needs: tier 2 of the bench, Flour, Tin bucket
+
+1c. HELD UP ONLY BY THE MISSING WORKBENCH  (44) - all of these work once there is one
+    Basic torch, Boat, Campfire, Chest, Cooked dodo meat, Craft bench, Easel, Ember
+    Flint axe, Flint machete, Flint pickaxe, Flint spade, Flint spear
+    Green coffee bean, Ladder, Linen, Linen brimmed hat, Linen cap, Linen pants
+    Linen shirt, Oil, Portal, Portal II (tier 2), Portal III (tier 3)
+    Portal IV (tier 4), Portal V (tier 5), Portal VI (tier 6), Press
+    Reinforced platform, Shelf, Sign, Stone axe, Stone pickaxe, Stone spade, String
+    Tailor's bench, Tool bench, Tool bench II (tier 2), Trapdoor, Wooden bed
+    Wooden door, Wooden gate, Woodwork bench, Workbench II (tier 2)
+
+For reference, what CAN be got as things stand (58): 
+    Acorn, Amethyst, Amethyst dodo egg, Apple, Basket, Cactus, Carrot, Cherry, Coal
+    Coffee cherry, Copper dodo egg, Copper ore, Coral, Diamond, Diamond dodo egg
+    Dirt, Dirt dodo egg, Dodo egg, Dodo feather, Emerald, Emerald dodo egg, Flax
+    Flax seeds, Flint, Flint dodo egg, Fur, Gold coin, Gold dodo egg, Gold nugget
+    Golden chest, Iron dodo egg, Iron ingot, Iron ore, Kelp, Orange
+    Platinum dodo egg, Platinum ore, Prickly pear, Raw dodo meat, Raw fish, Ruby
+    Ruby dodo egg, Sand, Sapphire, Sapphire dodo egg, Shark head, Shop, Stick, Stone
+    Stone dodo egg, Time crystal, Tin dodo egg, Tin ore, Titanium dodo egg
+    Titanium ingot, Titanium ore, Wood, Wood dodo egg
+
+==============================================================================
+2. BENCHES WITH NO PURPOSE YET
+==============================================================================
+A bench has a purpose if anything is made at it, or it does something else (a portal
+teleports; the Shop trades; a campfire, kiln and furnace also burn fuel).
+
+  - Dye bench                    cannot be made yet either (see 1b)
+  - Easel                        could be made, given a Workbench
+  - Egg extractor                cannot be made yet either (see 1b)
+  - Electric furnace             cannot be made yet either (see 1b)
+  - Electric kiln                cannot be made yet either (see 1b)
+  - Electric metalwork bench     cannot be made yet either (see 1b)
+  - Electric press               cannot be made yet either (see 1b)
+  - Electric sluice              cannot be made yet either (see 1b)
+  - Electric stove               cannot be made yet either (see 1b)
+  - Flywheel                     cannot be made yet either (see 1b)
+  - Refinery                     cannot be made yet either (see 1b)
+  - Solar panel                  cannot be made yet either (see 1b)
+  - Spawn portal                 nothing is made at it any more; it still teleports, and its tiers still cost gems
+  - Steam generator              cannot be made yet either (see 1b)
+  - Train yard                   cannot be made yet either (see 1b)
+
+  Benches whose higher tiers unlock nothing:
+  (none)
+
+==============================================================================
+3. ITEMS WITH NO PURPOSE YET  (items only - blocks and benches are in other sections)
+==============================================================================
+An item has a purpose if it is an ingredient, pays for an upgrade, is food, fuel, a
+working tool, a weapon, money, can be planted, or carries something.
+
+3a. DO NOTHING AT ALL  (102)
+
+  Building (80):
+    Amethyst chandelier, Amethyst column, Amethyst stairs, Basalt column
+    Basalt stairs, Black glass column, Black glass stairs, Black window, Boat
+    Brick column, Brick stairs, Bronze column, Bronze stairs, Carbon fiber column
+    Carbon fiber stairs, Copper column, Copper stairs, Cup, Diamond chandelier
+    Diamond column, Diamond stairs, Display cabinet, Emerald chandelier
+    Emerald column, Emerald stairs, Feeder chest, Glass column, Glass stairs
+    Gold column, Gold stairs, Ice column, Ice stairs, Iron column, Iron door
+    Iron stairs, Iron trapdoor, Lapis lazuli column, Lapis lazuli stairs
+    Limestone column, Limestone stairs, Marble column, Marble stairs, Mirror
+    Oil lantern, Plaster column, Plaster stairs, Platinum column, Platinum stairs
+    Red marble column, Red marble stairs, Reinforced platform, Ruby chandelier
+    Ruby column, Ruby stairs, Safe, Sandstone column, Sandstone stairs
+    Sapphire chandelier, Sapphire column, Sapphire stairs, Shelf, Sign, Soft bed
+    Steel column, Steel downlight, Steel lantern, Steel stairs, Steel uplight
+    Stone column, Stone stairs, Tin column, Tin stairs, Titanium column
+    Titanium stairs, Trapdoor, Window, Wood column, Wood stairs, Wooden door
+    Wooden gate
+
+  Clothing (1):
+    Jetpack
+
+  Materials (11):
+    Cage, Compost, Electric elevator motor, Elevator shaft, Ember, Green coffee bean
+    Luminous plaster, Paint, Paint stripper, Platinum ore, Titanium ore
+
+  Tools (10):
+    Bronze machete, Camera, Carrot on a stick, Copper bow & arrows, Crowbar
+    Fishing rod, Flint machete, Gold bow & poison arrows, Iron machete, Razor
+
+3b. CAN BE WORN, BUT WEARING THEM DOES NOTHING  (26)
+    (they go in the head / chest / legs / boots slots; there is no armour or warmth yet)
+    Carbon fiber armor leggings, Carbon fiber boots, Carbon fiber chestplate
+    Carbon fiber helmet, Fur boots, Fur coat, Iron armor leggings, Iron boots
+    Iron chestplate, Iron helmet, Leather boots, Leather jacket, Leather pants
+    Linen brimmed hat, Linen cap, Linen pants, Linen shirt, Tin armor leggings
+    Tin boots, Tin chestplate, Tin foil hat, Tin helmet, Titanium armor leggings
+    Titanium boots, Titanium chestplate, Titanium helmet
+
+3c. TOOLS THAT ARE TOOLS IN NAME ONLY
+    (no kind of block is dug faster by them and they do no extra damage)
+    - Bronze machete
+    - Camera
+    - Carrot on a stick
+    - Copper bow & arrows
+    - Crowbar
+    - Fishing rod
+    - Flint machete
+    - Gold bow & poison arrows
+    - Iron machete
+    - Razor
+
+==============================================================================
+4. BLOCKS THAT ARE NOT IN WORLD GENERATION
+==============================================================================
+Things that can be put down in the world (benches aside) which a new world never
+has in it: they only exist once a player makes and places them.
+
+  - Amethyst block               NOT obtainable (see 1)
+  - Basic torch                  obtainable given a Workbench
+  - Bronze block                 NOT obtainable (see 1)
+  - Carbon fiber block           NOT obtainable (see 1)
+  - Chest                        obtainable given a Workbench
+  - Copper block                 NOT obtainable (see 1)
+  - Diamond block                NOT obtainable (see 1)
+  - Emerald block                NOT obtainable (see 1)
+  - Gold block                   NOT obtainable (see 1)
+  - Iron block                   NOT obtainable (see 1)
+  - Platinum block               NOT obtainable (see 1)
+  - Portal chest                 NOT obtainable (see 1)
+  - Ruby block                   NOT obtainable (see 1)
+  - Sapphire block               NOT obtainable (see 1)
+  - Shark head                   obtainable
+  - Steel block                  NOT obtainable (see 1)
+  - Tin block                    NOT obtainable (see 1)
+  - Titanium block               NOT obtainable (see 1)
+  - Wood                         obtainable
+
+  Blocks that ARE generated, for reference:
+    Amethyst, Amethyst dodo egg, Apple leaves, Apple trunk, Cactus, Carrot
+    Cherry leaves, Cherry log, Coal, Coffee leaves, Coffee trunk, Copper dodo egg
+    Copper ore, Copper-bearing dirt, Coral, Decayed apple leaves
+    Decayed apple trunk, Decayed cactus, Decayed cherry leaves, Decayed cherry trunk
+    Decayed coffee leaves, Decayed coffee trunk, Decayed oak leaves
+    Decayed oak trunk, Decayed orange leaves, Decayed orange trunk, Diamond
+    Diamond dodo egg, Dirt, Dirt dodo egg, Dodo egg, Emerald, Emerald dodo egg, Flax
+    Flint, Flint dodo egg, Gold dodo egg, Gold ore, Golden chest, Grass
+    Iron dodo egg, Iron ore, Kelp, Oak leaves, Oak log, Orange leaves, Orange trunk
+    Platinum dodo egg, Platinum ore, Portal base, Ruby, Ruby dodo egg, Sand
+    Sapphire, Sapphire dodo egg, Stone, Stone dodo egg, Time crystal, Tin dodo egg
+    Tin ore, Tin-bearing dirt, Titanium dodo egg, Titanium ore, Wood dodo egg
+
+==============================================================================
+5. NAMED IN recipes.txt BUT WITH NO SOURCE IN THE WORLD
+==============================================================================
+The raw materials the recipes assume exist somewhere. None of these is dug, grown,
+dropped or found yet; this is the short list to decide on first.
+
+    Amethyst shard, Basalt, Carbon, Carbon fiber sheet, Chilli, Coconut
+    Diamond shard, Emerald shard, Fuel, Ice, Lapis lazuli, Leather, Limestone, Mango
+    Maple seed, Marble, Milk, Pig iron, Pine cone, Platinum ingot, Poison
+    Red marble, Ruby shard, Sandstone, Sapphire shard, Silicon crystal
+    Sunflower seed, Tomato, Tulip bulb, Tulip seed, Vine, Wheat, Worms, Yak horn
+    Yak shavings
+
+==============================================================================
+6. NOTES ON HOW recipes.txt WAS READ
+==============================================================================
+  - "Bucket of water" is a Tin bucket that is full (8/8). It is handed back empty, not used up.
+  - Recipes that ask for a "tin bucket" itself (mixing bench, feeder chest, paint) use the bucket up.
+  - "Bronze", "iron", "steel", "gold", "titanium" as amounts mean the ingots.
+  - "Gold nuggets" are what gold ore blocks drop (the item that was called Gold ore).
+  - "Coffee cherry" is what coffee trees bear (was Coffee bean). "Shop" is the trade portal.
+  - "Flint/Stone/Gold spade" are the old shovels, renamed. "Basic torch" is the torch.
+  - "Raw dodo meat" and "Raw fish" are the old dodo meat and fish.
+  - Where a line gave no time, it takes the last time given above it in the same section.
+  - "2 platinum stairs - platinum stairs" was read as: from 1 platinum block, like the rest.
+  - Compost: each line is its own recipe, 5 of the thing for 1 compost.
+  - Paint: 92 recipes, one per mix of 1, 2 or 3 of the 8 pigments; the paint carries the mixed colour.
+  - The metalwork bench now has 2 tiers, as listed; its old third tier is gone.
+  - Old recipes with no line in recipes.txt are gone, as asked. That includes the Workbench
+    itself (was 1 dirt at any portal), the new player, the portal chest and the gem pickaxes.
+

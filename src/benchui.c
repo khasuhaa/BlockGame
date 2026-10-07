@@ -375,7 +375,10 @@ static void draw_header(const Game *g, Rectangle menu)
     bool can = inventory_has_all(&g->inventory, def->upgrade_cost, def->upgrade_cost_count);
     bool hot = can && CheckCollisionPointRec(GetMousePosition(), b);
     DrawRectangleRec(b, !can ? (Color){ 54, 57, 70, 255 } : hot ? (Color){ 90, 160, 100, 255 } : button_color);
-    DrawText("Upgrade", (int)b.x + 6, (int)b.y + 6, 14, can ? RAYWHITE : GRAY);
+    /* One that takes time fills up as it goes. */
+    float going = game_upgrade_progress(g);
+    if (going >= 0.0f) DrawRectangleRec((Rectangle){ b.x, b.y, b.width * going, b.height }, (Color){ 120, 200, 130, 255 });
+    DrawText(going >= 0.0f ? "Upgrading" : "Upgrade", (int)b.x + 6, (int)b.y + 6, 14, can ? RAYWHITE : GRAY);
     /* What it costs, right-aligned: a count beside each item. */
     float x = b.x + b.width - 4;
     for (int i = def->upgrade_cost_count - 1; i >= 0; i--) {
@@ -400,6 +403,38 @@ static void draw_list(const BenchUi *ui, const Game *g, const Recipe **recipes, 
         DrawRectangleLinesEx(cell, i == ui->selected ? 3.0f : 2.0f,
                              i == ui->selected ? RAYWHITE : edge_color);
         hud_draw_item_icon(recipes[i]->output.id, cell);
+        /* What comes out in a colour shows the colour. */
+        if (recipes[i]->tint > 0 && recipes[i]->tint <= content.tint_count) {
+            const unsigned char *c = content.tints[recipes[i]->tint - 1];
+            Rectangle swatch = { cell.x + 8, cell.y + cell.height - 22, cell.width - 16, 14 };
+            DrawRectangleRec(swatch, (Color){ c[0], c[1], c[2], 255 });
+            DrawRectangleLinesEx(swatch, 1.0f, (Color){ 14, 15, 20, 255 });
+        }
+        /* Where more than one recipe here makes the same thing, each shows
+         * what it is made from, small, in its top right corner. */
+        bool shared = false;
+        for (int k = 0; k < count && !shared; k++) shared = k != i && recipes[k]->output.id == recipes[i]->output.id;
+        if (shared && recipes[i]->tint == 0 && recipes[i]->input_count > 0) {
+            /* (The first input the others do not all share: what makes this one this one.) */
+            ItemId mark = recipes[i]->inputs[0].id;
+            for (int in = 0; in < recipes[i]->input_count; in++) {
+                bool common = true;
+                for (int k = 0; k < count && common; k++) {
+                    if (recipes[k]->output.id != recipes[i]->output.id || k == i) continue;
+                    bool has = false;
+                    for (int j = 0; j < recipes[k]->input_count; j++) has = has || recipes[k]->inputs[j].id == recipes[i]->inputs[in].id;
+                    common = has;
+                }
+                if (!common) {
+                    mark = recipes[i]->inputs[in].id;
+                    break;
+                }
+            }
+            Rectangle corner = { cell.x + cell.width - 24, cell.y + 2, 22, 22 };
+            DrawRectangleRec(corner, (Color){ 20, 21, 27, 230 });
+            DrawRectangleLinesEx(corner, 1.0f, edge_color);
+            hud_draw_item_icon(mark, corner);
+        }
         if (recipe_locked(open_bench(g), recipes[i])) {
             DrawRectangleRec(cell, Fade((Color){ 20, 21, 27, 255 }, 0.72f));
             draw_lock(cell);
@@ -428,6 +463,12 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
     /* What is being made, on a line of its own so a long name has room. */
     DrawText(TextFormat("%s x%d", item_def(r->output.id)->label, r->output.count * amount),
              (int)left, (int)y, 16, RAYWHITE);
+    /* How long each takes, at the end of the line. */
+    float secs = game_craft_time(r);
+    const char *takes = secs >= 60.0f ? ((int)secs % 60 ? TextFormat("%dm %ds each", (int)secs / 60, (int)secs % 60)
+                                                         : TextFormat("%dm each", (int)secs / 60))
+                        : secs >= 1.0f ? TextFormat("%ds each", (int)secs) : "";
+    DrawText(takes, (int)(left + room) - MeasureText(takes, 12), (int)y + 2, 12, LIGHTGRAY);
     y += 24;
 
     /* Inputs with how many are held against how many are needed, then the
@@ -445,13 +486,13 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
         if (r->crystals > 0)
             width += icon + 8 + MeasureText(TextFormat("%d/%d", g->crystals, r->crystals * amount), font);
         for (int i = 0; i < r->input_count; i++)
-            width += icon + 8 + MeasureText(TextFormat("%d/%d", inventory_count(&g->inventory, r->inputs[i].id),
+            width += icon + 8 + MeasureText(TextFormat("%d/%d", recipe_input_held(&g->inventory, r->inputs[i]),
                                                        r->inputs[i].count * amount), font);
         if (width <= room) break;
     }
     float x = left, text_y = y + (36 - font) / 2.0f, icon_y = y + (36 - icon) / 2.0f;
     for (int i = 0; i < r->input_count; i++) {
-        int have = inventory_count(&g->inventory, r->inputs[i].id);
+        int have = recipe_input_held(&g->inventory, r->inputs[i]);
         int need = r->inputs[i].count * amount;
         hud_draw_item_icon(r->inputs[i].id, (Rectangle){ x, icon_y, icon, icon });
         const char *text = TextFormat("%d/%d", have, need);
@@ -488,8 +529,10 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
         draw_centered("Needs fuel", b, 18, (Color){ 240, 150, 60, 255 });
     } else if (g->craft_remaining > 0) {
         int done = g->craft_total - g->craft_remaining;
+        float part = game_craft_progress(g);
         DrawRectangleRec(b, (Color){ 44, 47, 58, 255 });
-        DrawRectangleRec((Rectangle){ b.x, b.y, b.width * done / g->craft_total, b.height },
+        /* (Filling as the one being made comes along, not only as each is finished.) */
+        DrawRectangleRec((Rectangle){ b.x, b.y, b.width * ((float)done + (part > 0.0f ? part : 0.0f)) / (float)g->craft_total, b.height },
                          button_color);
         draw_centered(TextFormat("Crafting %d/%d", done, g->craft_total), b, 18, RAYWHITE);
     } else if (item_def(r->output.id)->becomes_player && g->character_count >= content.rules.max_players) {

@@ -14,7 +14,8 @@
 #define CONTENT_PATH_LEN 64
 #define MAX_TILES 256 /* ids are stored in a byte */
 #define MAX_ITEMS 1024 /* ids are stored in two bytes */
-#define MAX_RECIPES 256
+#define MAX_RECIPES 1024
+#define MAX_TINTS 250
 #define MAX_TREES 32
 #define MAX_FEATURES 16
 #define MAX_VEINS 48
@@ -46,7 +47,7 @@
 #define MAX_START_ITEMS 8
 #define MAX_LOOT 32
 #define MAX_MOB_FRAMES 4
-#define RECIPE_MAX_INPUTS 3
+#define RECIPE_MAX_INPUTS 5
 #define MAX_TREE_SOILS 8
 
 /* Ids are positions in the tables below, fixed only for one run of the game.
@@ -78,6 +79,7 @@ typedef enum {
 typedef struct {
     ItemId id;
     int count;
+    bool full; /* each has to be one whose meter reads full - a bucket of water - and is left empty, not used up */
 } RecipeItem;
 
 /* One thing a storage block may be found holding: so many of an item, or one
@@ -154,6 +156,7 @@ typedef struct {
     TileType upgrade_to; /* TILE_AIR if it cannot be upgraded */
     RecipeItem upgrade_cost[RECIPE_MAX_INPUTS];
     int upgrade_cost_count;
+    float upgrade_time; /* seconds the upgrade takes; 0 for at once */
 
     /* Looks. Textures are 32 pixels to the tile; a larger one overhangs its
      * tile, centred and resting on the tile's bottom edge. */
@@ -200,6 +203,7 @@ typedef struct {
     int meter_start;   /* what a new one reads */
     bool holds_water;  /* the meter is eighths of water, scooped up and poured out */
     bool sized;        /* the meter is how big the thing is: a trophy from a creature of that size */
+    bool tinted;       /* the meter is which colour it is: one of content.tints, plus one */
     TileType places_sized[MAX_ITEM_SIZES]; /* for a sized item, the block each size is put down as */
     int damage;        /* what a blow with it in hand takes off a creature; 0 for no better than a bare hand */
     int category;    /* where it is listed for trading, or -1 if it is not traded */
@@ -223,6 +227,8 @@ typedef struct {
     RecipeItem inputs[RECIPE_MAX_INPUTS];
     int input_count;
     int crystals; /* crystals it costs on top of the inputs */
+    float time;   /* seconds to make one; 0 for the usual */
+    int tint;     /* which of content.tints what it makes is coloured, plus one; 0 for none */
     /* Inputs that differ from world to world: so many items in all, shared
      * out among these kinds by the world's seed. They are worked out into
      * `inputs` when a world is opened. */
@@ -535,6 +541,9 @@ typedef struct {
     int item_count;
     Recipe recipes[MAX_RECIPES];
     int recipe_count;
+    /* Colours that things can be made in, each given by the recipe that makes it. */
+    unsigned char tints[MAX_TINTS][3];
+    int tint_count;
     TreeDef trees[MAX_TREES];
     int tree_count;
     FeatureDef features[MAX_FEATURES];

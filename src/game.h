@@ -231,6 +231,8 @@ typedef struct {
     const Recipe *craft_recipe;
     int craft_total, craft_remaining;
     float craft_timer;
+    bool upgrading;
+    float upgrade_timer;
 } Character;
 
 typedef struct {
@@ -294,6 +296,9 @@ typedef struct {
     const Recipe *craft_recipe;
     int craft_total, craft_remaining;
     float craft_timer;
+    /* An upgrade of that bench under way, if it is one that takes time. */
+    bool upgrading;
+    float upgrade_timer;
 
     /* Scratch space for planning. */
     World sim;
@@ -419,8 +424,14 @@ bool game_teleport(Game *g);
 /* Starts crafting `count` of a recipe at the open bench, one every
  * CRAFT_TIME. Anything that does not fit in the inventory is dropped. */
 bool game_craft(Game *g, const Recipe *r, int count);
+/* Seconds a recipe takes to make one of. */
+float game_craft_time(const Recipe *r);
+/* How far along the item being made now is, and the upgrade under way, each 0..1; -1 if there is none. */
+float game_craft_progress(const Game *g);
+float game_upgrade_progress(const Game *g);
 /* Upgrades the open bench in place, paying its cost. False if it cannot be
- * upgraded or the cost is not held. */
+ * upgraded or the cost is not held. One that takes time is started, and is
+ * paid for and done when the time is up, the player still being there. */
 bool game_upgrade_bench(Game *g);
 /* How visible a tile is through the fog of war: 0 for never seen, 255 for
  * plain to see, in between at the edge of what has been uncovered. Always 255

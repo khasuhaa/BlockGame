@@ -1,0 +1,17 @@
+{
+  "items": [
+    {"name": "gold_ore", "label": "Gold ore", "texture": "items/gold_ore.png", "category": "materials"},
+    {"name": "wooden_shovel", "label": "Wooden shovel", "texture": "items/wooden_shovel.png", "tool": {"class": "shovel", "speed": 1.5}, "category": "tools"},
+    {"name": "flint_shovel", "label": "Flint shovel", "texture": "items/flint_shovel.png", "tool": {"class": "shovel", "speed": 2.0}, "category": "tools"},
+    {"name": "stone_shovel", "label": "Stone shovel", "texture": "items/stone_shovel.png", "tool": {"class": "shovel", "speed": 3.0}, "category": "tools"},
+    {"name": "metalwork_bench_3", "label": "Metalwork bench III", "places": "metalwork_bench_3", "texture": "items/metalwork_bench_3.png", "category": "benches"},
+    {"name": "trade_portal", "label": "Trade portal", "places": "trade_portal", "texture": "items/trade_portal.png", "category": "blocks"},
+    {"name": "bucket", "label": "Bucket", "texture": "items/bucket.png", "category": "tools", "holds_water": 8},
+    {"name": "gold_shovel", "label": "Gold shovel", "texture": "items/gold_shovel.png", "category": "tools", "tool": {"class": "shovel", "speed": 5.5}},
+    {"name": "torch", "label": "Torch", "places": "torch", "texture": "items/torch.png", "category": "blocks"},
+    {"name": "coffee_bean", "label": "Coffee bean", "texture": "items/coffee_bean.png", "category": "food", "plants": "coffee", "food": {"hunger": 0.04, "health": 0.02, "energy": 0.2}},
+    {"name": "dodo_meat", "label": "Dodo meat", "texture": "items/dodo_meat.png", "category": "food", "food": 0.2},
+    {"name": "fish", "label": "Fish", "texture": "items/fish.png", "category": "food", "food": 0.15},
+    {"name": "feather", "label": "Feather", "texture": "items/feather.png", "category": "materials"}
+  ]
+}

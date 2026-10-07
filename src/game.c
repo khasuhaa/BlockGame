@@ -1498,9 +1498,35 @@ static bool upgrade_now(Game *g)
     if (def->upgrade_to == TILE_AIR ||
         !inventory_has_all(&g->inventory, def->upgrade_cost, def->upgrade_cost_count))
         return false;
+    if (def->upgrade_time > 0.0f) {
+        /* It takes a while: begun now, and done (and paid for) when the time is up. */
+        if (g->upgrading) return false;
+        g->upgrading = true;
+        g->upgrade_timer = 0.0f;
+        return true;
+    }
     inventory_remove_all(&g->inventory, def->upgrade_cost, def->upgrade_cost_count);
     replace_block(&g->world, layer, g->bench_pos, def->upgrade_to);
     return true;
+}
+
+float game_craft_time(const Recipe *r)
+{
+    return r && r->time > 0.0f ? r->time : CRAFT_TIME;
+}
+
+float game_craft_progress(const Game *g)
+{
+    if (g->craft_remaining <= 0 || !g->craft_recipe) return -1.0f;
+    float t = g->craft_timer / game_craft_time(g->craft_recipe);
+    return t > 1.0f ? 1.0f : t;
+}
+
+float game_upgrade_progress(const Game *g)
+{
+    if (!g->upgrading || !g->bench_open) return -1.0f;
+    float time = tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y))->upgrade_time;
+    return time > 0.0f ? (g->upgrade_timer / time > 1.0f ? 1.0f : g->upgrade_timer / time) : 1.0f;
 }
 
 /* ---- working a bench, from near or far ---------------------------------- */
@@ -1594,6 +1620,7 @@ void game_close_bench(Game *g)
 {
     g->bench_open = false;
     g->craft_remaining = 0;
+    g->upgrading = false;
 }
 
 static void update_bench(Game *g, float dt)
@@ -1610,15 +1637,32 @@ static void update_bench(Game *g, float dt)
     }
     if (!there) {
         g->craft_remaining = 0;
+        g->upgrading = false;
         return;
+    }
+    /* An upgrade that takes time: when it is up, it is paid for and done. */
+    if (g->upgrading) {
+        int layer = LAYER_FOREGROUND;
+        const TileDef *def = tile_def(usable_at(&g->world, g->bench_pos.x, g->bench_pos.y, &layer));
+        g->upgrade_timer += dt;
+        if (def->upgrade_to == TILE_AIR) {
+            g->upgrading = false;
+        } else if (g->upgrade_timer >= def->upgrade_time) {
+            g->upgrading = false;
+            if (inventory_has_all(&g->inventory, def->upgrade_cost, def->upgrade_cost_count)) {
+                inventory_remove_all(&g->inventory, def->upgrade_cost, def->upgrade_cost_count);
+                replace_block(&g->world, layer, g->bench_pos, def->upgrade_to);
+            }
+        }
     }
 
     /* The fire going out stops the work. */
     if (game_bench_fuel(g, NULL) == 0) g->craft_remaining = 0;
     if (g->craft_remaining <= 0) return;
     g->craft_timer += dt;
-    while (g->craft_remaining > 0 && g->craft_timer >= CRAFT_TIME) {
-        g->craft_timer -= CRAFT_TIME;
+    float each = game_craft_time(g->craft_recipe);
+    while (g->craft_remaining > 0 && g->craft_timer >= each) {
+        g->craft_timer -= each;
         if (item_def(g->craft_recipe->output.id)->becomes_player) {
             /* Not a thing to carry: somebody new, standing at the bench. */
             const Recipe *r = g->craft_recipe;
@@ -1733,6 +1777,8 @@ static void character_stash(Game *g, Character *c)
     c->craft_total = g->craft_total;
     c->craft_remaining = g->craft_remaining;
     c->craft_timer = g->craft_timer;
+    c->upgrading = g->upgrading;
+    c->upgrade_timer = g->upgrade_timer;
 }
 
 static void character_fetch(Game *g, const Character *c)
@@ -1760,6 +1806,8 @@ static void character_fetch(Game *g, const Character *c)
     g->craft_total = c->craft_total;
     g->craft_remaining = c->craft_remaining;
     g->craft_timer = c->craft_timer;
+    g->upgrading = c->upgrading;
+    g->upgrade_timer = c->upgrade_timer;
 }
 
 void game_use_character(Game *g, int c)
@@ -2079,7 +2127,7 @@ void game_roll_recipes(const Game *g)
         }
         r->input_count = 0;
         for (int k = 0; k < r->random_item_count; k++)
-            if (counts[k] > 0) r->inputs[r->input_count++] = (RecipeItem){ r->random_items[k], counts[k] };
+            if (counts[k] > 0) r->inputs[r->input_count++] = (RecipeItem){ r->random_items[k], counts[k], false };
     }
 }
 
