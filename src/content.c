@@ -287,6 +287,16 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->needs_water = flag(e, "needs_water", false);
         t->breaks_above = flag(e, "breaks_above", false);
         t->breaks_below = flag(e, "breaks_below", false);
+        t->passable = flag(e, "passable", false);
+        const char *mimics = str(e, "mimics");
+        t->mimics = !mimics ? MIMIC_NONE : strcmp(mimics, "upright") == 0 ? MIMIC_UPRIGHT : strcmp(mimics, "flat") == 0 ? MIMIC_FLAT : -1;
+        if (t->mimics < 0) return fail(r, "tile \"%s\": \"mimics\" is \"upright\" or \"flat\"", t->name);
+        const cJSON *beam = field(e, "beam");
+        const char *way = str(beam, "direction");
+        t->beam_dir = !beam ? 0 : way && strcmp(way, "down") == 0 ? 1 : -1;
+        t->beam_light = (int)num(beam, "light", 0);
+        if (beam && (!way || (strcmp(way, "up") != 0 && strcmp(way, "down") != 0) || t->beam_light < 1))
+            return fail(r, "tile \"%s\": a \"beam\" needs a \"direction\" of \"up\" or \"down\" and a \"light\"", t->name);
         t->steps = flag(e, "steps", false);
         t->attaches = flag(e, "attaches", t->steps);
         if (t->steps && t->solid) return fail(r, "tile \"%s\": steps are walked through, so they cannot be solid", t->name);
@@ -418,6 +428,17 @@ static bool read_tiles(Reader *r, const cJSON *root)
                     copy_name(t->textures[t->texture_count++], CONTENT_PATH_LEN, one->valuestring);
             }
         }
+        /* "texture_seasons": a list of pictures for each season in turn; an empty one for no change. */
+        const cJSON *season;
+        int which = 0;
+        memset(t->season_texture_count, 0, sizeof t->season_texture_count);
+        cJSON_ArrayForEach(season, field(e, "texture_seasons")) {
+            if (which >= MAX_SEASONS) return fail(r, "tile \"%s\": \"texture_seasons\" lists at most %d seasons", t->name, MAX_SEASONS);
+            cJSON_ArrayForEach(one, season)
+                if (t->season_texture_count[which] < MAX_TILE_TEXTURES && cJSON_IsString(one))
+                    copy_name(t->season_textures[which][t->season_texture_count[which]++], CONTENT_PATH_LEN, one->valuestring);
+            which++;
+        }
     }
     return true;
 }
@@ -470,6 +491,8 @@ static bool read_items(Reader *r, const cJSON *root)
         it->meter_start = it->holds_water ? 0 : it->meter_max;
         if (it->meter_max < 0 || it->meter_max > 250)
             return fail(r, "item \"%s\": a meter reads at most 250", it->name);
+        it->armor = (float)num(e, "armor", 0.0);
+        if (it->armor < 0.0f || it->armor > 1.0f) return fail(r, "item \"%s\": \"armor\" is a share of an attack, 0 to 1", it->name);
         it->damage = (int)num(e, "damage", 0);
         it->range = (int)num(e, "range", 0);
         it->poison = (int)num(field(e, "poison"), "damage", 0);
@@ -894,7 +917,33 @@ static bool read_rules(Reader *r, const cJSON *root)
         u->chunk_width = (int)num(time, "chunk_width", u->chunk_width);
         u->random_events_per_chunk =
             (int)num(time, "random_events_per_chunk", u->random_events_per_chunk);
+        u->random_event_base = (int)num(time, "random_event_base", u->random_event_base);
+        u->max_random_events = (int)num(time, "max_random_events", u->max_random_events);
+        u->season_days = (int)num(time, "season_days", u->season_days);
+        const cJSON *season;
+        if (field(time, "seasons")) u->season_count = 0;
+        cJSON_ArrayForEach(season, field(time, "seasons")) {
+            if (u->season_count >= MAX_SEASONS || !str(season, "name"))
+                return fail(r, "\"seasons\" lists at most %d, each with a \"name\"", MAX_SEASONS);
+            copy_name(u->seasons[u->season_count].label, CONTENT_NAME_LEN, str(season, "name"));
+            u->seasons[u->season_count].snows = flag(season, "snows", false);
+            u->seasons[u->season_count].freezes = flag(season, "freezes", false);
+            u->seasons[u->season_count++].thaws = flag(season, "thaws", false);
+        }
     }
+    const cJSON *weather = field(root, "weather");
+    if (weather) {
+        u->weather_ticks = (int)num(weather, "period_ticks", u->weather_ticks);
+        u->rain_chance = (float)num(weather, "rain_chance", u->rain_chance);
+        u->snow_max = (int)num(weather, "snow_layers", u->snow_max);
+        u->snow_line = (int)num(weather, "snow_line", u->snow_line);
+        u->snow_chance = (float)num(weather, "snow_chance", u->snow_chance);
+        u->melt_chance = (float)num(weather, "melt_chance", u->melt_chance);
+        if (str(weather, "ice")) copy_name(u->ice_name, sizeof u->ice_name, str(weather, "ice"));
+        u->freeze_chance = (float)num(weather, "freeze_chance", u->freeze_chance);
+        u->thaw_chance = (float)num(weather, "thaw_chance", u->thaw_chance);
+    }
+    if (field(root, "building")) u->wall_span = (int)num(field(root, "building"), "wall_span", u->wall_span);
     if (player) {
         u->walk_time = (float)num(player, "walk_time", u->walk_time);
         u->fall_time = (float)num(player, "fall_time", u->fall_time);
@@ -1280,6 +1329,11 @@ static bool validate(Reader *r)
         return fail(r, "worldgen has a bad \"gap\" or spawn \"column\" range");
     if (u->tick_rate < 1 || u->day_ticks < 1 || u->night_ticks < 1 || u->chunk_width < 1)
         return fail(r, "rules need a tick rate, day and night length and chunk width");
+    /* What water freezes into is named in the rules, and found now that the blocks are known. */
+    content.rules.ice = u->ice_name[0] ? tile_id(u->ice_name) : TILE_AIR;
+    if (u->ice < 0) return fail(r, "the weather names a block of \"ice\" that does not exist: \"%s\"", u->ice_name);
+    if (u->random_event_base < 1) content.rules.random_event_base = u->random_events_per_chunk > 0 ? u->random_events_per_chunk : 1;
+    if (u->max_random_events < u->random_events_per_chunk) content.rules.max_random_events = u->random_events_per_chunk;
     /* With no biomes given, the whole world is one: the plain layers, and every tree. */
     if (content.biome_count == 0) {
         BiomeDef *b = &content.biomes[content.biome_count++];

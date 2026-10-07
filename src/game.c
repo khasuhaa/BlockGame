@@ -14,21 +14,35 @@
  * crawling. Crawling is not a choice: it is what the player does wherever
  * there is a block where their head would be. */
 
+/* Whether a square keeps a character's body out: anything solid, but for a
+ * door, which lets a character through and nothing else. */
+static bool blocks_body(const World *w, int x, int y)
+{
+    return world_is_solid(w, x, y) && !tile_def(world_get(w, x, y))->passable;
+}
+
 /* Room for the whole body. */
 static bool body_fits(const World *w, int x, int y)
 {
-    return !world_is_solid(w, x, y) && !world_is_solid(w, x, y - 1);
+    return !blocks_body(w, x, y) && !blocks_body(w, x, y - 1);
 }
 
 /* Room to be in at all, if only on hands and knees. */
 static bool low_fits(const World *w, int x, int y)
 {
-    return !world_is_solid(w, x, y);
+    return !blocks_body(w, x, y);
 }
 
 static bool is_crawling(const World *w, TilePos feet)
 {
-    return world_is_solid(w, feet.x, feet.y - 1);
+    return blocks_body(w, feet.x, feet.y - 1);
+}
+
+/* A trapdoor underfoot: a door in the floor, to be let down through. */
+static bool hatch_below(const World *w, TilePos feet)
+{
+    const TileDef *def = tile_def(world_get(w, feet.x, feet.y + 1));
+    return def->passable && def->climbable;
 }
 
 /* Something to stand on: a block, or steps, which hold up whoever is on top of them. */
@@ -95,7 +109,9 @@ static bool can_mantle(const World *w, TilePos feet, int d)
 
 static bool can_climb_up(const World *w, TilePos feet)
 {
-    return body_fits(w, feet.x, feet.y - 1) && can_cling(w, (TilePos){ feet.x, feet.y - 1 });
+    TilePos up = { feet.x, feet.y - 1 };
+    /* (Up out of a trapdoor is onto the top of it: there is nothing to hold there, and no need.) */
+    return body_fits(w, up.x, up.y) && (can_cling(w, up) || (blocks_body(w, feet.x, feet.y) != world_is_solid(w, feet.x, feet.y)));
 }
 
 /* Move one column while climbing without letting go: across a tree, or hand
@@ -201,6 +217,8 @@ static int list_moves(const World *w, Pose p, Step *out)
     }
     /* Jump and catch a wall too tall to step onto, or something overhead. */
     if (can_climb_up(w, p.feet)) out[n++] = (Step){ 0, -1, true };
+    /* Down through a trapdoor in the floor. */
+    if (hatch_below(w, p.feet)) out[n++] = (Step){ 0, 1, true };
     return n;
 }
 
@@ -271,6 +289,7 @@ static Step key_step(const World *w, Pose p, int dx, int dy)
         return (Step){ (int8_t)dx, 1, true };
     }
     if (dy < 0 && body_fits(w, x, y - 1)) return (Step){ 0, -1, true };
+    if (dy > 0 && hatch_below(w, p.feet)) return (Step){ 0, 1, true };
     return none;
 }
 
@@ -1282,6 +1301,15 @@ static void place_tile(World *w, TilePos t, TileType tile)
         world_set_at(w, tile_def(tile)->layer, t.x, t.y - i, tile);
     if (tile_def(tile)->wall && world_get_at(w, LAYER_WALL, t.x, t.y) == TILE_AIR)
         world_set_at(w, LAYER_WALL, t.x, t.y, tile);
+    /* Put up not far above another block, it has backwall of itself run
+     * down to that block through the open space between: a roof over a floor closes in the room. */
+    for (int k = 1; tile_def(tile)->wall && tile_def(tile)->solid && k <= content.rules.wall_span; k++) {
+        if (!world_in_bounds(w, t.x, t.y + k)) break;
+        if (!world_is_solid(w, t.x, t.y + k)) continue;
+        for (int y = t.y + 1; y < t.y + k; y++)
+            if (world_get_at(w, LAYER_WALL, t.x, y) == TILE_AIR) world_set_at(w, LAYER_WALL, t.x, y, tile);
+        break;
+    }
 }
 
 /* Changes every tile of the block at a position - all of it, if it is a tall
@@ -1396,6 +1424,14 @@ static void finish_activity(Game *g)
             int tones = def->two_tone ? tile_tones(&g->world, layer, t.x, t.y) : 0;
             drop_block_items_toned(g, def, (TilePos){ t.x, bottom }, inside, count, tones);
             replace_block(&g->world, layer, t, TILE_AIR);
+            /* The top of a wall taken away - a block with no backwall over
+             * it - takes the backwall under it down too, as far as the next block or as far as walls are run. */
+            if (layer == LAYER_FOREGROUND && def->solid && world_get_at(&g->world, LAYER_WALL, t.x, t.y - 1) == TILE_AIR) {
+                for (int k = 1; k <= content.rules.wall_span; k++) {
+                    if (!world_in_bounds(&g->world, t.x, t.y + k) || world_is_solid(&g->world, t.x, t.y + k)) break;
+                    world_set_at(&g->world, LAYER_WALL, t.x, t.y + k, TILE_AIR);
+                }
+            }
             if (cut) world_set_at(&g->world, layer, t.x, t.y + 1, def->cut_to);
         }
         g->has_current = false;
@@ -2520,11 +2556,18 @@ void game_tick(Game *g)
     World *w = &g->world;
     g->tick++;
 
+    /* Random events: so many blocks in every chunk. The weather goes by all
+     * of them. What grows and what turns up go by only as many as they
+     * always did, so that setting the number higher hurries the one and not the other. */
+    int base = content.rules.random_event_base;
     for (int chunk = 0; chunk * CHUNK_WIDTH < w->width; chunk++) {
-        for (int n = 0; n < content.rules.random_events_per_chunk; n++) {
+        for (int n = 0; n < g->random_events; n++) {
             uint32_t r = game_random(g);
-            int x = chunk * CHUNK_WIDTH + (int)(r % (uint32_t)CHUNK_WIDTH);
-            if (x < w->width) game_random_event(g, x, (int)((r >> 8) % (uint32_t)w->height));
+            int x = chunk * CHUNK_WIDTH + (int)(r % (uint32_t)CHUNK_WIDTH), y = (int)((r >> 8) % (uint32_t)w->height);
+            if (x >= w->width) continue;
+            game_weather_event(g, x, y);
+            if (g->random_events <= base || (int)(game_random(g) % (uint32_t)g->random_events) < base)
+                game_random_event(g, x, y);
         }
     }
 
@@ -2551,6 +2594,135 @@ void game_tick(Game *g)
         }
         if (d->ttl > 0 && --d->ttl == 0 && d->collect == 0.0f) d->active = false;
     }
+}
+
+int game_season(const Game *g)
+{
+    const RulesDef *u = &content.rules;
+    if (u->season_count < 1 || u->season_days < 1) return 0;
+    uint64_t day = g->tick / (uint64_t)(DAY_TICKS + NIGHT_TICKS);
+    return (int)(day / (uint64_t)u->season_days % (uint64_t)u->season_count);
+}
+
+void game_date(const Game *g, int *year, int *day, int *tick)
+{
+    const RulesDef *u = &content.rules;
+    uint64_t length = (uint64_t)(DAY_TICKS + NIGHT_TICKS), days = g->tick / length;
+    uint64_t in_year = (uint64_t)(u->season_days > 0 ? u->season_days : 1) * (uint64_t)(u->season_count > 0 ? u->season_count : 1);
+    if (year) *year = (int)(days / in_year) + 1;
+    if (day) *day = (int)(days % in_year) + 1;
+    if (tick) *tick = (int)(g->tick % length);
+}
+
+/* Whether a stretch of the weather is a wet one: the same answer every time for the same world and stretch. */
+static bool wet_spell(const Game *g, uint64_t spell)
+{
+    uint32_t h = (uint32_t)spell * 2654435761u ^ g->world.seed * 40503u ^ 0x7A1Eu;
+    h ^= h >> 15;
+    h *= 2246822519u;
+    h ^= h >> 13;
+    return (float)(h >> 8) / 16777216.0f < content.rules.rain_chance;
+}
+
+float game_rain(const Game *g)
+{
+    const RulesDef *u = &content.rules;
+    if (u->weather_ticks < 1 || u->rain_chance <= 0.0f) return 0.0f;
+    uint64_t spell = g->tick / (uint64_t)u->weather_ticks;
+    if (!wet_spell(g, spell)) return 0.0f;
+    /* It comes on over the first tenth of a spell and eases off over the
+     * last, unless the spell beside it is wet too. */
+    float into = (float)(g->tick % (uint64_t)u->weather_ticks) / (float)u->weather_ticks, edge = 0.1f, amount = 1.0f;
+    if (into < edge && !(spell > 0 && wet_spell(g, spell - 1))) amount = into / edge;
+    if (into > 1.0f - edge && !wet_spell(g, spell + 1)) amount = (1.0f - into) / edge;
+    return amount;
+}
+
+/* The row of the block a column's snow would lie on: the highest one open to
+ * the sky. -1 where there is none, or it is under water. */
+static int snow_row(const World *w, int x)
+{
+    for (int y = 0; y < w->height; y++) {
+        if (world_is_water(w, x, y)) return -1;
+        if (world_is_solid(w, x, y)) return y;
+    }
+    return -1;
+}
+
+int game_sky_floor(const Game *g, int x, bool water)
+{
+    const World *w = &g->world;
+    for (int y = 0; y < w->height; y++) {
+        if (world_is_solid(w, x, y)) return y;
+        if (world_is_water(w, x, y)) return water ? y : -1;
+    }
+    return -1;
+}
+
+int game_snow(const Game *g, int x)
+{
+    const RulesDef *u = &content.rules;
+    const World *w = &g->world;
+    if (!g->snow || u->snow_max < 1) return 0;
+    x = world_wrap_x(w, x);
+    int top = snow_row(w, x);
+    if (top < 0) return 0;
+    /* High ground keeps its snow the year round. */
+    if (u->snow_line > 0 && world_row_to_y(w, top) + 1 > u->snow_line) return u->snow_max;
+    return g->snow[x] > u->snow_max ? u->snow_max : g->snow[x];
+}
+
+void game_weather_event(Game *g, int x, int y)
+{
+    const RulesDef *u = &content.rules;
+    World *w = &g->world;
+    if (u->season_count < 1 || !world_in_bounds(w, x, y)) return;
+    int season = game_season(g);
+    x = world_wrap_x(w, x);
+
+    /* Snow: while it is coming down a layer is added now and then, up to as
+     * deep as it lies; out of season it goes the same way, a layer at a time. */
+    if (g->snow && u->snow_max > 0) {
+        if (u->seasons[season].snows) {
+            if (g->snow[x] < u->snow_max && game_rain(g) > 0.0f && snow_row(w, x) >= 0 &&
+                (float)(game_random(g) >> 8) / 16777216.0f < u->snow_chance)
+                g->snow[x]++;
+        } else if (g->snow[x] > 0 && (float)(game_random(g) >> 8) / 16777216.0f < u->melt_chance) {
+            g->snow[x]--;
+        }
+    }
+    if (u->ice == TILE_AIR) return;
+    if (u->seasons[season].freezes) {
+        /* Open water: a square of it with the air over it. It turns to ice, and the ice remembers how much it was. */
+        int level = world_water(w, x, y);
+        if (world_is_water(w, x, y) && world_get(w, x, y) == TILE_AIR && world_get(w, x, y - 1) == TILE_AIR &&
+            world_water(w, x, y - 1) == 0 && (float)(game_random(g) >> 8) / 16777216.0f < u->freeze_chance) {
+            world_set_water(w, x, y, 0);
+            world_set(w, x, y, u->ice);
+            world_set_meta(w, x, y, level);
+        }
+    } else if (u->seasons[season].thaws && world_get(w, x, y) == u->ice &&
+               (float)(game_random(g) >> 8) / 16777216.0f < u->thaw_chance) {
+        /* Ice goes back to as much water as it was - all of a square, if it was never water. */
+        int level = world_meta(w, x, y);
+        world_set_meta(w, x, y, 0);
+        world_set(w, x, y, TILE_AIR);
+        world_set_water(w, x, y, level > 0 && level <= WATER_FULL ? level : WATER_FULL);
+        water_wake(w, x);
+    }
+}
+
+float game_protection(const Game *g)
+{
+    float total = 0.0f;
+    for (int i = 0; i < ARMOR_SLOTS; i++)
+        if (g->inventory.armor[i].count > 0) total += item_def((ItemId)g->inventory.armor[i].id)->armor;
+    return total > 0.9f ? 0.9f : total;
+}
+
+void game_attacked(Game *g, float amount)
+{
+    game_hurt(g, amount * (1.0f - game_protection(g)));
 }
 
 float game_day_phase(const Game *g, bool *is_day)
@@ -2720,7 +2892,9 @@ bool game_init(Game *g, int width, int height, uint32_t seed, WorldKind kind)
     g->tick_rate = DEFAULT_TICK_RATE;
     g->rng = seed ^ 0x5EED1E57u;
     g->explored = calloc(cells, 1);
-    if (!g->explored) {
+    g->snow = calloc((size_t)width, 1);
+    g->random_events = content.rules.random_events_per_chunk;
+    if (!g->explored || !g->snow) {
         game_free(g);
         return false;
     }
@@ -2749,5 +2923,6 @@ void game_free(Game *g)
     free(g->bfs_queue);
     free(g->bfs_seen);
     free(g->explored);
+    free(g->snow);
     memset(g, 0, sizeof *g);
 }

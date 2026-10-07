@@ -11,6 +11,8 @@
  * reported and drawn as a placeholder. */
 void assets_load(const char *dir);
 void assets_unload(void);
+/* Which season blocks that change with the seasons are drawn in from now on. */
+void assets_set_season(int season);
 
 /* Draws a tile with its top-left corner at (px, py). `x` and `y` are its
  * position in the world, which picks its texture and shade. `dim` darkens it,

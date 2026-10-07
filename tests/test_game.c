@@ -2703,6 +2703,7 @@ static void test_biomes(void)
     CHECK(shore_all > 10 && shore_sand * 10 >= shore_all * 7);
 }
 
+static int shipped_torch_light;
 static TileDef *tile_def_mut(TileType t) { return &content.tiles[t]; }
 static int count_mobs(const Game *g);
 static void clear_mobs(Game *g);
@@ -3490,6 +3491,400 @@ static void test_stairs_and_more(void)
         world_free(&world);
     }
     CHECK(mangoes > 20 && hanging > 100 && loose == 0 && outside == 0 && long_ones == 0 && longest >= 4);
+}
+
+static uint64_t day_ticks_total(void)
+{
+    return (uint64_t)(content.rules.day_ticks + content.rules.night_ticks);
+}
+
+/* The year and its weather: seasons, rain and snow, water freezing and thawing, and how many random events there are. */
+static void test_seasons_and_weather(void)
+{
+    const RulesDef *u = &content.rules;
+    Game g;
+    game_init(&g, 64, 200, 42, WORLD_FLAT);
+    World *w = &g.world;
+    clear_mobs(&g);
+    g.tick_rate = 0;
+    int s = w->surface_y, px = g.player.feet.x;
+    uint64_t day = day_ticks_total(), season = day * (uint64_t)u->season_days;
+
+    /* Four seasons of ten days: a year of forty. */
+    CHECK(u->season_count == 4 && u->season_days == 10);
+    CHECK(strcmp(u->seasons[0].label, "Spring") == 0 && strcmp(u->seasons[3].label, "Winter") == 0);
+    CHECK(u->seasons[0].thaws && !u->seasons[0].freezes && u->seasons[3].freezes && u->seasons[3].snows && !u->seasons[1].snows);
+    int year, date, tick;
+    g.tick = 0;
+    game_date(&g, &year, &date, &tick);
+    CHECK(game_season(&g) == 0 && year == 1 && date == 1 && tick == 0);
+    g.tick = season - 1;
+    CHECK(game_season(&g) == 0);
+    g.tick = season;
+    game_date(&g, &year, &date, &tick);
+    CHECK(game_season(&g) == 1 && year == 1 && date == 11 && tick == 0);
+    g.tick = season * 3 + day * 4 + 123;
+    game_date(&g, &year, &date, &tick);
+    CHECK(game_season(&g) == 3 && year == 1 && date == 35 && tick == 123);
+    g.tick = season * 4 + 5;
+    game_date(&g, &year, &date, &tick);
+    CHECK(game_season(&g) == 0 && year == 2 && date == 1 && tick == 5);
+
+    /* Rain: there or not for a spell at a time, about as often as the rules say, and always the same for the same moment. */
+    int wet = 0, spells = 2000;
+    for (int k = 0; k < spells; k++) {
+        g.tick = (uint64_t)k * (uint64_t)u->weather_ticks + (uint64_t)u->weather_ticks / 2;
+        float rain = game_rain(&g);
+        CHECK(rain == 0.0f || rain == 1.0f); /* (in the middle of a spell it is one or the other) */
+        CHECK(game_rain(&g) == rain);
+        wet += rain > 0.0f;
+    }
+    CHECK(wet > spells * 22 / 100 && wet < spells * 38 / 100);
+    /* It comes on and eases off. */
+    uint64_t rainy = 0;
+    for (uint64_t k = 1; k < 5000 && rainy == 0; k++) {
+        g.tick = k * (uint64_t)u->weather_ticks + (uint64_t)u->weather_ticks / 2;
+        if (game_rain(&g) > 0.0f) {
+            g.tick -= (uint64_t)u->weather_ticks;
+            if (game_rain(&g) == 0.0f) rainy = k;
+        }
+    }
+    CHECK(rainy > 0);
+    g.tick = rainy * (uint64_t)u->weather_ticks + 2;
+    CHECK(game_rain(&g) > 0.0f && game_rain(&g) < 0.2f);
+
+    /* A pool two deep, between walls. */
+    int left = px + 5, right = px + 12, top = s - 2;
+    for (int y = top; y < s; y++) {
+        world_set(w, left - 1, y, TILE_STONE);
+        world_set(w, right + 1, y, TILE_STONE);
+        for (int x = left; x <= right; x++) world_set_water(w, x, y, WATER_FULL);
+    }
+    world_set_water(w, left, top, 5); /* (one square of the top not full) */
+    TileType ice = tile_id("ice");
+    CHECK(u->ice == ice && ice > 0 && tile_def(ice)->solid && tile_def(ice)->drop == item_id("ice"));
+    /* Nothing freezes in the summer. */
+    g.tick = season + 10;
+    for (int k = 0; k < 200; k++)
+        for (int x = left; x <= right; x++) game_weather_event(&g, x, top);
+    for (int x = left; x <= right; x++) CHECK(world_get(w, x, top) == TILE_AIR && world_water(w, x, top) > 0);
+    /* In winter the open top of it does - and only the top. */
+    g.tick = season * 3 + 10;
+    for (int k = 0; k < 200; k++) {
+        for (int x = left; x <= right; x++) {
+            game_weather_event(&g, x, top);
+            game_weather_event(&g, x, top + 1);
+        }
+    }
+    for (int x = left; x <= right; x++) {
+        CHECK(world_get(w, x, top) == ice && world_water(w, x, top) == 0);
+        CHECK(world_get(w, x, top + 1) == TILE_AIR && world_water(w, x, top + 1) == WATER_FULL);
+    }
+    CHECK(world_meta(w, left, top) == 5 && world_meta(w, right, top) == WATER_FULL);
+    /* It stays frozen through the winter, and is ice to stand on. */
+    CHECK(world_is_solid(w, left + 2, top));
+    /* In spring it thaws, to the water it was. */
+    g.tick = season * 4 + 10;
+    for (int k = 0; k < 200; k++)
+        for (int x = left; x <= right; x++) game_weather_event(&g, x, top);
+    for (int x = left; x <= right; x++) CHECK(world_get(w, x, top) == TILE_AIR && world_meta(w, x, top) == 0);
+    int total = 0;
+    for (int y = top; y < s; y++)
+        for (int x = left; x <= right; x++) total += world_water(w, x, y);
+    CHECK(total == (right - left + 1) * 2 * WATER_FULL - 3);
+
+    /* Snow: in winter, while it is coming down, it lies - up to half a block deep and no deeper. */
+    CHECK(u->snow_max == 4 && u->snow_line == 50);
+    uint64_t snowing = 0;
+    for (uint64_t t = season * 3; t < season * 4 && snowing == 0; t += (uint64_t)u->weather_ticks) {
+        g.tick = t + (uint64_t)u->weather_ticks / 2;
+        if (game_rain(&g) > 0.0f) snowing = g.tick;
+    }
+    CHECK(snowing > 0 && game_snow(&g, px) == 0);
+    for (int k = 0; k < 20000; k++) game_weather_event(&g, px, 3);
+    CHECK(g.snow[px] == 4 && game_snow(&g, px) == 4 && game_snow(&g, px + 1) == 0);
+    CHECK(game_sky_floor(&g, px, false) == s);
+    /* None on the water. */
+    for (int k = 0; k < 20000; k++) game_weather_event(&g, left + 1, 3);
+    CHECK(game_snow(&g, left + 1) == 0);
+    /* Not while it is fine. */
+    uint64_t fine = 0;
+    for (uint64_t t = season * 3; t < season * 4 && fine == 0; t += (uint64_t)u->weather_ticks) {
+        g.tick = t + (uint64_t)u->weather_ticks / 2;
+        if (game_rain(&g) == 0.0f) fine = g.tick;
+    }
+    for (int k = 0; k < 20000; k++) game_weather_event(&g, px + 1, 3);
+    CHECK(fine > 0 && game_snow(&g, px + 1) == 0 && game_snow(&g, px) == 4);
+    /* Saved with the world. */
+    g.random_events = 7;
+    CHECK(save_game(&g, "build/test_snow.world"));
+    Game loaded;
+    CHECK(load_game(&loaded, "build/test_snow.world"));
+    CHECK(loaded.snow[px] == 4 && loaded.snow[px + 1] == 0 && loaded.random_events == 7 && game_snow(&loaded, px) == 4);
+    game_free(&loaded);
+    /* In spring it melts away. */
+    g.tick = season * 4 + 10;
+    for (int k = 0; k < 20000; k++) game_weather_event(&g, px, 3);
+    CHECK(game_snow(&g, px) == 0);
+    /* High ground has snow the year round: above 50, not below. */
+    g.tick = season + 10;
+    int high = world_y_to_row(w, 51), low = world_y_to_row(w, 49);
+    for (int y = high; y <= s; y++) world_set(w, px + 20, y, TILE_STONE);
+    for (int y = low; y <= s; y++) world_set(w, px + 22, y, TILE_STONE);
+    CHECK(game_snow(&g, px + 20) == 4 && game_snow(&g, px + 22) == 0 && game_snow(&g, px + 21) == 0);
+    game_free(&g);
+
+    /* Ten random events to a chunk in a new world, a setting of the world's; what grows keeps the pace of one. */
+    CHECK(u->random_event_base == 1 && u->max_random_events >= 10);
+    int grown[2] = { 0, 0 }, frozen[2] = { 0, 0 };
+    for (int trial = 0; trial < 2; trial++) {
+        Game t;
+        game_init(&t, 64, 48, 43, WORLD_FLAT);
+        clear_mobs(&t);
+        CHECK(t.random_events == u->random_events_per_chunk);
+        t.random_events = trial == 0 ? 1 : 10;
+        int ts = t.world.surface_y;
+        for (int y = ts - 6; y < ts - 2; y++)
+            for (int x = 0; x < 64; x++) world_set_at(&t.world, BG, x, y, tile_id("carrot_0"));
+        /* (A long trough of water along the ground, in winter.) */
+        t.tick = season * 3 + 5;
+        for (int x = 0; x < 64; x++) {
+            world_set(&t.world, x, ts, TILE_STONE);
+            world_set(&t.world, x, ts - 1, TILE_AIR);
+        }
+        for (int x = 0; x < 64; x++) world_set_water(&t.world, x, ts - 1, WATER_FULL);
+        t.character_count = 0; /* (nobody about to be hungry, or to bring creatures) */
+        for (int k = 0; k < 400; k++) game_tick(&t);
+        for (int y = ts - 6; y < ts - 2; y++) {
+            for (int x = 0; x < 64; x++) {
+                TileType c = world_get_at(&t.world, BG, x, y);
+                grown[trial] += c == tile_id("carrot_1") ? 1 : c == tile_id("carrot_2") ? 2 : c == tile_id("carrot_3") ? 3 : 0;
+            }
+        }
+        for (int x = 0; x < 64; x++) frozen[trial] += world_get(&t.world, x, ts - 1) == tile_id("ice");
+        game_free(&t);
+    }
+    CHECK(grown[0] > 60 && grown[1] > grown[0] * 6 / 10 && grown[1] < grown[0] * 16 / 10);
+    CHECK(frozen[1] > frozen[0] * 3 && frozen[1] > 20);
+
+    /* Leaves change with the seasons, the ones that do. */
+    const TileDef *oak = tile_def(TILE_OAK_LEAVES), *pine = tile_def(tile_id("pine_leaves")), *palm = tile_def(tile_id("coconut_leaves"));
+    CHECK(oak->season_texture_count[0] == oak->texture_count && oak->season_texture_count[1] == 0 &&
+          oak->season_texture_count[2] == oak->texture_count && oak->season_texture_count[3] == oak->texture_count);
+    CHECK(pine->season_texture_count[3] == pine->texture_count && pine->season_texture_count[2] == 0);
+    for (int k = 0; k < 4; k++) CHECK(palm->season_texture_count[k] == 0);
+}
+
+/* Doors and trapdoors, walls that run themselves, lamps, and armour. */
+static void test_doors_walls_lamps_armor(void)
+{
+    Game g;
+    game_init(&g, 96, 64, 44, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    clear_mobs(&g);
+    g.tick_rate = 0;
+    int s = w->surface_y, ground = s - 1, px = g.player.feet.x;
+    TileType door = tile_id("wooden_door"), iron = tile_id("iron_door"), hatch = tile_id("trapdoor"), wood = tile_id("wood");
+
+    /* A door is solid to everything but a character's body. */
+    CHECK(door > 0 && tile_def(door)->solid && tile_def(door)->passable && tile_def(door)->mimics == MIMIC_UPRIGHT);
+    CHECK(tile_def(iron)->passable && tile_def(hatch)->passable && tile_def(hatch)->climbable && tile_def(hatch)->mimics == MIMIC_FLAT);
+    CHECK(item_def(item_id("wooden_door"))->places == door && item_def(item_id("iron_trapdoor"))->places == tile_id("iron_trapdoor"));
+    CHECK(!tile_def(TILE_STONE)->passable);
+    /* A wall four high with a doorway in it, two doors tall. */
+    for (int k = 0; k < 4; k++) world_set(w, px + 3, ground - k, k < 2 ? door : TILE_STONE);
+    CHECK(world_is_solid(w, px + 3, ground));
+    g.player.feet = g.player.step_to = (TilePos){ px, ground };
+    world_set(w, px + 6, ground - 1, TILE_AIR);
+    CHECK(game_queue_action(&g, ACTION_MOVE, px + 6, ground));
+    Trace through = run_traced(&g, 10.0f);
+    CHECK(g.player.feet.x == px + 6 && g.player.feet.y == ground && !through.climbed && is_idle(&g));
+    /* With stone where the doors are, the only way is over the top. */
+    for (int k = 0; k < 2; k++) world_set(w, px + 3, ground - k, TILE_STONE);
+    CHECK(game_queue_action(&g, ACTION_MOVE, px, ground));
+    Trace over = run_traced(&g, 20.0f);
+    CHECK(g.player.feet.x == px && over.climbed);
+    for (int k = 0; k < 4; k++) world_set(w, px + 3, ground - k, TILE_AIR);
+
+    /* What a door looks like: the block it stands between, if that is the same above and below. */
+    int dx = px + 10;
+    world_set(w, dx, ground, TILE_STONE);
+    world_set(w, dx, ground - 1, door);
+    world_set(w, dx, ground - 2, TILE_STONE);
+    CHECK(world_looks_like(w, dx, ground - 1) == TILE_STONE && world_looks_like(w, dx, ground) == TILE_STONE);
+    world_set(w, dx, ground - 2, wood);
+    CHECK(world_looks_like(w, dx, ground - 1) == door);
+    world_set(w, dx, ground - 2, TILE_AIR);
+    CHECK(world_looks_like(w, dx, ground - 1) == door);
+    /* Several in a row, doors and trapdoors alike, are looked past to the blocks at the ends. */
+    world_set(w, dx, ground - 2, iron);
+    world_set(w, dx, ground - 3, hatch);
+    world_set(w, dx, ground - 4, TILE_STONE);
+    for (int k = 1; k <= 2; k++) CHECK(world_looks_like(w, dx, ground - k) == TILE_STONE);
+    CHECK(world_looks_like(w, dx, ground - 3) == hatch); /* (itself lying flat, it goes by its sides) */
+    world_set(w, dx, ground - 4, wood);
+    CHECK(world_looks_like(w, dx, ground - 1) == door && world_looks_like(w, dx, ground - 2) == iron);
+    for (int k = 0; k <= 4; k++) world_set(w, dx, ground - k, TILE_AIR);
+    /* A trapdoor lies flat: it goes by what is either side of it. */
+    world_set(w, dx, ground - 3, wood);
+    world_set(w, dx + 1, ground - 3, hatch);
+    world_set(w, dx + 2, ground - 3, hatch);
+    world_set(w, dx + 3, ground - 3, wood);
+    CHECK(world_looks_like(w, dx + 1, ground - 3) == wood && world_looks_like(w, dx + 2, ground - 3) == wood);
+    world_set(w, dx + 3, ground - 3, TILE_STONE);
+    CHECK(world_looks_like(w, dx + 1, ground - 3) == hatch);
+    world_set(w, dx + 3, ground - 3, wood);
+
+    /* A trapdoor in a floor: stood on, let down through with the down key, and climbed up through again. */
+    g.player.feet = g.player.step_to = (TilePos){ dx + 1, ground - 4 };
+    run(&g, 1.0f);
+    CHECK(g.player.feet.y == ground - 4 && g.player.feet.x == dx + 1);
+    game_set_move_input(&g, 0, 1);
+    run(&g, 3.0f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 1.0f);
+    CHECK(g.player.feet.x == dx + 1 && g.player.feet.y == ground);
+    CHECK(game_queue_action(&g, ACTION_MOVE, dx + 1, ground - 5)); /* (where their head will be, standing on it) */
+    run(&g, 10.0f);
+    CHECK(g.player.feet.x == dx + 1 && g.player.feet.y == ground - 4 && is_idle(&g));
+    /* A plain floor is not let down through. */
+    g.player.feet = g.player.step_to = (TilePos){ dx, ground - 4 };
+    game_set_move_input(&g, 0, 1);
+    run(&g, 0.5f);
+    game_set_move_input(&g, 0, 0);
+    CHECK(g.player.feet.y == ground - 4);
+    for (int k = 0; k <= 3; k++) world_set(w, dx + k, ground - 3, TILE_AIR);
+    run(&g, 2.0f);
+
+    /* Walls that run themselves: a block put up within 10 of the block under it gets backwall down to that block. */
+    CHECK(content.rules.wall_span == 10);
+    int wx = px - 6;
+    g.player.feet = g.player.step_to = (TilePos){ px, ground };
+    for (int k = 0; k < 12; k++) world_set_at(w, LAYER_WALL, wx, ground - k, TILE_AIR), world_set_at(w, LAYER_WALL, wx + 1, ground - k, TILE_AIR);
+    for (int k = 0; k < 12; k++) world_set(w, wx - 1, ground - k, TILE_STONE); /* (something to build out from) */
+    clear_inventory(&g);
+    inventory_add(inv, item_id("stone"), 5);
+    inventory_select(inv, 0, -1);
+    world_set_at(w, LAYER_WALL, wx, ground - 2, wood); /* (a wall already there is left as it is) */
+    CHECK(game_queue_action(&g, ACTION_PLACE, wx, ground - 6));
+    run(&g, 20.0f);
+    CHECK(world_get(w, wx, ground - 6) == TILE_STONE);
+    for (int k = 0; k < 6; k++) CHECK(world_get_at(w, LAYER_WALL, wx, ground - k) == (k == 2 ? wood : TILE_STONE));
+    CHECK(world_get_at(w, LAYER_WALL, wx, ground - 7) == TILE_AIR);
+    /* Too far above the next block down, and none is run. */
+    world_set(w, wx, ground - 6, TILE_AIR);
+    for (int k = 0; k < 12; k++) world_set_at(w, LAYER_WALL, wx, ground - k, TILE_AIR);
+    CHECK(game_queue_action(&g, ACTION_PLACE, wx, ground - 10)); /* ten above the ground block: eleven below it, the tenth is the ground */
+    run(&g, 20.0f);
+    CHECK(world_get(w, wx, ground - 10) == TILE_STONE && world_get_at(w, LAYER_WALL, wx, ground - 5) == TILE_AIR);
+    world_set(w, wx, ground - 10, TILE_AIR);
+    world_set_at(w, LAYER_WALL, wx, ground - 10, TILE_AIR);
+    CHECK(game_queue_action(&g, ACTION_PLACE, wx, ground - 9));
+    run(&g, 20.0f);
+    for (int k = 0; k < 9; k++) CHECK(world_get_at(w, LAYER_WALL, wx, ground - k) == TILE_STONE);
+    /* Taking the top block away - nothing behind the square over it - takes the wall under it down. */
+    CHECK(game_click_tile(&g, wx, ground - 9) && g.queue[0].type == ACTION_MINE);
+    run(&g, 20.0f);
+    CHECK(world_get(w, wx, ground - 9) == TILE_AIR);
+    for (int k = 0; k < 9; k++) CHECK(world_get_at(w, LAYER_WALL, wx, ground - k) == TILE_AIR);
+    /* With backwall over it, it is not the top of anything, and the wall stays. */
+    clear_inventory(&g);
+    inventory_add(inv, item_id("stone"), 5);
+    inventory_select(inv, 0, -1);
+    CHECK(game_queue_action(&g, ACTION_PLACE, wx, ground - 5));
+    run(&g, 20.0f);
+    world_set_at(w, LAYER_WALL, wx, ground - 6, TILE_STONE);
+    inventory_select(inv, 3, -1);
+    CHECK(game_click_tile(&g, wx, ground - 5) && g.queue[0].type == ACTION_MINE);
+    run(&g, 20.0f);
+    CHECK(world_get(w, wx, ground - 5) == TILE_AIR && world_get_at(w, LAYER_WALL, wx, ground - 2) == TILE_STONE);
+    game_free(&g);
+
+    /* Lamps: gems, then torches, oil lanterns, steel lanterns, chandeliers. */
+    int gem = tile_def(tile_id("amethyst"))->light, torch = 0, oil = tile_def(tile_id("oil_lantern"))->light,
+        steel = tile_def(tile_id("steel_lantern"))->light;
+    /* (The torch these tests run with is the old one; what the shipped one gives was noted before it was replaced.) */
+    static const char *gems[] = { "amethyst", "sapphire", "emerald", "ruby", "diamond" };
+    for (int k = 0; k < 5; k++) {
+        char name[48];
+        snprintf(name, sizeof name, "%s_chandelier", gems[k]);
+        const TileDef *c = tile_def(tile_id(name));
+        CHECK(tile_id(name) > 0 && c->light > steel && c->light <= LIGHT_MAX && !c->solid && item_def(item_id(name))->places == tile_id(name));
+    }
+    torch = shipped_torch_light;
+    CHECK(gem < torch && torch < oil && oil < steel);
+
+    /* An uplight throws a quarter circle of light upward, a downlight downward. */
+    Game d;
+    game_init(&d, 96, 96, 45, WORLD_FLAT);
+    World *dw = &d.world;
+    int ds = dw->surface_y, cx = 40, cy = ds + 20;
+    /* (A room deep in the ground, walled behind, with the lamp in the middle of it.) */
+    for (int y = cy - 9; y <= cy + 9; y++)
+        for (int x = cx - 12; x <= cx + 12; x++) world_set(dw, x, y, TILE_AIR);
+    static uint8_t lit[40 * 40];
+    for (int kind = 0; kind < 2; kind++) {
+        TileType lamp = tile_id(kind == 0 ? "steel_uplight" : "steel_downlight");
+        int way = kind == 0 ? -1 : 1;
+        CHECK(lamp > 0 && tile_def(lamp)->beam_dir == way && tile_def(lamp)->beam_light == LIGHT_MAX);
+        world_set_at(dw, BG, cx, cy, lamp);
+        light_compute(&d, cx - 20, cy - 20, 40, 40, lit);
+#define LIT(X, Y) lit[((Y) - (cy - 20)) * 40 + ((X) - (cx - 20))]
+        /* Bright along its line and out to 45 degrees either side; dim behind it and beside it. */
+        CHECK(LIT(cx, cy + way * 6) == LIGHT_MAX - 6 && LIT(cx + 5, cy + way * 6) == LIGHT_MAX - 6 && LIT(cx - 6, cy + way * 6) == LIGHT_MAX - 6);
+        CHECK(LIT(cx, cy - way * 6) < LIT(cx, cy + way * 6) && LIT(cx + 7, cy) < LIT(cx, cy + way * 7));
+        CHECK(LIT(cx + 8, cy + way * 3) < LIT(cx + 3, cy + way * 3));
+        /* A block in the way throws a shadow. */
+        world_set(dw, cx, cy + way * 2, TILE_STONE);
+        light_compute(&d, cx - 20, cy - 20, 40, 40, lit);
+        CHECK(LIT(cx, cy + way * 6) < LIGHT_MAX - 6 && LIT(cx + 5, cy + way * 6) == LIGHT_MAX - 6);
+#undef LIT
+        world_set(dw, cx, cy + way * 2, TILE_AIR);
+        world_set_at(dw, BG, cx, cy, TILE_AIR);
+    }
+
+    /* Armour: linen, fur, leather, tin, iron, then titanium and carbon fiber alike; the pieces add up. */
+    static const char *suits[][2] = { { "linen_shirt", "linen" }, { "fur_coat", "fur" }, { "leather_jacket", "leather" },
+                                      { "tin_chestplate", "tin" }, { "iron_chestplate", "iron" }, { "titanium_chestplate", "titanium" } };
+    float last = 0.0f;
+    for (int k = 0; k < 6; k++) {
+        float a = item_def(item_id(suits[k][0]))->armor;
+        CHECK(a > last);
+        last = a;
+    }
+    CHECK(item_def(item_id("carbon_fiber_chestplate"))->armor == item_def(item_id("titanium_chestplate"))->armor);
+    CHECK(item_def(item_id("stone"))->armor == 0.0f);
+    Inventory *di = &d.inventory;
+    CHECK(game_protection(&d) == 0.0f);
+    d.vitals.health = 1.0f;
+    game_attacked(&d, 0.4f);
+    CHECK(d.vitals.health > 0.599f && d.vitals.health < 0.601f);
+    static const char *iron_suit[] = { "iron_helmet", "iron_chestplate", "iron_leggings", "iron_boots" };
+    float all = 0.0f;
+    for (int k = 0; k < 4; k++) {
+        di->armor[item_def(item_id(iron_suit[k]))->equip] = (ItemStack){ (uint16_t)item_id(iron_suit[k]), 1, 0 };
+        all += item_def(item_id(iron_suit[k]))->armor;
+        CHECK(game_protection(&d) > all - 0.001f && game_protection(&d) < all + 0.001f);
+    }
+    CHECK(all > 0.4f && all < 0.9f);
+    d.vitals.health = 1.0f;
+    game_attacked(&d, 0.4f);
+    CHECK(d.vitals.health > 1.0f - 0.4f * (1.0f - all) - 0.001f && d.vitals.health < 1.0f - 0.4f * (1.0f - all) + 0.001f);
+    /* It does nothing for hunger or drowning: only for attacks. A sting gets less of its poison in. */
+    d.vitals.health = 1.0f;
+    game_hurt(&d, 0.4f);
+    CHECK(d.vitals.health > 0.599f && d.vitals.health < 0.601f);
+    int scorpion = mob_id("scorpion");
+    float moved = content.mobs[scorpion].move_chance;
+    content.mobs[scorpion].move_chance = 0.0f;
+    d.tick_rate = 0;
+    clear_mobs(&d);
+    mob_spawn(&d, scorpion, d.player.feet.x + 1, d.player.feet.y, true, false);
+    mobs_tick(&d);
+    CHECK(d.vitals.poison > 0 && d.vitals.poison == (int)(40.0f * (1.0f - all) + 0.5f));
+    content.mobs[scorpion].move_chance = moved;
+    game_free(&d);
 }
 
 static void test_plants(void)
@@ -6833,8 +7228,8 @@ static void test_shipped_recipes(void)
         TileType t = tile_id(blocks[i]);
         CHECK(t > 0 && tile_def(t)->solid && item_def(item_id(blocks[i]))->places == t && tile_def(t)->drop == item_id(blocks[i]));
     }
-    /* Columns and stairs go in the background; a door, say, is still only a thing to carry. */
-    CHECK(item_def(item_id("marble_column"))->places == tile_id("marble_column") && item_def(item_id("wooden_door"))->places == TILE_AIR);
+    /* Columns and stairs go in the background; a window, say, is still only a thing to carry. */
+    CHECK(item_def(item_id("marble_column"))->places == tile_id("marble_column") && item_def(item_id("window"))->places == TILE_AIR);
     CHECK(item_def(item_id("iron_helmet"))->equip == EQUIP_HEAD && item_def(item_id("fur_boots"))->equip == EQUIP_BOOTS);
 }
 
@@ -6856,6 +7251,7 @@ int main(void)
      * so that changing what the game ships with does not change them. */
     test_shipped_recipes();
     test_guide();
+    shipped_torch_light = tile_def(tile_id("torch"))->light;
     content.recipe_count = 0;
     content.tint_count = 0;
     if (!content_load("tests/legacy", err, sizeof err)) {
@@ -6864,6 +7260,8 @@ int main(void)
     }
     /* Likewise the creatures that came later keep out of the tests written
      * before them: each is let in by the test that is about it. */
+    /* And one random event to a chunk, as there was when they were written. */
+    content.rules.random_events_per_chunk = 1;
     content.mobs[mob_id("yak")].spawn_chance = 0.0f;
     tile_def_mut(tile_id("dirt"))->extra_chance[0] = 0.0f; /* (no worms in the dirt, but where they are looked for) */
     content.mobs[mob_id("scorpion")].spawn_chance = 0.0f;
@@ -6911,6 +7309,8 @@ int main(void)
     test_tulips();
     test_scorpions_and_yaks();
     test_stairs_and_more();
+    test_seasons_and_weather();
+    test_doors_walls_lamps_armor();
     test_new_trees();
     test_caves();
     test_backwall();

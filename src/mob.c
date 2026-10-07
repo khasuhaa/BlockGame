@@ -363,7 +363,7 @@ static void perch_tick(Game *g, Mob *m, const MobDef *def)
         if (game_alive(g) && abs(pdx) <= 1 && pdy >= -1 && pdy <= 1) {
             /* Got them. A bite wakes anybody. */
             game_wake(g);
-            game_hurt(g, def->bite);
+            game_attacked(g, def->bite);
             m->state = MOB_RETURN;
             m->timer = def->bite_rest;
         } else if (!game_alive(g) || m->timer == 0 || abs(pdx) > def->seek_radius || !head_for(g, m, p->feet.x)) {
@@ -459,7 +459,7 @@ static void swim_tick(Game *g, Mob *m, const MobDef *def)
         } else if (game_alive(g) && game_player_in_water(g) && pdx * pdx + pdy * pdy <= def->sight * def->sight) {
             if (abs(pdx) <= 1 && abs(pdy) <= 1) {
                 game_wake(g);
-                game_hurt(g, def->bite);
+                game_attacked(g, def->bite);
                 m->timer = def->bite_rest;
                 return;
             }
@@ -534,7 +534,8 @@ void mobs_tick(Game *g)
             int pdx = world_dx(w, m->x, p->feet.x), pdy = p->feet.y - m->y;
             if (abs(pdx) <= 1 && pdy >= -1 && pdy <= 2) {
                 if (m->timer == 0) {
-                    game_poison(g, def->sting_ticks);
+                    /* (What the player wears keeps some of it out.) */
+                    game_poison(g, (int)((float)def->sting_ticks * (1.0f - game_protection(g)) + 0.5f));
                     m->timer = def->sting_rest > 0 ? def->sting_rest : 1;
                 }
                 if (pdx != 0) m->dir = pdx > 0 ? 1 : -1;

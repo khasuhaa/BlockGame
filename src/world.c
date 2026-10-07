@@ -801,6 +801,23 @@ int world_structure(const World *w, int layer, int x, int y, int *bottom)
     return count;
 }
 
+TileType world_looks_like(const World *w, int x, int y)
+{
+    TileType t = world_get(w, x, y);
+    if (tile_def(t)->mimics == MIMIC_NONE) return t;
+    int dx = tile_def(t)->mimics == MIMIC_FLAT, dy = tile_def(t)->mimics == MIMIC_UPRIGHT;
+    TileType ends[2] = { TILE_AIR, TILE_AIR };
+    for (int side = 0; side < 2; side++) {
+        int way = side ? 1 : -1;
+        for (int k = 1; k <= 32; k++) {
+            ends[side] = world_get(w, x + dx * k * way, y + dy * k * way);
+            if (tile_def(ends[side])->mimics == MIMIC_NONE) break;
+            ends[side] = TILE_AIR;
+        }
+    }
+    return ends[0] == ends[1] && ends[0] != TILE_AIR && tile_def(ends[0])->solid ? ends[0] : t;
+}
+
 bool world_is_step(const World *w, int x, int y)
 {
     if (!world_in_bounds(w, x, y)) return false;

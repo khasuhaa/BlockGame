@@ -394,7 +394,15 @@ static void world_page(PauseMenu *p, Game *g, float top)
     if (button(column_button(top + 150, 0), g->fog ? "Fog of war: on" : "Fog of war: off", true)) g->fog = !g->fog;
     DrawText("What has been uncovered is remembered either way.", (int)row.x, (int)(top + 196), 14, GRAY);
 
-    if (button(column_button(top + 230, 0), "Back", true)) p->page = PAUSE_PAGE_MAIN;
+    /* Random ticks: how many blocks in each chunk the weather gets at every tick. */
+    Rectangle ticks = column_button(top + 226, 0);
+    int most = content.rules.max_random_events;
+    DrawText(TextFormat("Random ticks: %d per chunk", g->random_events), (int)ticks.x + 50, (int)ticks.y + 10, 20, RAYWHITE);
+    if (button((Rectangle){ ticks.x, ticks.y, 40, 36 }, "-", g->random_events > 0)) g->random_events--;
+    if (button((Rectangle){ ticks.x + ticks.width - 40, ticks.y, 40, 36 }, "+", g->random_events < most)) g->random_events++;
+    DrawText("Freezing, thawing and snow go faster with more. Growth does not.", (int)row.x, (int)(top + 268), 14, GRAY);
+
+    if (button(column_button(top + 300, 0), "Back", true)) p->page = PAUSE_PAGE_MAIN;
 }
 
 static void keys_page(PauseMenu *p, Keybinds *k, float top)

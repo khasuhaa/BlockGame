@@ -66,6 +66,41 @@ void light_compute(const Game *g, int x0, int y0, int width, int height, uint8_t
         }
     }
 
+    /* Lamps that throw their light one way: a quarter circle of it, up or
+     * down from the lamp, a level dimmer with each row, and stopped by
+     * whatever is solid. A square is lit if the one it comes through was. */
+    for (int cy = 0; cy < bh; cy++) {
+        for (int cx = 0; cx < bw; cx++) {
+            int x = bx + cx, y = by + cy, dir = 0, bright = 0;
+            for (int layer = 0; layer < BLOCK_LAYERS && y >= 0 && y < w->height; layer++) {
+                const TileDef *def = tile_def(world_get_at(w, layer, x, y));
+                if (def->beam_dir != 0 && def->beam_light > bright) {
+                    dir = def->beam_dir;
+                    bright = def->beam_light > LIGHT_MAX ? LIGHT_MAX : def->beam_light;
+                }
+            }
+            if (dir == 0) continue;
+            enum { REACH = LIGHT_MAX };
+            bool lit[REACH + 1][2 * REACH + 1] = { { false } };
+            lit[0][REACH] = true;
+            for (int d = 1; d < bright && d <= REACH; d++) {
+                int ry = cy + dir * d;
+                if (ry < 0 || ry >= bh) break;
+                for (int off = -d; off <= d; off++) {
+                    int rx = cx + off;
+                    /* (Through the square a row nearer the lamp, a step in toward its line.) */
+                    int from = off > 0 ? off - 1 : off < 0 ? off + 1 : 0;
+                    if (abs(from) > d - 1) from = off > 0 ? d - 1 : -(d - 1);
+                    if (rx < 0 || rx >= bw || !lit[d - 1][REACH + from]) continue;
+                    if (by + ry >= 0 && world_is_solid(w, bx + rx, by + ry)) continue;
+                    lit[d][REACH + off] = true;
+                    int v = bright - d * u->light_air_falloff;
+                    if (v > level[ry * bw + rx]) level[ry * bw + rx] = (uint8_t)v;
+                }
+            }
+        }
+    }
+
     /* Spread, brightest first: by the time a level is reached, every tile
      * that will ever have it already does. */
     static const int dirs[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };

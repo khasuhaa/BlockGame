@@ -80,6 +80,11 @@ bool world_grow_plant(World *w, int layer, int x, int y);
  * row; its tiles are that row and the ones above it. 1 for an ordinary block. */
 int world_structure(const World *w, int layer, int x, int y, int *bottom);
 
+/* What the block in the foreground of a square looks like. That is itself,
+ * except for a door: it looks like the block it stands between, if that is
+ * the same block on both sides - above and below for one that is upright,
+ * left and right for one that lies flat - looking past any other doors on the way. */
+TileType world_looks_like(const World *w, int x, int y);
 /* Whether a square has steps in it: something not solid that can still be stood on. */
 bool world_is_step(const World *w, int x, int y);
 /* Above and below the world counts as solid. */

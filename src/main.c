@@ -499,6 +499,7 @@ static int tile_joined(const World *w, int layer, int x, int y)
 /* One block of a layer, in whichever of its looks applies. */
 static void draw_block(const Game *g, int layer, TileType t, int x, int y, float px, float py, float dim)
 {
+    if (tile_def(t)->mimics != MIMIC_NONE && layer == LAYER_FOREGROUND) t = world_looks_like(&g->world, x, y);
     const TileDef *def = tile_def(t);
     int wx = world_wrap_x(&g->world, x);
     if (def->steps) {
@@ -556,6 +557,18 @@ static void draw_world(const Game *g, Vector2 origin)
             }
         }
     }
+    /* Snow: lying on the top of each column, as deep as it has fallen. */
+    if (content.rules.snow_max > 0) {
+        for (int x = x0; x <= x1; x++) {
+            int deep = game_snow(g, x), top = deep > 0 ? game_sky_floor(g, x, false) : -1;
+            if (top < y0 || top > y1 + 1) continue;
+            float h = (float)TILE_SIZE * (float)deep / 8.0f;
+            float px = origin.x + (float)(x * TILE_SIZE), py = origin.y + (float)(top * TILE_SIZE);
+            DrawRectangleRec((Rectangle){ px, py - h, TILE_SIZE, h }, (Color){ 240, 244, 250, 255 });
+            DrawRectangleRec((Rectangle){ px, py - h, TILE_SIZE, 2 }, WHITE);
+            DrawRectangleRec((Rectangle){ px, py - 2, TILE_SIZE, 2 }, (Color){ 206, 216, 232, 255 });
+        }
+    }
     /* Tiles marked "front" go on last: their textures overhang their
      * neighbours. The top and bottom tiles of a column of one can have textures
      * of their own. */
@@ -570,6 +583,37 @@ static void draw_world(const Game *g, Vector2 origin)
                                  layer == LAYER_BACKGROUND ? BACKGROUND_DIM : 0.0f,
                                  assets_tile_part(t, world_get_at(w, layer, x, y - 1),
                                                   world_get_at(w, layer, x, y + 1)));
+            }
+        }
+    }
+}
+
+/* Rain, or in a season of snow, snow: falling down every column that is open
+ * to the sky, as far as the ground or the water. It is only to look at. */
+static void draw_weather(const Game *g, Vector2 origin)
+{
+    float amount = game_rain(g);
+    if (amount <= 0.0f) return;
+    bool snow = content.rules.season_count > 0 && content.rules.seasons[game_season(g)].snows;
+    int x0 = (int)floorf(-origin.x / TILE_SIZE), x1 = x0 + (int)seen.x / TILE_SIZE + 1;
+    float top = -origin.y - TILE_SIZE, time = (float)GetTime();
+    for (int x = x0; x <= x1; x++) {
+        int floor = game_sky_floor(g, x, true);
+        float bottom = floor < 0 ? -origin.y + seen.y : (float)floor * TILE_SIZE;
+        if (bottom <= top) continue;
+        for (int k = 0; k < (int)(4.0f * amount + 0.5f); k++) {
+            unsigned h = (unsigned)x * 73856093u ^ (unsigned)k * 19349663u;
+            float speed = snow ? 60.0f + (float)(h % 40u) : 620.0f + (float)(h % 200u);
+            float span = bottom - top + 40.0f;
+            float y = top + fmodf((float)(h % 1000u) / 1000.0f * span + time * speed, span);
+            float fx = (float)(x * TILE_SIZE) + (float)((h >> 10) % (unsigned)TILE_SIZE);
+            if (y > bottom) continue;
+            if (snow) {
+                fx += sinf(time * 1.5f + (float)(h % 628u) / 100.0f) * 5.0f;
+                DrawRectangleRec((Rectangle){ origin.x + fx, origin.y + y, 3, 3 }, (Color){ 250, 252, 255, 230 });
+            } else {
+                DrawLineEx((Vector2){ origin.x + fx, origin.y + y }, (Vector2){ origin.x + fx - 3, origin.y + y + 14 }, 1.5f,
+                           (Color){ 150, 190, 240, 150 });
             }
         }
     }
@@ -1149,7 +1193,7 @@ static void draw_hud(const Game *g, const MapCamera *cam)
     bool day;
     float phase = game_day_phase(g, &day);
     int row = 0;
-    draw_readout_line(row++, TextFormat("%d fps", GetFPS()));
+    draw_readout_line(row++, TextFormat("%d fps   %d ticks/s%s", GetFPS(), game_tick_speed(g), cam->follow ? "" : "   camera free"));
     /* Where the character is - or, with nobody, where the view is. */
     int at_x = g->character_count > 0 ? g->player.feet.x : world_wrap_x(w, (int)floorf(cam->center.x / TILE_SIZE));
     int at_y = g->character_count > 0 ? g->player.feet.y : (int)floorf(cam->center.y / TILE_SIZE);
@@ -1157,9 +1201,14 @@ static void draw_hud(const Game *g, const MapCamera *cam)
     draw_readout_line(row++, TextFormat("Biome: %s", content.biomes[world_biome(w, at_x)].label));
     draw_readout_line(row++, TextFormat("Mobs: %d / %d land, %d / %d water", mobs_near_player(g), content.mob_cap,
                                         mobs_near_player_in_water(g), content.mob_water_cap));
-    draw_readout_line(row++, TextFormat("%s %d%%   tick %llu at %d/s%s", day ? "Day" : "Night", (int)(phase * 100.0f),
-                                        (unsigned long long)g->tick, game_tick_speed(g),
-                                        cam->follow ? "" : "   camera free"));
+    /* The date: the season, and the time passed as years, days and the ticks of today. */
+    int year, date, tick;
+    game_date(g, &year, &date, &tick);
+    const RulesDef *u = &content.rules;
+    bool snows = u->season_count > 0 && u->seasons[game_season(g)].snows;
+    draw_readout_line(row++, TextFormat("%s%sYear %d, Day %d, Tick %d (%s %d%%)%s", u->season_count > 0 ? u->seasons[game_season(g)].label : "",
+                                        u->season_count > 0 ? "   " : "", year, date, tick, day ? "day" : "night",
+                                        (int)(phase * 100.0f), game_rain(g) > 0.0f ? (snows ? "   snow" : "   rain") : ""));
 }
 
 /* Everything that exists only while a world is open. */
@@ -1267,6 +1316,7 @@ static void session_draw(Session *s)
     if (s->cam.scale > MAP_FADE_TO) {
         /* The world itself, scaled by the zoom. */
         BeginMode2D((Camera2D){ .zoom = zoom });
+        assets_set_season(game_season(g));
         draw_world(g, origin);
         draw_mobs(g, origin);
         /* Every character, the one being played last so that it is on top. */
@@ -1277,6 +1327,7 @@ static void session_draw(Session *s)
             if (g->character_count > 1 && c == g->controlled && game_alive(g)) draw_played_marker(g, origin);
         }
         draw_drops(g, origin);
+        draw_weather(g, origin);
         /* An arrow in the air: a quick streak from the bow to what it was loosed at. */
         if (g->shot.live) {
             float t = g->shot.age / 0.2f;

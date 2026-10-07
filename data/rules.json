@@ -1,7 +1,12 @@
 {
   "time": {
     "tick_rate": 10, "max_tick_rate": 300, "day_ticks": 1000, "night_ticks": 800, "twilight_ticks": 80,
-    "chunk_width": 16, "random_events_per_chunk": 1
+    "chunk_width": 16, "random_events_per_chunk": 10, "random_event_base": 1, "max_random_events": 40,
+    "season_days": 10,
+    "seasons": [
+      { "name": "Spring", "thaws": true }, { "name": "Summer" }, { "name": "Autumn" },
+      { "name": "Winter", "snows": true, "freezes": true }
+    ]
   },
   "player": {
     "walk_time": 0.12, "fall_time": 0.07, "climb_time": 0.16, "hop_time": 0.2, "crawl_time": 0.22, "hop_height": 0.35,
@@ -38,5 +43,11 @@
   "view": { "zoom": [48, 40, 32, 24, 16, 6, 4, 2], "start": 32, "map_from": 12, "map_to": 8 },
   "water": { "color": [38, 110, 190, 110], "flow": 4, "swim_time": 0.18,
              "oxygen_ticks": 300, "oxygen_refill_ticks": 40, "drown_ticks": 300 },
-  "interface": { "denial_time": 0.6 }
+  "interface": { "denial_time": 0.6 },
+  "weather": {
+    "period_ticks": 600, "rain_chance": 0.3,
+    "snow_layers": 4, "snow_line": 50, "snow_chance": 0.004, "melt_chance": 0.002,
+    "ice": "ice", "freeze_chance": 0.5, "thaw_chance": 0.5
+  },
+  "building": { "wall_span": 10 }
 }

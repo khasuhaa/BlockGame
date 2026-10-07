@@ -263,6 +263,10 @@ static float draw_detail(const RecipeUi *ui, Rectangle area)
         n = strlen(facts);
         snprintf(facts + n, sizeof facts - n, ".");
     }
+    if (def->armor > 0.0f) {
+        size_t n = strlen(facts);
+        snprintf(facts + n, sizeof facts - n, "%sWorn, it stops %.0f%% of an attack.", n ? " " : "", def->armor * 100.0f);
+    }
     DrawText(facts, (int)x + 84, (int)y + 56, 10, (Color){ 200, 190, 130, 255 });
     y += 88;
 

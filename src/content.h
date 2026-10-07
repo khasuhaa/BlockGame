@@ -52,6 +52,8 @@
 
 /* Ids are positions in the tables below, fixed only for one run of the game.
  * 0 is always "nothing": empty space, or no item. */
+enum { MIMIC_NONE = 0, MIMIC_UPRIGHT, MIMIC_FLAT };
+
 typedef int TileType;
 typedef int ItemId;
 #define TILE_AIR 0
@@ -75,6 +77,7 @@ typedef enum {
 } EquipSlot;
 
 #define MAX_ZOOM_LEVELS 16
+#define MAX_SEASONS 4
 #define MAX_MOB_BIOMES 8
 
 /* Two-tone things - a flower with a body of one colour and tips of another -
@@ -143,6 +146,16 @@ typedef struct {
     /* Steps: not solid - it is walked through like anything in the
      * background - but it can be stood on top of, and walked up onto from beside it. */
     bool steps;
+    /* A door: solid to everything else - water, light, creatures, and it can
+     * be stood on - but a character's body goes through it. */
+    bool passable;
+    /* A block that takes on the look of what it stands between: the same
+     * block above and below it (MIMIC_UPRIGHT) or either side of it
+     * (MIMIC_FLAT). Others like it in between are looked through. */
+    int mimics;
+    /* A lamp that throws its light one way: so bright at the lamp, spreading
+     * in a quarter circle up (-1) or down (+1) from it. */
+    int beam_dir, beam_light;
     /* Building pieces of the background hold on to each other: one that
      * attaches can be put up beside another that does, with no block or backwall to hold it. */
     bool attaches;
@@ -196,6 +209,10 @@ typedef struct {
      * tile, centred and resting on the tile's bottom edge. */
     char textures[MAX_TILE_TEXTURES][CONTENT_PATH_LEN]; /* one is picked per position */
     int texture_count;
+    /* How it looks in each season, for one that changes with them: the same
+     * number of pictures as above, season by season. Empty for a season it looks as usual in. */
+    char season_textures[MAX_SEASONS][MAX_TILE_TEXTURES][CONTENT_PATH_LEN];
+    int season_texture_count[MAX_SEASONS];
     /* Used instead on the top and the bottom tile of a column of it. */
     char texture_top[CONTENT_PATH_LEN];
     char texture_base[CONTENT_PATH_LEN];
@@ -246,6 +263,7 @@ typedef struct {
     bool shears;       /* used on a creature that can be shorn, it shears it and does it no harm */
     bool milks;        /* used on a creature that gives milk, it milks it */
     TileType places_sized[MAX_ITEM_SIZES]; /* for a sized item, the block each size is put down as */
+    float armor;       /* worn, the share of an attack it stops; the pieces worn add up */
     int damage;        /* what a blow with it in hand takes off a creature; 0 for no better than a bare hand */
     int range;         /* how many blocks off it can hit from: a bow; 0 for at arm's length */
     int poison;        /* what it does over time besides: this much more, a point at a time */
@@ -436,7 +454,33 @@ typedef struct {
     int tick_rate; /* ticks per second in a new world */
     int day_ticks, night_ticks, twilight_ticks;
     int chunk_width; /* columns per chunk */
-    int random_events_per_chunk; /* random blocks hit in each chunk every tick */
+    int random_events_per_chunk; /* random blocks hit in each chunk every tick, in a new world */
+    /* How many of those the things that grow and turn up go by: with more
+     * than this many events, each is that much less likely to be one of
+     * theirs, so they keep their pace whatever the number is set to. */
+    int random_event_base;
+    int max_random_events;       /* the most the number can be set to in the settings */
+    /* The year. Each season lasts so many days, one after another. */
+    int season_days;
+    struct {
+        char label[CONTENT_NAME_LEN];
+        bool snows;   /* what falls is snow, and it lies */
+        bool freezes; /* open water turns to ice */
+        bool thaws;   /* ice turns back to water */
+    } seasons[MAX_SEASONS];
+    int season_count;
+    /* Weather. Time is cut into stretches of so many ticks; in each it rains
+     * (or snows) or not, by a chance. It wets nothing. Snow lies on the
+     * ground in layers of an eighth of a block, so many deep at most, and
+     * the tops of the land above the snow line always have it. */
+    int weather_ticks;
+    float rain_chance;
+    int snow_max, snow_line;
+    float snow_chance, melt_chance;   /* chance a random event on a column adds a layer, or takes one */
+    char ice_name[CONTENT_NAME_LEN];
+    TileType ice;                     /* what water freezes into; TILE_AIR for nothing */
+    float freeze_chance, thaw_chance; /* chance a random event on open water freezes it, or on ice thaws it */
+    int wall_span;   /* a block put up within this many blocks above another has backwall put in between */
 
     float walk_time, fall_time, climb_time, hop_time, crawl_time; /* seconds per step */
     float hop_height;  /* peak of a hop's arc, in tiles */

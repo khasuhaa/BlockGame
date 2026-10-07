@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 18u
+#define SAVE_VERSION 19u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -27,7 +27,8 @@ typedef struct {
     int32_t sea_row; /* -1 for a world with no sea */
     int32_t fog;     /* fog of war: 1 on, 2 off, 0 not recorded */
     int32_t started; /* whether the world has had its first character: 1 yes, 2 no, 0 not recorded (yes) */
-    int32_t reserved[5];
+    int32_t random_events; /* random blocks hit per chunk per tick, plus one; 0 in a save from before it was a setting */
+    int32_t reserved[4];
 } SaveExtra;
 
 /* Up to version 15 an item's id was one byte. Everything that held a stack
@@ -358,7 +359,8 @@ bool save_game(const Game *g, const char *path)
         h.climbing = g->player.step.climb;
     }
 
-    SaveExtra extra = { .sea_row = w->sea_row, .fog = g->fog ? 1 : 2, .started = g->started ? 1 : 2 };
+    SaveExtra extra = { .sea_row = w->sea_row, .fog = g->fog ? 1 : 2, .started = g->started ? 1 : 2,
+                        .random_events = g->random_events + 1 };
     bool ok = fwrite(&h, sizeof h, 1, f) == 1 && fwrite(&extra, sizeof extra, 1, f) == 1 &&
               write_names(f, content.tile_count, content.tiles[0].name, sizeof content.tiles[0]) &&
               write_names(f, content.item_count, content.items[0].name, sizeof content.items[0]);
@@ -407,6 +409,8 @@ bool save_game(const Game *g, const char *path)
         uint32_t record[2] = { (uint32_t)i, w->meta[i] };
         ok = fwrite(record, sizeof record, 1, f) == 1;
     }
+    /* The snow lying on each column. */
+    ok = ok && fwrite(g->snow, 1, (size_t)w->width, f) == (size_t)w->width;
     game_use_character(mine, played);
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
@@ -575,6 +579,8 @@ bool load_game(Game *g, const char *path)
                 if (ok) w->meta[record[0]] = (uint16_t)record[1];
             }
         }
+        if (ok && h.version >= 19) ok = fread(g->snow, 1, (size_t)w->width, f) == (size_t)w->width;
+        if (extra.random_events > 0) g->random_events = extra.random_events - 1;
         bool nobody = ok && h.version >= 15 && people[0] == 0;
         g->started = extra.started != 2;
         int played = (int)people[1] < g->character_count ? (int)people[1] : 0;

@@ -42,7 +42,7 @@ Worlds are saved in `saves/<name>.world`, next to where the game is run from. A 
 `Esc` opens the pause menu, which stops the world and offers:
 
 - **Recipes** — the recipe book. On the left is every item in the game in a grid; type to narrow it down by name. Click an item to see every recipe that makes it: the bench and tier, what goes in and how many, how long it takes, and any crystals. Click anything in a recipe - an ingredient, or the bench - to look that up in turn, and so on down to the things that are not made at all, where the book says how they are got instead: which block to mine (and where it lies, and which tool is quicker), which creature leaves it and how often, which tree bears it and in which biome, which chest holds it, whether meditating brings it. Under that is everything the item is used to make. **Back** (or `Esc`) steps back the way you came, and the trail of items along the top jumps straight to one. The book is worked out from the data files as they are loaded (`src/guide.c`), so a mod's items and recipes are in it without anything being written for them.
-- **World settings** — the tick rate, from 1 to 300 ticks a second (10 by default), and whether the fog of war is on. Both are saved with the world.
+- **World settings** — the tick rate, from 1 to 300 ticks a second (10 by default); whether the fog of war is on; and the random ticks, from 0 to 40 to a chunk (10 by default), which set how fast water freezes and thaws and snow lies and melts, and nothing else. All are saved with the world.
 - **Keybinds** — the keys for moving left and right, climbing up and down, and making the camera follow the player. Click one, then press the new key; a key already in use swaps with the one it replaces. Bindings are shared by all worlds and kept in `saves/keybinds.txt`.
 
 ## Controls
@@ -132,7 +132,7 @@ A square at least half full counts as under water: kelp and coral need that, cre
 
 **Backwalls.** Behind every block there is a backwall of the same kind. Mining the block leaves the backwall, which is what the inside of a cave or a tunnel shows, drawn darker. Placing a block where there is no backwall gives it one; placing a block in front of an existing backwall leaves that backwall as it was. To take a backwall down, select a tool of the kind that mines it - shovel for dirt, pickaxe for stone, axe for wood - and click it while nothing stands in front. It drops nothing. Without that tool in hand a click on bare backwall is a move, as on any empty tile.
 
-**Light.** Everything is lit from 0 to 15. The open sky is as bright as the sun by day (15) and the moon by night (5): it beams straight down every column until a block stops it, and fills any open space that has no backwall. Torches (14), a burning campfire (12), gems (6) and time crystals (4) give light of their own. From there light spreads, losing 1 with every tile of air and 2 with every block, so the ground is dark a few blocks down and a cave is dark until something lights it. A torch or a gem can be placed against a block or on a backwall.
+**Light.** Everything is lit from 0 to 15. The open sky is as bright as the sun by day (15) and the moon by night (5): it beams straight down every column until a block stops it, and fills any open space that has no backwall. Chandeliers (15), steel lanterns (14), oil lanterns (13), torches (12), a burning campfire (12), gems (6) and time crystals (4) give light of their own, and all of them are put up in the background. A **steel uplight** or **downlight** throws its light one way instead: a quarter circle of it (45 degrees either side of straight up, or straight down) as bright as a chandelier at the lamp and a level dimmer with each row, stopped by blocks, with only a faint glow of its own to the other sides (`"beam": { "direction", "light" }`). From there light spreads, losing 1 with every tile of air and 2 with every block, so the ground is dark a few blocks down and a cave is dark until something lights it. A torch or a gem can be placed against a block or on a backwall.
 
 Veins of other blocks run through the ground:
 
@@ -167,7 +167,13 @@ Columns are grass over dirt over stone. The dirt is 4 or 5 blocks deep on the pl
 
 World time runs in ticks, 10 a second unless the world's tick rate is changed. A day is 1000 ticks and a night 800, with the light fading over 80 ticks at dusk and dawn. Movement, mining and crafting run in real time and are not affected by the tick rate.
 
-Every tick, one random block in each 16-column chunk gets a random event. A chunk is the full height of the world, so any one block is hit about once every 6400 ticks.
+Every tick, ten random blocks in each 16-column chunk get a random event (the number is a setting of the world). The weather goes by all ten. What grows and what turns up - trees, fruit, plants, creatures, eggs, rot - go by one in ten of them, exactly as when there was one event to a chunk, so their pace is the same whatever the number is set to: any one block is hit, for them, about once every 6400 ticks. (`"random_events_per_chunk"` and `"random_event_base"` in `rules.json`.)
+
+**Seasons.** A year is four seasons of 10 days each - spring, summer, autumn, winter - 40 days in all. The leaves of the trees that shed follow it: oak and apple are pale green in spring (the apple in blossom), full in summer, gold and russet in autumn and bare twigs in winter; the cherry is in blossom in spring and green in summer; the maple is green until autumn turns it; pines keep their needles and carry snow in winter; the trees of the tropics do not change. A block's `"texture_seasons"` lists its pictures season by season.
+
+**Weather.** Time is cut into spells of 600 ticks, and about three in ten of them are wet: it rains, coming on and easing off at the ends of a spell. Rain is only to look at - it puts no water anywhere. In winter what falls is snow, and it lies: a layer an eighth of a block deep at a time on the top of every column open to the sky, up to four layers (half a block), and melts away again layer by layer once winter is over. It is only to look at too: nothing stands on it. Ground more than 50 blocks up has snow on it the year round.
+
+**Ice.** In winter a random event on open water - a square of it with the air over it - can freeze it (one chance in two) into a block of ice, which remembers how much water it was. Only the top freezes: water under ice stays water. In spring a random event on ice can thaw it, back into the water it was (a whole square, for ice that was never water). Ice is solid, can be walked on, and is dug with a pickaxe for the ice item.
 
 ## Trees
 
@@ -362,7 +368,7 @@ All the numbers, what each food is worth (`"food"` in `items.json`) and the list
 
 ## The readout
 
-The top left corner shows, a line each: frames per second; the player's X and Y; the biome they are standing in; how many creatures are within range against the cap, for the land and for the water separately; and the time of day with the tick count and the rate ticks are going at. `F3` hides it and brings it back. The crystals are in the top right corner.
+The top left corner shows, a line each: frames per second; the player's X and Y; the biome they are standing in; how many creatures are within range against the cap, for the land and for the water separately; and the date - the season, then the time passed as year, day of the year and tick of the day, whether that is day or night and how far through, and "rain" or "snow" while it is doing either. The rate ticks are going at is on the first line. `F3` hides it and brings it back. The crystals are in the top right corner.
 
 ## Fog of war and the world map
 
@@ -521,6 +527,23 @@ Every block that can be mined belongs to one kind of tool, and a tool of that ki
 | 7 | Titanium pickaxe | 1 stick, 5 titanium ingot | 3m | pickaxe, 8× |
 
 Without the right tool a block takes its ordinary time. Tools stack; none of them wears out. (A spade is a shovel.)
+
+### Doors and trapdoors
+
+A **door** or **trapdoor** (wooden or iron) is a solid block to everything except a character: water, light and creatures are stopped by it and it can be stood on, but a character walks straight through it. A trapdoor can also be climbed: standing on one, the down key lets the character down through it, and from below they climb up through it and out onto its top.
+
+- **They take on the look of the wall they are in.** A door with the same block above it and below it is drawn as that block; a trapdoor, which lies flat, goes by the blocks to its left and right. Other doors and trapdoors in between are looked past, so a run of several between two blocks of the same kind all take that kind's look. With different blocks at the two ends, or nothing at one, a door looks like a door.
+- `"passable": true` makes a block a door; `"mimics": "upright"` or `"flat"` says which way it looks for the block to copy.
+
+### Walls that run themselves
+
+- A block put up within 10 blocks above the next block below it has backwall of itself run down through the open squares between the two - so roofing a room over its floor closes in the back of it. Squares that already have backwall keep it.
+- Taking a block away when there is no backwall behind the square above it - the top of such a wall - takes the backwall under it away too, down to the next block or 10 squares, whichever comes first. A block with backwall above it leaves the wall alone.
+- How far is `"wall_span"` in `rules.json`.
+
+### Armour
+
+Clothes and armour worn in the four slots each stop a share of every **attack** - a dropbear's or shark's bite, and how long a scorpion's poison lasts - and the shares add up. Linen stops 2% a piece, fur 4%, leather 6%, tin 9%, iron 13%, titanium and carbon fiber 17% each, so a full suit of iron stops 52% and of titanium 68%. It does nothing for hunger, drowning or poison already in. An item's share is its `"armor"`.
 
 ### Columns and stairs
 

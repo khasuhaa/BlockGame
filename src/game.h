@@ -296,6 +296,9 @@ typedef struct {
      * 255. Once uncovered a tile stays so. */
     uint8_t *explored;
     bool fog; /* whether this world hides what has not been uncovered */
+    int random_events; /* random blocks hit in each chunk every tick: a setting of the world */
+    /* Snow lying on each column, in eighths of a block. It is only looked at: nothing stands on it. */
+    uint8_t *snow;
 
     /* The bench or storage block the player has open, and the crafting run
      * going on at it. */
@@ -494,6 +497,24 @@ void game_random_event(Game *g, int x, int y);
  * the trunk above and the leaves that hung on it decay. */
 void game_decay_tree(Game *g, int x, int y);
 
+/* The year: which season it is (one of content.rules.seasons), which year
+ * and which day of it (both from 1), and how many ticks into the day. */
+int game_season(const Game *g);
+void game_date(const Game *g, int *year, int *day, int *tick);
+/* How hard it is raining - or, in a season that snows, snowing - from 0 for
+ * not at all to 1; it comes on and eases off at the ends of a spell. */
+float game_rain(const Game *g);
+/* What the weather does to one column: snow lies or melts, open water freezes, ice thaws. */
+void game_weather_event(Game *g, int x, int y);
+/* Snow lying on a column, in eighths of a block; the tops above the snow line always have the most there can be. */
+int game_snow(const Game *g, int x);
+/* The row of the highest block of a column that is open to the sky, where
+ * snow lies and rain stops; -1 for none. `water` says whether water counts as ground. */
+int game_sky_floor(const Game *g, int x, bool water);
+/* The share of an attack that what the player is wearing stops, 0..1. */
+float game_protection(const Game *g);
+/* An attack on the player: as game_hurt, less what their armor stops. */
+void game_attacked(Game *g, float amount);
 /* Poisons the player for so many ticks: each takes a little health. A
  * second dose does not add to the first, it only makes it last as long. */
 void game_poison(Game *g, int ticks);
