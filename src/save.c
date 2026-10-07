@@ -1,11 +1,13 @@
 #include "save.h"
 
+#include "digital.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 27u
+#define SAVE_VERSION 28u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -455,6 +457,16 @@ bool save_game(const Game *g, const char *path)
     float shields[MAX_CHARACTERS] = { 0 };
     for (int c = 0; c < g->character_count && c < MAX_CHARACTERS; c++) shields[c] = c == g->live ? g->shield : g->characters[c].shield;
     ok = ok && fwrite(shields, sizeof shields, 1, f) == 1;
+    /* What is in each storage cell that has anything in it, with the cell's number: items in the order of the names written above. */
+    uint32_t stored = 0;
+    for (int id = 1; id < MAX_CELLS; id++) stored += g->cells[id].types > 0;
+    ok = ok && fwrite(&stored, sizeof stored, 1, f) == 1;
+    for (uint32_t id = 1; id < MAX_CELLS && ok; id++) {
+        const CellStore *c = &g->cells[id];
+        if (c->types <= 0) continue;
+        uint32_t types = (uint32_t)c->types;
+        ok = fwrite(&id, sizeof id, 1, f) == 1 && fwrite(&types, sizeof types, 1, f) == 1 && fwrite(c->held, sizeof c->held[0], types, f) == types;
+    }
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
         remove(tmp);
@@ -673,6 +685,25 @@ bool load_game(Game *g, const char *path)
                 float left = shields[c] >= 0.0f && shields[c] <= 16.0f ? shields[c] : 0.0f;
                 if (c == g->live) g->shield = left;
                 else g->characters[c].shield = left;
+            }
+        }
+        if (ok && h.version >= 28) {
+            uint32_t stored = 0, id = 0, types = 0;
+            ok = fread(&stored, sizeof stored, 1, f) == 1 && stored < MAX_CELLS;
+            for (uint32_t i = 0; ok && i < stored; i++) {
+                ok = fread(&id, sizeof id, 1, f) == 1 && fread(&types, sizeof types, 1, f) == 1 && id >= 1 && id < MAX_CELLS && types <= CELL_TYPES;
+                CellStore *c = ok ? &g->cells[id] : NULL;
+                ok = ok && fread(c->held, sizeof c->held[0], types, f) == types;
+                if (!ok) break;
+                /* (Kinds of thing the game no longer has are dropped.) */
+                c->used = true;
+                c->types = 0;
+                for (uint32_t k = 0; k < types; k++) {
+                    ItemId now = c->held[k].id < MAX_ITEMS ? items[c->held[k].id] : ITEM_NONE;
+                    if (now == ITEM_NONE || c->held[k].count == 0) continue;
+                    c->held[c->types].id = (uint16_t)now;
+                    c->held[c->types++].count = c->held[k].count;
+                }
             }
         }
         bool nobody = ok && h.version >= 15 && people[0] == 0;

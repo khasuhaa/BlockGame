@@ -291,6 +291,14 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->breaks_above = flag(e, "breaks_above", false);
         t->breaks_below = flag(e, "breaks_below", false);
         t->passable = flag(e, "passable", false);
+        static const char *const roles[NET_ROLE_COUNT] = { "", "cable", "controller", "drive", "terminal", "import", "export", "storage_bus",
+                                                            "access", "cpu", "coprocessor", "assembler", "bridge", "break", "place" };
+        const char *role = str(e, "network");
+        t->net_role = NET_NONE;
+        for (int k = 1; role && k < NET_ROLE_COUNT; k++)
+            if (strcmp(role, roles[k]) == 0) t->net_role = k;
+        if (role && t->net_role == NET_NONE) return fail(r, "tile \"%s\": \"network\" is not a part a network has", t->name);
+        t->net_range = (int)num(e, "network_range", 0);
         t->endless = flag(e, "endless", false);
         t->conveyor = (int)num(e, "conveyor", 0);
         t->extractor = flag(e, "extractor", false);
@@ -628,6 +636,15 @@ static bool read_items(Reader *r, const cJSON *root)
             it->holds_water = false;
             it->meter_max = it->uses;
             it->meter_start = it->uses;
+        }
+        it->cell_bytes = (int)num(e, "cell", 0);
+        it->remote = flag(e, "remote", false);
+        if (it->cell_bytes < 0 || (it->cell_bytes > 0 && it->cell_bytes < 128)) return fail(r, "item \"%s\": a \"cell\" holds 128 bytes or more", it->name);
+        if (it->cell_bytes > 0) {
+            /* (Which of the world's cells it is, is what its meter reads; 0 for one with nothing in it yet.) */
+            it->holds_water = false;
+            it->meter_max = MAX_CELLS - 1;
+            it->meter_start = 0;
         }
         it->cooks_into = ITEM_NONE;
         if (str(e, "cooks_into") && !item_ref(r, e, "cooks_into", &it->cooks_into)) return false;

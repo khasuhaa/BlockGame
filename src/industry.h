@@ -26,4 +26,16 @@ float game_machine_progress(const Game *g, int x, int y);
 /* How many of a machine's slots are for what goes in; the one after them is for what comes out. 0 for a block that is no such machine. */
 int game_machine_inputs(const Game *g, int x, int y);
 
+/* Putting things in, and taking them out of, whatever holds things at a
+ * square, by the same rules a conveyor and an extractor go by: into a machine
+ * only what it can use, where it goes in; out of one only what it has made.
+ * Each returns how many were moved. Taking, `only` is the one kind wanted, or
+ * ITEM_NONE for the first kind that is there, and `got` is told which it was. */
+int industry_put(Game *g, int x, int y, ItemId item, int count);
+int industry_take(Game *g, int x, int y, ItemId only, int count, ItemId *got);
+/* How many of an item what is at a square holds, where things are taken out of it. */
+int industry_count(Game *g, int x, int y, ItemId item);
+/* The kinds of thing that can be taken out of what is at a square: fills `out`, returns how many. */
+int industry_kinds(Game *g, int x, int y, ItemId *out, int max);
+
 #endif

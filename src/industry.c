@@ -267,7 +267,7 @@ static void run_miner(Game *g, Storage *st, const TileDef *def)
 /* The slots of a thing that a conveyor may put an item in: `from` up to `to`. False if it will not have the item at all. */
 static bool takes_item(Game *g, const Storage *st, const TileDef *def, ItemId item, int *from, int *to)
 {
-    if (!st || st->container == 0 || def->extractor || def->miner_ticks > 0 || def->storage_shared || def->storage_columns <= 0) return false;
+    if (!st || st->container == 0 || def->extractor || def->miner_ticks > 0 || def->storage_shared || def->storage_columns <= 0 || def->net_role != NET_NONE) return false;
     const Container *c = &g->inventory.containers[st->container];
     *from = 0;
     *to = slot_count(def);
@@ -405,4 +405,67 @@ void industry_tick(Game *g)
         const TileDef *def = block_here(w, st->x, st->y);
         if (def && def->extractor) run_extractor(g, st);
     }
+}
+
+/* ---- for other things that move things --------------------------------- */
+
+/* The slots things are taken out of. False for something nothing is to be taken out of. */
+static bool gives_from(Game *g, int x, int y, Storage **st, int *first, int *last)
+{
+    const TileDef *def = block_here(&g->world, x, y);
+    *st = def ? storage_here(g, x, y) : NULL;
+    if (!*st || (*st)->container == 0 || def->extractor || def->storage_shared || def->storage_columns <= 0 || def->net_role != NET_NONE) return false;
+    *first = def->automat ? def->automat_inputs : 0;
+    *last = def->automat ? *first + 1 : slot_count(def);
+    return true;
+}
+
+int industry_put(Game *g, int x, int y, ItemId item, int count)
+{
+    const TileDef *def = block_here(&g->world, x, y);
+    Storage *st = def ? storage_here(g, x, y) : NULL;
+    int lo, hi;
+    if (!def || def->net_role != NET_NONE || !takes_item(g, st, def, item, &lo, &hi)) return 0;
+    Container *c = &g->inventory.containers[st->container];
+    int room = room_for_item(c, lo, hi, item);
+    return put_item(c, lo, hi, item, count < room ? count : room);
+}
+
+int industry_take(Game *g, int x, int y, ItemId only, int count, ItemId *got)
+{
+    Storage *st;
+    int first, last;
+    if (!gives_from(g, x, y, &st, &first, &last)) return 0;
+    Container *c = &g->inventory.containers[st->container];
+    for (int i = first; i < last; i++) {
+        const ItemStack *s = &c->slots[i];
+        if (s->count == 0 || !plain(s) || (only != ITEM_NONE && s->id != only)) continue;
+        ItemId item = s->id;
+        if (got) *got = item;
+        return take_item(c, first, last, item, count);
+    }
+    return 0;
+}
+
+int industry_count(Game *g, int x, int y, ItemId item)
+{
+    Storage *st;
+    int first, last;
+    if (!gives_from(g, x, y, &st, &first, &last)) return 0;
+    return count_item_in(&g->inventory.containers[st->container], first, last, item);
+}
+
+int industry_kinds(Game *g, int x, int y, ItemId *out, int max)
+{
+    Storage *st;
+    int first, last, n = 0;
+    if (!gives_from(g, x, y, &st, &first, &last)) return 0;
+    const Container *c = &g->inventory.containers[st->container];
+    for (int i = first; i < last && n < max; i++) {
+        if (c->slots[i].count == 0 || !plain(&c->slots[i])) continue;
+        bool seen = false;
+        for (int k = 0; k < n; k++) seen = seen || out[k] == c->slots[i].id;
+        if (!seen) out[n++] = c->slots[i].id;
+    }
+    return n;
 }

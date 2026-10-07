@@ -359,6 +359,10 @@ typedef struct {
     /* An upgrade of that bench under way, if it is one that takes time. */
     bool upgrading;
     float upgrade_timer;
+    /* Storage networks: what each storage cell in the world has in it (a cell
+     * item's meter says which), and the crafting jobs that are running. */
+    struct CellStore *cells;
+    struct NetJob *jobs;
     /* A shield a spell has put round the character: so much of a health bar of harm it will still take for them. */
     float shield;
     /* What is open was opened by something queued, and is for the player to

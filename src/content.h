@@ -55,6 +55,25 @@
 enum { MIMIC_NONE = 0, MIMIC_UPRIGHT, MIMIC_FLAT };
 enum { POWER_NEEDS_NOTHING = 0, POWER_NEEDS_SUN, POWER_NEEDS_FUEL };
 /* What something in the background is fixed to (see world_mount). */
+/* What a block is in a storage network. */
+enum {
+    NET_NONE = 0,
+    NET_CABLE,       /* joins things up */
+    NET_CONTROLLER,  /* the heart of one: it takes the electricity (its "draw"), and there is one network to each */
+    NET_DRIVE,       /* holds storage cells in its slots */
+    NET_TERMINAL,    /* where what is stored is got at */
+    NET_IMPORT,      /* takes things out of whatever holds them beside it, into the network */
+    NET_EXPORT,      /* puts the kind of thing in its slot out of the network into whatever holds things beside it */
+    NET_STORAGE_BUS, /* makes whatever holds things beside it part of what the network stores */
+    NET_ACCESS,      /* a point the network can be reached from at a distance (its "network_range") */
+    NET_CPU,         /* runs one crafting job at a time */
+    NET_COPROCESSOR, /* makes every job go faster */
+    NET_ASSEMBLER,   /* teaches the network the recipes of the benches beside it */
+    NET_BRIDGE,      /* joined to every other bridge in the world, however far off */
+    NET_PLANE_BREAK, /* breaks the blocks beside it into the network */
+    NET_PLANE_PLACE, /* puts the kind of block in its slot out of the network into the open squares beside it */
+    NET_ROLE_COUNT
+};
 enum { MOUNT_NONE = 0, MOUNT_WALL, MOUNT_FLOOR, MOUNT_CEILING, MOUNT_LEFT, MOUNT_RIGHT };
 
 typedef int TileType;
@@ -82,6 +101,8 @@ typedef enum {
 #define MAX_ZOOM_LEVELS 16
 #define MAX_RECIPE_CHOICES 8
 #define MAX_ISLAND_TREES 12
+#define MAX_CELLS 256      /* storage cells with anything in them that a world can have */
+#define CELL_TYPES 63      /* kinds of thing one cell holds */
 #define MAX_ELEMENTS 16 /* kinds of magic there can be */
 #define MAX_WORLD_CHOICES 8
 #define MAX_SIGN_TEXTS 512 /* different texts a world's signs can carry */
@@ -205,6 +226,8 @@ typedef struct {
     int battery;
     bool wire;
     int electric;   /* units for each second of crafting; 0 for a bench that needs none */
+    int net_role;    /* a NET_* */
+    int net_range;   /* NET_ACCESS: how many blocks off it can be reached from */
     /* Industry. A block that is mined and is still there, to be mined again. */
     bool endless;
     /* A conveyor: so many items a tick go along it. And an extractor: it takes
@@ -381,6 +404,8 @@ typedef struct {
     int cast_water, cast_dig;
     float cast_shield;
     int cast_time;         /* -1 for none; 0 for sunrise, 1 for moonrise */
+    int cell_bytes;        /* a storage cell: how much it holds, in bytes (8 things to a byte, and a little for each kind); 0 for anything else */
+    bool remote;           /* in hand, it opens the storage network whose access point is in range */
     ItemId cooks_into;     /* what it is when a spell that cooks has killed what dropped it; ITEM_NONE for no different */
     bool becomes_player; /* made at a bench, it is not an item at all but another character to play */
     int plants;      /* tree it grows into when planted, or -1 */

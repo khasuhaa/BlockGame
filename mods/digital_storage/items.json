@@ -1,0 +1,33 @@
+{
+  "items": [
+    {"name": "certus_quartz", "label": "Certus quartz", "texture": "items/certus_quartz.png", "category": "gems", "price": 90},
+    {"name": "fluix_crystal", "label": "Fluix crystal", "texture": "items/fluix_crystal.png", "category": "gems", "price": 140},
+    {"name": "logic_processor", "label": "Logic processor", "texture": "items/logic_processor.png", "category": "materials", "price": 900},
+    {"name": "calculation_processor", "label": "Calculation processor", "texture": "items/calculation_processor.png", "category": "materials", "price": 500},
+    {"name": "engineering_processor", "label": "Engineering processor", "texture": "items/engineering_processor.png", "category": "materials", "price": 5600},
+    {"name": "network_cable", "label": "Network cable", "texture": "items/network_cable.png", "category": "building", "price": 110, "places": "network_cable"},
+    {"name": "network_controller", "label": "Network controller", "texture": "items/network_controller.png", "category": "building", "price": 8600, "places": "network_controller"},
+    {"name": "storage_drive", "label": "Storage drive", "texture": "items/storage_drive.png", "category": "building", "price": 2600, "places": "storage_drive", "container": {"slots": 4}},
+    {"name": "storage_terminal", "label": "Storage terminal", "texture": "items/storage_terminal.png", "category": "building", "price": 2400, "places": "storage_terminal"},
+    {"name": "import_bus", "label": "Import bus", "texture": "items/import_bus.png", "category": "building", "price": 1500, "places": "import_bus", "container": {"slots": 1}},
+    {"name": "export_bus", "label": "Export bus", "texture": "items/export_bus.png", "category": "building", "price": 1200, "places": "export_bus", "container": {"slots": 1}},
+    {"name": "storage_bus", "label": "Storage bus", "texture": "items/storage_bus.png", "category": "building", "price": 1300, "places": "storage_bus"},
+    {"name": "wireless_access_point", "label": "Wireless access point", "texture": "items/wireless_access_point.png", "category": "building", "price": 1100, "places": "wireless_access_point"},
+    {"name": "crafting_cpu", "label": "Crafting CPU", "texture": "items/crafting_cpu.png", "category": "building", "price": 15500, "places": "crafting_cpu"},
+    {"name": "crafting_coprocessor", "label": "Crafting co-processor", "texture": "items/crafting_coprocessor.png", "category": "building", "price": 8500, "places": "crafting_coprocessor"},
+    {"name": "assembler", "label": "Assembler", "texture": "items/assembler.png", "category": "building", "price": 3900, "places": "assembler"},
+    {"name": "quantum_bridge", "label": "Quantum bridge", "texture": "items/quantum_bridge.png", "category": "building", "price": 31000, "places": "quantum_bridge"},
+    {"name": "annihilation_plane", "label": "Annihilation plane", "texture": "items/annihilation_plane.png", "category": "building", "price": 2100, "places": "annihilation_plane", "container": {"slots": 1}},
+    {"name": "formation_plane", "label": "Formation plane", "texture": "items/formation_plane.png", "category": "building", "price": 1700, "places": "formation_plane", "container": {"slots": 1}},
+    {"name": "inscriber", "label": "Inscriber", "texture": "items/inscriber.png", "category": "benches", "price": 2700, "places": "inscriber"},
+    {"name": "cell_component_1k", "label": "1k storage component", "texture": "items/cell_component_1k.png", "category": "materials", "price": 1600},
+    {"name": "storage_cell_1k", "label": "1k storage cell", "texture": "items/storage_cell_1k.png", "category": "tools", "price": 1840, "cell": 1024, "max_stack": 1},
+    {"name": "cell_component_4k", "label": "4k storage component", "texture": "items/cell_component_4k.png", "category": "materials", "price": 5600},
+    {"name": "storage_cell_4k", "label": "4k storage cell", "texture": "items/storage_cell_4k.png", "category": "tools", "price": 5840, "cell": 4096, "max_stack": 1},
+    {"name": "cell_component_16k", "label": "16k storage component", "texture": "items/cell_component_16k.png", "category": "materials", "price": 17500},
+    {"name": "storage_cell_16k", "label": "16k storage cell", "texture": "items/storage_cell_16k.png", "category": "tools", "price": 17740, "cell": 16384, "max_stack": 1},
+    {"name": "cell_component_64k", "label": "64k storage component", "texture": "items/cell_component_64k.png", "category": "materials", "price": 59000},
+    {"name": "storage_cell_64k", "label": "64k storage cell", "texture": "items/storage_cell_64k.png", "category": "tools", "price": 59240, "cell": 65536, "max_stack": 1},
+    {"name": "wireless_terminal", "label": "Wireless terminal", "texture": "items/wireless_terminal.png", "category": "tools", "price": 9800, "remote": true, "max_stack": 1}
+  ]
+}

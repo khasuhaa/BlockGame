@@ -10,7 +10,9 @@
 #include "raylib.h"
 #include "rlgl.h"
 #include "save.h"
+#include "termui.h"
 #include "tradeui.h"
+#include "digital.h"
 #include "view.h"
 
 #include <math.h>
@@ -24,6 +26,17 @@
 #define SIGN_TEXT_WIDTH (2 * TILE_SIZE - 6)
 
 static void sign_open(const Game *g, TilePos at);
+
+/* The screen of a storage network, when one is open. */
+static TermUi term_ui;
+
+/* The terminal of a storage network at a square, if there is one there. */
+static bool terminal_at(const Game *g, TilePos t)
+{
+    for (int layer = 0; layer < BLOCK_LAYERS; layer++)
+        if (tile_def(world_get_at(&g->world, layer, t.x, t.y))->net_role == NET_TERMINAL) return true;
+    return false;
+}
 static float pair_shift(const World *w, int head, int y);
 
 
@@ -444,6 +457,14 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
             else if (mob >= 0) game_click_mob(g, mob);
             /* A second click on a square with something queued takes it back. */
             else if (game_unqueue_tile(g, t.x, t.y)) {}
+            /* Something in hand that reaches a storage network from a distance: its screen comes up. */
+            else if (digital_remote(g, &sign)) termui_open(&term_ui, sign, true);
+            /* A terminal: its screen, from close by; from further off the character goes to it. */
+            else if (terminal_at(g, t) && !IsKeyDown(KEY_LEFT_SHIFT)) {
+                long far_x = world_dx(&g->world, g->player.feet.x, t.x), far_y = t.y - g->player.feet.y;
+                if (far_x * far_x + far_y * far_y <= 36) termui_open(&term_ui, t, false);
+                else game_queue_action(g, ACTION_MOVE, t.x + (far_x > 0 ? -1 : 1), t.y);
+            }
             else if (opens && def->removable) benchui_show_popup(bench, t);
             /* A bed has the same little menu: to sleep in it, or to take it up. */
             else if (!opens && game_bed_at(g, t.x, t.y) != TILE_AIR) benchui_show_popup(bench, t);
@@ -1562,6 +1583,7 @@ static void session_begin(Session *s, const MainMenu *menu)
     s->hud = (Hud){ 0 };
     s->bench = (BenchUi){ .selected = -1, .amount = 1 };
     s->trade = (TradeUi){ 0 };
+    term_ui = (TermUi){ 0 };
     s->player_ui = (PlayerUi){ 0 };
     s->new_name[0] = '\0';
     s->create_at = (TilePos){ s->game.world.spawn_x, s->game.world.spawn_y };
@@ -1595,6 +1617,13 @@ static void session_save(Session *s)
 static void session_update(Session *s, const Keybinds *keys, float dt)
 {
     update_view(&s->cam, &s->game.world);
+    if (term_ui.open) {
+        /* At a terminal: the keys and the mouse are for that, and the world goes on meanwhile. */
+        game_set_move_input(&s->game, 0, 0);
+        game_update(&s->game, dt);
+        update_camera(&s->game, &s->cam, dt);
+        return;
+    }
     if (sign_edit.open) {
         /* Writing on a sign: the keys are for that, and the world goes on meanwhile. */
         game_set_move_input(&s->game, 0, 0);
@@ -1706,6 +1735,7 @@ static void session_draw(Session *s)
     playerui_draw(&s->player_ui, g);
     hud_draw(&s->hud, &g->inventory);
     sign_draw();
+    termui_frame(&term_ui, g);
 }
 
 int main(void)

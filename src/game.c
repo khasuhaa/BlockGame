@@ -1,4 +1,5 @@
 #include "game.h"
+#include "digital.h"
 #include "industry.h"
 #include "power.h"
 
@@ -1214,7 +1215,7 @@ static bool needs_storage(const TileDef *def)
     /* (A shared store keeps its contents with the player, not the block.) */
     return (def->storage_columns > 0 && !def->storage_shared) || def->fuel_capacity > 0 ||
            /* (Anything that makes, holds or uses electricity keeps count of it.) */
-           def->gen_power > 0 || def->battery > 0 || def->electric > 0 || def->motor_power > 0 || def->draw > 0 || def->extractor;
+           def->gen_power > 0 || def->battery > 0 || def->electric > 0 || def->motor_power > 0 || def->draw > 0 || def->extractor || def->net_role == NET_BRIDGE || def->net_role == NET_ACCESS;
 }
 
 /* Sets up the record of a newly placed block. A storage block takes over the
@@ -3201,6 +3202,7 @@ void game_tick(Game *g)
     water_step(w);
     power_tick(g);
     industry_tick(g);
+    digital_tick(g);
     /* Everybody gets hungry, whoever is being played. */
     for (int c = 0; c < g->character_count; c++) {
         game_use_character(g, c);
@@ -3529,10 +3531,11 @@ bool game_init_with(Game *g, int width, int height, uint32_t seed, WorldKind kin
     g->snow = calloc((size_t)width, 1);
     g->flows = calloc(MAX_POWER_FLOWS, sizeof(PowerFlow));
     g->signs = calloc(MAX_SIGN_TEXTS, sizeof(SignText));
+    digital_init(g);
     g->random_events = content.rules.random_events_per_chunk;
     /* (Nothing grows, rots, freezes or falls in a world that is there to be looked at.) */
     if (kind == WORLD_DEBUG) g->random_events = 0;
-    if (!g->explored || !g->snow || !g->flows || !g->signs) {
+    if (!g->explored || !g->snow || !g->flows || !g->signs || !g->cells || !g->jobs) {
         game_free(g);
         return false;
     }
@@ -3564,5 +3567,6 @@ void game_free(Game *g)
     free(g->snow);
     free(g->flows);
     free(g->signs);
+    digital_free(g);
     memset(g, 0, sizeof *g);
 }

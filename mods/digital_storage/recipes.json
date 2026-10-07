@@ -1,0 +1,32 @@
+{
+  "recipes": [
+    {"bench": "inscriber", "output": {"item": "cell_component_1k", "count": 1}, "inputs": [{"item": "certus_quartz", "count": 4}, {"item": "logic_processor", "count": 1}], "time": 60},
+    {"bench": "inscriber", "output": {"item": "storage_cell_1k", "count": 1}, "inputs": [{"item": "cell_component_1k", "count": 1}, {"item": "glass", "count": 2}, {"item": "iron_ingot", "count": 1}], "time": 30},
+    {"bench": "inscriber", "output": {"item": "cell_component_4k", "count": 1}, "inputs": [{"item": "cell_component_1k", "count": 3}, {"item": "calculation_processor", "count": 1}], "time": 120},
+    {"bench": "inscriber", "output": {"item": "storage_cell_4k", "count": 1}, "inputs": [{"item": "cell_component_4k", "count": 1}, {"item": "glass", "count": 2}, {"item": "iron_ingot", "count": 1}], "time": 30},
+    {"bench": "inscriber", "output": {"item": "cell_component_16k", "count": 1}, "inputs": [{"item": "cell_component_4k", "count": 3}, {"item": "calculation_processor", "count": 1}], "time": 120},
+    {"bench": "inscriber", "output": {"item": "storage_cell_16k", "count": 1}, "inputs": [{"item": "cell_component_16k", "count": 1}, {"item": "glass", "count": 2}, {"item": "iron_ingot", "count": 1}], "time": 30},
+    {"bench": "inscriber", "output": {"item": "cell_component_64k", "count": 1}, "inputs": [{"item": "cell_component_16k", "count": 3}, {"item": "engineering_processor", "count": 1}], "time": 120},
+    {"bench": "inscriber", "output": {"item": "storage_cell_64k", "count": 1}, "inputs": [{"item": "cell_component_64k", "count": 1}, {"item": "glass", "count": 2}, {"item": "iron_ingot", "count": 1}], "time": 30},
+    {"bench": "workbench", "output": {"item": "inscriber", "count": 1}, "inputs": [{"item": "steel_block", "count": 1}, {"item": "copper_wire", "count": 10}, {"item": "certus_quartz", "count": 4}], "time": 120, "level": 4},
+    {"bench": "inscriber", "output": {"item": "fluix_crystal", "count": 2}, "inputs": [{"item": "certus_quartz", "count": 1}, {"item": "copper_ingot", "count": 1}, {"item": "coal", "count": 1}], "time": 20},
+    {"bench": "inscriber", "output": {"item": "logic_processor", "count": 1}, "inputs": [{"item": "gold_ingot", "count": 1}, {"item": "silicon_wafer", "count": 1}, {"item": "fluix_crystal", "count": 1}], "time": 40},
+    {"bench": "inscriber", "output": {"item": "calculation_processor", "count": 1}, "inputs": [{"item": "certus_quartz", "count": 1}, {"item": "silicon_wafer", "count": 1}, {"item": "fluix_crystal", "count": 1}], "time": 40},
+    {"bench": "inscriber", "output": {"item": "engineering_processor", "count": 1}, "inputs": [{"item": "diamond", "count": 1}, {"item": "silicon_wafer", "count": 1}, {"item": "fluix_crystal", "count": 1}], "time": 40},
+    {"bench": "inscriber", "output": {"item": "network_cable", "count": 8}, "inputs": [{"item": "fluix_crystal", "count": 2}, {"item": "glass", "count": 2}], "time": 20},
+    {"bench": "inscriber", "output": {"item": "network_controller", "count": 1}, "inputs": [{"item": "steel_block", "count": 1}, {"item": "fluix_crystal", "count": 4}, {"item": "engineering_processor", "count": 1}], "time": 120},
+    {"bench": "inscriber", "output": {"item": "storage_drive", "count": 1}, "inputs": [{"item": "steel_block", "count": 1}, {"item": "calculation_processor", "count": 2}, {"item": "network_cable", "count": 2}], "time": 60},
+    {"bench": "inscriber", "output": {"item": "storage_terminal", "count": 1}, "inputs": [{"item": "glass", "count": 2}, {"item": "logic_processor", "count": 2}, {"item": "network_cable", "count": 1}], "time": 60},
+    {"bench": "inscriber", "output": {"item": "import_bus", "count": 1}, "inputs": [{"item": "iron_ingot", "count": 2}, {"item": "logic_processor", "count": 1}, {"item": "network_cable", "count": 1}], "time": 40},
+    {"bench": "inscriber", "output": {"item": "export_bus", "count": 1}, "inputs": [{"item": "iron_ingot", "count": 2}, {"item": "calculation_processor", "count": 1}, {"item": "network_cable", "count": 1}], "time": 40},
+    {"bench": "inscriber", "output": {"item": "storage_bus", "count": 1}, "inputs": [{"item": "chest", "count": 1}, {"item": "logic_processor", "count": 1}, {"item": "network_cable", "count": 1}], "time": 40},
+    {"bench": "inscriber", "output": {"item": "wireless_access_point", "count": 1}, "inputs": [{"item": "fluix_crystal", "count": 2}, {"item": "calculation_processor", "count": 1}, {"item": "network_cable", "count": 1}], "time": 60},
+    {"bench": "inscriber", "output": {"item": "wireless_terminal", "count": 1}, "inputs": [{"item": "storage_terminal", "count": 1}, {"item": "wireless_access_point", "count": 1}, {"item": "engineering_processor", "count": 1}], "time": 120},
+    {"bench": "inscriber", "output": {"item": "crafting_cpu", "count": 1}, "inputs": [{"item": "steel_block", "count": 1}, {"item": "engineering_processor", "count": 2}, {"item": "logic_processor", "count": 2}, {"item": "network_cable", "count": 1}], "time": 120},
+    {"bench": "inscriber", "output": {"item": "crafting_coprocessor", "count": 1}, "inputs": [{"item": "steel_block", "count": 1}, {"item": "engineering_processor", "count": 1}, {"item": "calculation_processor", "count": 2}], "time": 120},
+    {"bench": "inscriber", "output": {"item": "assembler", "count": 1}, "inputs": [{"item": "steel_block", "count": 1}, {"item": "glass", "count": 4}, {"item": "logic_processor", "count": 2}, {"item": "network_cable", "count": 1}], "time": 60},
+    {"bench": "inscriber", "output": {"item": "quantum_bridge", "count": 1}, "inputs": [{"item": "steel_block", "count": 1}, {"item": "fluix_crystal", "count": 8}, {"item": "engineering_processor", "count": 4}, {"item": "diamond", "count": 1}], "time": 300},
+    {"bench": "inscriber", "output": {"item": "annihilation_plane", "count": 1}, "inputs": [{"item": "iron_ingot", "count": 3}, {"item": "fluix_crystal", "count": 4}, {"item": "logic_processor", "count": 1}], "time": 60},
+    {"bench": "inscriber", "output": {"item": "formation_plane", "count": 1}, "inputs": [{"item": "iron_ingot", "count": 3}, {"item": "fluix_crystal", "count": 4}, {"item": "calculation_processor", "count": 1}], "time": 60}
+  ]
+}

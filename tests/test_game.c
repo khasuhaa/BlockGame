@@ -1,4 +1,5 @@
 /* Headless tests for the game rules: no window, just the simulation. */
+#include "../src/digital.h"
 #include "../src/game.h"
 #include "../src/guide.h"
 #include "../src/industry.h"
@@ -9671,6 +9672,232 @@ static void test_industry_mod(void)
     CHECK(content_load("data", err, sizeof err) && content.tile_count == tiles);
 }
 
+/* Digital Storage, on top of the game. */
+static void test_digital_mod(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count;
+    if (!content_load("mods/digital_storage", err, sizeof err)) {
+        printf("FAIL digital_storage does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    CHECK(content.tile_count == tiles + 16 && content.item_count == items + 29 && content.recipe_count == recipes + 28);
+    CHECK(tile_def(tile_id("network_cable"))->net_role == NET_CABLE && tile_def(tile_id("network_controller"))->net_role == NET_CONTROLLER &&
+          tile_def(tile_id("network_controller"))->draw == 10 && tile_def(tile_id("storage_drive"))->net_role == NET_DRIVE &&
+          tile_def(tile_id("wireless_access_point"))->net_range == 32);
+    ItemId cell1 = item_id("storage_cell_1k"), cell64 = item_id("storage_cell_64k");
+    CHECK(item_def(cell1)->cell_bytes == 1024 && item_def(cell64)->cell_bytes == 65536 && item_def(cell1)->max_stack == 1 && item_def(item_id("wireless_terminal"))->remote);
+    CHECK(find_recipe(tile_id("inscriber"), "storage_cell_1k") && find_recipe_from(TILE_WORKBENCH, "inscriber", "steel_block"));
+
+    Game g;
+    game_init(&g, 200, 96, 41, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    g.tick_rate = 0;
+    g.random_events = 0;
+    clear_mobs(&g);
+    int s = w->surface_y, ground = s - 1, px = g.player.feet.x, row = ground - 10;
+    TileType cable = tile_id("network_cable");
+#define CABLE(x, y) world_set_at(w, tile_def(cable)->layer, (x), (y), cable)
+    /* A network: a controller with a flywheel beside it, cable, a drive with one 1k cell in it, and a terminal. */
+    int nx = px + 10;
+    Storage *power = put_device(&g, "flywheel", nx - 1, row), *heart = put_machine(&g, "network_controller", nx, row);
+    CABLE(nx + 1, row);
+    Storage *drive = put_machine(&g, "storage_drive", nx + 2, row);
+    CABLE(nx + 3, row);
+    world_set_at(w, tile_def(tile_id("storage_terminal"))->layer, nx + 4, row, tile_id("storage_terminal"));
+    int tx = nx + 4;
+    inv->containers[drive->container].slots[0] = (ItemStack){ .id = (uint16_t)cell1, .count = 1 };
+    NetInfo info;
+    /* With no electricity it is there, and does nothing. */
+    for (int t = 0; t < 20; t++) game_tick(&g);
+    CHECK(digital_info(&g, tx, row, &info) && info.found && !info.online && info.controller.x == nx && digital_insert(&g, tx, row, ITEM_DIRT, 5) == 0);
+    power->power = 10000;
+    for (int t = 0; t < 10; t++) game_tick(&g);
+    CHECK(digital_info(&g, tx, row, &info) && info.online && info.bytes_total == 1024 && info.bytes_used == 0 && info.cells == 1 && info.drives == 1 && info.types == 0);
+    CHECK(power->power < 10000 && power->power > 10000 - 400); /* ten units a tick */
+    (void)heart;
+    /* Things go in and are counted; a kind costs 8 bytes of a 1k cell, and eight things a byte. */
+    CHECK(digital_insert(&g, tx, row, ITEM_DIRT, 100) == 100 && digital_count(&g, tx, row, ITEM_DIRT) == 100);
+    CHECK(digital_info(&g, tx, row, &info) && info.bytes_used == 8 + 13 && info.types == 1);
+    CHECK(digital_insert(&g, tx, row, ITEM_STONE, 40) == 40 && digital_extract(&g, tx, row, ITEM_DIRT, 30) == 30 && digital_count(&g, tx, row, ITEM_DIRT) == 70);
+    static NetItem list[MAX_NET_KINDS];
+    CHECK(digital_list(&g, tx, row, list, MAX_NET_KINDS) == 2 && list[0].item == ITEM_DIRT && list[0].count == 70 && list[1].item == ITEM_STONE && !list[0].craftable);
+    /* It holds what it holds and no more; and nothing that has anything inside it or a meter to read. */
+    int fits = (1024 - 2 * 8) * 8 - 110;
+    CHECK(digital_insert(&g, tx, row, ITEM_DIRT, 20000) == fits && digital_insert(&g, tx, row, ITEM_DIRT, 1) == 0);
+    CHECK(digital_insert(&g, tx, row, cell1, 1) == 0 && digital_insert(&g, tx, row, item_id("bucket"), 1) == 0);
+    CHECK(digital_extract(&g, tx, row, ITEM_DIRT, 30000) == fits + 70 && digital_extract(&g, tx, row, ITEM_STONE, 40) == 40);
+    CHECK(digital_info(&g, tx, row, &info) && info.bytes_used == 0 && info.types == 0);
+    /* Sixty-three kinds to a cell. */
+    int kinds_in = 0;
+    for (ItemId k = 1; k < content.item_count && kinds_in < 70; k++)
+        if (item_def(k)->meter_max == 0 && item_def(k)->crystals == 0 && digital_insert(&g, tx, row, k, 1) == 1) kinds_in++;
+    CHECK(kinds_in == CELL_TYPES);
+    for (ItemId k = 1; k < content.item_count; k++) digital_extract(&g, tx, row, k, 10);
+    /* From what the character carries, and back. */
+    for (int k = 0; k < INVENTORY_SLOTS; k++) inv->slots[k] = (ItemStack){ 0 };
+    inv->slots[0] = (ItemStack){ .id = (uint16_t)ITEM_DIRT, .count = 50 };
+    CHECK(digital_deposit(&g, tx, row, 0, 20) == 20 && inv->slots[0].count == 30 && digital_deposit(&g, tx, row, 0, 0) == 30 && inv->slots[0].count == 0);
+    CHECK(digital_withdraw(&g, tx, row, ITEM_DIRT, 15) == 15 && count_item(&g, ITEM_DIRT) == 15 && digital_count(&g, tx, row, ITEM_DIRT) == 35);
+    /* Kept with the world; and the cell keeps what is in it when it is taken out of the drive and put in another. */
+    CHECK(save_game(&g, "build/test_digital.world"));
+    Game loaded;
+    CHECK(load_game(&loaded, "build/test_digital.world"));
+    for (int t = 0; t < 3; t++) game_tick(&loaded);
+    CHECK(digital_count(&loaded, tx, row, ITEM_DIRT) == 35);
+    game_free(&loaded);
+    ItemStack taken = inv->containers[drive->container].slots[0];
+    inv->containers[drive->container].slots[0] = (ItemStack){ 0 };
+    CHECK(digital_count(&g, tx, row, ITEM_DIRT) == 0 && digital_info(&g, tx, row, &info) && info.bytes_total == 0);
+    inv->containers[drive->container].slots[3] = taken;
+    CHECK(digital_count(&g, tx, row, ITEM_DIRT) == 35);
+
+    /* A storage bus makes the chest beside it part of the store: counted, drawn on, and filled when the cells are full. */
+    CABLE(nx + 2, row + 1);
+    world_set_at(w, tile_def(tile_id("storage_bus"))->layer, nx + 2, row + 2, tile_id("storage_bus"));
+    Storage *chest = put_machine(&g, "chest", nx + 2, row + 3);
+    fill_slot(&g, chest, 0, ITEM_STONE, 25);
+    CHECK(digital_count(&g, tx, row, ITEM_STONE) == 25 && digital_extract(&g, tx, row, ITEM_STONE, 10) == 10 && held_in(&g, chest, ITEM_STONE) == 15);
+    inv->containers[drive->container].slots[3] = (ItemStack){ 0 };
+    CHECK(digital_insert(&g, tx, row, ITEM_STONE, 5) == 5 && held_in(&g, chest, ITEM_STONE) == 20); /* (no cell: into the chest) */
+    inv->containers[drive->container].slots[3] = taken;
+
+    /* An import bus takes what is in the chest beside it, four things a tick; told a kind, only that. An export bus puts
+     * the kind it is told out into the chest beside it. */
+    CABLE(nx + 3, row - 1);
+    Storage *import = put_machine(&g, "import_bus", nx + 3, row - 2), *feed = put_machine(&g, "chest", nx + 3, row - 3);
+    fill_slot(&g, feed, 0, item_id("copper_ore"), 10);
+    fill_slot(&g, feed, 1, item_id("iron_ore"), 10);
+    fill_slot(&g, import, 0, item_id("iron_ore"), 1);
+    for (int t = 0; t < 2; t++) game_tick(&g);
+    CHECK(digital_count(&g, tx, row, item_id("iron_ore")) == 8 && held_in(&g, feed, item_id("iron_ore")) == 2 && held_in(&g, feed, item_id("copper_ore")) == 10);
+    fill_slot(&g, import, 0, ITEM_NONE, 0);
+    for (int t = 0; t < 4; t++) game_tick(&g);
+    CHECK(held_in(&g, feed, item_id("copper_ore")) == 0 && held_in(&g, feed, item_id("iron_ore")) == 0 && digital_count(&g, tx, row, item_id("copper_ore")) == 10);
+    CABLE(nx + 1, row - 1);
+    Storage *export = put_machine(&g, "export_bus", nx + 1, row - 2), *bin = put_machine(&g, "chest", nx + 1, row - 3);
+    for (int t = 0; t < 3; t++) game_tick(&g);
+    CHECK(held_in(&g, bin, item_id("iron_ore")) == 0); /* told nothing, it sends nothing */
+    fill_slot(&g, export, 0, item_id("iron_ore"), 1);
+    for (int t = 0; t < 2; t++) game_tick(&g);
+    CHECK(held_in(&g, bin, item_id("iron_ore")) == 8 && digital_count(&g, tx, row, item_id("iron_ore")) == 2);
+    fill_slot(&g, export, 0, ITEM_NONE, 0);
+
+    /* Making things: an assembler beside a bench teaches the network that bench's recipes; a crafting CPU does the work.
+     * What is short is made too, and what that takes: three 1k components and then the 4k one. */
+    ItemId quartz = item_id("certus_quartz"), logic = item_id("logic_processor"), calc = item_id("calculation_processor");
+    ItemId comp1 = item_id("cell_component_1k"), comp4 = item_id("cell_component_4k");
+    char why[64];
+    CHECK(!digital_request(&g, tx, row, comp4, 1, why, sizeof why) && why[0]); /* nothing here makes it yet */
+    CABLE(nx + 4, row + 1);
+    world_set_at(w, tile_def(tile_id("assembler"))->layer, nx + 4, row + 2, tile_id("assembler"));
+    world_set_at(w, tile_def(tile_id("inscriber"))->layer, nx + 4, row + 3, tile_id("inscriber"));
+    CHECK(digital_recipe_for(&g, tx, row, comp4) != NULL && digital_recipe_for(&g, tx, row, cell1) == NULL); /* (a cell is not a plain thing) */
+    CHECK(!digital_request(&g, tx, row, comp4, 1, why, sizeof why) && strstr(why, "CPU"));
+    CABLE(nx + 5, row);
+    world_set_at(w, tile_def(tile_id("crafting_cpu"))->layer, nx + 6, row, tile_id("crafting_cpu"));
+    CHECK(!digital_request(&g, tx, row, comp4, 1, why, sizeof why) && strstr(why, "Missing"));
+    digital_insert(&g, tx, row, quartz, 12);
+    digital_insert(&g, tx, row, logic, 3);
+    digital_insert(&g, tx, row, calc, 1);
+    CHECK(digital_request(&g, tx, row, comp4, 1, why, sizeof why));
+    const NetJob *jobs[MAX_NET_JOBS];
+    CHECK(digital_jobs(&g, tx, row, jobs, MAX_NET_JOBS) == 1 && jobs[0]->step_count == 2 && jobs[0]->steps[0].crafts == 3 && jobs[0]->steps[1].crafts == 1 && jobs[0]->wanted == comp4);
+    CHECK(!digital_request(&g, tx, row, comp1, 1, why, sizeof why) && strstr(why, "busy")); /* one CPU, one job */
+    CHECK(digital_list(&g, tx, row, list, MAX_NET_KINDS) > 0);
+    bool listed = false;
+    for (int k = 0; k < digital_list(&g, tx, row, list, MAX_NET_KINDS); k++) listed = listed || (list[k].item == comp4 && list[k].craftable && list[k].count == 0);
+    CHECK(listed);
+    /* Three at 60 seconds and one at 120: 3,000 ticks. Half way, some of the first are made and the last is not. */
+    for (int k = 0; k < 15; k++) {
+        power->power = 10000;
+        for (int t = 0; t < 100; t++) game_tick(&g);
+    }
+    CHECK(digital_count(&g, tx, row, comp4) == 0 && digital_count(&g, tx, row, quartz) < 12 && digital_jobs(&g, tx, row, jobs, MAX_NET_JOBS) == 1);
+    for (int k = 0; k < 16; k++) {
+        power->power = 10000;
+        for (int t = 0; t < 100; t++) game_tick(&g);
+    }
+    CHECK(digital_count(&g, tx, row, comp4) == 1 && digital_count(&g, tx, row, comp1) == 0 && digital_count(&g, tx, row, quartz) == 0 &&
+          digital_count(&g, tx, row, calc) == 0 && digital_jobs(&g, tx, row, jobs, MAX_NET_JOBS) == 0);
+    /* A co-processor halves the time; and a job can be given up. */
+    world_set_at(w, tile_def(tile_id("crafting_coprocessor"))->layer, nx + 7, row, tile_id("crafting_coprocessor"));
+    digital_insert(&g, tx, row, quartz, 8);
+    digital_insert(&g, tx, row, logic, 2);
+    CHECK(digital_info(&g, tx, row, &info) && info.cpus == 1 && info.coprocessors == 1 && digital_request(&g, tx, row, comp1, 2, why, sizeof why));
+    power->power = 10000;
+    for (int t = 0; t < 320; t++) game_tick(&g);
+    CHECK(digital_count(&g, tx, row, comp1) == 1);
+    CHECK(digital_jobs(&g, tx, row, jobs, MAX_NET_JOBS) == 1 && digital_cancel(&g, jobs[0]) && digital_jobs(&g, tx, row, jobs, MAX_NET_JOBS) == 0);
+
+    /* Planes: one breaks the plain block beside it into the store; one puts the block it is told out into the open square beside it. */
+    power->power = 10000;
+    CABLE(nx + 6, row + 1);
+    put_machine(&g, "annihilation_plane", nx + 6, row + 2);
+    world_set(w, nx + 6, row + 3, TILE_STONE);
+    long stone = digital_count(&g, tx, row, ITEM_STONE);
+    for (int t = 0; t < 25; t++) game_tick(&g);
+    CHECK(world_get(w, nx + 6, row + 3) == TILE_AIR && digital_count(&g, tx, row, ITEM_STONE) == stone + 1);
+    world_set_at(w, tile_def(tile_id("annihilation_plane"))->layer, nx + 6, row + 2, TILE_AIR);
+    CABLE(nx + 7, row - 1);
+    Storage *former = put_machine(&g, "formation_plane", nx + 7, row - 2);
+    fill_slot(&g, former, 0, ITEM_STONE, 1);
+    for (int t = 0; t < 25; t++) game_tick(&g);
+    int placed = 0;
+    for (int d = -1; d <= 1; d++) placed += world_get(w, nx + 7 + d, row - 2 - (d == 0)) == TILE_STONE;
+    CHECK(placed >= 1 && digital_count(&g, tx, row, ITEM_STONE) < stone + 1);
+
+    /* A quantum bridge: a terminal a long way off, on cable of its own, is on the same network. */
+    put_device(&g, "quantum_bridge", nx + 8, row);
+    int far = px + 120;
+    put_device(&g, "quantum_bridge", far, row);
+    CABLE(far + 1, row);
+    world_set_at(w, tile_def(tile_id("storage_terminal"))->layer, far + 2, row, tile_id("storage_terminal"));
+    CABLE(nx + 8, row + 1); /* (joined to the co-processor's end of things by the cable under it) */
+    CABLE(nx + 7, row + 1);
+    CHECK(digital_info(&g, far + 2, row, &info) && info.found && info.online && info.controller.x == nx && digital_count(&g, far + 2, row, ITEM_DIRT) == 35);
+    /* Reached from a distance: with a wireless terminal in hand, within range of an access point. */
+    TilePos at;
+    for (int k = 0; k < INVENTORY_SLOTS; k++) inv->slots[k] = (ItemStack){ 0 };
+    inv->slots[0] = (ItemStack){ .id = (uint16_t)item_id("wireless_terminal"), .count = 1 };
+    inventory_select(inv, 0, -1);
+    g.player.feet = g.player.step_to = (TilePos){ far + 20, ground };
+    CHECK(!digital_remote(&g, &at)); /* no access point */
+    put_device(&g, "wireless_access_point", far + 3, row);
+    CHECK(digital_remote(&g, &at) && at.x == world_wrap_x(w, far + 3) && at.y == row && digital_count(&g, at.x, at.y, ITEM_DIRT) == 35);
+    g.player.feet = g.player.step_to = (TilePos){ far + 60, ground };
+    CHECK(!digital_remote(&g, &at)); /* too far */
+    g.player.feet = g.player.step_to = (TilePos){ far + 20, ground };
+    inventory_select(inv, 1, -1);
+    CHECK(!digital_remote(&g, &at)); /* nothing in hand */
+#undef CABLE
+    game_free(&g);
+
+    /* The world has certus quartz in it, as often as iron. */
+    World world;
+    CHECK(world_init(&world, 2048, 401, 3, WORLD_TERRAIN));
+    int quartz_blocks = count_tile(&world, 0, tile_id("quartz_ore")), iron_blocks = count_tile(&world, 0, tile_id("iron_ore"));
+    CHECK(quartz_blocks > iron_blocks / 2 && quartz_blocks < iron_blocks * 2);
+    world_free(&world);
+
+    /* It goes with either of the others. */
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/modtest/none");
+    for (int a = 0; a < mods.count; a++) {
+        if (strcmp(mods.mods[a].id, "digital_storage") != 0) continue;
+        for (int b = 0; b < mods.count; b++) {
+            char what[64];
+            if (a != b) CHECK(!mods_conflict(&mods.mods[a], &mods.mods[b], what, sizeof what));
+        }
+    }
+    content_reset();
+    CHECK(content_load("data", err, sizeof err) && content.tile_count == tiles);
+}
+
 int main(void)
 {
     char err[256];
@@ -9793,6 +10020,7 @@ int main(void)
     test_mods();
     test_magic_mod();
     test_industry_mod();
+    test_digital_mod();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;

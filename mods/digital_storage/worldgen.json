@@ -1,0 +1,5 @@
+{
+  "veins": [
+    {"name": "quartz", "tile": "quartz_ore", "in": ["stone"], "size": [2, 8], "per_100_columns": 12, "depth": [8, 150]}
+  ]
+}
