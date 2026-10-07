@@ -865,7 +865,7 @@ void world_set_at(World *w, int layer, int x, int y, TileType t)
     /* What was kept with the block that was there goes with it. */
     if (w->meta && w->meta[cell] != 0) {
         const TileDef *was = tile_def((TileType)w->layers[layer][cell]);
-        if (was->two_tone || was->written || was->motor_power > 0 || (TileType)w->layers[layer][cell] == content.rules.ice) w->meta[cell] = 0;
+        if (was->two_tone || was->written || was->mimics != MIMIC_NONE || was->motor_power > 0 || (TileType)w->layers[layer][cell] == content.rules.ice) w->meta[cell] = 0;
     }
     /* Paint goes with the block, or the backwall, it was on. */
     if (w->paint[0] && (TileType)w->layers[layer][cell] != t) {
@@ -934,6 +934,22 @@ int world_structure(const World *w, int layer, int x, int y, int *bottom)
 }
 
 TileType world_looks_like(const World *w, int x, int y)
+{
+    TileType t = world_get(w, x, y);
+    if (tile_def(t)->mimics == MIMIC_NONE) return t;
+    int look = world_meta(w, x, y);
+    return look > 0 && look < content.tile_count && tile_def((TileType)look)->solid ? (TileType)look : t;
+}
+
+void world_fix_look(World *w, int x, int y)
+{
+    TileType t = world_get(w, x, y);
+    if (tile_def(t)->mimics == MIMIC_NONE) return;
+    TileType look = world_mimic_of(w, x, y);
+    world_set_meta(w, x, y, look == t ? 0 : (int)look);
+}
+
+TileType world_mimic_of(const World *w, int x, int y)
 {
     TileType t = world_get(w, x, y);
     if (tile_def(t)->mimics == MIMIC_NONE) return t;
@@ -1015,5 +1031,7 @@ bool world_is_step(const World *w, int x, int y)
 bool world_is_solid(const World *w, int x, int y)
 {
     if (!world_in_bounds(w, x, y)) return true;
-    return tile_def(world_get(w, x, y))->solid;
+    if (tile_def(world_get(w, x, y))->solid) return true;
+    TileType back = world_get_at(w, LAYER_BACKGROUND, x, y);
+    return tile_def(back)->solid_foot && world_get_at(w, LAYER_BACKGROUND, x, y + 1) != back;
 }

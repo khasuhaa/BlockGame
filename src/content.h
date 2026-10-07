@@ -162,8 +162,13 @@ typedef struct {
     bool passable;
     /* A block that takes on the look of what it stands between: the same
      * block above and below it (MIMIC_UPRIGHT) or either side of it
-     * (MIMIC_FLAT). Others like it in between are looked through. */
+     * (MIMIC_FLAT). Others like it in between are looked through. It takes
+     * the look when it is put up and keeps it (the block it looks like is the
+     * number kept with its square). */
     int mimics;
+    /* A tall block in the background whose lowest tile is solid all the
+     * same: something to stand on, and in the way. */
+    bool solid_foot;
     /* A lamp that throws its light one way: so bright at the lamp, spreading
      * in a quarter circle up (-1) or down (+1) from it. */
     int beam_dir, beam_light;

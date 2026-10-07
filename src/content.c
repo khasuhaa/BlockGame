@@ -289,6 +289,7 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->breaks_above = flag(e, "breaks_above", false);
         t->breaks_below = flag(e, "breaks_below", false);
         t->passable = flag(e, "passable", false);
+        t->solid_foot = flag(e, "solid_foot", false);
         const char *mimics = str(e, "mimics");
         t->mimics = !mimics ? MIMIC_NONE : strcmp(mimics, "upright") == 0 ? MIMIC_UPRIGHT : strcmp(mimics, "flat") == 0 ? MIMIC_FLAT : -1;
         if (t->mimics < 0) return fail(r, "tile \"%s\": \"mimics\" is \"upright\" or \"flat\"", t->name);

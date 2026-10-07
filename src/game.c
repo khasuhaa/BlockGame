@@ -1405,6 +1405,9 @@ static void place_tile(World *w, TilePos t, TileType tile)
     /* A tall block goes up as a column of itself from where it is put. */
     for (int i = 0; i < tile_def(tile)->height; i++)
         world_set_at(w, tile_def(tile)->layer, t.x, t.y - i, tile);
+    /* A door takes its look now, from what it is put between, and keeps it. */
+    for (int i = 0; tile_def(tile)->mimics != MIMIC_NONE && i < tile_def(tile)->height; i++)
+        if (world_meta(w, t.x, t.y - i) == 0) world_fix_look(w, t.x, t.y - i);
     if (tile_def(tile)->pair != TILE_AIR) world_set_at(w, tile_def(tile_def(tile)->pair)->layer, t.x + 1, t.y, tile_def(tile)->pair);
     if (tile_def(tile)->wall && world_get_at(w, LAYER_WALL, t.x, t.y) == TILE_AIR)
         world_set_at(w, LAYER_WALL, t.x, t.y, tile);
@@ -1432,7 +1435,7 @@ static void replace_block(World *w, int layer, TilePos t, TileType with)
 static bool room_for(const World *w, TilePos t, TileType tile)
 {
     for (int i = 0; i < tile_def(tile)->height; i++) {
-        if (!world_in_bounds(w, t.x, t.y - i) || world_get(w, t.x, t.y - i) != TILE_AIR ||
+        if (!world_in_bounds(w, t.x, t.y - i) || world_get(w, t.x, t.y - i) != TILE_AIR || world_is_solid(w, t.x, t.y - i) ||
             world_get_at(w, tile_def(tile)->layer, t.x, t.y - i) != TILE_AIR)
             return false;
     }

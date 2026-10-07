@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 23u
+#define SAVE_VERSION 24u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -665,6 +665,18 @@ bool load_game(Game *g, const char *path)
                 if (g->drops[i].item == ITEM_NONE) g->drops[i].active = false;
             }
         }
+        /* The look a door keeps is a block: that is an id of the save's too. Before version 24
+         * a door looked like whatever it stood between at the time: each keeps the look it had. */
+        for (int y = 0; ok && y < w->height; y++) {
+            for (int x = 0; x < w->width; x++) {
+                if (tile_def(world_get(w, x, y))->mimics == MIMIC_NONE) continue;
+                size_t cell = (size_t)y * w->width + x;
+                if (h.version >= 24) w->meta[cell] = w->meta[cell] < MAX_TILES ? tiles[w->meta[cell]] : 0;
+                else w->meta[cell] = 0;
+            }
+        }
+        for (int y = 0; ok && h.version < 24 && y < w->height; y++)
+            for (int x = 0; x < w->width; x++) world_fix_look(w, x, y);
         /* Before version 23 a sign was one block wide: each gets its other half, where there is room for it. */
         for (int y = 0; ok && h.version == 22 && y < w->height; y++) {
             for (int x = 0; x < w->width; x++) {

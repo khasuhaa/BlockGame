@@ -553,10 +553,16 @@ static void draw_block(const Game *g, int layer, TileType t, int x, int y, float
         assets_draw_tile_joined(t, wx, y, px, py, TILE_SIZE, dim, joined);
     } else if (def->join_count > 0)
         assets_draw_tile_joined(t, wx, y, px, py, TILE_SIZE, dim, tile_joined(&g->world, layer, x, y));
-    else
+    else {
+        /* A tall block has a top to it, and a foot. */
+        TilePart part = TILE_PART_BODY;
+        if (def->height > 1 && world_get_at(&g->world, layer, x, y) == t) {
+            int bottom, count = world_structure(&g->world, layer, x, y, &bottom);
+            part = y == bottom - count + 1 ? TILE_PART_TOP : y == bottom ? TILE_PART_BASE : TILE_PART_BODY;
+        }
         /* Something with a fire in it shows the fire while it has fuel. */
-        assets_draw_tile_lit(t, wx, y, px, py, TILE_SIZE, dim, TILE_PART_BODY,
-                             def->lit_count > 0 && game_fuel_at(g, wx, y) > 0);
+        assets_draw_tile_lit(t, wx, y, px, py, TILE_SIZE, dim, part, def->lit_count > 0 && game_fuel_at(g, wx, y) > 0);
+    }
     /* A two-tone flower, in the colours this one is. */
     if (def->two_tone) assets_draw_tile_tones(t, px, py, TILE_SIZE, dim, world_meta(&g->world, wx, y));
 }

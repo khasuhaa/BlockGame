@@ -93,10 +93,16 @@ bool world_grow_plant(World *w, int layer, int x, int y);
 int world_structure(const World *w, int layer, int x, int y, int *bottom);
 
 /* What the block in the foreground of a square looks like. That is itself,
- * except for a door: it looks like the block it stands between, if that is
- * the same block on both sides - above and below for one that is upright,
- * left and right for one that lies flat - looking past any other doors on the way. */
+ * except for a door, which looks like whatever it was given the look of when
+ * it was put up (see world_fix_look). */
 TileType world_looks_like(const World *w, int x, int y);
+/* What a door in a square would take the look of, going by what is round it
+ * now: the block it stands between, if that is the same block on both sides -
+ * above and below for one that is upright, left and right for one that lies
+ * flat - looking past any other doors on the way. Itself if there is none. */
+TileType world_mimic_of(const World *w, int x, int y);
+/* Gives the door in a square that look, to keep whatever is changed round it afterwards. */
+void world_fix_look(World *w, int x, int y);
 /* What something in the background of a square is fixed to, one of MOUNT_*:
  * the backwall behind it if there is one; failing that the block (or the
  * column) under it, then the block over it, then the one to its left, then
@@ -116,7 +122,7 @@ bool world_is_shaft(const World *w, int x, int y);
 bool world_lift_runs(const World *w, int x, int y);
 /* Whether a square has steps in it: something not solid that can still be stood on. */
 bool world_is_step(const World *w, int x, int y);
-/* Above and below the world counts as solid. */
+/* Above and below the world counts as solid; so does the foot of a tall block that has a solid one. */
 bool world_is_solid(const World *w, int x, int y);
 
 #endif

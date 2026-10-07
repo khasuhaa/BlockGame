@@ -562,8 +562,10 @@ In data: `"generator": { "power", "needs": "sun" | "fuel" }`, `"battery"`, `"wir
 
 A **door** or **trapdoor** (wooden or iron) is a solid block to everything except a character: water, light and creatures are stopped by it and it can be stood on, but a character walks straight through it. A trapdoor can also be climbed: standing on one, the down key lets the character down through it, and from below they climb up through it and out onto its top.
 
-- **They take on the look of the wall they are in.** A door with the same block above it and below it is drawn as that block; a trapdoor, which lies flat, goes by the blocks to its left and right. Other doors and trapdoors in between are looked past, so a run of several between two blocks of the same kind all take that kind's look. With different blocks at the two ends, or nothing at one, a door looks like a door.
-- `"passable": true` makes a block a door; `"mimics": "upright"` or `"flat"` says which way it looks for the block to copy.
+- **A door is two blocks tall**, put up and taken down as one thing; it needs both squares free. A trapdoor is one block.
+- **They take on the look of the wall they are put in, and keep it.** A door put up with the same block above it and below it is drawn as that block from then on; a trapdoor, which lies flat, goes by the blocks to its left and right. Other doors and trapdoors in between are looked past. With different blocks at the two ends, or nothing at one, a door looks like a door. The look is settled once, as the door goes up: changing the blocks round it afterwards changes nothing. To give a door another look, take it down and put it up again.
+- `"passable": true` makes a block a door; `"mimics": "upright"` or `"flat"` says which way it looks for the block to copy; `"height": 2` makes it two blocks tall.
+- **The lowest block of a portal is solid** - a portal, a trade portal or a dev portal: it is walked over and stood on, not through, and nothing else can be put where it is. The rest of the portal stands behind the character as before. (`"solid_foot"` on a tall background block.)
 
 ### Walls that run themselves
 

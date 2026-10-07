@@ -3755,33 +3755,97 @@ static void test_doors_walls_lamps_armor(void)
     CHECK(g.player.feet.x == px && over.climbed);
     for (int k = 0; k < 4; k++) world_set(w, px + 3, ground - k, TILE_AIR);
 
-    /* What a door looks like: the block it stands between, if that is the same above and below. */
+    /* What a door would look like: the block it stands between, if that is the same above and below. */
     int dx = px + 10;
     world_set(w, dx, ground, TILE_STONE);
     world_set(w, dx, ground - 1, door);
     world_set(w, dx, ground - 2, TILE_STONE);
-    CHECK(world_looks_like(w, dx, ground - 1) == TILE_STONE && world_looks_like(w, dx, ground) == TILE_STONE);
+    CHECK(world_mimic_of(w, dx, ground - 1) == TILE_STONE && world_mimic_of(w, dx, ground) == TILE_STONE);
+    /* Until it is given the look, it looks like a door; given it, it keeps it whatever is changed round it. */
+    CHECK(world_looks_like(w, dx, ground - 1) == door);
+    world_fix_look(w, dx, ground - 1);
+    CHECK(world_looks_like(w, dx, ground - 1) == TILE_STONE);
     world_set(w, dx, ground - 2, wood);
-    CHECK(world_looks_like(w, dx, ground - 1) == door);
+    CHECK(world_mimic_of(w, dx, ground - 1) == door && world_looks_like(w, dx, ground - 1) == TILE_STONE);
     world_set(w, dx, ground - 2, TILE_AIR);
-    CHECK(world_looks_like(w, dx, ground - 1) == door);
+    CHECK(world_mimic_of(w, dx, ground - 1) == door && world_looks_like(w, dx, ground - 1) == TILE_STONE);
+    /* The look goes with the door: another put there starts afresh. */
+    world_set(w, dx, ground - 1, TILE_AIR);
+    world_set(w, dx, ground - 1, door);
+    CHECK(world_looks_like(w, dx, ground - 1) == door && world_meta(w, dx, ground - 1) == 0);
     /* Several in a row, doors and trapdoors alike, are looked past to the blocks at the ends. */
     world_set(w, dx, ground - 2, iron);
     world_set(w, dx, ground - 3, hatch);
     world_set(w, dx, ground - 4, TILE_STONE);
-    for (int k = 1; k <= 2; k++) CHECK(world_looks_like(w, dx, ground - k) == TILE_STONE);
-    CHECK(world_looks_like(w, dx, ground - 3) == hatch); /* (itself lying flat, it goes by its sides) */
+    for (int k = 1; k <= 2; k++) CHECK(world_mimic_of(w, dx, ground - k) == TILE_STONE);
+    CHECK(world_mimic_of(w, dx, ground - 3) == hatch); /* (itself lying flat, it goes by its sides) */
     world_set(w, dx, ground - 4, wood);
-    CHECK(world_looks_like(w, dx, ground - 1) == door && world_looks_like(w, dx, ground - 2) == iron);
+    CHECK(world_mimic_of(w, dx, ground - 1) == door && world_mimic_of(w, dx, ground - 2) == iron);
     for (int k = 0; k <= 4; k++) world_set(w, dx, ground - k, TILE_AIR);
     /* A trapdoor lies flat: it goes by what is either side of it. */
     world_set(w, dx, ground - 3, wood);
     world_set(w, dx + 1, ground - 3, hatch);
     world_set(w, dx + 2, ground - 3, hatch);
     world_set(w, dx + 3, ground - 3, wood);
-    CHECK(world_looks_like(w, dx + 1, ground - 3) == wood && world_looks_like(w, dx + 2, ground - 3) == wood);
+    CHECK(world_mimic_of(w, dx + 1, ground - 3) == wood && world_mimic_of(w, dx + 2, ground - 3) == wood);
     world_set(w, dx + 3, ground - 3, TILE_STONE);
-    CHECK(world_looks_like(w, dx + 1, ground - 3) == hatch);
+    CHECK(world_mimic_of(w, dx + 1, ground - 3) == hatch);
+    world_set(w, dx + 3, ground - 3, wood);
+
+    /* A door is two blocks tall, and is put up and taken down as one thing. It takes its look as it goes up. */
+    CHECK(tile_def(door)->height == 2 && tile_def(iron)->height == 2 && tile_def(hatch)->height == 1);
+    int ex = px - 6;
+    ItemId door_item = item_id("wooden_door"), hatch_item = item_id("trapdoor");
+    g.player.feet = g.player.step_to = (TilePos){ px - 3, ground };
+    clear_inventory(&g);
+    inventory_add(inv, door_item, 2);
+    inventory_add(inv, hatch_item, 1);
+    inventory_select(inv, 0, -1);
+    world_set(w, ex, ground - 2, TILE_STONE); /* a lintel over the doorway; the floor under it is not stone */
+    world_set(w, ex, ground + 1, TILE_STONE);
+    world_set(w, ex + 1, ground - 2, TILE_STONE); /* (and something beside it to hold the lintel up) */
+    CHECK(game_queue_action(&g, ACTION_PLACE, ex, ground));
+    run(&g, 5.0f);
+    CHECK(world_get(w, ex, ground) == door && world_get(w, ex, ground - 1) == door && count_item(&g, door_item) == 1);
+    CHECK(world_looks_like(w, ex, ground) == TILE_STONE && world_looks_like(w, ex, ground - 1) == TILE_STONE);
+    /* The blocks round it changed, it looks as it did. */
+    world_set(w, ex, ground - 2, wood);
+    world_set(w, ex, ground + 1, wood);
+    CHECK(world_looks_like(w, ex, ground) == TILE_STONE && world_looks_like(w, ex, ground - 1) == TILE_STONE);
+    world_set(w, ex, ground - 2, TILE_AIR);
+    CHECK(world_looks_like(w, ex, ground - 1) == TILE_STONE);
+    /* There is no room for one under a ceiling one block up. */
+    world_set(w, ex - 2, ground - 1, TILE_STONE);
+    CHECK(!game_queue_action(&g, ACTION_PLACE, ex - 2, ground));
+    world_set(w, ex - 2, ground - 1, TILE_AIR);
+    /* A trapdoor takes its look the same way, and keeps it. */
+    world_set(w, ex + 3, ground - 3, wood);
+    world_set(w, ex + 5, ground - 3, wood);
+    g.player.feet = g.player.step_to = (TilePos){ ex + 4, ground };
+    inventory_select(inv, 1, -1);
+    CHECK(game_queue_action(&g, ACTION_PLACE, ex + 4, ground - 3));
+    run(&g, 5.0f);
+    CHECK(world_get(w, ex + 4, ground - 3) == hatch && world_looks_like(w, ex + 4, ground - 3) == wood);
+    world_set(w, ex + 5, ground - 3, TILE_STONE);
+    CHECK(world_looks_like(w, ex + 4, ground - 3) == wood);
+    /* The looks are kept with the world. */
+    CHECK(save_game(&g, "build/test_door.world"));
+    Game loaded;
+    CHECK(load_game(&loaded, "build/test_door.world"));
+    CHECK(world_looks_like(&loaded.world, ex, ground) == TILE_STONE && world_looks_like(&loaded.world, ex, ground - 1) == TILE_STONE);
+    CHECK(world_looks_like(&loaded.world, ex + 4, ground - 3) == wood);
+    game_free(&loaded);
+    /* Taken down by either block, the whole door comes away as one door. */
+    g.player.feet = g.player.step_to = (TilePos){ px - 3, ground };
+    CHECK(game_queue_action(&g, ACTION_MINE, ex, ground - 1));
+    run(&g, 10.0f);
+    CHECK(world_get(w, ex, ground) == TILE_AIR && world_get(w, ex, ground - 1) == TILE_AIR && count_item(&g, door_item) == 2);
+    CHECK(world_meta(w, ex, ground) == 0 && world_meta(w, ex, ground - 1) == 0);
+    world_set(w, ex + 4, ground - 3, TILE_AIR);
+    world_set(w, ex + 3, ground - 3, TILE_AIR);
+    world_set(w, ex + 5, ground - 3, TILE_AIR);
+    world_set(w, ex + 1, ground - 2, TILE_AIR);
+    world_set(w, ex, ground + 1, w->layers[0][(size_t)(ground + 1) * w->width + world_wrap_x(w, ex - 1)]);
     world_set(w, dx + 3, ground - 3, wood);
 
     /* A trapdoor in a floor: stood on, let down through with the down key, and climbed up through again. */
@@ -6761,8 +6825,38 @@ static void test_remote_benches_and_teleport(void)
     world_set(w, far, ground + 1, TILE_PORTAL_BASE);
     world_set_at(w, tile_def(tile_id("portal"))->layer, far, ground, tile_id("portal"));
     world_set_at(w, tile_def(tile_id("portal"))->layer, far, ground - 1, tile_id("portal"));
+    world_set_at(w, tile_def(tile_id("portal"))->layer, far, ground - 2, tile_id("portal"));
+    /* (Its lowest block is solid: the place to arrive is on top of that.) */
+    CHECK(tile_def(tile_id("portal"))->solid_foot && world_is_solid(w, far, ground) && !world_is_solid(w, far, ground - 1));
     CHECK(game_open_bench(&g, far, ground - 1) && game_teleport_cost(&g) == 10 && game_teleport(&g));
-    CHECK(g.player.feet.x == far && g.player.feet.y == ground && g.crystals == 15);
+    CHECK(g.player.feet.x == far && g.player.feet.y == ground - 1 && g.crystals == 15);
+    /* Put down by hand, a portal's lowest block is one to walk over and stand on, not through. */
+    int at = world_wrap_x(w, far + 6);
+    ItemId portal_item = item_id("portal");
+    g.player.feet = g.player.step_to = (TilePos){ far + 3, ground };
+    clear_inventory(&g);
+    inventory_add(&g.inventory, portal_item, 1);
+    inventory_add(&g.inventory, ITEM_DIRT, 1);
+    inventory_select(&g.inventory, 0, -1);
+    CHECK(game_queue_action(&g, ACTION_PLACE, at, ground));
+    run(&g, 5.0f);
+    CHECK(world_get_at(w, LAYER_BACKGROUND, at, ground) == tile_id("portal") && world_get(w, at, ground) == TILE_AIR);
+    CHECK(world_is_solid(w, at, ground) && !world_is_solid(w, at, ground - 1) && !world_is_solid(w, at, ground - 2));
+    inventory_select(&g.inventory, 1, -1);
+    CHECK(!game_queue_action(&g, ACTION_PLACE, at, ground)); /* no block goes where it is */
+    CHECK(game_queue_action(&g, ACTION_MOVE, at + 3, ground));
+    Trace across = run_traced(&g, 10.0f);
+    CHECK(g.player.feet.x == world_wrap_x(w, at + 3) && g.player.feet.y == ground && is_idle(&g));
+    (void)across;
+    CHECK(game_queue_action(&g, ACTION_MOVE, at, ground - 1));
+    run(&g, 10.0f);
+    CHECK(g.player.feet.x == at && g.player.feet.y == ground - 1 && is_idle(&g));
+    /* It still comes up whole, by any of its blocks. */
+    g.player.feet = g.player.step_to = (TilePos){ at + 1, ground };
+    CHECK(game_queue_action(&g, ACTION_MINE, at, ground));
+    run(&g, 10.0f);
+    CHECK(world_get_at(w, LAYER_BACKGROUND, at, ground) == TILE_AIR && world_get_at(w, LAYER_BACKGROUND, at, ground - 2) == TILE_AIR);
+    CHECK(!world_is_solid(w, at, ground) && count_item(&g, portal_item) == 1);
     game_free(&g);
 }
 
