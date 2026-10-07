@@ -594,7 +594,9 @@ static void draw_world(const Game *g, Vector2 origin)
             }
         }
     }
-    /* Signs: what is written on each, a line to a third of its height, the size it is whatever its length. */
+    /* Signs: what is written on each, a line to a third of its height. The
+     * writing is the size it is however much there is of it: what does not
+     * fit across the sign is not shown on it. (All of it can be read by pointing at the sign.) */
     for (int y = y0; y <= y1; y++) {
         for (int x = x0; x <= x1; x++) {
             const SignText *text = tile_def(world_get(w, x, y))->written ? game_sign_at(g, x, y) : NULL;
@@ -602,12 +604,12 @@ static void draw_world(const Game *g, Vector2 origin)
             float px = origin.x + (float)(x * TILE_SIZE), py = origin.y + (float)(y * TILE_SIZE);
             int size = TILE_SIZE / SIGN_LINES;
             for (int k = 0; k < SIGN_LINES; k++) {
-                if (!text->lines[k][0]) continue;
-                int wide = MeasureText(text->lines[k], size);
-                float tx = px + (TILE_SIZE - (float)wide) / 2.0f, ty = py + (float)(k * size);
-                /* (Longer than the sign is wide, it runs out past the edges, on a strip of the sign's own colour.) */
-                if (wide > TILE_SIZE - 4) DrawRectangleRec((Rectangle){ tx - 2, ty, (float)wide + 4, (float)size }, (Color){ 154, 114, 68, 235 });
-                DrawText(text->lines[k], (int)tx, (int)ty, size, (Color){ 30, 22, 16, 255 });
+                char shown[SIGN_LINE_MAX + 1];
+                snprintf(shown, sizeof shown, "%s", text->lines[k]);
+                for (size_t n = strlen(shown); n > 0 && MeasureText(shown, size) > TILE_SIZE - 4; n--) shown[n - 1] = '\0';
+                if (!shown[0]) continue;
+                DrawText(shown, (int)(px + (TILE_SIZE - (float)MeasureText(shown, size)) / 2.0f), (int)(py + 1.0f + (float)(k * size)), size,
+                         (Color){ 40, 26, 14, 255 });
             }
         }
     }
@@ -1542,6 +1544,23 @@ static void session_draw(Session *s)
             !tradeui_mouse_over(&s->trade, g, &ui_view))
             DrawRectangleLinesEx(tile_rect(origin, tile_at_screen(&s->cam, GetMousePosition())), 1.0f,
                                  Fade(WHITE, 0.5f));
+        /* A sign under the pointer is read out in full, beside it. */
+        if (!on_map && !s->paused && !sign_edit.open) {
+            TilePos over = tile_at_screen(&s->cam, GetMousePosition());
+            const SignText *text = tile_def(world_get(&g->world, over.x, over.y))->written ? game_sign_at(g, over.x, over.y) : NULL;
+            if (text) {
+                int size = 10, wide = 0, lines = 0;
+                for (int k = 0; k < SIGN_LINES; k++) {
+                    if (MeasureText(text->lines[k], size) > wide) wide = MeasureText(text->lines[k], size);
+                    if (text->lines[k][0]) lines = k + 1;
+                }
+                Rectangle at = tile_rect(origin, over);
+                Rectangle box = { at.x + at.width / 2 - (float)wide / 2 - 5, at.y - (float)(lines * (size + 2)) - 10, (float)wide + 10, (float)(lines * (size + 2)) + 6 };
+                DrawRectangleRec(box, (Color){ 20, 21, 28, 235 });
+                DrawRectangleLinesEx(box, 1.0f, (Color){ 120, 122, 134, 255 });
+                for (int k = 0; k < lines; k++) DrawText(text->lines[k], (int)box.x + 5, (int)box.y + 4 + k * (size + 2), size, RAYWHITE);
+            }
+        }
         EndMode2D();
     }
     /* Zoomed far enough out, the world map fades in over it. */
