@@ -34,7 +34,7 @@
       { "item": "gold_ore", "weight": 10 }, { "item": "platinum_ore", "weight": 5 }, { "item": "titanium_ore", "weight": 5 }
     ]
   },
-  "players": { "max": 2 },
+  "players": { "max": 2, "skin": "player/base.png" },
   "death": { "bar": 1.0, "respawn_ticks": 1800, "respawn_cost": 100 },
   "combat": { "hand_damage": 2, "poison_damage": 0.005, "attack_time": 0.35 },
   "teleport": { "bench": "portal", "level": 1, "cost": 10, "free_distance": 100, "per_blocks": 10 },

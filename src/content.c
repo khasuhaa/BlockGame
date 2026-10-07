@@ -646,6 +646,7 @@ static bool read_items(Reader *r, const cJSON *root)
             it->meter_max = MAX_CELLS - 1;
             it->meter_start = 0;
         }
+        copy_name(it->worn, sizeof it->worn, str(e, "worn"));
         it->walk_speed = (float)num(e, "walk_speed", 0.0);
         it->tireless = flag(e, "tireless", false);
         it->sated = flag(e, "sated", false);
@@ -1339,6 +1340,7 @@ static bool read_rules(Reader *r, const cJSON *root)
         u->teleport_free = (int)num(teleport, "free_distance", 0);
         u->teleport_per = (int)num(teleport, "per_blocks", 0);
     }
+    if (str(field(root, "players"), "skin")) copy_name(u->player_skin, sizeof u->player_skin, str(field(root, "players"), "skin"));
     const cJSON *look = field(root, "view");
     if (look) {
         const cJSON *steps = field(look, "zoom");

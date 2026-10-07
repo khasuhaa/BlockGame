@@ -197,7 +197,9 @@ for metal, label, colour, speed, armor, price in (('dreadsteel', 'Dreadsteel', D
         rec('industrial_smithery', n, 1, [('stick', 1), (metal + '_ingot', n_ingots)], 180)
     for part, n_ingots in (('helmet', 2), ('chestplate', 5), ('leggings', 3), ('boots', 2)):
         d=copy.deepcopy(I['titanium_' + part]); n='%s_%s' % (metal, part)
-        d.update({'name': n, 'label': d['label'].replace('Titanium', label), 'texture': 'items/%s.png' % n, 'armor': armor, 'price': price * n_ingots + 200}); items.append(d)
+        d.update({'name': n, 'label': d['label'].replace('Titanium', label), 'texture': 'items/%s.png' % n, 'armor': armor, 'price': price * n_ingots + 200})
+        if 'worn' in d: d['worn'] = 'worn/%s.png' % n   # drawn by tools/worn_art.py
+        items.append(d)
         tint('items/titanium_%s.png' % part, 'items', n, colour)
         rec('industrial_armory', n, 1, [(metal + '_ingot', n_ingots)], 180)
 d=copy.deepcopy(I['titanium_sword']); d.update({'name': 'dreadsteel_sword', 'label': 'Dreadsteel sword', 'texture': 'items/dreadsteel_sword.png', 'damage': 50, 'price': 8200}); items.append(d)

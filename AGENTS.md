@@ -58,6 +58,7 @@ Rendering and menus have no tests. To look at them, write a small C file that do
 - `prices.py` - reprices items from their recipes. It overwrites prices in `data/items.json`: run it on purpose, not as routine.
 - `mod_magic_mayhem.py`, `mod_industry.py`, `mod_digital_storage.py`, `mod_culinary_delights.py`, `mod_explorers_delight.py` - each wrote one mod's data files and textures. Either edit the script and rerun it, or edit the mod's files by hand and stop using the script: not both, or the script will undo the hand edits.
 - `bench_art.py` - drew the bench textures in `data/textures/tiles/`.
+- `worn_art.py` - draws the character's skin (`data/textures/player/base.png`) and, for every item with an `"equip"` slot in the game and in each mod, what it looks like worn (`textures/worn/<name>.png`), and sets the item's `"worn"`. **Run it after adding anything that can be worn**; `test_worn` fails for an item without a picture. Give a new kind of clothing its look there, by a word in its name.
 
 ## Core directive: keep everything data driven
 
@@ -104,7 +105,7 @@ The loader enforces the category: an item with none that is neither a currency n
 
 - The interface: layouts, wording and colours of the inventory bar, bench menu and menus.
 - Default key bindings and their labels (`src/menu.c`).
-- How the player, sky, sun and moon are drawn (`src/main.c`).
+- The character's poses (`draw_player` in `src/main.c`) and the shape of the body (`src/playermodel.c`): the skin and what is worn over it are pictures named in the data. The sky, sun and moon (`src/main.c`).
 - The movement rules themselves (walking, hopping, climbing) are code; their timings are data.
 
 ## Working here

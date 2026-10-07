@@ -10,6 +10,7 @@
 #include "raylib.h"
 #include "rlgl.h"
 #include "save.h"
+#include "playermodel.h"
 #include "termui.h"
 #include "tradeui.h"
 #include "digital.h"
@@ -1229,20 +1230,20 @@ static void draw_drops(const Game *g, Vector2 origin)
     }
 }
 
-static const Color SKIN = { 240, 200, 160, 255 }, HAIR = { 90, 60, 40, 255 }, SHIRT = { 50, 90, 190, 255 },
-                   TROUSERS = { 40, 60, 120, 255 }, EYE = { 40, 40, 60, 255 };
-
 /* The player's head, `size` across, with its top-left corner at (x, y),
  * looking the way `facing` says. */
-static void draw_player_head(float x, float y, float size, int facing, bool eyes_shut)
+/* The character as they are dressed: their own skin, and over it what they have on. */
+static void draw_body(const Game *g, float x, float ground, BodyPose pose)
 {
-    DrawRectangleRec((Rectangle){ x, y, size, size }, SKIN);
-    DrawRectangleRec((Rectangle){ x, y, size, size * 0.28f }, HAIR);
-    /* Hair down the back of the head. */
-    DrawRectangleRec((Rectangle){ facing > 0 ? x : x + size - size * 0.2f, y, size * 0.2f, size * 0.55f }, HAIR);
-    float eye = facing > 0 ? x + size * 0.62f : x + size * 0.24f;
-    if (eyes_shut) DrawRectangleRec((Rectangle){ eye - 1, y + size * 0.52f, size * 0.2f, 2 }, EYE);
-    else DrawRectangleRec((Rectangle){ eye, y + size * 0.42f, size * 0.14f, size * 0.18f }, EYE);
+    /* (Inmost first: what is on the legs, the feet, the body, then the head.) */
+    static const int order[ARMOR_SLOTS] = { EQUIP_LEGS, EQUIP_BOOTS, EQUIP_CHEST, EQUIP_HEAD };
+    const char *worn[ARMOR_SLOTS];
+    int count = 0;
+    for (int i = 0; i < ARMOR_SLOTS; i++) {
+        const ItemStack *on = &g->inventory.armor[order[i]];
+        if (on->count > 0 && item_def((ItemId)on->id)->worn[0]) worn[count++] = item_def((ItemId)on->id)->worn;
+    }
+    playermodel_draw((Vector2){ x, ground }, TILE_SIZE / 16.0f, &pose, content.rules.player_skin, worn, count);
 }
 
 /* Asleep: stretched out on the ground, toward whichever side there is room. */
@@ -1251,19 +1252,13 @@ static void draw_player_asleep(const Game *g, float px, float py)
     const Player *p = &g->player;
     int side = !world_is_solid(&g->world, p->feet.x - p->facing, p->feet.y) ? -p->facing
                : !world_is_solid(&g->world, p->feet.x + p->facing, p->feet.y) ? p->facing : 0;
-    float ground = py + TILE_SIZE, breath = sinf((float)GetTime() * 1.6f);
+    float ground = py + TILE_SIZE;
     if (side == 0) {
         /* Nowhere to lie: slumped where they sat. */
-        DrawRectangleRec((Rectangle){ px + 4, ground - 16, TILE_SIZE - 8, 16 }, SHIRT);
-        draw_player_head(px + 7, ground - 32, 18, p->facing, true);
+        draw_body(g, px + TILE_SIZE / 2.0f, ground, (BodyPose){ .facing = p->facing, .lean = 25.0f, .sink = 10.0f, .leg = { 80.0f, 80.0f }, .arm = { 20.0f, 20.0f }, .tint = WHITE });
     } else {
-        /* Legs where they stood, head on the square beside. */
-        float body = 12.0f + breath;
-        float from = side > 0 ? px + 2 : px - 10, len = TILE_SIZE + 8;
-        DrawRectangleRec((Rectangle){ from, ground - body, len, body }, SHIRT);
-        DrawRectangleRec((Rectangle){ side > 0 ? px + 2 : px + TILE_SIZE - 16, ground - 10, 14, 10 }, TROUSERS);
-        float hx = side > 0 ? px + TILE_SIZE + 8 : px - 10 - 16;
-        draw_player_head(hx, ground - 17, 16, -side, true);
+        /* On their back, feet where they stood and head on the square beside. */
+        draw_body(g, side > 0 ? px + 4.0f : px + TILE_SIZE - 4.0f, ground, (BodyPose){ .facing = -side, .pitch = -90.0f, .tint = WHITE });
     }
     /* Zs drifting up from the head. */
     float hx = px + TILE_SIZE / 2 + side * (TILE_SIZE * 0.9f);
@@ -1275,7 +1270,7 @@ static void draw_player_asleep(const Game *g, float px, float py)
     }
 }
 
-/* Meditating: sat cross-legged, eyes shut, with rings of calm spreading out. */
+/* Meditating: sat cross-legged, with rings of calm spreading out. */
 static void draw_player_meditating(const Game *g, float px, float py)
 {
     float ground = py + TILE_SIZE, cx = px + TILE_SIZE / 2;
@@ -1286,13 +1281,7 @@ static void draw_player_meditating(const Game *g, float px, float py)
                  Fade((Color){ 170, 220, 255, 255 }, (1.0f - t) * 0.55f));
     }
     float y = ground - lift;
-    DrawRectangleRec((Rectangle){ cx - 17, y - 9, 34, 9 }, TROUSERS);   /* crossed legs */
-    DrawRectangleRec((Rectangle){ cx - 9, y - 26, 18, 18 }, SHIRT);     /* body */
-    DrawRectangleRec((Rectangle){ cx - 18, y - 13, 6, 5 }, SKIN);       /* hands on the knees */
-    DrawRectangleRec((Rectangle){ cx + 12, y - 13, 6, 5 }, SKIN);
-    DrawRectangleRec((Rectangle){ cx - 13, y - 24, 4, 12 }, SHIRT);     /* arms */
-    DrawRectangleRec((Rectangle){ cx + 9, y - 24, 4, 12 }, SHIRT);
-    draw_player_head(cx - 10, y - 46, 20, g->player.facing, true);
+    draw_body(g, cx, y, (BodyPose){ .facing = g->player.facing, .sink = 10.0f, .leg = { 82.0f, 82.0f }, .arm = { 35.0f, 35.0f }, .turn = 20.0f, .tint = WHITE });
 
     /* How far along the meditation is, in a little box over the head. */
     Rectangle box = { cx - 34, y - 78, 68, 22 };
@@ -1317,16 +1306,11 @@ static void draw_player(const Game *g, Vector2 origin)
     const Player *p = &g->player;
     /* When climbing, press against the wall and reach for it. */
     float px = origin.x + view_near_x(&view, x) * TILE_SIZE + grip * inset, py = origin.y + y * TILE_SIZE;
+    float cx = px + TILE_SIZE / 2.0f, ground = py + TILE_SIZE;
     bool settled = p->activity == ACTIVITY_IDLE && !p->climbing;
     if (g->vitals.respawn > 0) {
         /* Dead: laid out on the ground, the colour gone from them. */
-        float ground = py + TILE_SIZE;
-        Color grey = { 120, 124, 134, 255 }, pale = { 176, 178, 186, 255 };
-        DrawRectangleRec((Rectangle){ px - 6, ground - 10, TILE_SIZE + 4, 10 }, grey);
-        DrawRectangleRec((Rectangle){ px + TILE_SIZE - 2, ground - 14, 14, 14 }, pale);
-        DrawRectangleRec((Rectangle){ px + TILE_SIZE - 2, ground - 14, 14, 4 }, (Color){ 70, 66, 62, 255 });
-        DrawLineEx((Vector2){ px + TILE_SIZE + 3, ground - 8 }, (Vector2){ px + TILE_SIZE + 7, ground - 4 }, 1.5f, EYE);
-        DrawLineEx((Vector2){ px + TILE_SIZE + 7, ground - 8 }, (Vector2){ px + TILE_SIZE + 3, ground - 4 }, 1.5f, EYE);
+        draw_body(g, px + 4.0f, ground, (BodyPose){ .facing = -1, .pitch = -90.0f, .tint = (Color){ 130, 134, 144, 255 } });
         return;
     }
     if (g->vitals.rest == REST_SLEEP && settled) {
@@ -1337,57 +1321,46 @@ static void draw_player(const Game *g, Vector2 origin)
         draw_player_meditating(g, px, py);
         return;
     }
+    float t = p->activity != ACTIVITY_IDLE && p->duration > 0.0f ? p->timer / p->duration : 0.0f;
     if (game_player_crawling(g)) {
         /* On hands and knees: one tile tall, head leading. */
-        float half = TILE_SIZE / 2.0f;
-        float head_x = p->facing > 0 ? px + TILE_SIZE - half : px;
-        float shuffle = p->activity == ACTIVITY_STEPPING ? sinf(p->timer / p->duration * PI * 2.0f) * 2.0f : 0.0f;
-        DrawRectangleRec((Rectangle){ px + 1, py + half, TILE_SIZE - 2, half - 5 }, SHIRT);
-        DrawRectangleRec((Rectangle){ px + 3 + shuffle, py + TILE_SIZE - 6, 6, 6 }, TROUSERS);
-        DrawRectangleRec((Rectangle){ px + TILE_SIZE - 9 - shuffle, py + TILE_SIZE - 6, 6, 6 }, TROUSERS);
-        draw_player_head(head_x + 1, py + 3, half - 2, p->facing, false);
+        float shuffle = p->activity == ACTIVITY_STEPPING ? sinf(t * PI * 2.0f) : 0.0f;
+        /* (Knees and hands down, so that all of them fits under a block.) */
+        draw_body(g, cx - (float)p->facing * 4.0f, ground,
+                  (BodyPose){ .facing = p->facing, .lean = 90.0f, .head = 65.0f, .sink = 6.0f, .arm = { 150.0f + shuffle * 20.0f, 150.0f - shuffle * 20.0f },
+                              .leg = { -60.0f - shuffle * 12.0f, -60.0f + shuffle * 12.0f }, .tint = WHITE });
         return;
     }
-    /* Hanging from a block overhead: arms up to it. */
-    if (p->climbing && p->activity != ACTIVITY_MINING && grip == 0 &&
-        world_is_solid(&g->world, p->feet.x, p->feet.y - 2) &&
-        (p->activity != ACTIVITY_STEPPING || world_is_solid(&g->world, p->step_to.x, p->step_to.y - 2))) {
-        DrawRectangleRec((Rectangle){ px + inset + 2, py - TILE_SIZE - 5, 5, 10 }, SKIN);
-        DrawRectangleRec((Rectangle){ px + TILE_SIZE - inset - 7, py - TILE_SIZE - 5, 5, 10 }, SKIN);
-    }
-
-    /* Walking: the legs swing and the body bobs, one stride to the block.
-     * Working: a small nod in time with it. */
+    BodyPose pose = { .facing = grip != 0 ? grip : p->facing, .tint = WHITE };
+    /* Walking: the arms and legs swing, one stride to the block. */
     bool walking = p->activity == ACTIVITY_STEPPING && p->step.dx != 0 && grip == 0 && !p->climbing &&
                    !p->step.climb && !p->step_hop;
-    float t = p->activity != ACTIVITY_IDLE && p->duration > 0.0f ? p->timer / p->duration : 0.0f;
-    float swing = walking ? sinf(t * PI * 2.0f) : 0.0f;
-    float bob = walking ? fabsf(sinf(t * PI * 2.0f)) * 1.5f : 0.0f;
-    /* Afloat: kicking, and riding up and down a little. */
+    float swing = walking ? sinf(t * PI * 2.0f) : 0.0f, bob = walking ? fabsf(swing) * 1.5f : 0.0f;
+    pose.leg[0] = swing * 34.0f, pose.leg[1] = -swing * 34.0f;
+    pose.arm[0] = -swing * 28.0f, pose.arm[1] = swing * 28.0f;
     if (game_player_swimming(g) && grip == 0) {
-        swing = sinf((float)GetTime() * 7.0f) * 0.7f;
+        /* Afloat: leaning into it, kicking, and riding up and down a little. */
+        float kick = sinf((float)GetTime() * 7.0f);
+        pose.lean = 30.0f;
+        pose.leg[0] = kick * 26.0f, pose.leg[1] = -kick * 26.0f;
+        pose.arm[0] = 70.0f + kick * 20.0f, pose.arm[1] = 70.0f - kick * 20.0f;
         bob = sinf((float)GetTime() * 2.5f) * 1.5f;
     }
-    if (p->activity == ACTIVITY_MINING || p->activity == ACTIVITY_PLACING) bob = -fabsf(sinf((float)GetTime() * 9.0f)) * 1.5f;
-    /* A blow: the arm swings through with it. */
-    if (p->activity == ACTIVITY_ATTACKING) swing = (float)p->facing * sinf(t * PI) * 2.0f;
-    float legs = 11.0f, body_w = TILE_SIZE - 2 * inset, leg_w = body_w / 2 - 1;
-    float top = py - bob;
-    /* Legs, the far one a shade darker. */
-    DrawRectangleRec((Rectangle){ px + inset + 1 - swing * 4.0f, py + TILE_SIZE - legs, leg_w, legs },
-                     (Color){ 32, 48, 100, 255 });
-    DrawRectangleRec((Rectangle){ px + inset + body_w - leg_w - 1 + swing * 4.0f, py + TILE_SIZE - legs, leg_w, legs },
-                     TROUSERS);
-    DrawRectangleRec((Rectangle){ px + inset, top, body_w, TILE_SIZE - legs + bob }, SHIRT);
-    /* An arm, swinging against the legs. */
-    DrawRectangleRec((Rectangle){ px + TILE_SIZE / 2 - 3 + swing * 3.0f, top + 3, 6, 13 }, (Color){ 40, 74, 160, 255 });
-    DrawRectangleRec((Rectangle){ px + TILE_SIZE / 2 - 3 + swing * 3.0f, top + 14, 6, 4 }, SKIN);
-    draw_player_head(px + inset, top - TILE_SIZE + inset, body_w, p->facing, false);
-    if (grip != 0) {
-        float hx = grip > 0 ? px + TILE_SIZE - inset - 4 : px + inset - 4;
-        DrawRectangleRec((Rectangle){ hx, py - 6, 8, 6 }, SKIN);
-        DrawRectangleRec((Rectangle){ hx, py + TILE_SIZE - 10, 8, 6 }, TROUSERS);
+    if (p->climbing && grip == 0 && p->activity != ACTIVITY_MINING && world_is_solid(&g->world, p->feet.x, p->feet.y - 2) &&
+        (p->activity != ACTIVITY_STEPPING || world_is_solid(&g->world, p->step_to.x, p->step_to.y - 2))) {
+        /* Hanging from a block overhead: arms up to it. */
+        pose.arm[0] = pose.arm[1] = 178.0f;
+    } else if (p->climbing || grip != 0) {
+        /* On a wall, or on something behind them: reaching up and holding on, one hand over the other. */
+        float reach = p->activity == ACTIVITY_STEPPING ? sinf(t * PI * 2.0f) * 25.0f : 0.0f;
+        pose.arm[0] = 125.0f + reach, pose.arm[1] = 125.0f - reach;
+        pose.leg[0] = 18.0f - reach * 0.6f, pose.leg[1] = 18.0f + reach * 0.6f;
+        if (grip == 0) pose.turn = -20.0f;
     }
+    /* Working: the near arm goes at it. A blow: it swings through. */
+    if (p->activity == ACTIVITY_MINING || p->activity == ACTIVITY_PLACING) pose.arm[0] = 75.0f + sinf((float)GetTime() * 9.0f) * 35.0f;
+    if (p->activity == ACTIVITY_ATTACKING) pose.arm[0] = 30.0f + sinf(t * PI) * 110.0f;
+    draw_body(g, cx, ground - bob, pose);
 }
 
 /* With more than one character about, a small arrow over the one being played. */

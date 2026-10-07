@@ -55,5 +55,7 @@ Color assets_tile_color(TileType t);
 void assets_draw_image(const char *file, Rectangle r);
 /* The same, optionally mirrored left to right. */
 void assets_draw_sprite(const char *file, Rectangle r, bool flip);
+/* A picture by its file under textures/, loaded the first time it is asked for. Its id is 0 if there is no such file. */
+Texture2D assets_texture(const char *file);
 
 #endif

@@ -348,7 +348,7 @@ void assets_draw_tile_tones(TileType t, float px, float py, float tile_size, flo
     }
 }
 
-void assets_draw_sprite(const char *file, Rectangle r, bool flip)
+Texture2D assets_texture(const char *file)
 {
     int found = -1;
     for (int i = 0; i < image_count; i++)
@@ -358,11 +358,16 @@ void assets_draw_sprite(const char *file, Rectangle r, bool flip)
         snprintf(images[found].file, sizeof images[found].file, "%s", file);
         images[found].texture = load(data_dir, file);
     }
-    if (found < 0 || !images[found].texture.id) {
+    return found < 0 ? (Texture2D){ 0 } : images[found].texture;
+}
+
+void assets_draw_sprite(const char *file, Rectangle r, bool flip)
+{
+    Texture2D tex = assets_texture(file);
+    if (!tex.id) {
         draw_placeholder(r);
         return;
     }
-    Texture2D tex = images[found].texture;
     DrawTexturePro(tex, (Rectangle){ 0, 0, flip ? -(float)tex.width : (float)tex.width, (float)tex.height }, r,
                    (Vector2){ 0, 0 }, 0.0f, WHITE);
 }

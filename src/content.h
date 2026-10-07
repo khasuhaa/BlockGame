@@ -409,6 +409,7 @@ typedef struct {
     int cast_time;         /* -1 for none; 0 for sunrise, 1 for moonrise */
     int cell_bytes;        /* a storage cell: how much it holds, in bytes (8 things to a byte, and a little for each kind); 0 for anything else */
     bool remote;           /* in hand, it opens the storage network whose access point is in range */
+    char worn[CONTENT_PATH_LEN]; /* how it looks on: a skin laid out like the character's own, clear where it does not cover; empty for something that does not show */
     /* Worn: walking goes so many times as fast (0 or 1 for no faster); energy does not run down; hunger does not run down. */
     float walk_speed;
     bool tireless, sated;
@@ -778,6 +779,7 @@ typedef struct {
     float poison_damage;   /* share of the health bar each tick of being poisoned takes */
     float attack_time;     /* seconds a blow takes */
     float zoom[MAX_ZOOM_LEVELS];
+    char player_skin[CONTENT_PATH_LEN]; /* the character's own skin: body, hair and face, and the clothes they are never without */
     int zoom_count, zoom_start;
     float map_from, map_to;
 } RulesDef;

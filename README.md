@@ -595,6 +595,14 @@ A **door** or **trapdoor** (wooden or iron) is a solid block to everything excep
 
 Clothes and armour worn in the four slots each stop a share of every **attack** - a dropbear's or shark's bite, and how long a scorpion's poison lasts - and the shares add up. Linen stops 2% a piece, fur 4%, leather 6%, tin 9%, iron 13%, titanium and carbon fiber 17% each, so a full suit of iron stops 52% and of titanium 68%. It does nothing for hunger, drowning or poison already in. An item's share is its `"armor"`.
 
+### How the character looks
+
+The character is made of six boxes - a cube for the head, and a block each for the body, the two arms and the two legs - seen a little from the side and from above, so that the front, one side and the top of each show. They wear an undershirt and a pair of shorts. The arms and legs swing from the shoulder and the hip as they walk, climb, swim, crawl and work.
+
+Whatever is in the four armour slots is drawn on them, each piece a shell a little larger than the part it covers, so a coat goes over the undershirt and a helmet over the hair: a helmet leaves the face open, a breastplate has a guard on each shoulder, a coat has sleeves to the wrist, leggings stop at the shin and boots cover the foot.
+
+The skin is one picture, 64 by 32, with each box opened out flat: the head's faces start at the top left corner (8 by 8 by 8), a leg at (0, 16), the body at (16, 16) and an arm at (40, 16), each laid out as right side, front, left side, back, with the top and the underside in the row above. The other arm and leg use the same part of the picture, turned about. Which picture is the skin is `"skin"` under `"players"` in `rules.json`; what an item looks like worn is its `"worn"` in `items.json`, a picture of the same shape with nothing drawn where the thing does not cover. A mod's clothes carry their own.
+
 ### Putting things up without a backwall
 
 Lamps, torches, gems and the like go on a backwall where there is one, and look as they always have. Where there is none, a thing is fixed to a block instead - the one under it if there is one, failing that the one over it, failing that the one to its left, then its right - and is drawn to suit: standing on a foot, hanging from a chain, or held out on a bracket; a gem or a crystal grows out of whichever it is on. With no backwall and no block beside it, it cannot be put up.
@@ -786,6 +794,7 @@ Under a beach, quite often - about one column in six, a dozen or more to a world
 - `src/benchui.c` — the bench popup and crafting menu
 - `src/tradeui.c` — the trade portal menu
 - `src/playerui.c` — the player's button, bars and the sleep and meditate panel
+- `src/playermodel.c` — the character: six boxes with a skin on them, and what is worn over them
 - `src/recipeui.c` — the recipe book
 - `src/menu.c` — main menu, pause menu and key bindings
 - `src/view.h` — placing the wrapping world on screen

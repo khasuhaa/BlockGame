@@ -10353,6 +10353,52 @@ static void test_explorers_mod(void)
     CHECK(content_load("data", err, sizeof err) && content.tile_count == tiles);
 }
 
+/* The character's skin, and a picture of everything that can be worn, for the game and for each mod. */
+static bool texture_there(const char *mod, const char *file)
+{
+    char path[512];
+    const char *dirs[2] = { "data", mod };
+    for (int i = 0; i < 2; i++) {
+        if (!dirs[i]) continue;
+        snprintf(path, sizeof path, "%s/textures/%s", dirs[i], file);
+        FILE *f = fopen(path, "rb");
+        if (f) {
+            fclose(f);
+            return true;
+        }
+    }
+    return false;
+}
+
+static void test_worn(void)
+{
+    const char *mods[] = { NULL, "mods/magic_mayhem", "mods/industry", "mods/digital_storage", "mods/culinary_delights",
+                           "mods/explorers_delight" };
+    for (int m = 0; m < (int)(sizeof mods / sizeof mods[0]); m++) {
+        char err[256];
+        content_reset();
+        CHECK(content_load("data", err, sizeof err));
+        if (mods[m]) CHECK(content_load(mods[m], err, sizeof err));
+        CHECK(content.rules.player_skin[0] && texture_there(mods[m], content.rules.player_skin));
+        int worn = 0;
+        for (int i = 1; i < content.item_count; i++) {
+            const ItemDef *d = item_def((ItemId)i);
+            if (d->equip == EQUIP_NONE) {
+                CHECK(!d->worn[0]);
+                continue;
+            }
+            worn++;
+            if (!d->worn[0] || !texture_there(mods[m], d->worn)) {
+                printf("FAIL %s has no picture of it worn\n", d->name);
+                failures++;
+            }
+        }
+        CHECK(worn >= 30);
+    }
+    /* What is worn is named by the item, and a different item has a different picture. */
+    CHECK(strcmp(item_def(item_id("north_hat"))->worn, item_def(item_id("iron_helmet"))->worn) != 0);
+}
+
 int main(void)
 {
     char err[256];
@@ -10479,6 +10525,7 @@ int main(void)
     test_digital_mod();
     test_culinary_mod();
     test_explorers_mod();
+    test_worn();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;
