@@ -18,7 +18,7 @@
  * wherever it is moved. Every item in a stack has the same contents, and two
  * stacks only merge if their contents are the same. */
 typedef struct {
-    uint8_t id;
+    uint16_t id;
     uint8_t count;
     uint16_t container;
 } ItemStack;

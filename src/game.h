@@ -73,7 +73,7 @@ typedef enum {
 typedef struct {
     ActionType type;
     TilePos target;
-    uint8_t item; /* ACTION_PLACE, ACTION_PLANT: the item being used up */
+    uint16_t item; /* ACTION_PLACE, ACTION_PLANT: the item being used up */
     bool wall;    /* ACTION_MINE: take the backwall, not a block */
     int drop;     /* ACTION_COLLECT, ACTION_ATTACK: which drop or creature, and the id it had
                      when queued */
@@ -152,7 +152,7 @@ typedef struct {
  * leaf, where it stays put and has to be picked by hand. */
 typedef struct {
     bool active;
-    uint8_t item;
+    uint16_t item;
     int x;         /* tile column */
     float y;       /* tile row; fractional while falling */
     float age;     /* seconds it has lain there; at DROP_LIFETIME it is gone */

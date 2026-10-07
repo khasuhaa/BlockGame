@@ -293,7 +293,7 @@ static void test_unqueue(void)
     CHECK(!game_click_tile(&g, at.x, s - 9) && g.queue_count == 0);
 
     /* The same goes for an item on the ground. */
-    g.drops[0] = (Drop){ true, (uint8_t)ITEM_STONE, at.x + 9, (float)(s - 1), 0.0f, 0.0f, false, 0, 500, 0, false };
+    g.drops[0] = (Drop){ true, (uint16_t)ITEM_STONE, at.x + 9, (float)(s - 1), 0.0f, 0.0f, false, 0, 500, 0, false };
     CHECK(game_click_drop(&g, 0) && g.queue_count == 1 && g.queue[0].type == ACTION_COLLECT);
     CHECK(game_click_drop(&g, 0) && g.queue_count == 0);
     run(&g, 1.0f);
@@ -706,7 +706,7 @@ static void test_drops(void)
     CHECK(!g.drops[0].active && count_item(&g, ITEM_DIRT) == 1);
 
     /* Out of reach it stays put until the player walks up to it. */
-    g.drops[0] = (Drop){ true, (uint8_t)ITEM_DIRT, start.x + 6, (float)(s - 5), 0.0f, 0.0f, false, 0, 1, 0, false };
+    g.drops[0] = (Drop){ true, (uint16_t)ITEM_DIRT, start.x + 6, (float)(s - 5), 0.0f, 0.0f, false, 0, 1, 0, false };
     run(&g, 2.0f);
     CHECK(g.drops[0].active && g.drops[0].y == (float)(s - 1));
     CHECK(game_click_tile(&g, start.x + 5, start.y));
@@ -716,7 +716,7 @@ static void test_drops(void)
     /* With no room, it is left on the ground. */
     inventory_add(&g.inventory, ITEM_DIRT, 99 * 12);
     int before = count_item(&g, ITEM_DIRT);
-    g.drops[0] = (Drop){ true, (uint8_t)ITEM_DIRT, g.player.feet.x, (float)g.player.feet.y, 0.0f, 0.0f, false, 0, 2, 0, false };
+    g.drops[0] = (Drop){ true, (uint16_t)ITEM_DIRT, g.player.feet.x, (float)g.player.feet.y, 0.0f, 0.0f, false, 0, 2, 0, false };
     run(&g, 2.0f);
     CHECK(g.drops[0].active && count_item(&g, ITEM_DIRT) == before);
     game_free(&g);
@@ -1420,7 +1420,7 @@ static void test_ticks(void)
     for (int i = 0; i < MAX_DROPS && (low < 0 || high < 0); i++) {
         if (g.drops[i].active) continue;
         TilePos at = low < 0 ? (TilePos){ tx - 1, top + 2 } : (TilePos){ tx, top - 1 };
-        g.drops[i] = (Drop){ true, (uint8_t)ITEM_ACORN, at.x, (float)at.y, 0.0f, 0.0f, true, FRUIT_TICKS,
+        g.drops[i] = (Drop){ true, (uint16_t)ITEM_ACORN, at.x, (float)at.y, 0.0f, 0.0f, true, FRUIT_TICKS,
                              ++g.next_drop_id, 0, false };
         if (low < 0) low = i;
         else high = i;
@@ -2337,7 +2337,7 @@ static void test_portal_tiers(void)
     CHECK(g.crystals == 15 + 25);
     /* With no room in the inventory at all, crystals are still collected. */
     clear_inventory(&g);
-    for (int i = 0; i < INVENTORY_SLOTS; i++) inv->slots[i] = (ItemStack){ (uint8_t)ITEM_BASKET, 1, 0 };
+    for (int i = 0; i < INVENTORY_SLOTS; i++) inv->slots[i] = (ItemStack){ (uint16_t)ITEM_BASKET, 1, 0 };
     world_set_at(w, BG, x + 1, s - 1, tile_id("time_crystal"));
     CHECK(game_click_tile(&g, x + 1, s - 1));
     run(&g, 4.0f);
@@ -4257,7 +4257,7 @@ static void test_basket_pickup(void)
         inventory_add(inv, ITEM_BASKET, 1);
         for (int j = 0; j < 4; j++) {
             ItemStack *in = inventory_slot(inv, (SlotRef){ SLOT_BASKET, i, j });
-            if (in) *in = (ItemStack){ (uint8_t)ITEM_DIRT, 1, 0 };
+            if (in) *in = (ItemStack){ (uint16_t)ITEM_DIRT, 1, 0 };
         }
     }
     CHECK(inventory_add(inv, ITEM_BASKET, 1) == 1);
@@ -4489,7 +4489,7 @@ static void test_buckets_and_stacks(void)
     /* One picked up joins a stack of its kind, on top, whatever it holds. */
     clear_inventory(&g);
     inventory_add(inv, bucket, 2);
-    ItemStack full = { (uint8_t)bucket, 1, 0 };
+    ItemStack full = { (uint16_t)bucket, 1, 0 };
     inventory_set_meter(inv, &full, 8);
     CHECK(inventory_add_stack(inv, full) == 0 && inv->slots[0].count == 3 && inv->slots[1].count == 0);
     CHECK(inventory_meter(inv, &inv->slots[0]) == 8);
@@ -4789,7 +4789,7 @@ static void test_sea_and_combat(void)
     CHECK((meat == 3 || meat == 4) && count_drops(&g, head) == 1);
     for (int i = 0; i < MAX_DROPS; i++) {
         if (!g.drops[i].active || g.drops[i].item != head) continue;
-        ItemStack dropped = { (uint8_t)head, 1, g.drops[i].container };
+        ItemStack dropped = { (uint16_t)head, 1, g.drops[i].container };
         CHECK(inventory_meter(inv, &dropped) == 2);
     }
     for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
@@ -4797,7 +4797,7 @@ static void test_sea_and_combat(void)
     /* Heads stack whatever their size, and it is the top one that is put down - as a head of that size. */
     clear_inventory(&g);
     for (int size = 2; size <= 7; size += 5) {
-        ItemStack one = { (uint8_t)head, 1, 0 };
+        ItemStack one = { (uint16_t)head, 1, 0 };
         inventory_set_meter(inv, &one, size);
         CHECK(inventory_add_stack(inv, one) == 0);
     }
@@ -5432,23 +5432,23 @@ static void test_chests(void)
     CHECK(inventory_move(inv, (SlotRef){ SLOT_BASKET, 0, 2 }, (SlotRef){ SLOT_BAR, wood_slot, 0 }, MAX_STACK));
     /* With the chest full, only what tops up a matching stack goes; with the
      * inventory full, nothing comes out. */
-    for (int i = 0; i < 16; i++) *chest_slot(&g, i) = (ItemStack){ (uint8_t)ITEM_STONE, 99, 0 };
-    *chest_slot(&g, 4) = (ItemStack){ (uint8_t)ITEM_WOOD, 95, 0 };
+    for (int i = 0; i < 16; i++) *chest_slot(&g, i) = (ItemStack){ (uint16_t)ITEM_STONE, 99, 0 };
+    *chest_slot(&g, 4) = (ItemStack){ (uint16_t)ITEM_WOOD, 95, 0 };
     CHECK(inventory_quick_move(inv, (SlotRef){ SLOT_BAR, wood_slot, 0 }, open, 16) == 4);
     CHECK(inv->slots[wood_slot].count == 16 && chest_slot(&g, 4)->count == 99);
     ItemStack saved_bar[INVENTORY_SLOTS];
     memcpy(saved_bar, inv->slots, sizeof saved_bar);
     Container saved_basket = inv->containers[inv->slots[0].container];
     for (int i = 0; i < INVENTORY_SLOTS; i++)
-        if (inv->slots[i].count == 0) inv->slots[i] = (ItemStack){ (uint8_t)ITEM_DIRT, 99, 0 };
+        if (inv->slots[i].count == 0) inv->slots[i] = (ItemStack){ (uint16_t)ITEM_DIRT, 99, 0 };
     for (int j = 0; j < BASKET_SLOTS; j++) /* the basket in the bar counts as room too */
-        *inventory_slot(inv, (SlotRef){ SLOT_BASKET, 0, j }) = (ItemStack){ (uint8_t)ITEM_DIRT, 99, 0 };
+        *inventory_slot(inv, (SlotRef){ SLOT_BASKET, 0, j }) = (ItemStack){ (uint16_t)ITEM_DIRT, 99, 0 };
     CHECK(inventory_quick_move(inv, (SlotRef){ SLOT_CONTAINER, open, 3 }, open, 16) == 0);
     CHECK(chest_slot(&g, 3)->count == 99);
     memcpy(inv->slots, saved_bar, sizeof saved_bar);
     inv->containers[inv->slots[0].container] = saved_basket;
     for (int i = 0; i < 16; i++) *chest_slot(&g, i) = (ItemStack){ 0 };
-    *chest_slot(&g, 0) = (ItemStack){ (uint8_t)ITEM_WOOD, 5, 0 };
+    *chest_slot(&g, 0) = (ItemStack){ (uint16_t)ITEM_WOOD, 5, 0 };
     inv->slots[wood_slot].count = 15;
     CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, wood_slot, 0 }, bar2, MAX_STACK) || wood_slot == 2);
     CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 7, 0 }, (SlotRef){ SLOT_BAR, 1, 0 }, MAX_STACK));
@@ -5465,7 +5465,7 @@ static void test_chests(void)
     CHECK(inventory_move(inv, bar3, bar1, MAX_STACK));
     CHECK(inv->slots[1].container != 0 && inv->slots[3].container == 0 && inv->slots[1].count == 1);
     uint16_t other = container_alloc(inv);
-    inv->containers[other].slots[0] = (ItemStack){ (uint8_t)ITEM_WOOD, 4, 0 };
+    inv->containers[other].slots[0] = (ItemStack){ (uint16_t)ITEM_WOOD, 4, 0 };
     inv->slots[3].container = other;
     CHECK(!containers_equal(inv, inv->slots[1].container, other));
     CHECK(inventory_move(inv, bar3, bar1, MAX_STACK) && inv->slots[1].count == 1 && inv->slots[3].count == 1);

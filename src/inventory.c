@@ -391,7 +391,7 @@ int inventory_add(Inventory *inv, ItemId id, int count)
     int left = 0;
     while (count > 0) {
         int batch = count > 255 ? 255 : count;
-        int rest = inventory_add_stack(inv, (ItemStack){ (uint8_t)id, (uint8_t)batch, 0 });
+        int rest = inventory_add_stack(inv, (ItemStack){ (uint16_t)id, (uint8_t)batch, 0 });
         count -= batch;
         left += rest;
         if (rest > 0) return left + count;

@@ -836,7 +836,7 @@ static Drop *spawn_drop_stack(Game *g, ItemStack one, TilePos at)
 
 static Drop *spawn_drop(Game *g, ItemId item, TilePos at)
 {
-    return spawn_drop_stack(g, (ItemStack){ (uint8_t)item, 1, 0 }, at);
+    return spawn_drop_stack(g, (ItemStack){ (uint16_t)item, 1, 0 }, at);
 }
 
 /* Puts a drop in the inventory, contents and all, if there is room. */
@@ -897,7 +897,7 @@ bool game_player_in_water(const Game *g)
 
 void game_drop_item_sized(Game *g, ItemId id, int x, int y, int size)
 {
-    ItemStack one = { (uint8_t)id, 1, 0 };
+    ItemStack one = { (uint16_t)id, 1, 0 };
     if (item_def(id)->meter_max > 0) inventory_set_meter(&g->inventory, &one, size);
     spawn_drop_stack(g, one, (TilePos){ world_wrap_x(&g->world, x), y });
 }
@@ -957,7 +957,7 @@ static void container_put(Inventory *inv, uint16_t c, ItemId item, int count)
         ItemStack *s = &inv->containers[c].slots[i];
         if (s->count > 0) continue;
         int n = count < most ? count : most;
-        *s = (ItemStack){ (uint8_t)item, (uint8_t)n, 0 };
+        *s = (ItemStack){ (uint16_t)item, (uint8_t)n, 0 };
         count -= n;
     }
 }
@@ -1197,7 +1197,7 @@ static void drop_block_items(Game *g, const TileDef *def, TilePos at, uint16_t i
         if (!kept) continue;
         /* (A block that is one size of a thing leaves that thing at that size.) */
         if (def->drop_meter > 0 && inside == 0) game_drop_item_sized(g, def->drop, at.x, at.y, def->drop_meter);
-        else spawn_drop_stack(g, (ItemStack){ (uint8_t)def->drop, 1, i == 0 ? inside : 0 }, at);
+        else spawn_drop_stack(g, (ItemStack){ (uint16_t)def->drop, 1, i == 0 ? inside : 0 }, at);
     }
     for (int k = 0; k < def->extra_drop_count; k++)
         for (int i = 0; i < def->extra_drops[k].count; i++) spawn_drop(g, def->extra_drops[k].id, at);

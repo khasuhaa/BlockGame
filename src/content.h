@@ -13,7 +13,7 @@
 #define CONTENT_NAME_LEN 32
 #define CONTENT_PATH_LEN 64
 #define MAX_TILES 256 /* ids are stored in a byte */
-#define MAX_ITEMS 256
+#define MAX_ITEMS 1024 /* ids are stored in two bytes */
 #define MAX_RECIPES 256
 #define MAX_TREES 32
 #define MAX_FEATURES 16
