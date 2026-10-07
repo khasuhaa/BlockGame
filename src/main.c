@@ -752,29 +752,12 @@ static void draw_light(const Game *g, Vector2 origin)
         capacity = cols * rows;
     }
     light_compute(g, x0, y0, cols, rows, light);
-    /* Something that gives light is shown brighter than what it lights: its
-     * own square is as bright as it glows, and that fades out over the squares round it. */
-    static uint8_t *glow;
-    static int glow_capacity;
-    if (cols * rows > glow_capacity) {
-        uint8_t *bigger = realloc(glow, (size_t)cols * rows);
-        if (!bigger) return;
-        glow = bigger;
-        glow_capacity = cols * rows;
-    }
-    for (int cy = 0; cy < rows; cy++)
-        for (int cx = 0; cx < cols; cx++) glow[cy * cols + cx] = (uint8_t)light_glow(g, x0 + cx, y0 + cy);
-
     /* How dark each amount of light is shown, in quarters of a level (a corner is the mean of four squares). */
     unsigned char shade[4 * LIGHT_MAX + 1];
     float deepest = content.rules.light_darkness > 0.0f ? content.rules.light_darkness : 1.0f;
     float contrast = content.rules.light_contrast > 0.0f ? content.rules.light_contrast : 1.0f;
     for (int i = 0; i <= 4 * LIGHT_MAX; i++)
         shade[i] = (unsigned char)(255.0f * deepest * (1.0f - powf((float)i / (4 * LIGHT_MAX), contrast)) + 0.5f);
-    for (int pass = 0; pass < 2; pass++) {
-    /* (Second time round: the glow itself, added on top, so that what gives light is brighter than daylight makes anything.) */
-    if (pass == 1 && content.rules.light_bloom <= 0.0f) break;
-    if (pass == 1) BeginBlendMode(BLEND_ADDITIVE);
     for (int cy = 1; cy < rows - 1; cy++) {
         for (int cx = 1; cx < cols - 1; cx++) {
             Color corner[4]; /* top left, bottom left, bottom right, top right */
@@ -784,17 +767,8 @@ static void draw_light(const Game *g, Vector2 origin)
                 int bx = cx + at[k][0], by = cy + at[k][1];
                 int sum = light[by * cols + bx] + light[by * cols + bx + 1] +
                           light[(by + 1) * cols + bx] + light[(by + 1) * cols + bx + 1];
-                int bright = glow[by * cols + bx];
-                if (glow[by * cols + bx + 1] > bright) bright = glow[by * cols + bx + 1];
-                if (glow[(by + 1) * cols + bx] > bright) bright = glow[(by + 1) * cols + bx];
-                if (glow[(by + 1) * cols + bx + 1] > bright) bright = glow[(by + 1) * cols + bx + 1];
-                if (bright * 4 > sum) sum = bright * 4;
                 int dark = shade[sum];
-                if (pass == 1) {
-                    float share = (float)bright / LIGHT_MAX;
-                    dark = (int)(255.0f * content.rules.light_bloom * share * share);
-                }
-                corner[k] = pass == 0 ? (Color){ 2, 2, 6, (unsigned char)dark } : (Color){ 255, 236, 200, (unsigned char)dark };
+                corner[k] = (Color){ 2, 2, 6, (unsigned char)dark };
                 if (dark > darkest) darkest = dark;
             }
             if (darkest == 0) continue;
@@ -804,7 +778,61 @@ static void draw_light(const Game *g, Vector2 origin)
             DrawRectangleGradientEx(r, corner[0], corner[1], corner[2], corner[3]);
         }
     }
-    if (pass == 1) EndBlendMode();
+
+    /* Something that gives light is shown brighter than what it lights. It is
+     * the thing itself that is: drawn again over the dark, as bright as it
+     * glows, and then once more added on top, so that it is brighter than
+     * daylight makes anything. Nothing round it is touched. (Where someone or
+     * something stands in front of it, it is left as it is, behind them.) */
+    static uint8_t *taken;
+    static int taken_capacity;
+    if (cols * rows > taken_capacity) {
+        uint8_t *bigger = realloc(taken, (size_t)cols * rows);
+        if (!bigger) return;
+        taken = bigger;
+        taken_capacity = cols * rows;
+    }
+    memset(taken, 0, (size_t)cols * rows);
+#define TAKE(tx, ty) do { \
+        int kx = world_dx(&g->world, world_wrap_x(&g->world, x0), world_wrap_x(&g->world, (tx))), ky = (ty) - y0; \
+        if (kx >= 0 && kx < cols && ky >= 0 && ky < rows) taken[ky * cols + kx] = 1; \
+    } while (0)
+    Game *all = (Game *)g;
+    for (int n = 0; n < g->character_count; n++) {
+        game_use_character(all, (g->controlled + 1 + n) % g->character_count);
+        for (int up = 0; up < 2; up++) {
+            TAKE(g->player.feet.x, g->player.feet.y - up);
+            TAKE(g->player.step_to.x, g->player.step_to.y - up);
+        }
+    }
+    for (int i = 0; i < MAX_MOBS; i++) {
+        if (!g->mobs[i].active) continue;
+        float mx, my;
+        game_mob_pos(g, i, &mx, &my);
+        for (int up = 0; up < 2; up++) {
+            TAKE((int)floorf(mx), (int)floorf(my) - up);
+            TAKE((int)ceilf(mx), (int)floorf(my) - up);
+        }
+    }
+#undef TAKE
+    for (int cy = 1; cy < rows - 1; cy++) {
+        for (int cx = 1; cx < cols - 1; cx++) {
+            int x = x0 + cx, y = y0 + cy, glow = light_glow(g, x, y);
+            if (glow <= 0 || taken[cy * cols + cx]) continue;
+            float px = origin.x + (float)(x * TILE_SIZE), py = origin.y + (float)(y * TILE_SIZE);
+            for (int layer = BLOCK_LAYERS - 1; layer >= 0; layer--) {
+                TileType t = world_get_at(&g->world, layer, x, y);
+                const TileDef *def = tile_def(t);
+                if (def->light <= 0 && def->beam_light <= 0) continue;
+                if (def->light_needs_fuel && game_fuel_at(g, world_wrap_x(&g->world, x), y) <= 0) continue;
+                if (glow > light[cy * cols + cx]) draw_block(g, layer, t, x, y, px, py, (float)shade[4 * glow] / 255.0f);
+                if (content.rules.light_bloom > 0.0f) {
+                    BeginBlendMode(BLEND_ADDITIVE);
+                    draw_block(g, layer, t, x, y, px, py, 1.0f - content.rules.light_bloom * (float)glow / LIGHT_MAX);
+                    EndBlendMode();
+                }
+            }
+        }
     }
 }
 
