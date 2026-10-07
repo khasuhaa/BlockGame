@@ -22,15 +22,17 @@ The goal is mod support. Anything a mod might want to add or change must live in
 
 A new constant in C needs a reason it could not be data. Fixed sizes of saved structures (inventory slots, basket slots) and limits on table sizes are the accepted exceptions.
 
-### Every item is sold at the trade portal
+### Every item has a category and a price
 
-The trade portal buys and sells every item in the game except the coins. Whenever an item is added, removed or renamed, update the trade portal with it:
+Every item in the game except the coins belongs to a trade category and has a buying price. The dev portal lists them all by category; trade portals deal in the ones that are not barred. Whenever an item is added, removed or renamed:
 
-- **Adding an item** (including the item that places a new bench or block, and each tier of one): give it a `"category"` from `data/trade.json` in `data/items.json`, and a `"price"` if it should not cost the default. Add a new category to `data/trade.json` if none fits.
+- **Adding an item** (including the item that places a new bench or block, and each tier of one): give it a `"category"` from `data/trade.json` in `data/items.json`, and a `"price"` in copper coins that fits what it is made of (10 is the least). Add a new category to `data/trade.json` if none fits.
 - **Removing an item:** take it out of `data/items.json` and out of anything that names it - recipes, upgrade costs, drops, starting items, currencies.
 - Only currencies listed in `data/trade.json`, and items that are never held - ones that turn into crystals when picked up (`"crystals"`), or into a character when made (`"becomes_player"`) - may be left without a category.
+- Trade portals do not deal in benches or other things to trade at, nor in anything a recipe takes crystals to make. That is worked out from the data (`trade_barred` in `src/trade.c`), not listed anywhere: do not add a flag for it.
+- Selling gives `"sell_share"` of the price. Do not add a recipe that turns coins into something worth more than the coins.
 
-The loader enforces this: an item with no category that is neither of those stops the game at startup, naming the item. Do not weaken that check to get a new item in; give the item a category.
+The loader enforces the category: an item with none that is neither a currency nor never held stops the game at startup, naming the item. Do not weaken that check to get a new item in; give the item a category.
 
 ### Still in code, to be moved when touched
 
@@ -45,7 +47,7 @@ The loader enforces this: an item with no category that is neither of those stop
 - The game and the tests read `data/` relative to the directory they are run from: run them from the repository root.
 - The recipe book in the pause menu (`src/recipeui.c`) is drawn from `src/guide.c`, which works out from the tables where each item comes from. A new way of getting an item (a new kind of drop, loot or reward) needs a line there, or the book will say the item cannot be got.
 - The recipes are written out from `recipes.txt`; the portal's recipes are not in that file and are kept regardless. `obtainment.txt` lists what they leave unobtainable or without a use; it is produced from the data, so regenerate or correct it when recipes, drops or world generation change.
-- Block ids take two bytes in the world and in saves (up to 1023 kinds of block; 298 are in use). A feature that wants a great many look-alike blocks (a colour, a size) should still keep a number with the block (`World.meta`, as two-tone flowers do) rather than add a block for each.
+- Block ids take two bytes in the world and in saves (up to 1023 kinds of block; 299 are in use). A feature that wants a great many look-alike blocks (a colour, a size) should still keep a number with the block (`World.meta`, as two-tone flowers do) rather than add a block for each.
 - `tests/legacy/` is a small fixed set of recipes and benches that the tests of how the game works run against, so that changing what the game ships with does not break them. The shipped recipes have a test of their own (`test_shipped_recipes`) which runs first, against `data/` alone. When recipes change, change that test; leave `tests/legacy` alone.
 - `tests/test_game.c` is headless and covers the rules. It looks content up by name, and its last test loads a small mod on top of the shipped data. Add a test with each rule change.
 - Rendering code (`main.c`, `hud.c`, `benchui.c`, `menu.c`, `assets.c`) needs a window and is not covered by tests.

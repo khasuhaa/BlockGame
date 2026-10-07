@@ -2710,6 +2710,8 @@ static void test_biomes(void)
 }
 
 static int shipped_torch_light;
+static TradeDef shipped_trade;
+static int shipped_price[MAX_ITEMS];
 static TileDef *tile_def_mut(TileType t) { return &content.tiles[t]; }
 static int count_mobs(const Game *g);
 static void clear_mobs(Game *g);
@@ -4269,6 +4271,138 @@ static void test_power(void)
     game_cancel_actions(&g);
     CHECK(game_click_tile(&g, lx, ground - 1) && g.queue[0].type == ACTION_MINE);
     game_free(&g);
+}
+
+/* Trading as the game ships it: prices, what a sale gives, what is not dealt in, finding things first,
+ * and the portal that gives everything away. And hurrying what is being made. */
+static void test_trade_rules(void)
+{
+    TradeDef legacy_trade = content.trade;
+    static int legacy_price[MAX_ITEMS];
+    for (ItemId i = 1; i < content.item_count; i++) legacy_price[i] = content.items[i].price, content.items[i].price = shipped_price[i];
+    content.trade.default_price = shipped_trade.default_price;
+    content.trade.sell_share = shipped_trade.sell_share;
+    content.trade.discover = shipped_trade.discover;
+
+    /* Everything dealt in has a price of its own, and sells for nine tenths of it. */
+    CHECK(content.trade.sell_share == 0.9f && content.trade.discover);
+    int priced = 0, different = 0;
+    for (ItemId i = 1; i < content.item_count; i++) {
+        const ItemDef *def = &content.items[i];
+        if (def->category < 0) continue;
+        if (shipped_price[i] <= 0) continue; /* (things the tests' own content adds or redefines) */
+        priced++;
+        different += shipped_price[i] != 10;
+        CHECK(trade_price(i) >= 10 && trade_sell_price(i) == trade_price(i) * 9 / 10 && trade_sell_price(i) < trade_price(i));
+    }
+    CHECK(priced > 300 && different > 250);
+    CHECK(trade_price(ITEM_DIRT) == 10 && trade_sell_price(ITEM_DIRT) == 9);
+    CHECK(trade_price(item_id("iron_ore")) > trade_price(item_id("copper_ore")) && trade_price(item_id("diamond")) > trade_price(item_id("ruby")));
+    CHECK(trade_price(item_id("iron_sword")) > trade_price(item_id("bronze_sword")) && trade_price(item_id("bronze_sword")) > trade_price(item_id("flint_spear")));
+    CHECK(trade_price(item_id("marble_column")) > trade_price(item_id("marble")) / 2 && trade_price(item_id("copper_coin")) == 0);
+
+    /* Benches, things to trade at, and whatever takes crystals to make are not dealt in. */
+    CHECK(trade_barred(item_id("workbench")) && trade_barred(item_id("furnace")) && trade_barred(item_id("trade_portal")) && trade_barred(item_id("dev_portal")));
+    CHECK(trade_barred(item_id("portal_chest")) && trade_barred(item_id("flywheel")));
+    CHECK(!trade_barred(ITEM_DIRT) && !trade_barred(item_id("chest")) && !trade_barred(item_id("iron_sword")) && !trade_barred(item_id("marble_column")));
+    CHECK(strcmp(tile_def(tile_id("trade_portal"))->label, "Trade portal") == 0 && !tile_def(tile_id("trade_portal"))->trade_free);
+
+    Game g;
+    game_init(&g, 64, 48, 47, WORLD_FLAT);
+    Inventory *inv = &g.inventory;
+    g.tick_rate = 0;
+    int x = g.player.feet.x + 2;
+    ItemId copper = item_id("copper_coin");
+    CHECK(place_and_open(&g, "trade_portal", x) && game_trade_open(&g) && !game_trade_free(&g));
+    clear_inventory(&g);
+    inventory_add(inv, copper, 99);
+    /* Nothing has been found in this world yet: nothing can be bought. */
+    memset(g.discovered, 0, sizeof g.discovered);
+    CHECK(!game_trade_deals(&g, ITEM_DIRT) && !game_trade_buy(&g, ITEM_DIRT, 1) && coins(&g, "copper_coin") == 99);
+    /* Having one in hand is finding it: dug, made, picked up or given. */
+    inventory_add(inv, ITEM_DIRT, 1);
+    game_tick(&g);
+    CHECK(g.discovered[ITEM_DIRT] && g.discovered[copper] && !g.discovered[ITEM_STONE]);
+    CHECK(game_trade_deals(&g, ITEM_DIRT) && !game_trade_deals(&g, ITEM_STONE));
+    /* Bought for its price, sold for nine tenths of it. */
+    CHECK(game_trade_buy(&g, ITEM_DIRT, 2) && coins(&g, "copper_coin") == 79 && count_item(&g, ITEM_DIRT) == 3);
+    CHECK(game_trade_sell(&g, ITEM_DIRT, 3) && coins(&g, "copper_coin") == 79 + 27 && count_item(&g, ITEM_DIRT) == 0);
+    CHECK(game_trade_deals(&g, ITEM_DIRT)); /* once found, found: having none now makes no difference */
+    /* What is in a basket in the bar counts as in hand. */
+    ItemStack basket = { (uint16_t)ITEM_BASKET, 1, container_alloc(inv) };
+    inv->containers[basket.container].slots[0] = (ItemStack){ (uint16_t)ITEM_STONE, 2, 0 };
+    inv->slots[5] = basket;
+    game_note_found(&g);
+    CHECK(g.discovered[ITEM_STONE] && game_trade_deals(&g, ITEM_STONE));
+    /* A bench is not dealt in, found or not: neither bought nor sold. */
+    inventory_add(inv, item_id("workbench"), 1);
+    game_note_found(&g);
+    CHECK(g.discovered[item_id("workbench")] && !game_trade_deals(&g, item_id("workbench")));
+    CHECK(!game_trade_buy(&g, item_id("workbench"), 1) && !game_trade_sell(&g, item_id("workbench"), 1) && count_item(&g, item_id("workbench")) == 1);
+    /* What has been found is kept with the world. */
+    CHECK(save_game(&g, "build/test_found.world"));
+    Game loaded;
+    CHECK(load_game(&loaded, "build/test_found.world"));
+    CHECK(loaded.discovered[ITEM_DIRT] && loaded.discovered[ITEM_STONE] && !loaded.discovered[item_id("iron_sword")]);
+    game_free(&loaded);
+
+    /* The dev portal: everything there is, benches and all, found or not, for nothing. */
+    memset(g.discovered, 0, sizeof g.discovered);
+    CHECK(place_and_open(&g, "dev_portal", x + 6) && game_trade_open(&g) && game_trade_free(&g));
+    CHECK(tile_def(tile_id("dev_portal"))->trade_free && tile_def(tile_id("dev_portal"))->trade);
+    clear_inventory(&g);
+    CHECK(game_trade_deals(&g, item_id("iron_sword")) && game_trade_deals(&g, item_id("workbench")) && game_trade_deals(&g, item_id("portal_chest")));
+    CHECK(game_trade_deals(&g, item_id("trade_portal")) && game_trade_deals(&g, copper));
+    CHECK(!game_trade_deals(&g, item_id("new_player")) && !game_trade_deals(&g, item_id("time_crystal")));
+    CHECK(game_trade_buy(&g, item_id("iron_sword"), 1) && game_trade_buy(&g, item_id("furnace"), 2));
+    CHECK(count_item(&g, item_id("iron_sword")) == 1 && count_item(&g, item_id("furnace")) == 2 && trade_wallet(inv) == 0);
+    /* Handing something back gives nothing for it. */
+    CHECK(game_trade_sell(&g, item_id("furnace"), 1) && count_item(&g, item_id("furnace")) == 1 && trade_wallet(inv) == 0);
+    game_close_bench(&g);
+
+    /* Hurrying what is being made: a crystal for every 10 seconds it still has to go. */
+    CHECK(content.rules.rush_seconds == 10.0f);
+    CHECK(place_and_open(&g, "workbench", x + 12));
+    Recipe *r = (Recipe *)find_recipe(TILE_WORKBENCH, "woodwork_bench");
+    CHECK(r != NULL);
+    float was = r->time;
+    r->time = 100.0f;
+    clear_inventory(&g);
+    for (int i = 0; i < r->input_count; i++) inventory_add(inv, r->inputs[i].id, r->inputs[i].count * 2);
+    CHECK(game_craft_rush_cost(&g) == -1); /* nothing being made */
+    CHECK(game_craft(&g, r, 2));
+    run(&g, 0.5f);
+    CHECK(g.craft_remaining == 2 && game_craft_rush_cost(&g) == 20);
+    run(&g, 44.6f);
+    CHECK(game_craft_rush_cost(&g) == 16); /* 154.9 seconds to go */
+    g.crystals = 15;
+    CHECK(!game_craft_rush(&g) && g.crystals == 15 && g.craft_remaining == 2);
+    g.crystals = 100;
+    CHECK(game_craft_rush(&g) && g.crystals == 84);
+    run(&g, 0.1f);
+    CHECK(g.craft_remaining == 0 && count_item(&g, r->output.id) + drops_of(&g, r->output.id) == 2 && game_craft_rush_cost(&g) == -1);
+
+    /* Or, as a setting of the world, nothing takes any time: a tick each. */
+    clear_inventory(&g);
+    clear_drops(&g);
+    for (int i = 0; i < r->input_count; i++) inventory_add(inv, r->inputs[i].id, r->inputs[i].count * 3);
+    CHECK(game_craft_seconds(&g, r) == 100.0f);
+    g.quick_craft = true;
+    g.tick_rate = 10;
+    CHECK(game_craft_seconds(&g, r) > 0.09f && game_craft_seconds(&g, r) < 0.11f && game_craft_time(r) == 100.0f);
+    g.tick_rate = 0;
+    CHECK(game_craft(&g, r, 3));
+    run(&g, 0.6f);
+    CHECK(g.craft_remaining == 0 && count_item(&g, r->output.id) + drops_of(&g, r->output.id) == 3);
+    CHECK(save_game(&g, "build/test_quick.world") && load_game(&loaded, "build/test_quick.world") && loaded.quick_craft);
+    game_free(&loaded);
+    r->time = was;
+    game_free(&g);
+
+    content.trade.default_price = legacy_trade.default_price;
+    content.trade.sell_share = legacy_trade.sell_share;
+    content.trade.discover = legacy_trade.discover;
+    for (ItemId i = 1; i < content.item_count; i++) content.items[i].price = legacy_price[i];
 }
 
 static void test_plants(void)
@@ -7237,7 +7371,8 @@ static void test_start_items(void)
     Game g;
     game_init(&g, 64, 48, 29, WORLD_FLAT);
     CHECK(g.inventory.slots[0].id == ITEM_BASKET && g.inventory.slots[0].count == 1);
-    CHECK(count_item(&g, item_id("trade_portal")) == 1 && count_item(&g, item_id("gold_coin")) == 1);
+    /* (And a dev portal, in place of the trade portal and the gold coin there used to be.) */
+    CHECK(count_item(&g, item_id("dev_portal")) == 1 && count_item(&g, item_id("trade_portal")) == 0 && count_item(&g, item_id("gold_coin")) == 0);
 
     game_free(&g);
 }
@@ -7310,7 +7445,7 @@ static void test_content(void)
 
     content_reset();
     CHECK(content_load("data", err, sizeof err) && content.tile_count > 100 && content.tile_count <= tiles);
-    CHECK(content.rules.start_item_count == 3);
+    CHECK(content.rules.start_item_count == 2);
 }
 
 /* A shipped recipe: at a kind of bench, making so many of a thing from a first input. */
@@ -7478,7 +7613,7 @@ static void test_shipped_recipes(void)
     CHECK(r && needs(r, "stone", 1) && r->crystals == 120 && r->time == 80.0f && r->level == 2);
     r = shipped("workbench", "trade_portal", NULL);
     CHECK(r && needs(r, "wood", 1) && needs(r, "gold_coin", 1) && r->time == 120.0f && r->level == 2);
-    CHECK(strcmp(item_def(item_id("trade_portal"))->label, "Shop") == 0);
+    CHECK(strcmp(item_def(item_id("trade_portal"))->label, "Trade portal") == 0);
     r = shipped("workbench", "refinery", NULL);
     CHECK(r && r->level == 4 && r->input_count == 4 && needs(r, "electric_furnace", 1) && needs(r, "oil", 10) && r->time == 180.0f);
     r = shipped("tool_bench", "copper_bow", NULL);
@@ -7648,6 +7783,13 @@ int main(void)
      * before them: each is let in by the test that is about it. */
     /* And one random event to a chunk, as there was when they were written. */
     content.rules.random_events_per_chunk = 1;
+    /* And trade as it was: everything a copper coin, to buy or to sell, found or not. (The prices, the
+     * share a sale gives and the finding of things have a test of their own, against what the game ships.) */
+    shipped_trade = content.trade;
+    for (ItemId i = 1; i < content.item_count; i++) shipped_price[i] = content.items[i].price, content.items[i].price = 0;
+    content.trade.default_price = 1;
+    content.trade.sell_share = 1.0f;
+    content.trade.discover = false;
     content.mobs[mob_id("yak")].spawn_chance = 0.0f;
     tile_def_mut(tile_id("dirt"))->extra_chance[0] = 0.0f; /* (no worms in the dirt, but where they are looked for) */
     content.mobs[mob_id("scorpion")].spawn_chance = 0.0f;
@@ -7698,6 +7840,7 @@ int main(void)
     test_seasons_and_weather();
     test_doors_walls_lamps_armor();
     test_power();
+    test_trade_rules();
     test_new_trees();
     test_caves();
     test_backwall();

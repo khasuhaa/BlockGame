@@ -81,6 +81,13 @@ static Rectangle craft_rect(Rectangle menu)
                         menu.width - 2 * MENU_PAD, 34 };
 }
 
+/* While something is being made, the right-hand end of that is the button that hurries it for crystals. */
+static Rectangle rush_rect(Rectangle menu)
+{
+    Rectangle b = craft_rect(menu);
+    return (Rectangle){ b.x + b.width - 92, b.y, 92, b.height };
+}
+
 /* The fuel gauge on the side of a bench that burns fuel, and the list of
  * things to burn that it opens. */
 static Rectangle fuel_tab_rect(Rectangle menu)
@@ -217,6 +224,7 @@ static BenchPress press_target(const BenchUi *ui, const Game *g, const View *v, 
     slider.x -= 8;
     slider.width += 16;
     if (CheckCollisionPointRec(m, slider)) return BENCH_PRESS_SLIDER;
+    if (game_craft_rush_cost(g) >= 0 && CheckCollisionPointRec(m, rush_rect(menu))) return BENCH_PRESS_RUSH;
     if (CheckCollisionPointRec(m, craft_rect(menu))) return BENCH_PRESS_CRAFT;
     return BENCH_PRESS_PANEL;
 }
@@ -306,6 +314,8 @@ bool benchui_handle_input(BenchUi *ui, Game *g, const View *v)
         if (game_teleport(g)) ui->teleported = true;
     } else if (ui->press == BENCH_PRESS_UPGRADE && released == BENCH_PRESS_UPGRADE) {
         game_upgrade_bench(g);
+    } else if (ui->press == BENCH_PRESS_RUSH && released == BENCH_PRESS_RUSH) {
+        game_craft_rush(g);
     } else if (ui->press == BENCH_PRESS_CRAFT && released == BENCH_PRESS_CRAFT) {
         game_craft(g, recipes[ui->selected], ui->amount);
     } else if (ui->press == BENCH_PRESS_OPEN && released == BENCH_PRESS_OPEN) {
@@ -465,7 +475,7 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
     DrawText(TextFormat("%s x%d", item_def(r->output.id)->label, r->output.count * amount),
              (int)left, (int)y, 16, RAYWHITE);
     /* How long each takes, at the end of the line. */
-    float secs = game_craft_time(r);
+    float secs = game_craft_seconds(g, r);
     const char *takes = secs >= 60.0f ? ((int)secs % 60 ? TextFormat("%dm %ds each", (int)secs / 60, (int)secs % 60)
                                                          : TextFormat("%dm each", (int)secs / 60))
                         : secs >= 1.0f ? TextFormat("%ds each", (int)secs) : "";
@@ -541,7 +551,19 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
         /* (Filling as the one being made comes along, not only as each is finished.) */
         DrawRectangleRec((Rectangle){ b.x, b.y, b.width * ((float)done + (part > 0.0f ? part : 0.0f)) / (float)g->craft_total, b.height },
                          button_color);
-        draw_centered(TextFormat("Crafting %d/%d", done, g->craft_total), b, 18, RAYWHITE);
+        int rush = game_craft_rush_cost(g);
+        Rectangle hurry = rush_rect(menu);
+        Rectangle words = rush >= 0 ? (Rectangle){ b.x, b.y, b.width - hurry.width, b.height } : b;
+        draw_centered(TextFormat("Crafting %d/%d", done, g->craft_total), words, 18, RAYWHITE);
+        if (rush >= 0) {
+            /* Finish it now, for a crystal for every ten seconds it still has to go. */
+            bool can = g->crystals >= rush, hot = can && CheckCollisionPointRec(GetMousePosition(), hurry);
+            DrawRectangleRec(hurry, !can ? (Color){ 54, 57, 70, 255 } : hot ? (Color){ 70, 150, 190, 255 } : (Color){ 50, 120, 160, 255 });
+            const char *cost = TextFormat("Now: %d", rush);
+            int wide = MeasureText(cost, 14);
+            DrawText(cost, (int)(hurry.x + (hurry.width - (float)wide - 18) / 2), (int)hurry.y + 10, 14, can ? RAYWHITE : GRAY);
+            assets_draw_image(content.trade.crystal_icon, (Rectangle){ hurry.x + (hurry.width - (float)wide - 18) / 2 + (float)wide + 2, hurry.y + 9, 16, 16 });
+        }
     } else if (item_def(r->output.id)->becomes_player && g->character_count >= content.rules.max_players) {
         draw_centered("Already made", b, 18, (Color){ 170, 172, 184, 255 });
     } else if (cap < 1) {

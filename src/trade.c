@@ -12,6 +12,45 @@ int trade_price(ItemId item)
     return def->price > 0 ? def->price : content.trade.default_price;
 }
 
+int trade_sell_price(ItemId item)
+{
+    return (int)((float)trade_price(item) * content.trade.sell_share + 0.0001f);
+}
+
+bool game_trade_free(const Game *g)
+{
+    return game_trade_open(g) && tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y))->trade_free;
+}
+
+bool trade_barred(ItemId item)
+{
+    /* Worked out once for the content as it stands, and again if it changes. */
+    static uint8_t barred[MAX_ITEMS];
+    static int for_items = -1, for_recipes = -1, for_tiles = -1;
+    if (for_items != content.item_count || for_recipes != content.recipe_count || for_tiles != content.tile_count) {
+        for_items = content.item_count;
+        for_recipes = content.recipe_count;
+        for_tiles = content.tile_count;
+        for (ItemId i = 0; i < content.item_count; i++) {
+            const ItemDef *def = &content.items[i];
+            const TileDef *puts = tile_def(def->places);
+            barred[i] = def->places != TILE_AIR && (puts->bench || puts->trade);
+        }
+        for (int r = 0; r < content.recipe_count; r++)
+            if (content.recipes[r].crystals > 0 && content.recipes[r].output.id < MAX_ITEMS) barred[content.recipes[r].output.id] = 1;
+    }
+    return item <= ITEM_NONE || item >= content.item_count || barred[item];
+}
+
+bool game_trade_deals(const Game *g, ItemId item)
+{
+    if (!game_trade_open(g) || item <= ITEM_NONE || item >= content.item_count) return false;
+    const ItemDef *def = &content.items[item];
+    if (game_trade_free(g)) return def->crystals == 0 && !def->becomes_player;
+    if (trade_price(item) <= 0 || trade_barred(item)) return false;
+    return !content.trade.discover || g->discovered[item];
+}
+
 long trade_wallet(const Inventory *inv)
 {
     long total = 0;
@@ -59,7 +98,11 @@ static bool plan_payment(const Inventory *inv, long price, int *delta)
 bool trade_buy_now(Game *g, ItemId item, int count)
 {
     int price = trade_price(item), delta[MAX_CURRENCIES];
-    if (!game_trade_open(g) || price <= 0 || count < 1) return false;
+    if (count < 1 || !game_trade_deals(g, item)) return false;
+    if (game_trade_free(g)) {
+        game_give_items(g, item, count);
+        return true;
+    }
     if (!plan_payment(&g->inventory, (long)price * count, delta)) return false;
 
     /* Coins out before anything comes in, so the change has room to land. */
@@ -74,11 +117,13 @@ bool trade_buy_now(Game *g, ItemId item, int count)
 bool trade_sell_now(Game *g, ItemId item, int count)
 {
     const TradeDef *t = &content.trade;
-    int price = trade_price(item);
-    if (!game_trade_open(g) || price <= 0 || count < 1 || t->currency_count == 0) return false;
+    int price = trade_sell_price(item);
+    if (count < 1 || !game_trade_deals(g, item) || t->currency_count == 0) return false;
     if (inventory_count(&g->inventory, item) < count) return false;
+    /* (Where everything is free, a thing handed back is worth nothing.) */
+    if (!game_trade_free(g) && price <= 0) return false;
     inventory_remove(&g->inventory, item, count);
-    game_give_items(g, t->currencies[0].item, price * count / t->currencies[0].value);
+    if (!game_trade_free(g)) game_give_items(g, t->currencies[0].item, price * count / t->currencies[0].value);
     return true;
 }
 

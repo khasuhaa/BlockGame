@@ -258,6 +258,7 @@ static bool read_tiles(Reader *r, const cJSON *root)
                                                                                   : LAYER_FOREGROUND;
         t->bench = flag(e, "bench", false);
         t->trade = flag(e, "trade", false);
+        t->trade_free = flag(e, "trade_free", false);
         t->removable = flag(e, "removable", false);
         t->climbable = flag(e, "climbable", false);
         t->mine_time = (float)num(e, "mine_time", 0.35);
@@ -969,6 +970,7 @@ static bool read_rules(Reader *r, const cJSON *root)
     }
     if (field(root, "building")) u->wall_span = (int)num(field(root, "building"), "wall_span", u->wall_span);
     if (field(root, "power")) u->lift_time = (float)num(field(root, "power"), "lift_time", u->lift_time);
+    if (field(root, "crafting")) u->rush_seconds = (float)num(field(root, "crafting"), "rush_seconds_per_crystal", u->rush_seconds);
     if (player) {
         u->walk_time = (float)num(player, "walk_time", u->walk_time);
         u->fall_time = (float)num(player, "fall_time", u->fall_time);
@@ -1221,6 +1223,9 @@ static bool read_trade(Reader *r, const cJSON *root)
     TradeDef *t = &content.trade;
     const cJSON *e;
     t->default_price = (int)num(root, "default_price", t->default_price > 0 ? t->default_price : 1);
+    t->sell_share = (float)num(root, "sell_share", t->sell_share > 0.0f ? t->sell_share : 1.0);
+    if (t->sell_share < 0.0f || t->sell_share > 1.0f) return fail(r, "\"sell_share\" is a share of the price, 0 to 1");
+    t->discover = flag(root, "discover", t->discover);
     cJSON_ArrayForEach(e, field(root, "categories")) {
         const char *name = str(e, "name");
         if (!name) return fail(r, "a category has no \"name\"");

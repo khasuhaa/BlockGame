@@ -1,5 +1,7 @@
 {
-  "default_price": 1,
+  "default_price": 10,
+  "sell_share": 0.9,
+  "discover": true,
   "categories": [
     {
       "name": "blocks",

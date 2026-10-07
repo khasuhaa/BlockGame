@@ -402,7 +402,11 @@ static void world_page(PauseMenu *p, Game *g, float top)
     if (button((Rectangle){ ticks.x + ticks.width - 40, ticks.y, 40, 36 }, "+", g->random_events < most)) g->random_events++;
     DrawText("Freezing, thawing and snow go faster with more. Growth does not.", (int)row.x, (int)(top + 268), 14, GRAY);
 
-    if (button(column_button(top + 300, 0), "Back", true)) p->page = PAUSE_PAGE_MAIN;
+    /* Crafting times: as the recipes give them, or everything made in a tick. */
+    if (button(column_button(top + 296, 0), g->quick_craft ? "Crafting times: off (1 tick)" : "Crafting times: on", true))
+        g->quick_craft = !g->quick_craft;
+
+    if (button(column_button(top + 346, 0), "Back", true)) p->page = PAUSE_PAGE_MAIN;
 }
 
 static void keys_page(PauseMenu *p, Keybinds *k, float top)

@@ -127,6 +127,7 @@ typedef struct {
     int alias_count;
     bool bench;      /* a workbench: can be opened to craft */
     bool trade;      /* can be opened to buy and sell */
+    bool trade_free; /* at this one everything there is can be had for nothing, found or not */
     bool removable;  /* can be mined */
     bool climbable;  /* can be held on to by a player in front of it */
     bool wall;       /* leaves a backwall of itself behind where it stands */
@@ -507,6 +508,7 @@ typedef struct {
     TileType ice;                     /* what water freezes into; TILE_AIR for nothing */
     float freeze_chance, thaw_chance; /* chance a random event on open water freezes it, or on ice thaws it */
     float lift_time; /* seconds a lift takes over each block it goes */
+    float rush_seconds; /* seconds of crafting that one crystal buys off; 0 for no hurrying */
     int wall_span;   /* a block put up within this many blocks above another has backwall put in between */
 
     float walk_time, fall_time, climb_time, hop_time, crawl_time; /* seconds per step */
@@ -666,6 +668,8 @@ typedef struct {
     } currencies[MAX_CURRENCIES];
     int currency_count;
     int default_price;
+    float sell_share; /* what selling a thing gives, as a share of what buying it costs */
+    bool discover;    /* a thing can only be traded in a world once somebody there has had one */
     /* Crystals are not an item: one number, shared by every world. */
     int start_crystals;
     char crystal_icon[CONTENT_PATH_LEN];

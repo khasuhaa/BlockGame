@@ -1789,10 +1789,52 @@ float game_craft_time(const Recipe *r)
     return r && r->time > 0.0f ? r->time : CRAFT_TIME;
 }
 
+float game_craft_seconds(const Game *g, const Recipe *r)
+{
+    if (g->quick_craft) return 1.0f / (float)(g->tick_rate > 0 ? g->tick_rate : DEFAULT_TICK_RATE > 0 ? DEFAULT_TICK_RATE : 10);
+    return game_craft_time(r);
+}
+
+int game_craft_rush_cost(const Game *g)
+{
+    float per = content.rules.rush_seconds;
+    if (per <= 0.0f || !g->bench_open || g->craft_remaining <= 0 || !g->craft_recipe || g->craft_power > 0) return -1;
+    float left = game_craft_seconds(g, g->craft_recipe) * (float)g->craft_remaining - g->craft_timer;
+    if (left <= 0.0f) return -1;
+    int cost = (int)ceilf(left / per);
+    return cost < 1 ? 1 : cost;
+}
+
+bool game_craft_rush(Game *g)
+{
+    int cost = game_craft_rush_cost(g);
+    if (cost < 0 || g->crystals < cost) return false;
+    g->crystals -= cost;
+    /* All the time it still had to take is counted as passed: the next moment it is done. */
+    g->craft_timer = game_craft_seconds(g, g->craft_recipe) * (float)g->craft_remaining;
+    return true;
+}
+
+void game_note_found(Game *g)
+{
+    const Inventory *inv = &g->inventory;
+    for (int i = 0; i < INVENTORY_SLOTS + ARMOR_SLOTS; i++) {
+        const ItemStack *st = i < INVENTORY_SLOTS ? &inv->slots[i] : &inv->armor[i - INVENTORY_SLOTS];
+        if (st->count == 0 || st->id >= MAX_ITEMS) continue;
+        g->discovered[st->id] = 1;
+        /* And what is in a basket in the bar. */
+        if (st->container == 0 || st->container >= MAX_CONTAINERS || inv->containers[st->container].used != CONTAINER_ITEMS) continue;
+        for (int k = 0; k < CONTAINER_MAX_SLOTS; k++) {
+            const ItemStack *in = &inv->containers[st->container].slots[k];
+            if (in->count > 0 && in->id < MAX_ITEMS) g->discovered[in->id] = 1;
+        }
+    }
+}
+
 float game_craft_progress(const Game *g)
 {
     if (g->craft_remaining <= 0 || !g->craft_recipe) return -1.0f;
-    float t = g->craft_timer / game_craft_time(g->craft_recipe);
+    float t = g->craft_timer / game_craft_seconds(g, g->craft_recipe);
     return t > 1.0f ? 1.0f : t;
 }
 
@@ -1941,7 +1983,7 @@ static void update_bench(Game *g, float dt)
         g->craft_power = 0;
     }
     g->craft_timer += dt;
-    float each = game_craft_time(g->craft_recipe);
+    float each = game_craft_seconds(g, g->craft_recipe);
     while (g->craft_remaining > 0 && g->craft_timer >= each) {
         g->craft_timer -= each;
         if (item_def(g->craft_recipe->output.id)->becomes_player) {
@@ -2652,6 +2694,7 @@ void game_tick(Game *g)
     for (int c = 0; c < g->character_count; c++) {
         game_use_character(g, c);
         vitals_tick(g);
+        game_note_found(g);
     }
     game_use_character(g, g->controlled);
 

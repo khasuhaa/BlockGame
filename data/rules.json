@@ -13,8 +13,7 @@
     "max_wall_hop": 2, "place_time": 0.15, "craft_time": 0.1,
     "start_items": [
       { "item": "basket", "count": 1 },
-      { "item": "trade_portal", "count": 1 },
-      { "item": "gold_coin", "count": 1 }
+      { "item": "dev_portal", "count": 1 }
     ]
   },
   "drops": { "fall_speed": 12.0, "pickup_delay": 0.45, "collect_time": 0.15, "lifetime": 600, "float_speed": 5.0 },
@@ -50,5 +49,6 @@
     "ice": "ice", "freeze_chance": 0.5, "thaw_chance": 0.5
   },
   "building": { "wall_span": 10 },
-  "power": { "lift_time": 0.04 }
+  "power": { "lift_time": 0.04 },
+  "crafting": { "rush_seconds_per_crystal": 10 }
 }

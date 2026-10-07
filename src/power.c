@@ -41,10 +41,9 @@ int game_power_made(const Game *g, int x, int y)
 
 int game_power_for(const Game *g, TileType bench, const Recipe *r, int count)
 {
-    (void)g;
     const TileDef *def = tile_def(bench);
     if (def->electric <= 0 || !r || count < 1) return 0;
-    float each = game_craft_time(r);
+    float each = game_craft_seconds(g, r);
     int need = (int)((float)def->electric * each * (float)count + 0.5f);
     return need < 1 ? 1 : need;
 }

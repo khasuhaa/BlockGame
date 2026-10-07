@@ -1,20 +1,21 @@
 OBTAINMENT
 Worked out from the data files (data/*.json) by a script, not by hand.
 
-"Obtainable" means it can be got by playing, WITHOUT the Shop: dug or picked in a
+"Obtainable" means it can be got by playing, without buying it: dug or picked in a
 generated world, left by a creature, found in a golden chest, brought by meditating,
-given to a new character, or made from such things at a bench that can itself be got
-and raised to the tier needed. The Shop sells every item for 1 copper coin, so counting
-it would make everything obtainable.
+or made from such things at a bench that can itself be got and raised to the tier
+needed. A trade portal only deals in what has already been found in the world, so it
+is no source of anything new; the dev portal a character starts with gives everything
+away and is not counted either.
 
 Everything is treated as an item unless it can actually be put down in the world today
 (the "X block" things, benches, and the blocks the game already had). Beds, doors,
 columns, stairs, ladders and the like are items for now.
 
-Totals: 370 items, 379 recipes, 25 kinds of bench.
+Totals: 371 items, 379 recipes, 25 kinds of bench.
 
 ==============================================================================
-1. UNOBTAINABLE ITEMS  (31 of 370)
+1. UNOBTAINABLE ITEMS  (31 of 371)
 ==============================================================================
 The Workbench is made at any portal (1 dirt), so the benches can all be started.
 The list is split in two: what has no source at all (1a), and what has a recipe that
@@ -23,7 +24,7 @@ cannot be completed because of something in 1a (1b).
 Clay is now dug from veins in the dirt, which opens the kiln, and with it charcoal, the
 furnace, bronze and the press.
 
-339 of the 370 items can be got as things stand.
+340 of the 371 items can be got as things stand.
 
 1a. NOTHING MAKES OR GIVES THESE  (12) - the roots: settle these and most of 1b follows
     (after each: what it is wanted for)
@@ -62,7 +63,7 @@ furnace, bronze and the press.
   - Silicon wafer                  Metalwork bench tier 2   needs: Silicon crystal
   - Solar panel                    Workbench tier 4         needs: Silicon wafer
 
-For reference, what CAN be got as things stand (339): 
+For reference, what CAN be got as things stand (340): 
     Acorn, Amethyst, Amethyst block, Amethyst chandelier, Amethyst column
     Amethyst dodo egg, Amethyst pickaxe, Amethyst shard, Amethyst stairs, Apple
     Armor bench, Armor bench II, Armor bench III, Basic torch, Basket, Black glass
@@ -74,8 +75,8 @@ For reference, what CAN be got as things stand (339):
     Compost bin, Cooked dodo meat, Cooked fish, Copper block, Copper blue
     Copper boiler, Copper bow & arrows, Copper coin, Copper column, Copper dodo egg
     Copper ingot, Copper ore, Copper stairs, Copper wire, Coral, Craft bench
-    Craft bench II, Craft bench III, Crowbar, Crushed limestone, Cup, Diamond
-    Diamond block, Diamond chandelier, Diamond column, Diamond dodo egg
+    Craft bench II, Craft bench III, Crowbar, Crushed limestone, Cup, Dev portal
+    Diamond, Diamond block, Diamond chandelier, Diamond column, Diamond dodo egg
     Diamond pickaxe, Diamond shard, Diamond stairs, Dirt, Dirt dodo egg
     Display cabinet, Dodo egg, Dodo feather, Dough, Dye bench, Easel, Egg extractor
     Electric elevator motor, Electric furnace, Electric kiln
@@ -107,10 +108,10 @@ For reference, what CAN be got as things stand (339):
     Ruby dodo egg, Ruby pickaxe, Ruby shard, Ruby stairs, Safe, Salt, Sand
     Sandstone, Sandstone column, Sandstone stairs, Sapphire, Sapphire block
     Sapphire chandelier, Sapphire column, Sapphire dodo egg, Sapphire pickaxe
-    Sapphire shard, Sapphire stairs, Shark head, Shelf, Shop, Sign, Soft bed
-    Steam engine, Steam generator, Steel block, Steel column, Steel downlight
-    Steel ingot, Steel lantern, Steel pickaxe, Steel stairs, Steel uplight, Stick
-    Stone, Stone axe, Stone column, Stone dodo egg, Stone pickaxe, Stone spade
+    Sapphire shard, Sapphire stairs, Shark head, Shelf, Sign, Soft bed, Steam engine
+    Steam generator, Steel block, Steel column, Steel downlight, Steel ingot
+    Steel lantern, Steel pickaxe, Steel stairs, Steel uplight, Stick, Stone
+    Stone axe, Stone column, Stone dodo egg, Stone pickaxe, Stone spade
     Stone stairs, String, Sunflower seed, Tailor's bench, Tailor's bench II
     Time crystal, Tin armor leggings, Tin block, Tin boots, Tin bucket
     Tin chestplate, Tin column, Tin dodo egg, Tin foil, Tin foil hat, Tin helmet
@@ -119,16 +120,17 @@ For reference, what CAN be got as things stand (339):
     Titanium dodo egg, Titanium helmet, Titanium ingot, Titanium ore
     Titanium pickaxe, Titanium stairs, Titanium sword, Tomato, Tool bench
     Tool bench II, Tool bench III, Tool bench IV, Tool bench V, Tool bench VI
-    Tool bench VII, Train yard, Trapdoor, Tulip bulb, Tulip seed, Tyrian purple
-    Ultramarine blue, Vine, Wheat, Window, Wood, Wood column, Wood dodo egg
-    Wood stairs, Wooden bed, Wooden door, Wooden gate, Woodwork bench, Workbench
-    Workbench II, Workbench III, Workbench IV, Worms, Yak horn, Yak shavings, Yeast
+    Tool bench VII, Trade portal, Train yard, Trapdoor, Tulip bulb, Tulip seed
+    Tyrian purple, Ultramarine blue, Vine, Wheat, Window, Wood, Wood column
+    Wood dodo egg, Wood stairs, Wooden bed, Wooden door, Wooden gate, Woodwork bench
+    Workbench, Workbench II, Workbench III, Workbench IV, Worms, Yak horn
+    Yak shavings, Yeast
 
 ==============================================================================
 2. BENCHES WITH NO PURPOSE YET
 ==============================================================================
 A bench has a purpose if anything is made at it, or it does something else (a portal
-teleports; the Shop trades; a campfire, kiln and furnace also burn fuel).
+teleports; a trade portal trades; a campfire, kiln and furnace also burn fuel).
 
   - Dye bench                    can be made
   - Easel                        can be made
@@ -305,7 +307,7 @@ dropped or found yet; this is the short list to decide on first.
   - Recipes that ask for a "tin bucket" itself (mixing bench, feeder chest, paint) use the bucket up.
   - "Bronze", "iron", "steel", "gold", "titanium" as amounts mean the ingots.
   - "Gold nuggets" are what gold ore blocks drop (the item that was called Gold ore).
-  - "Coffee cherry" is what coffee trees bear (was Coffee bean). "Shop" is the trade portal.
+  - "Coffee cherry" is what coffee trees bear (was Coffee bean). "Shop" in recipes.txt is the trade portal.
   - "Flint/Stone/Gold spade" are the old shovels, renamed. "Basic torch" is the torch.
   - "Raw dodo meat" and "Raw fish" are the old dodo meat and fish.
   - Where a line gave no time, it takes the last time given above it in the same section.
@@ -314,7 +316,7 @@ dropped or found yet; this is the short list to decide on first.
   - Paint: 92 recipes, one per mix of 1, 2 or 3 of the 8 pigments; the paint carries the mixed colour.
   - The metalwork bench now has 2 tiers, as listed; its old third tier is gone.
   - Old bench recipes with no line in recipes.txt are gone, as asked. Every portal recipe is kept:
-    the Workbench (1 dirt), the Shop, the gold coin, the five gem pickaxes, the portal chest
+    the Workbench (1 dirt), the trade portal, the gold coin, the five gem pickaxes, the portal chest
     and the new player.
   - Clay is dug: veins of 4 to 10 in the dirt, 1 to 6 blocks down, as flint is.
   - Machetes cut leaves and plants (flint 2x, bronze 4x, iron 5.5x as quick as by hand).

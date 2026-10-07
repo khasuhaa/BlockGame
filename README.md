@@ -292,7 +292,7 @@ In data such a plant is three fields: the third stage's `"grows_top"` (the block
 
 - **Crossing.** Plant a seed where a bulb has just been planted, or a bulb where a seed has - click the shoot itself or the soil under it - and the two become one crossed shoot. One of its two features, body or tips, is a mix of its parents' there: halfway between the two colours. The other is taken whole from one parent or the other. Red crossed with blue gives, say, a purple body with red tips; cross that again and the colours wander further. There are 216 colours a part can be.
 - **Stacking.** Bulbs and seeds stack only with others of exactly the same two colours; ones that differ take a slot each. A stack dropped on one that differs changes places with it.
-- Bought at the Shop they are plain red.
+- Bought at a trade portal they are plain red.
 
 A two-tone block has `"tones"` in `tiles.json` (the pictures drawn over it in its two colours, and the `"natural"` colours wild ones come in); a two-tone item has `"tones"` in `items.json`, and `"crosses": { "with", "into" }` says which shoot it crosses with and what the pair becomes. The colours are carried on the item as its meter and kept with the block in the world.
 
@@ -446,7 +446,7 @@ A portal's menu - the spawn portal's or one the player made, from Tier 1 - has a
 
 The portal made at the workbench and the spawn portal are the same kind of bench: they offer the same recipes and climb the same tiers. Every portal is one base block with two portal blocks on it. The spawn portal's base is set into the ground, so two blocks of it stand above the surface; a made portal or a trade portal stands on the ground, base and all, three blocks tall. Each is one thing: placing it needs room for all three blocks, any of its blocks opens it, upgrading changes all of it, and removing any block takes the whole portal down and gives one item back. The spawn portal cannot be removed.
 
-Every portal makes the same things, at once and with no waiting: a **workbench** from 1 dirt, a **Shop** (trade portal) from a portal and a gold coin, a **gold coin** from a golden chest, the gem pickaxes (3 of the gem and a stick, each at its tier), the portal chest and a new player. It has six tiers, each bought with one gem:
+Every portal makes the same things, at once and with no waiting: a **workbench** from 1 dirt, a **trade portal** from a portal and a gold coin, a **gold coin** from a golden chest, the gem pickaxes (3 of the gem and a stick, each at its tier), the portal chest and a new player. It has six tiers, each bought with one gem:
 
 | Portal tier | Costs | Unlocks | Ore multiplier |
 | --- | --- | --- | --- |
@@ -472,20 +472,30 @@ The **portal chest** (1 golden chest and 100 crystals, at a tier 6 portal) opens
 | 2 (5 copper ingots) | 1 gold ingot → 1 gold coin; 100 copper coins → 1 gold coin; 1 platinum coin → 100 gold coins |
 | 3 (5 gold ingots) | 5 platinum ingots → 1 platinum coin; 100 gold coins → 1 platinum coin |
 
-### The Shop
+### Trade portals
 
-The trade portal is called the **Shop** now, and is made at a tier 2 workbench from 1 wood and 1 gold coin.
+A **trade portal** is made at a tier 2 workbench from 1 wood and 1 gold coin. Clicking a placed one offers to open or remove it. Open, it shows the coins held along the top, the categories of item as a list down the left - each with its whole name, and only the ones the portal has anything under - and the items of the chosen category in a grid.
 
-For trying things out, a new world starts the player with a trade portal and 1 gold coin as well as the basket, These are in the data (`rules.json`) and are meant to come out again.
-
-Clicking a placed trade portal offers to open or remove it. Open, it shows the coins held and a tab for each category of item - blocks, benches, materials, tools, food - plus a Convert tab.
-
-- Pick an item to see its price and how many are held, then Buy 1, Buy 10, Sell 1 or Sell 10. Every item but the coins themselves is for sale, and for now everything costs 1 copper coin. An item cannot be added to the game without a category to sell it in: the game refuses to start and names the item.
-- **Buying** spends the smallest coins first, and breaks a bigger coin into change when they do not cover the price: with 1 gold coin, buying a 1 copper item leaves 99 copper coins.
-- **Selling** pays in copper coins and never exchanges them upward: selling that item back leaves a stack of 99 copper coins and 1 more.
-- The **Convert** tab exchanges between neighbouring coins in either direction, such as 100 copper for 1 gold.
+- **What it deals in.** Everything with a price, except benches and other portals, and except anything that takes crystals to make (the portal chest). Those are neither bought nor sold there.
+- **Finding things first.** A trade portal deals only in what somebody in that world has had in their hands - dug, picked, made, picked up or been given: anything that has been in a character's bar, armour or basket. Until then an item is not listed; the menu says how many more there are still to be found in the category. What has been found is kept with the world.
+- **Prices.** Every item has a buying price of its own, in copper coins: from 10 for dirt, sticks and seeds, through 40 for copper ore, 80 for iron ore and 300 for an amethyst, to tens of thousands for a diamond chandelier. Raw things are priced by how hard they are to come by; made things by what goes into them, a little over, and the time they take. **Selling gives nine tenths** of the buying price (`"sell_share"` in `trade.json`; an item's `"price"` in `items.json`).
+- Pick an item to see both prices and how many are held, then Buy 1, Buy 10, Sell 1 or Sell 10.
+- **Buying** spends the smallest coins first, and breaks a bigger coin into change when they do not cover the price.
+- **Selling** pays in copper coins and never exchanges them upward.
+- The **Convert** entry exchanges between neighbouring coins in either direction, such as 100 copper for 1 gold.
 
 Anything bought or given as change that does not fit in the inventory is dropped at the player's feet.
+
+### The dev portal
+
+A new world starts its first character with a basket and a **dev portal**, for trying things out. It is a trade portal that gives everything away: every item there is - benches, other portals, the portal chest and the coins included - whether or not it has been found, for nothing. Handing a thing back to it gives nothing either. It cannot be made or bought. (What a character starts with is `"start_items"` in `rules.json`; a block that trades like this has `"trade_free": true`.)
+
+### Crafting times
+
+Everything made at a bench takes the time its recipe gives. There are two ways round that:
+
+- **Hurry it for crystals.** While something is being made, the craft button has a **Now** button at its end with a price in crystals: one crystal for every 10 seconds the work still has to go, rounded up, for the whole batch. Paying finishes all of it at once. (An electric bench still has to have its electricity first.)
+- **Turn the times off.** In the pause menu's world settings, "Crafting times" can be switched off for the world: everything then takes one tick to make. It is saved with the world.
 
 ### Tools
 

@@ -318,6 +318,9 @@ typedef struct {
     uint8_t *explored;
     bool fog; /* whether this world hides what has not been uncovered */
     int random_events; /* random blocks hit in each chunk every tick: a setting of the world */
+    bool quick_craft;  /* a setting of the world: everything made takes one tick */
+    /* Which items somebody in this world has had in their hands: the trade portal deals only in those. */
+    uint8_t discovered[MAX_ITEMS];
     PowerFlow *flows;  /* electricity on its way along the wires (see power.h); not kept in a save */
     /* What the bench still has to be sent before it starts on what was asked for: an electric one waits for it. */
     int craft_power;
@@ -467,6 +470,15 @@ bool game_teleport(Game *g);
 bool game_craft(Game *g, const Recipe *r, int count);
 /* Seconds a recipe takes to make one of. */
 float game_craft_time(const Recipe *r);
+/* The same in this world, where a setting may make everything take one tick. */
+float game_craft_seconds(const Game *g, const Recipe *r);
+/* Hurrying what is being made, for crystals: what finishing all of it now
+ * would cost (one for every so many seconds still to go), or -1 if there is
+ * nothing to hurry; and doing it. */
+int game_craft_rush_cost(const Game *g);
+bool game_craft_rush(Game *g);
+/* Notes everything the character is carrying as found in this world. */
+void game_note_found(Game *g);
 /* How far along the item being made now is, and the upgrade under way, each 0..1; -1 if there is none. */
 float game_craft_progress(const Game *g);
 float game_upgrade_progress(const Game *g);
