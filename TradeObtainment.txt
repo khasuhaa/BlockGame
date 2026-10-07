@@ -1,0 +1,249 @@
+TRADE OBTAINMENT
+The game's items (data/items.json, the game without mods) set against TradeTiers.txt.
+Written by tools/trade_obtain.py; how each entry of the document was read is at the end.
+
+415 items in the game. 288 are in the document. 127 are not (list A).
+9 things in the document are not in the game (list B).
+
+==============================================================================
+A. IN THE GAME, NOT IN THE DOCUMENT  (127)
+==============================================================================
+Grouped by the category each is in today. The name the data uses follows in brackets where it differs.
+
+Blocks  (12)
+    Portal
+    Trade portal
+    Dev portal
+    Portal II  [portal_2]
+    Portal III  [portal_3]
+    Portal IV  [portal_4]
+    Portal V  [portal_5]
+    Portal VI  [portal_6]
+    Portal chest
+    Cactus
+    Shark head
+    Platinum block
+
+Benches  (46)
+    Workbench
+    Workbench II  [workbench_2]
+    Woodwork bench
+    Tool bench
+    Tool bench II  [tool_bench_2]
+    Craft bench
+    Kiln
+    Furnace
+    Furnace II  [furnace_2]
+    Furnace III  [furnace_3]
+    Workbench III  [workbench_3]
+    Metalwork bench
+    Metalwork bench II  [metalwork_bench_2]
+    Tool bench III  [tool_bench_3]
+    Tool bench IV  [tool_bench_4]
+    Tool bench V  [tool_bench_5]
+    Campfire
+    Tailor's bench  [tailor_bench]
+    Tailor's bench II  [tailor_bench_2]
+    Press
+    Press II  [press_2]
+    Press III  [press_3]
+    Compost bin
+    Easel
+    Builder's bench  [builder_bench]
+    Armor bench
+    Armor bench II  [armor_bench_2]
+    Armor bench III  [armor_bench_3]
+    Pizza oven
+    Train yard
+    Mixing bench
+    Dye bench
+    Electric stove
+    Electric kiln
+    Electric furnace
+    Electric press
+    Electric metalwork bench
+    Electric sluice
+    Egg extractor
+    Refinery
+    Workbench IV  [workbench_4]
+    Tool bench VI  [tool_bench_6]
+    Tool bench VII  [tool_bench_7]
+    Craft bench II  [craft_bench_2]
+    Craft bench III  [craft_bench_3]
+    Craft bench IV  [craft_bench_4]
+
+Materials  (6)
+    Coral
+    Carbon
+    Paint stripper
+    Tulip seed
+    Tulip bulb
+    Paint
+
+Tools  (7)
+    Wooden pickaxe
+    Wooden spade  [wooden_shovel]
+    Amethyst pickaxe
+    Sapphire pickaxe
+    Emerald pickaxe
+    Ruby pickaxe
+    Diamond pickaxe
+
+Food  (21)
+    Acorn
+    Stone dodo egg
+    Dirt dodo egg
+    Wood dodo egg
+    Flint dodo egg
+    Copper dodo egg
+    Tin dodo egg
+    Iron dodo egg
+    Gold dodo egg
+    Titanium dodo egg
+    Platinum dodo egg
+    Amethyst dodo egg
+    Sapphire dodo egg
+    Emerald dodo egg
+    Ruby dodo egg
+    Diamond dodo egg
+    Limestone dodo egg
+    Sandstone dodo egg
+    Marble dodo egg
+    Lapis dodo egg
+    Red marble dodo egg
+
+Clothing  (4)
+    North hat
+    Pole boots
+    Grass skirt
+    Cornucopia hat
+
+Building  (2)
+    Platinum column
+    Platinum stairs
+
+Animals  (24)
+    Caged dodo
+    Caged stone dodo
+    Caged dirt dodo
+    Caged wood dodo
+    Caged flint dodo
+    Caged copper dodo
+    Caged tin dodo
+    Caged iron dodo
+    Caged gold dodo
+    Caged titanium dodo
+    Caged platinum dodo
+    Caged amethyst dodo
+    Caged sapphire dodo
+    Caged emerald dodo
+    Caged ruby dodo
+    Caged diamond dodo
+    Caged dropbear
+    Caged scorpion
+    Caged yak
+    Caged limestone dodo
+    Caged sandstone dodo
+    Caged marble dodo
+    Caged lapis dodo
+    Caged red marble dodo
+
+No category: coins, and things that are never held  (5)
+    Copper coin
+    Gold coin
+    Platinum coin
+    New player
+    Time crystal
+
+==============================================================================
+B. IN THE DOCUMENT, NOT IN THE GAME  (9)
+==============================================================================
+
+    Lime               (Nature II)
+    water bucket       (Crafted IV)
+    ice torch          (Crafted V)
+    rail               (Energy VI)
+    train wheel        (Energy VI)
+    handcar            (Energy VI)
+    steam locomotive   (Energy VI)
+    freight cart       (Energy VI)
+    passenger car      (Energy VI)
+
+    A bucket holding water is the Tin bucket itself, which carries how full it is: there is no item
+    "water bucket" to list.
+    The game has a Train yard bench, and nothing yet that is made at it.
+
+==============================================================================
+HOW THE DOCUMENT WAS READ
+==============================================================================
+
+  - "tin hat" (Clothing III) is read as the Tin foil hat; the Tin helmet is counted with the Tin
+    Armor in Clothing IV.
+  - "Rest of gem blocks in order" (Blocks VI) is read as the Sapphire, Emerald, Ruby and Diamond
+    blocks, each with its column and stairs.
+  - "Brick" is the item Red brick; "Lapis" is Lapis lazuli; "Worm" is Worms; "Flax Seed" is Flax
+    seeds; "Gold ore" is the item called Gold nugget.
+  - "Bucket of Milk" is the item Milk; "Cup of Coffee" is Coffee; "Coffee Cherry" is the item
+    named coffee_bean, labelled Coffee cherry.
+  - "door", "bed" and "wood gate" are the Wooden door, Wooden bed and Wooden gate; "oil lamp" is
+    the Oil lantern; "Torch" is the Basic torch.
+  - "gold chest" is the Golden chest; "feeeding chest" is the Feeder chest; "tinted window" is
+    the Black window.
+  - "elevator motor" is the Electric elevator motor; "resin" is Raw resin; "carbon fiber" is
+    Carbon fibers.
+  - "all pigments" is the eight pigments (Carbon black, Marble white, Red ochre, Indian yellow,
+    Ultramarine blue, Tyrian purple, Copper blue, Emerald green). Paint and Paint stripper are
+    not pigments and are in list A.
+  - The toolsets are read as every tool of that material the game has: Flint (pickaxe, axe,
+    spade, machete, spear); Stone (pickaxe, axe, spade); Bronze/Tin (bronze pickaxe, axe,
+    machete and sword, tin spade); Iron (pickaxe, axe, machete, sword); Steel (pickaxe - the
+    only steel tool); Gold/Titanium (gold pickaxe and spade, titanium pickaxe, axe and sword).
+  - Steam generator, Solar panel and Flywheel (Energy VI) are in the game's Benches category
+    today, which no ordinary trade portal deals in.
+  - The document has no category for the game's Benches or Animals, and its seven categories
+    (Blocks, Nature, Tools, Clothing, Ores, Crafted, and Energy, which starts at tier V) do not
+    match the nine the game has now (Blocks, Benches, Materials, Tools, Food, Gems, Clothing,
+    Building, Animals).
+  - What the upgrades cost is all in the game already: the five gems, Gold and Platinum coins,
+    and crystals.
+
+In the document, tier by tier (288 items):
+
+  Blocks I      Dirt, Wood, Wood column, Wood stairs, Stone, Stone column, Stone stairs, Sand
+  Blocks II     Limestone, Limestone column, Limestone stairs, Sandstone, Sandstone column, Sandstone stairs, Marble, Marble column, Marble stairs, Red brick, Brick column, Brick stairs
+  Blocks III    Gravel, Black sand, Compost, Plaster, Plaster column, Plaster stairs, Glass, Glass column, Glass stairs, Black glass, Black glass column, Black glass stairs, Ice, Ice column, Ice stairs, Reinforced platform
+  Blocks IV     Lapis lazuli, Lapis lazuli column, Lapis lazuli stairs, Red marble, Red marble column, Red marble stairs, Basalt, Basalt column, Basalt stairs
+  Blocks V      Copper block, Copper column, Copper stairs, Tin block, Tin column, Tin stairs, Bronze block, Bronze column, Bronze stairs
+  Blocks VI     Iron block, Iron column, Iron stairs, Steel block, Steel column, Steel stairs, Gold block, Gold column, Gold stairs, Carbon fiber block, Carbon fiber column, Carbon fiber stairs, Titanium block, Titanium column, Titanium stairs, Amethyst block, Amethyst column, Amethyst stairs, Sapphire block, Sapphire column, Sapphire stairs, Emerald block, Emerald column, Emerald stairs, Ruby block, Ruby column, Ruby stairs, Diamond block, Diamond column, Diamond stairs, Luminous plaster
+  Nature I      Stick, Worms, Pine cone
+  Nature II     Apple, Mango, Maple seed, Prickly pear, Coconut, Flax seeds, Orange, Sunflower seed, Corn, Carrot, Cherry, Chilli, Wheat, Tomato
+  Nature III    Kelp, Flax, Vine, Dodo egg, Dodo feather, Raw dodo meat, Raw fish
+  Nature IV     Leather, Fur, Coffee cherry, Flour, Yeast, Salt, Milk, Yak horn, Yak shavings
+  Nature V      Cooked dodo meat, Cooked fish, Green coffee bean, Dough, Mozzarella
+  Nature VI     Roasted coffee bean, Coffee, Fish curry, Dodo stew, Poison, Bread, Flatbread, Pizza, Rainbow essence, Rainbow cake
+  Tools I       Flint pickaxe, Flint axe, Flint spade, Flint machete, Flint spear
+  Tools II      Stone pickaxe, Stone axe, Stone spade
+  Tools III     Bronze pickaxe, Bronze axe, Bronze machete, Bronze sword, Tin spade, Copper bow & arrows
+  Tools IV      Iron pickaxe, Iron axe, Iron machete, Iron sword
+  Tools V       Steel pickaxe, Crowbar, Razor
+  Tools VI      Gold pickaxe, Gold spade, Titanium pickaxe, Titanium axe, Titanium sword, Gold bow & poison arrows
+  Clothing I    Linen cap, Linen brimmed hat, Linen shirt, Linen pants
+  Clothing II   Leather jacket, Leather pants, Leather boots
+  Clothing III  Fur coat, Fur boots, Tin foil hat
+  Clothing IV   Tin helmet, Tin chestplate, Tin armor leggings, Tin boots
+  Clothing V    Iron helmet, Iron chestplate, Iron armor leggings, Iron boots
+  Clothing VI   Carbon fiber helmet, Carbon fiber chestplate, Carbon fiber armor leggings, Carbon fiber boots, Titanium helmet, Titanium chestplate, Titanium armor leggings, Titanium boots
+  Ores I        Flint, Clay, Oil
+  Ores II       Coal, Copper ore, Tin ore, Iron ore, Amethyst shard, Amethyst
+  Ores III      Gold nugget, Copper ingot, Tin ingot, Sapphire shard, Sapphire
+  Ores IV       Crushed limestone, Pig iron, Bronze ingot, Emerald shard, Emerald
+  Ores V        Platinum ore, Titanium ore, Iron ingot, Ruby shard, Ruby
+  Ores VI       Steel ingot, Gold ingot, Silicon ingot, Silicon crystal, Silicon wafer, Platinum ingot, Titanium ingot, Diamond shard, Diamond
+  Crafted I     Basket, Ember, Charcoal, Basic torch
+  Crafted II    Chest, Wooden door, Trapdoor, Ladder, Window, Shelf, Sign, Wooden bed, Wooden gate
+  Crafted III   Soft bed, String, Oil lantern, Carrot on a stick, Cup, Linen, Tin bucket, Boat, Camera, Tin foil, Fishing rod, Cage
+  Crafted IV    Steel lantern, Steel downlight, Steel uplight, Iron pot, Carbon black, Marble white, Red ochre, Indian yellow, Ultramarine blue, Tyrian purple, Copper blue, Emerald green, Mirror
+  Crafted V     Golden chest, Feeder chest, Safe, Iron door, Iron trapdoor, Black window, Display cabinet
+  Crafted VI    Amethyst chandelier, Sapphire chandelier, Emerald chandelier, Ruby chandelier, Diamond chandelier
+  Energy V      Copper boiler, Magnet, Electric motor, Copper wire
+  Energy VI     Steam engine, Steam generator, Solar panel, Flywheel, Elevator shaft, Electric elevator motor, Fuel, Epoxy, Raw resin, Carbon fibers, Carbon fiber sheet, Carbon fiber wing, Jetpack chassis, Jet engine, Jetpack
