@@ -20,6 +20,8 @@
 #define MAX_FEATURES 64
 #define MAX_VEINS 192
 #define MAX_DECOR 64
+#define MAX_CAVE_BIOMES 16
+#define MAX_CAVE_GROWTH 8 /* kinds of thing on the floor, or hanging from the roof, of one kind of cave */
 #define MAX_BIOMES 64
 #define MAX_MOB_KINDS 192
 #define MAX_MOB_DROPS 16
@@ -520,6 +522,26 @@ typedef struct {
     int hang_min, hang_max;
 } DecorDef;
 
+/* A kind of cave: a stretch of the underground, between two depths, where
+ * the caves are lined with a rock of their own - the rock round the open
+ * space, and the wall behind it - and have their own things growing on the
+ * floor and hanging from the roof. Which stretches are which is settled by
+ * the world's seed: `share` of the columns, in runs about `wavelength` long. */
+typedef struct {
+    char name[CONTENT_NAME_LEN];
+    char label[CONTENT_NAME_LEN];
+    int min_depth, max_depth; /* blocks below the surface */
+    int wavelength;
+    float share;
+    TileType lining;          /* TILE_AIR to leave the rock as it is */
+    struct {
+        TileType tile;
+        int one_in;
+        int hang_min, hang_max; /* (the roof only) how many of itself it reaches down */
+    } floor[MAX_CAVE_GROWTH], roof[MAX_CAVE_GROWTH];
+    int floor_count, roof_count;
+} CaveBiomeDef;
+
 /* A kind of country. Which one a column is comes from how hot and how dry it
  * is there, from whether it is under the sea, and from how near the sea it is. */
 typedef struct {
@@ -861,6 +883,8 @@ typedef struct {
     VeinDef veins[MAX_VEINS];
     int vein_count;
     DecorDef decor[MAX_DECOR];
+    CaveBiomeDef cave_biomes[MAX_CAVE_BIOMES];
+    int cave_biome_count;
     int decor_count;
     BiomeDef biomes[MAX_BIOMES]; /* the first is the one a column is unless another claims it */
     int biome_count;

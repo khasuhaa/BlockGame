@@ -10072,8 +10072,8 @@ static void test_explorers_mod(void)
         failures++;
         return;
     }
-    CHECK(content.tile_count == tiles + 101 && content.item_count == items + 94 && content.recipe_count == recipes + 75);
-    CHECK(content.tree_count == trees + 6 && content.biome_count == biomes + 10);
+    CHECK(content.tile_count == tiles + 145 && content.item_count == items + 134 && content.recipe_count == recipes + 101);
+    CHECK(content.tree_count == trees + 6 && content.biome_count == biomes + 13 && content.cave_biome_count == 6);
     /* Everything it adds can be got: dug, cut, picked, or made of things that can be. */
     static uint8_t got[MAX_ITEMS];
     memset(got, 0, sizeof got);
@@ -10101,9 +10101,10 @@ static void test_explorers_mod(void)
     }
     CHECK(missing == 0);
     /* Each of the nine stones has its bricks, its polished block, its tiles, its column and its stairs, made at the builder's bench. */
-    static const char *const stones[9] = { "terracotta", "red_sandstone", "rock_salt", "scoria", "pumice", "slate", "granite", "mossy_stone", "glacial_ice" };
+    static const char *const stones[13] = { "terracotta", "red_sandstone", "rock_salt", "scoria", "pumice", "slate", "granite", "mossy_stone", "glacial_ice",
+                                            "coral_stone", "dripstone", "geode", "magma_rock" };
     TileType builder = tile_id("builder_bench");
-    for (int k = 0; k < 9; k++) {
+    for (int k = 0; k < 13; k++) {
         char name[64];
         TileType rock = tile_id(stones[k]);
         CHECK(rock != TILE_AIR && tile_def(rock)->solid && item_def(item_id(stones[k]))->places == rock);
@@ -10139,12 +10140,17 @@ static void test_explorers_mod(void)
     /* The world: each of the ten new kinds of country is in it, with its own ground on top, its own rock under that, and what grows there. */
     static const struct {
         const char *land, *top, *rock, *grows;
-    } lands[10] = { { "red_mesa", "red_sand", "terracotta", "dead_bush" }, { "salt_flats", "salt_crust", "rock_salt", NULL },
+    } lands[13] = { { "coral_reef", "coral_sand", "coral_stone", "red_coral" }, { "frozen_sea", "sea_gravel", "glacial_ice", "sea_grass" },
+                    { "seagrass_meadow", "sand", NULL, "sea_grass" }, { "red_mesa", "red_sand", "terracotta", "dead_bush" }, { "salt_flats", "salt_crust", "rock_salt", NULL },
                     { "volcanic_wastes", "ash", "scoria", NULL }, { "frozen_tundra", "packed_snow", "glacial_ice", NULL },
                     { "slate_highlands", "highland_grass", "slate", "heather" }, { "misty_marsh", "mud", NULL, "willow_log" },
                     { "savanna", "dry_grass", NULL, "acacia_log" }, { "birch_woods", "grass", NULL, "birch_log" },
                     { "mossy_hollow", "moss", NULL, "glowcap_log" }, { "bamboo_grove", "grass", NULL, "bamboo_log" } };
-    int columns[10] = { 0 }, topped[10] = { 0 }, rocks[10] = { 0 }, growing[10] = { 0 }, pockets[4] = { 0 };
+    int columns[13] = { 0 }, topped[13] = { 0 }, rocks[13] = { 0 }, growing[13] = { 0 }, pockets[4] = { 0 };
+    /* (And under ground: six kinds of cave, each with its own rock round it and its own things growing in it.) */
+    static const char *const linings[4] = { "dripstone", "mycelium", "geode", "magma_rock" };
+    static const char *const cave_life[7] = { "icicle", "glow_vine", "stalactite", "stalagmite", "glowshroom", "crystal_cluster", "ember_bloom" };
+    int lined[4] = { 0 }, living[7] = { 0 }, floating = 0;
     for (uint32_t seed = 1; seed <= 4; seed++) {
         World world;
         CHECK(world_init(&world, 4096, 401, seed, WORLD_TERRAIN));
@@ -10153,9 +10159,27 @@ static void test_explorers_mod(void)
         pockets[1] += count_tile(&world, 0, tile_id("mossy_stone"));
         pockets[2] += count_tile(&world, 0, tile_id("pumice"));
         pockets[3] += count_tile(&world, 0, tile_id("red_sandstone"));
+        for (int k = 0; k < 4; k++) lined[k] += count_tile(&world, 0, tile_id(linings[k]));
+        for (int k = 0; k < 7; k++) living[k] += count_tile(&world, BG, tile_id(cave_life[k]));
+        /* (What hangs, hangs from something; what stands, stands on something.) */
+        for (int y = 1; y < world.height - 1; y++) {
+            for (int x = 0; x < world.width; x++) {
+                TileType t = world_get_at(&world, BG, x, y);
+                if (t == tile_id("stalactite") && !world_is_solid(&world, x, y - 1) && world_get_at(&world, BG, x, y - 1) != t) floating++;
+                if ((t == tile_id("stalagmite") || t == tile_id("crystal_cluster")) && !world_is_solid(&world, x, y + 1)) floating++;
+            }
+        }
+        if (seed == 1) {
+            /* The same seed makes the same world, caves and all. */
+            World again;
+            CHECK(world_init(&again, 4096, 401, seed, WORLD_TERRAIN));
+            size_t cells = (size_t)world.width * world.height;
+            CHECK(memcmp(again.layers[0], world.layers[0], cells * sizeof(uint16_t)) == 0 && memcmp(again.layers[1], world.layers[1], cells * sizeof(uint16_t)) == 0);
+            world_free(&again);
+        }
         for (int x = 0; x < world.width; x++) {
             const char *land = content.biomes[world_biome(&world, x)].name;
-            for (int k = 0; k < 10; k++) {
+            for (int k = 0; k < 13; k++) {
                 if (strcmp(land, lands[k].land) != 0) continue;
                 columns[k]++;
                 TileType top = tile_id(lands[k].top), rock = lands[k].rock ? tile_id(lands[k].rock) : TILE_AIR, grows = lands[k].grows ? tile_id(lands[k].grows) : TILE_AIR;
@@ -10171,14 +10195,26 @@ static void test_explorers_mod(void)
         }
         world_free(&world);
     }
-    for (int k = 0; k < 10; k++) {
+    for (int k = 0; k < 13; k++) {
         bool ok = columns[k] >= 100 && topped[k] * 2 > columns[k] && (!lands[k].rock || rocks[k] * 2 > columns[k]) && (!lands[k].grows || growing[k] >= 3);
         if (!ok) printf("  %s: %d columns, %d with %s, %d with %s, %d %s\n", lands[k].land, columns[k], topped[k], lands[k].top, rocks[k],
                         lands[k].rock ? lands[k].rock : "-", growing[k], lands[k].grows ? lands[k].grows : "-");
         CHECK(ok);
     }
 
-    CHECK(pockets[0] > 500 && pockets[1] > 200 && pockets[2] > 200 && pockets[3] > 50);
+    /* (Red sandstone is the scarcest in the ground: it is in the sandstone under beaches and seas, of which the new seas leave less. It is made of red sand as well.) */
+    CHECK(pockets[0] > 500 && pockets[1] > 200 && pockets[2] > 200 && pockets[3] > 10);
+    for (int k = 0; k < 4; k++) {
+        if (lined[k] < 300) printf("  %s: %d blocks\n", linings[k], lined[k]);
+        CHECK(lined[k] >= 300);
+    }
+    for (int k = 0; k < 7; k++) {
+        if (living[k] < 20) printf("  %s: %d\n", cave_life[k], living[k]);
+        CHECK(living[k] >= 20);
+    }
+    CHECK(floating == 0);
+    CHECK(tile_def(tile_id("red_coral"))->needs_water && item_def(item_id("red_coral"))->sows == tile_id("red_coral") && find_recipe(tile_id("builder_bench"), "red_coral_block"));
+    CHECK(tile_def(tile_id("prism_block"))->light > 0 && find_recipe(tile_id("builder_bench"), "pearl_block") && tile_def(tile_id("crystal_cluster"))->drop == item_id("prism_shard"));
 
     /* It goes with every other mod. */
     static ModList mods;

@@ -1046,6 +1046,44 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         v->rare_one_in = (int)num(e, "one_in", 0);
     }
 
+    /* "cave_biomes": kinds of cave. */
+    cJSON_ArrayForEach(e, field(root, "cave_biomes")) {
+        const char *name = str(e, "name");
+        if (!name) return fail(r, "a cave biome has no \"name\"");
+        int id = -1;
+        for (int i = 0; i < content.cave_biome_count; i++)
+            if (strcmp(content.cave_biomes[i].name, name) == 0) id = i;
+        if (id < 0) {
+            if (content.cave_biome_count >= MAX_CAVE_BIOMES) return fail(r, "too many cave biomes");
+            id = content.cave_biome_count++;
+        }
+        CaveBiomeDef *c = &content.cave_biomes[id];
+        memset(c, 0, sizeof *c);
+        copy_name(c->name, sizeof c->name, name);
+        copy_name(c->label, sizeof c->label, str(e, "label") ? str(e, "label") : name);
+        c->max_depth = 1000;
+        pair(e, "depth", &c->min_depth, &c->max_depth);
+        c->wavelength = (int)num(e, "wavelength", 160);
+        c->share = (float)num(e, "share", 0.2);
+        if (!tile_ref(r, e, "lining", &c->lining)) return false;
+        if (c->share <= 0.0f || c->share > 1.0f || c->wavelength < 8 || c->max_depth < c->min_depth)
+            return fail(r, "cave biome \"%s\": \"share\" is above 0 and at most 1, \"wavelength\" at least 8, and \"depth\" a range", name);
+        const cJSON *one;
+        for (int roof = 0; roof < 2; roof++) {
+            cJSON_ArrayForEach(one, field(e, roof ? "roof" : "floor")) {
+                int *count = roof ? &c->roof_count : &c->floor_count;
+                TileType tile = TILE_AIR;
+                if (*count >= MAX_CAVE_GROWTH || !tile_ref(r, one, "tile", &tile) || tile == TILE_AIR)
+                    return fail(r, "cave biome \"%s\": at most %d things on its floor and as many on its roof, each with a \"tile\"", name, MAX_CAVE_GROWTH);
+                (roof ? c->roof : c->floor)[*count].tile = tile;
+                (roof ? c->roof : c->floor)[*count].one_in = (int)num(one, "one_in", 10);
+                (roof ? c->roof : c->floor)[*count].hang_min = (roof ? c->roof : c->floor)[*count].hang_max = 1;
+                pair(one, "hang", &(roof ? c->roof : c->floor)[*count].hang_min, &(roof ? c->roof : c->floor)[*count].hang_max);
+                (*count)++;
+            }
+        }
+    }
+
     const cJSON *layers = field(root, "layers");
     if (layers) {
         if (!tile_ref(r, layers, "surface", &g->surface) || !tile_ref(r, layers, "soil", &g->soil) ||

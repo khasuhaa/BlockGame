@@ -95,6 +95,9 @@ STONES = [  # name, label, colour, price: each is found in the ground, and each 
  ('terracotta', 'Terracotta', (190, 104, 70, 255), 25), ('red_sandstone', 'Red sandstone', (204, 110, 60, 255), 20), ('rock_salt', 'Rock salt', (236, 214, 214, 255), 30),
  ('scoria', 'Scoria', (120, 56, 56, 255), 25), ('pumice', 'Pumice', (186, 180, 170, 255), 25), ('slate', 'Slate', (76, 88, 108, 255), 25),
  ('granite', 'Granite', (170, 124, 114, 255), 25), ('mossy_stone', 'Mossy stone', (104, 136, 96, 255), 25), ('glacial_ice', 'Glacial ice', (160, 208, 240, 255), 25),
+ # (under the sea, and in the caves)
+ ('coral_stone', 'Coral stone', (236, 150, 150, 255), 25), ('dripstone', 'Dripstone', (160, 130, 104, 255), 25), ('geode', 'Geode', (96, 70, 130, 255), 35),
+ ('magma_rock', 'Magma rock', (150, 60, 40, 255), 35),
 ]
 ground('red_sand', 'Red sand', 'sand', (214, 122, 70, 255), 10)
 ground('salt_crust', 'Salt crust', 'sand', (240, 236, 232, 255), 15)
@@ -103,11 +106,14 @@ ground('packed_snow', 'Packed snow', 'sand', (238, 244, 250, 255), 10)
 ground('permafrost', 'Permafrost', 'dirt', (140, 150, 166, 255), 10)
 ground('mud', 'Mud', 'dirt', (104, 82, 66, 255), 10)
 ground('peat', 'Peat', 'dirt', (66, 52, 44, 255), 15, burns=True)
+ground('coral_sand', 'Coral sand', 'sand', (250, 214, 200, 255), 10)
+ground('sea_gravel', 'Sea gravel', 'sand', (130, 140, 150, 255), 10)
+ground('mycelium', 'Mycelium', 'dirt', (140, 110, 160, 255), 15)
 turf('highland_grass', 'Highland grass', (150, 150, 110, 255), (116, 86, 60, 255), 10)
 turf('dry_grass', 'Dry grass', (206, 180, 96, 255), (150, 96, 60, 255), 10)
 turf('moss', 'Moss', (86, 150, 80, 255), (90, 96, 84, 255), 10)
 for name, label, c, price in STONES:
-    ground(name, label, 'stone', c, price, **({'light': 2} if name == 'glacial_ice' else {}))
+    ground(name, label, 'stone', c, price, **({'light': 2} if name == 'glacial_ice' else {'light': 4} if name == 'magma_rock' else {}))
     for kind, klabel, art, mult in (('bricks', '%s bricks', bricks(c, name), 1.2), ('polished', 'Polished %s', polished(c), 1.3), ('tiles', '%s tiles', tiles_(c), 1.5)):
         n = '%s_%s' % (name, kind) if kind != 'polished' else 'polished_' + name
         art.save('tiles', n)
@@ -202,6 +208,80 @@ for name, label, c, tall, dots, soil in (('reed', 'Reeds', (150, 170, 90, 255), 
         bush(c, tall, dots).save('items', name); item(name, label, 'materials', 10, sows=name)
 rec('workbench', 'stick', 2, [('reed', 2)], 5)
 
+# ---- under the sea, and in the caves: what grows there, and what is made of it
+def small(name, label, art, drop, like='emerald', **kw):
+    """Something small that stands in the background: it leaves `drop` when it is taken."""
+    art.save('tiles', name)
+    d = {'name': name, 'label': label, 'solid': False, 'layer': 'background', 'removable': True, 'mine_time': 0.15, 'drop': drop, 'texture': 'tiles/%s.png' % name, 'tool': 'pickaxe'}
+    d.update(kw); tiles.append(d)
+def thing(name, label, art, cat, price, **kw):
+    art.save('items', name); item(name, label, cat, price, **kw)
+SEABED = ['sand', 'coral_sand', 'sea_gravel']
+def brain(c):
+    t = P(); t.r(4, 8, 11, 14, c); t.r(3, 10, 12, 13, c); t.r(5, 7, 10, 7, lt(c)); t.r(5, 9, 6, 9, dk(c)); t.r(8, 10, 10, 10, dk(c)); t.r(4, 12, 6, 12, dk(c)); t.r(9, 13, 11, 13, dk(c)); t.r(6, 15, 9, 15, dk(c, 0.6)); return t
+def fan(c):
+    t = P(); t.r(7, 9, 8, 15, dk(c))
+    for x, y in ((4, 4), (6, 3), (9, 2), (11, 4), (3, 7), (12, 7), (5, 6), (10, 6), (7, 5), (8, 7)): t.r(x, y, x, y + 3, c); t.p(x, y, lt(c))
+    t.r(4, 8, 11, 8, c); return t
+def tube(c):
+    t = P()
+    for x, top in ((4, 8), (7, 4), (10, 6), (12, 10)): t.r(x, top, x + 1, 15, c); t.r(x, top, x + 1, top, lt(c, 1.4)); t.r(x + 1, top + 1, x + 1, 15, dk(c))
+    return t
+for name, label, c, art in (('red_coral', 'Red coral', (226, 80, 90, 255), brain), ('blue_coral', 'Blue coral', (80, 130, 230, 255), fan), ('yellow_coral', 'Yellow coral', (240, 200, 70, 255), tube)):
+    small(name, label, art(c), name, tool='machete', needs_water=True, soil=SEABED, light=3)
+    thing(name, label, art(c), 'materials', 20, sows=name)
+    b = P(c); rnd = random.Random(name)
+    for _ in range(26): b.p(rnd.randrange(16), rnd.randrange(16), rnd.choice((lt(c, 1.25), dk(c, 0.8), dk(c, 0.65))))
+    b.r(0, 0, 15, 0, lt(c, 1.15)); b.r(0, 15, 15, 15, dk(c, 0.7))
+    b.save('tiles', name + '_block'); block(name + '_block', label + ' block', 'stone', 90, cat='building', texture='tiles/%s_block.png' % name, shade=0, mine_time=0.5)
+    rec('builder_bench', name + '_block', 1, [(name, 4)], 30)
+g = P()
+for x, top in ((3, 9), (5, 5), (8, 7), (10, 3), (12, 8)): g.r(x, top, x, 15, (70, 160, 110, 255)); g.p(x, top, (130, 210, 150, 255))
+small('sea_grass', 'Sea grass', g, 'sea_grass', tool='machete', needs_water=True, soil=SEABED); thing('sea_grass', 'Sea grass', g, 'materials', 10, sows='sea_grass')
+c = P(); c.r(3, 10, 12, 14, (200, 190, 210, 255)); c.r(4, 8, 11, 9, (226, 216, 232, 255)); c.r(3, 12, 12, 12, (150, 140, 160, 255)); c.r(7, 11, 8, 11, (255, 255, 255, 255)); c.r(5, 15, 10, 15, (150, 140, 160, 255))
+small('pearl_clam', 'Pearl clam', c, 'pearl', tool='machete', needs_water=True, soil=SEABED)
+pl = P(); pl.r(5, 5, 10, 10, (240, 240, 250, 255)); pl.r(6, 4, 9, 11, (240, 240, 250, 255)); pl.r(4, 6, 11, 9, (240, 240, 250, 255)); pl.r(6, 6, 7, 7, (255, 255, 255, 255)); pl.r(9, 9, 10, 10, (200, 200, 226, 255))
+thing('pearl', 'Pearl', pl, 'gems', 250)
+polished((236, 236, 248, 255)).save('tiles', 'pearl_block'); block('pearl_block', 'Pearl block', 'stone', 1100, cat='building', texture='tiles/pearl_block.png', shade=0)
+rec('builder_bench', 'pearl_block', 1, [('pearl', 4)], 60)
+# in the caves
+def spike(c, down, n=3):
+    t = P()
+    for i, x in enumerate((4, 8, 11)[:n]):
+        h = (9, 13, 7)[i]
+        for k in range(h):
+            w2 = 1 if k > h * 0.55 else 2
+            y = k if down else 15 - k
+            t.r(x, y, x + w2 - 1, y, c if k % 4 else dk(c, 0.85))
+        t.p(x, 0 if down else 15, lt(c))
+    return t
+VINE = copy.deepcopy(T['vine'])
+def hanging(name, label, art, drop, **kw):
+    art.save('tiles', name); d = copy.deepcopy(VINE); d.update({'name': name, 'label': label, 'drop': drop, 'texture': 'tiles/%s.png' % name}); d.update(kw); tiles.append(d)
+gv = P()
+for x in (5, 9, 11): gv.r(x, 0, x, 15, (70, 150, 80, 255)); gv.p(x + 1, 3 + x % 5, (110, 190, 100, 255)); gv.p(x - 1, 9 + x % 4, (110, 190, 100, 255))
+for x, y in ((4, 5), (10, 8), (8, 13), (12, 2)): gv.r(x, y, x + 1, y + 1, (250, 220, 90, 255))
+hanging('glow_vine', 'Glow vine', gv, 'glow_berries', light=6)
+gb = P(); gb.r(5, 7, 8, 10, (250, 220, 90, 255)); gb.r(8, 9, 11, 12, (244, 190, 70, 255)); gb.p(5, 7, (255, 250, 200, 255)); gb.r(7, 4, 7, 6, (70, 150, 80, 255)); gb.r(8, 3, 10, 4, (110, 190, 100, 255))
+thing('glow_berries', 'Glow berries', gb, 'food', 20, food=0.08)
+DRIP = (160, 130, 104, 255); ICE = (190, 226, 248, 255)
+hanging('stalactite', 'Stalactite', spike(DRIP, True), 'dripstone', climbable=False, tool='pickaxe')
+small('stalagmite', 'Stalagmite', spike(DRIP, False), 'dripstone')
+hanging('icicle', 'Icicle', spike(ICE, True), 'packed_snow', climbable=False, tool='pickaxe')
+sh = P(); sh.r(7, 10, 8, 15, (226, 226, 240, 255)); sh.r(4, 6, 11, 9, (90, 210, 220, 255)); sh.r(5, 5, 10, 5, (150, 240, 240, 255)); sh.r(3, 8, 12, 9, (60, 170, 190, 255)); sh.p(6, 7, (255, 255, 255, 255)); sh.p(9, 6, (255, 255, 255, 255))
+small('glowshroom', 'Glowshroom', sh, 'glowshroom', tool='machete', light=8, soil=['mycelium', 'moss', 'dirt', 'mud', 'stone'])
+thing('glowshroom', 'Glowshroom', sh, 'food', 25, food=0.1, sows='glowshroom')
+cr = P()
+for x, top, c in ((3, 8, (120, 220, 240, 255)), (6, 3, (200, 130, 240, 255)), (9, 6, (120, 220, 240, 255)), (12, 10, (200, 130, 240, 255))): cr.r(x, top, x + 1, 15, c); cr.p(x, top, (255, 255, 255, 255)); cr.r(x + 1, top + 1, x + 1, 15, dk(c))
+small('crystal_cluster', 'Crystal cluster', cr, 'prism_shard', light=10)
+ps = P(); ps.r(6, 3, 9, 12, (150, 230, 240, 255)); ps.r(7, 2, 8, 13, (150, 230, 240, 255)); ps.r(6, 4, 6, 11, (255, 255, 255, 255)); ps.r(9, 5, 9, 12, (110, 170, 220, 255))
+thing('prism_shard', 'Prism shard', ps, 'gems', 120)
+tiles_((150, 230, 240, 255)).save('tiles', 'prism_block'); block('prism_block', 'Prism block', 'stone', 560, cat='building', texture='tiles/prism_block.png', shade=0, light=12)
+rec('builder_bench', 'prism_block', 1, [('prism_shard', 4)], 60)
+eb = P(); eb.r(7, 10, 8, 15, (90, 40, 30, 255)); eb.r(5, 5, 10, 9, (240, 130, 40, 255)); eb.r(6, 4, 9, 10, (240, 130, 40, 255)); eb.r(7, 6, 8, 8, (255, 230, 120, 255)); eb.p(4, 7, (220, 80, 30, 255)); eb.p(11, 7, (220, 80, 30, 255))
+small('ember_bloom', 'Ember bloom', eb, 'ember', tool='machete', light=11)
+rec('workbench', 'dirt', 1, [('mycelium', 1)], 5)
+
 # ---- the new country itself: where it lies by heat and dryness, what it is made of, and what grows there
 # (A biome's own rock is its "soil": a block of it at the edge of the country, deepening to the full depth inside. The engine's
 # "under" layer only comes in at the very heart of a biome, so it is kept for the rarer rock.)
@@ -229,6 +309,31 @@ biomes = [
  {'name': 'bamboo_grove', 'label': 'Bamboo grove', 'heat': [0.1, 0.55], 'dryness': [-1, -0.45], 'surface': 'grass', 'soil': 'dirt', 'tree_one_in': 3, 'tree_spacing': 2,
   'trees': [{'tree': 'bamboo_tree', 'weight': 1}], 'plants': [{'tile': 'fern', 'one_in': 16}, {'tile': 'reed', 'one_in': 26}]},
 ]
+# Three kinds of sea, by how warm the water is: where none of them is, the sea is the one the game has.
+biomes += [
+ {'name': 'coral_reef', 'label': 'Coral reef', 'below_sea': True, 'heat': [0.15, 1], 'dryness': [-1, 1], 'surface': 'coral_sand', 'soil': 'coral_stone', 'soil_depth': 6,
+  'tree_one_in': 16, 'tree_spacing': 3, 'trees': [{'tree': 'kelp', 'weight': 1}],
+  'plants': [{'tile': 'red_coral', 'one_in': 7}, {'tile': 'blue_coral', 'one_in': 8}, {'tile': 'yellow_coral', 'one_in': 8}, {'tile': 'sea_grass', 'one_in': 10}, {'tile': 'pearl_clam', 'one_in': 60}]},
+ {'name': 'frozen_sea', 'label': 'Frozen sea', 'below_sea': True, 'heat': [-1, -0.45], 'dryness': [-1, 1], 'surface': 'sea_gravel', 'soil': 'glacial_ice', 'soil_depth': 5,
+  'tree_one_in': 24, 'tree_spacing': 3, 'trees': [{'tree': 'kelp', 'weight': 1}], 'plants': [{'tile': 'sea_grass', 'one_in': 14}]},
+ {'name': 'seagrass_meadow', 'label': 'Seagrass meadow', 'below_sea': True, 'heat': [-0.45, 0.15], 'dryness': [-1, 0.1], 'surface': 'sand', 'soil': 'sand', 'soil_depth': 3,
+  'tree_one_in': 12, 'tree_spacing': 3, 'trees': [{'tree': 'kelp', 'weight': 1}],
+  'plants': [{'tile': 'sea_grass', 'one_in': 2}, {'tile': 'pearl_clam', 'one_in': 25}, {'tile': 'coral_0', 'one_in': 20}]},
+]
+# Six kinds of cave, by how deep: stretches of the underground with their own rock round them and their own things growing.
+cave_biomes = [
+ {'name': 'ice_caves', 'label': 'Ice caves', 'depth': [3, 50], 'share': 0.14, 'wavelength': 220, 'lining': 'glacial_ice', 'roof': [{'tile': 'icicle', 'one_in': 3, 'hang': [1, 3]}]},
+ {'name': 'lush_caves', 'label': 'Lush caves', 'depth': [3, 70], 'share': 0.22, 'wavelength': 180, 'lining': 'moss',
+  'floor': [{'tile': 'fern', 'one_in': 4}, {'tile': 'glowshroom', 'one_in': 20}], 'roof': [{'tile': 'glow_vine', 'one_in': 4, 'hang': [1, 4]}]},
+ {'name': 'dripstone_caves', 'label': 'Dripstone caves', 'depth': [20, 115], 'share': 0.2, 'wavelength': 160, 'lining': 'dripstone',
+  'floor': [{'tile': 'stalagmite', 'one_in': 4}], 'roof': [{'tile': 'stalactite', 'one_in': 3, 'hang': [1, 3]}]},
+ {'name': 'mushroom_caves', 'label': 'Mushroom caves', 'depth': [30, 135], 'share': 0.18, 'wavelength': 200, 'lining': 'mycelium',
+  'floor': [{'tile': 'glowshroom', 'one_in': 3}], 'roof': [{'tile': 'glow_vine', 'one_in': 14, 'hang': [1, 2]}]},
+ {'name': 'crystal_caverns', 'label': 'Crystal caverns', 'depth': [70, 170], 'share': 0.16, 'wavelength': 140, 'lining': 'geode',
+  'floor': [{'tile': 'crystal_cluster', 'one_in': 5}]},
+ {'name': 'magma_caves', 'label': 'Magma caves', 'depth': [125, 198], 'share': 0.25, 'wavelength': 180, 'lining': 'magma_rock',
+  'floor': [{'tile': 'ember_bloom', 'one_in': 6}]},
+]
 # The rocks that lie under a country only at its heart are in the rock everywhere too, in pockets: so that they can be found.
 veins = [
  {'name': 'granite_pocket', 'tile': 'granite', 'in': ['stone'], 'size': [20, 56], 'per_100_columns': 2.5, 'depth': [6, 140]},
@@ -245,7 +350,7 @@ def dump(name, obj):
             f.write('{\n  "%s": [\n' % k + ',\n'.join('    ' + json.dumps(e) for e in v) + '\n  ]\n}\n')
         else: json.dump(obj, f, indent=1); f.write('\n')
 dump('tiles.json', {'tiles': tiles}); dump('items.json', {'items': items}); dump('recipes.json', {'recipes': recipes}); dump('trees.json', {'trees': trees})
-dump('worldgen.json', {'biomes': biomes, 'veins': veins}); dump('mod.json', {'label': "Explorer's Delight", 'icon': 'icon.png'})
+dump('worldgen.json', {'biomes': biomes, 'veins': veins, 'cave_biomes': cave_biomes}); dump('mod.json', {'label': "Explorer's Delight", 'icon': 'icon.png'})
 t = P((120, 180, 230, 255)); t.r(0, 11, 15, 15, (214, 122, 70, 255)); t.r(2, 7, 6, 10, (190, 104, 70, 255)); t.r(3, 5, 5, 6, (190, 104, 70, 255)); t.r(9, 8, 14, 10, (76, 88, 108, 255)); t.r(10, 5, 12, 7, (238, 244, 250, 255)); t.r(11, 4, 11, 4, (238, 244, 250, 255))
 t.im.resize((64, 64), Image.NEAREST).save(os.path.join(mod, 'icon.png'))
-print(len(tiles), 'tiles', len(items), 'items', len(recipes), 'recipes', len(trees), 'trees', len(biomes), 'biomes')
+print(len(tiles), 'tiles', len(items), 'items', len(recipes), 'recipes', len(trees), 'trees', len(biomes), 'biomes', len(cave_biomes), 'cave biomes')

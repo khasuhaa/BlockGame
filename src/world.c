@@ -537,7 +537,11 @@ static void assign_biomes(World *w, const int *level, int *biome, float *share_o
         for (int b = 1; b < content.biome_count; b++) {
             const BiomeDef *def = &content.biomes[b];
             float share = 0.0f;
-            if (def->below_sea) share = sea ? 1.0f : 0.0f;
+            /* (A sea with a climate of its own is that sea only where the climate is right: so there can be more than one kind.) */
+            if (def->below_sea)
+                share = !sea ? 0.0f
+                        : def->has_climate ? fminf(inside(heat, def->heat_min, def->heat_max, gen->climate_blend), inside(dry, def->dry_min, def->dry_max, gen->climate_blend))
+                                           : 1.0f;
             else if (sea) share = 0.0f;
             else if (def->near_sea > 0) share = 1.0f - (float)(to_sea - 1) / (float)def->near_sea;
             else if (def->has_climate && !near_spawn)
@@ -546,6 +550,70 @@ static void assign_biomes(World *w, const int *level, int *biome, float *share_o
             if (share > 0.0f) {
                 biome[x] = b;
                 share_out[x] = share;
+            }
+        }
+    }
+}
+
+/* Which kind of cave a square underground is in, or -1: by its column and how far down it is. */
+static int cave_biome_at(const World *w, int x, int depth)
+{
+    for (int k = 0; k < content.cave_biome_count; k++) {
+        const CaveBiomeDef *c = &content.cave_biomes[k];
+        if (depth < c->min_depth || depth > c->max_depth) continue;
+        if (ring_noise(w->seed ^ (0xCA7Eu + (uint32_t)k * 7919u), x, w->width, c->wavelength) >= 1.0f - c->share) return k;
+    }
+    return -1;
+}
+
+/* Makes the caves of each kind what that kind is: their rock, the wall behind
+ * them, and what grows in them. (Nothing here is drawn from the world's run
+ * of random numbers: a world with no kinds of cave is as it would have been.) */
+static void dress_caves(World *w, const int *level)
+{
+    static const int dirs[4][2] = { { 0, 1 }, { 1, 0 }, { -1, 0 }, { 0, -1 } };
+    TileType rock = content.worldgen.rock;
+    if (content.cave_biome_count == 0) return;
+    for (int x = 0; x < w->width; x++) {
+        int top = world_y_to_row(w, level[x] - 1);
+        for (int y = top + 1; y < w->height - 1; y++) {
+            if (world_get(w, x, y) != TILE_AIR || world_get_at(w, LAYER_WALL, x, y) != rock) continue;
+            int kind = cave_biome_at(w, x, y - top);
+            if (kind < 0) continue;
+            const CaveBiomeDef *c = &content.cave_biomes[kind];
+            if (c->lining != TILE_AIR) {
+                world_set_at(w, LAYER_WALL, x, y, c->lining);
+                for (int d = 0; d < 4; d++)
+                    if (world_get(w, x + dirs[d][0], y + dirs[d][1]) == rock) world_set(w, x + dirs[d][0], y + dirs[d][1], c->lining);
+            }
+        }
+    }
+    /* What grows there: on a floor, or down from a roof. One thing to a square, the first whose turn comes up. */
+    for (int x = 0; x < w->width; x++) {
+        int top = world_y_to_row(w, level[x] - 1);
+        for (int y = top + 1; y < w->height - 1; y++) {
+            if (world_get(w, x, y) != TILE_AIR || world_get_at(w, LAYER_WALL, x, y) == TILE_AIR || world_get_at(w, LAYER_BACKGROUND, x, y) != TILE_AIR) continue;
+            int kind = cave_biome_at(w, x, y - top);
+            if (kind < 0) continue;
+            const CaveBiomeDef *c = &content.cave_biomes[kind];
+            bool placed = false;
+            for (int i = 0; i < c->floor_count && !placed && world_is_solid(w, x, y + 1); i++) {
+                if (hash01(w->seed ^ (0xF100u + (uint32_t)i * 131u), x * 8191 + y) >= 1.0f / (float)c->floor[i].one_in) continue;
+                if (tile_def(c->floor[i].tile)->needs_water != world_is_water(w, x, y)) continue;
+                world_set_at(w, tile_def(c->floor[i].tile)->layer, x, y, c->floor[i].tile);
+                placed = true;
+            }
+            for (int i = 0; i < c->roof_count && !placed && world_is_solid(w, x, y - 1); i++) {
+                if (hash01(w->seed ^ (0x700Fu + (uint32_t)i * 131u), x * 8191 + y) >= 1.0f / (float)c->roof[i].one_in) continue;
+                int span = c->roof[i].hang_max - c->roof[i].hang_min + 1;
+                int length = c->roof[i].hang_min + (span > 1 ? (int)(hash01(w->seed ^ 0x1E46u, x * 8191 + y) * (float)span) : 0);
+                int layer = tile_def(c->roof[i].tile)->layer;
+                for (int k = 0; k < length; k++) {
+                    /* (Not right down onto the floor: a gap is left under it.) */
+                    if (world_get(w, x, y + k) != TILE_AIR || world_get_at(w, layer, x, y + k) != TILE_AIR || world_is_solid(w, x, y + k + 1)) break;
+                    world_set_at(w, layer, x, y + k, c->roof[i].tile);
+                }
+                placed = true;
             }
         }
     }
@@ -793,6 +861,7 @@ static bool generate_terrain(World *w)
         return false;
     }
     place_veins(w, level, &rng);
+    dress_caves(w, level);
     bury(w, level, biome);
     /* (After the backwalls were raised: an island has only the sky behind it.) */
     place_islands(w, &rng);
