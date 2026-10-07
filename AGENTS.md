@@ -105,7 +105,7 @@ The loader enforces the category: an item with none that is neither a currency n
 
 - The interface: layouts, wording and colours of the inventory bar, bench menu and menus.
 - Default key bindings and their labels (`src/menu.c`).
-- The character's poses (`draw_player` in `src/main.c`) and the shape of the body (`src/playermodel.c`): the skin and what is worn over it are pictures named in the data. The sky, sun and moon (`src/main.c`).
+- The character's poses and how fast they move through them (`draw_player` in `src/main.c`: each frame a pose is worked out from what the character is doing and the drawn one eased toward it, kept per character in `body_ease`; a new pose is a new branch there, never a jump) and the shape of the body (`src/playermodel.c`): the skin and what is worn over it are pictures named in the data. The sky, sun and moon (`src/main.c`).
 - The movement rules themselves (walking, hopping, climbing) are code; their timings are data.
 
 ## Working here

@@ -10395,6 +10395,8 @@ static void test_worn(void)
         }
         CHECK(worn >= 30);
     }
+    /* The jetpack goes on the body, as a breastplate does. */
+    CHECK(item_def(item_id("jetpack"))->equip == EQUIP_CHEST && item_def(item_id("jetpack"))->worn[0]);
     /* What is worn is named by the item, and a different item has a different picture. */
     CHECK(strcmp(item_def(item_id("north_hat"))->worn, item_def(item_id("iron_helmet"))->worn) != 0);
 }

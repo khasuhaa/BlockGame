@@ -14,7 +14,7 @@
  * other arm and leg are the same, turned about. */
 #define SKIN_W 64.0f
 #define SKIN_H 32.0f
-#define VIEW_YAW 58.0f   /* how far round from facing the viewer they stand when they face along the world */
+#define VIEW_YAW PLAYERMODEL_SIDE
 #define VIEW_PITCH 14.0f /* how far down on them the viewer looks */
 #define MAX_QUADS 256
 

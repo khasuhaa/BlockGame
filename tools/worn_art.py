@@ -18,6 +18,9 @@ W, H = 64, 32
 BOXES = {'head': (0, 0, 8, 8, 8), 'leg': (0, 16, 4, 12, 4), 'body': (16, 16, 8, 12, 4), 'arm': (40, 16, 4, 12, 4)}
 
 
+PLAIN = False   # the body itself is flat colour; cloth and metal have a grain
+
+
 def faces(part):
     u, v, w, h, d = BOXES[part]
     return {'right': (u, v + d, d, h), 'front': (u + d, v + d, w, h), 'left': (u + d + w, v + d, d, h),
@@ -34,6 +37,7 @@ def shade(c, by):
 
 def rough(c, x, y):
     """A flat colour with the odd lighter or darker pixel in it, as the tiles have."""
+    if PLAIN: return tuple(c[:3]) + (255,)
     s = speck(x, y)
     return shade(c, 1.08 if s == 0 else 0.92 if s == 1 else 1.0)
 
@@ -60,6 +64,8 @@ def lid(im, part, colour, face='top'):
 
 def base_skin():
     skin, hair, white, shorts, eye = (240, 200, 160), (90, 60, 40), (236, 236, 228), (70, 96, 150), (40, 40, 60)
+    global PLAIN
+    PLAIN = True
     im = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     for part in BOXES:
         band(im, part, 0, 12, skin)
@@ -84,6 +90,7 @@ def base_skin():
     # Shorts.
     band(im, 'leg', 0, 5, shorts, edge=shade(shorts, 0.8))
     lid(im, 'leg', shorts)
+    PLAIN = False
     return im
 
 
@@ -135,7 +142,15 @@ def worn(name, slot, icon):
             band(im, 'head', 3, 8, lambda c, r: mid if c in (0, 7) else None, sides=('front',))
             band(im, 'head', 3, 5, lambda c, r: dark if c in (3, 4) else None, sides=('front',))
     elif slot == 'chest':
-        if has('plate'):
+        if has('jetpack'):
+            # Two tanks on the back with a burner under each, and the straps that hold them on.
+            shell, tank, flame = (141, 142, 146), (48, 50, 58), (240, 120, 40)
+            band(im, 'body', 1, 12, lambda c, r: (flame if c in (1, 2, 5, 6) else None) if r > 9 else None if r == 9 else
+                 shell if c in (0, 3, 4, 7) or r in (1, 8) else tank, sides=('back',))
+            band(im, 'body', 0, 9, lambda c, r: tank if c in (1, 6) or r == 7 else None, sides=('front',))
+            band(im, 'body', 7, 8, tank, sides=('left', 'right'))
+            lid(im, 'body', lambda c, r: tank if c in (1, 6) else None)
+        elif has('plate'):
             # A breastplate and a guard on each shoulder.
             band(im, 'body', 0, 12, lambda c, r: light if r in (2, 3) and 1 <= c <= 6 else mid, edge=dark)
             lid(im, 'body', lambda c, r: mid if c in (0, 1, 6, 7) else None)

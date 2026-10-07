@@ -1297,6 +1297,16 @@ static void draw_player_meditating(const Game *g, float px, float py)
     DrawText(text, (int)(cx - MeasureText(text, 10) / 2.0f), (int)box.y + 1, 10, RAYWHITE);
 }
 
+/* How each character was last drawn, so that the next frame can carry on from it. */
+typedef struct {
+    BodyPose pose;
+    float side;   /* how far round to the right (or, below nothing, the left) of facing the viewer */
+    float shift, bob, phase, idle, last_x, last_y;
+    bool set;
+} BodyEase;
+
+static BodyEase body_ease[MAX_CHARACTERS];
+
 static void draw_player(const Game *g, Vector2 origin)
 {
     float x, y;
@@ -1321,46 +1331,93 @@ static void draw_player(const Game *g, Vector2 origin)
         draw_player_meditating(g, px, py);
         return;
     }
+    /* What they are doing says how they should stand; they are then moved toward that a little each frame, so
+     * that nothing about them jumps from one pose to the next. */
+    BodyEase *e = &body_ease[g->live % MAX_CHARACTERS];
+    float dt = GetFrameTime(), now = (float)GetTime();
+    if (dt > 0.1f) dt = 0.1f;
     float t = p->activity != ACTIVITY_IDLE && p->duration > 0.0f ? p->timer / p->duration : 0.0f;
-    if (game_player_crawling(g)) {
-        /* On hands and knees: one tile tall, head leading. */
-        float shuffle = p->activity == ACTIVITY_STEPPING ? sinf(t * PI * 2.0f) : 0.0f;
-        /* (Knees and hands down, so that all of them fits under a block.) */
-        draw_body(g, cx - (float)p->facing * 4.0f, ground,
-                  (BodyPose){ .facing = p->facing, .lean = 90.0f, .head = 65.0f, .sink = 6.0f, .arm = { 150.0f + shuffle * 20.0f, 150.0f - shuffle * 20.0f },
-                              .leg = { -60.0f - shuffle * 12.0f, -60.0f + shuffle * 12.0f }, .tint = WHITE });
-        return;
-    }
-    BodyPose pose = { .facing = grip != 0 ? grip : p->facing, .tint = WHITE };
-    /* Walking: the arms and legs swing, one stride to the block. */
-    bool walking = p->activity == ACTIVITY_STEPPING && p->step.dx != 0 && grip == 0 && !p->climbing &&
-                   !p->step.climb && !p->step_hop;
-    float swing = walking ? sinf(t * PI * 2.0f) : 0.0f, bob = walking ? fabsf(swing) * 1.5f : 0.0f;
-    pose.leg[0] = swing * 34.0f, pose.leg[1] = -swing * 34.0f;
-    pose.arm[0] = -swing * 28.0f, pose.arm[1] = swing * 28.0f;
-    if (game_player_swimming(g) && grip == 0) {
+    bool stepping = p->activity == ACTIVITY_STEPPING, crawling = game_player_crawling(g);
+    bool swimming = game_player_swimming(g) && grip == 0 && !crawling;
+    bool holding = !crawling && (p->climbing || grip != 0);
+    bool walking = stepping && p->step.dx != 0 && !holding && !p->step.climb && !p->step_hop && !crawling && !swimming;
+    /* The stride keeps its own time: it quickens with the pace, but only so far, and does not start again at each block. */
+    float moved = fabsf(x - e->last_x) + fabsf(y - e->last_y);
+    float pace = dt > 0.0f && moved < 2.0f ? moved / dt : 0.0f;
+    e->last_x = x, e->last_y = y;
+    float cadence = fminf(fmaxf(pace * 0.3f, 1.1f), 1.8f);
+    if (stepping) e->phase = fmodf(e->phase + dt * cadence * 2.0f * PI, 2.0f * PI);
+    float swing = sinf(e->phase);
+    /* Stood doing nothing, they turn to face out of the screen; to go anywhere or do anything, to the side. */
+    e->idle = p->activity == ACTIVITY_IDLE && !holding && !crawling && !swimming ? e->idle + dt : 0.0f;
+    int facing = grip != 0 ? grip : p->facing;
+    BodyPose to = { .tint = WHITE };
+    float side = e->idle > 0.18f ? 0.0f : (float)facing * PLAYERMODEL_SIDE, shift = 0.0f, bob = 0.0f;
+    if (crawling) {
+        /* On hands and knees, so that all of them fits under a block, head leading. */
+        float shuffle = stepping ? swing : 0.0f;
+        to.lean = 90.0f, to.head = 65.0f, to.sink = 6.0f, shift = -(float)p->facing * 4.0f;
+        to.arm[0] = 150.0f + shuffle * 20.0f, to.arm[1] = 150.0f - shuffle * 20.0f;
+        to.leg[0] = -60.0f - shuffle * 12.0f, to.leg[1] = -60.0f + shuffle * 12.0f;
+    } else if (swimming) {
         /* Afloat: leaning into it, kicking, and riding up and down a little. */
-        float kick = sinf((float)GetTime() * 7.0f);
-        pose.lean = 30.0f;
-        pose.leg[0] = kick * 26.0f, pose.leg[1] = -kick * 26.0f;
-        pose.arm[0] = 70.0f + kick * 20.0f, pose.arm[1] = 70.0f - kick * 20.0f;
-        bob = sinf((float)GetTime() * 2.5f) * 1.5f;
-    }
-    if (p->climbing && grip == 0 && p->activity != ACTIVITY_MINING && world_is_solid(&g->world, p->feet.x, p->feet.y - 2) &&
-        (p->activity != ACTIVITY_STEPPING || world_is_solid(&g->world, p->step_to.x, p->step_to.y - 2))) {
-        /* Hanging from a block overhead: arms up to it. */
-        pose.arm[0] = pose.arm[1] = 178.0f;
-    } else if (p->climbing || grip != 0) {
+        float kick = sinf(now * 5.0f);
+        to.lean = stepping ? 55.0f : 20.0f, to.head = stepping ? 35.0f : 0.0f;
+        to.leg[0] = kick * 22.0f, to.leg[1] = -kick * 22.0f;
+        to.arm[0] = 60.0f + kick * 25.0f, to.arm[1] = 60.0f - kick * 25.0f;
+        bob = sinf(now * 2.5f) * 1.5f;
+    } else if (holding && grip == 0 && p->activity != ACTIVITY_MINING && world_is_solid(&g->world, p->feet.x, p->feet.y - 2) &&
+               (!stepping || world_is_solid(&g->world, p->step_to.x, p->step_to.y - 2))) {
+        /* Hanging from a block overhead: arms up to it, one hand past the other. */
+        float reach = stepping ? swing * 14.0f : 0.0f;
+        to.arm[0] = 172.0f + reach, to.arm[1] = 172.0f - reach;
+        to.leg[0] = reach * 0.5f, to.leg[1] = -reach * 0.5f;
+    } else if (holding) {
         /* On a wall, or on something behind them: reaching up and holding on, one hand over the other. */
-        float reach = p->activity == ACTIVITY_STEPPING ? sinf(t * PI * 2.0f) * 25.0f : 0.0f;
-        pose.arm[0] = 125.0f + reach, pose.arm[1] = 125.0f - reach;
-        pose.leg[0] = 18.0f - reach * 0.6f, pose.leg[1] = 18.0f + reach * 0.6f;
-        if (grip == 0) pose.turn = -20.0f;
+        float reach = stepping ? swing * 25.0f : 0.0f;
+        to.arm[0] = 125.0f + reach, to.arm[1] = 125.0f - reach;
+        to.leg[0] = 18.0f - reach * 0.6f, to.leg[1] = 18.0f + reach * 0.6f;
+    } else if (walking) {
+        /* Walking: arm and leg swing against each other, and the body rides up as each foot passes under it. */
+        to.lean = 5.0f;
+        to.leg[0] = swing * 30.0f, to.leg[1] = -swing * 30.0f;
+        to.arm[0] = -swing * 24.0f, to.arm[1] = swing * 24.0f;
+        bob = (1.0f - cosf(e->phase * 2.0f)) * 0.6f;
+    } else if (e->idle > 0.0f) {
+        /* Stood still: breathing. */
+        bob = (sinf(now * 1.8f) + 1.0f) * 0.2f;
     }
-    /* Working: the near arm goes at it. A blow: it swings through. */
-    if (p->activity == ACTIVITY_MINING || p->activity == ACTIVITY_PLACING) pose.arm[0] = 75.0f + sinf((float)GetTime() * 9.0f) * 35.0f;
-    if (p->activity == ACTIVITY_ATTACKING) pose.arm[0] = 30.0f + sinf(t * PI) * 110.0f;
-    draw_body(g, cx, ground - bob, pose);
+    if (p->activity == ACTIVITY_MINING) {
+        /* At a block: the near arm drawn back slowly and brought down hard, the body going with it. */
+        float u = fmodf(now * 2.4f, 1.0f);
+        float up = u < 0.62f ? u / 0.62f : 1.0f - (u - 0.62f) / 0.38f;
+        up = u < 0.62f ? up * up * (3.0f - 2.0f * up) : up * up;
+        to.arm[0] = 40.0f + up * 105.0f;
+        if (!crawling) to.lean += 9.0f - up * 7.0f, to.arm[1] += 12.0f;
+    }
+    /* Setting something down: a reach out and back. A blow: the arm swings through. */
+    if (p->activity == ACTIVITY_PLACING) to.arm[0] = 55.0f + sinf(t * PI) * 40.0f;
+    if (p->activity == ACTIVITY_ATTACKING) to.arm[0] = 150.0f - sinf(t * PI * 0.5f) * 120.0f, to.lean += sinf(t * PI) * 8.0f;
+    if (!e->set) {
+        e->pose = to, e->side = side, e->shift = shift, e->bob = bob;
+        e->set = true;
+    }
+    float limb = 1.0f - expf(-26.0f * dt), body = 1.0f - expf(-14.0f * dt), round = 1.0f - expf(-11.0f * dt);
+    for (int i = 0; i < 2; i++) {
+        e->pose.arm[i] += (to.arm[i] - e->pose.arm[i]) * limb;
+        e->pose.leg[i] += (to.leg[i] - e->pose.leg[i]) * limb;
+    }
+    e->pose.lean += (to.lean - e->pose.lean) * body;
+    e->pose.head += (to.head - e->pose.head) * body;
+    e->pose.sink += (to.sink - e->pose.sink) * body;
+    e->shift += (shift - e->shift) * body;
+    e->bob += (bob - e->bob) * limb;
+    e->side += (side - e->side) * round;
+    BodyPose pose = e->pose;
+    pose.tint = WHITE;
+    pose.facing = e->side < 0.0f ? -1 : 1;
+    pose.turn = PLAYERMODEL_SIDE - fabsf(e->side);
+    draw_body(g, cx + e->shift, ground - e->bob, pose);
 }
 
 /* With more than one character about, a small arrow over the one being played. */

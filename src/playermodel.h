@@ -10,6 +10,9 @@
  * is worn is more skins of the same layout, drawn on the same boxes a little
  * larger, wherever they are not clear. */
 
+/* How far round from facing the viewer they stand when they face along the world, in degrees. */
+#define PLAYERMODEL_SIDE 64.0f
+
 typedef struct {
     int facing;        /* 1 looking right, -1 looking left */
     float lean;        /* the body tipped forward at the hips, in degrees: 90 is flat out, on all fours */
@@ -18,7 +21,7 @@ typedef struct {
     float arm[2];      /* each arm swung forward from hanging, in degrees: near side, far side */
     float leg[2];      /* each leg swung forward */
     float sink;        /* how far the hips are let down, in the model's units (12 is sat on the ground) */
-    float turn;        /* how far round toward the viewer they are turned, in degrees; 0 for the usual */
+    float turn;        /* how far round toward the viewer they are turned, in degrees; PLAYERMODEL_SIDE is face on */
     Color tint;        /* WHITE for as they are */
 } BodyPose;
 

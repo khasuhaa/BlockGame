@@ -242,7 +242,7 @@
     {"name": "carbon_fiber_chestplate", "label": "Carbon fiber chestplate", "texture": "items/carbon_fiber_chestplate.png", "category": "clothing", "equip": "chest", "worn": "worn/carbon_fiber_chestplate.png", "max_stack": 1, "armor": 0.17, "price": 2400},
     {"name": "carbon_fiber_leggings", "label": "Carbon fiber armor leggings", "texture": "items/carbon_fiber_leggings.png", "category": "clothing", "equip": "legs", "worn": "worn/carbon_fiber_leggings.png", "max_stack": 1, "armor": 0.17, "price": 1500},
     {"name": "carbon_fiber_boots", "label": "Carbon fiber boots", "texture": "items/carbon_fiber_boots.png", "category": "clothing", "equip": "boots", "worn": "worn/carbon_fiber_boots.png", "max_stack": 1, "armor": 0.17, "price": 1050},
-    {"name": "jetpack", "label": "Jetpack", "texture": "items/jetpack.png", "category": "clothing", "max_stack": 1, "price": 38500},
+    {"name": "jetpack", "label": "Jetpack", "texture": "items/jetpack.png", "category": "clothing", "equip": "chest", "worn": "worn/jetpack.png", "max_stack": 1, "price": 38500},
     {"name": "wooden_bed", "label": "Wooden bed", "texture": "items/wooden_bed.png", "category": "building", "price": 35, "places": "wooden_bed"},
     {"name": "soft_bed", "label": "Soft bed", "texture": "items/soft_bed.png", "category": "building", "price": 490, "places": "soft_bed"},
     {"name": "boat", "label": "Boat", "texture": "items/boat.png", "category": "building", "price": 270, "places": "boat"},
