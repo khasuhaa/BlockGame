@@ -4779,65 +4779,71 @@ static void test_gate_compost_ember_boat_sign(void)
     CHECK(boats == 1);
     world_set(w, g.player.feet.x, s, TILE_AIR);
 
-    /* Signs. One goes up against a block - on it, under it or beside it - and not on backwall alone. */
-    TileType sign = tile_id("sign");
+    /* Signs. One takes up two blocks, side by side, and goes up against a block - on it, under it or beside it -
+     * and not on backwall alone. */
+    TileType sign = tile_id("sign"), half = tile_id("sign_right");
     ItemId board = item_id("sign");
     CHECK(sign > 0 && tile_def(sign)->written && !tile_def(sign)->solid && tile_def(sign)->layer == LAYER_FOREGROUND && item_def(board)->written);
+    CHECK(tile_def(sign)->pair == half && tile_def(half)->pair_of == sign && tile_def(sign)->pair_floats && !tile_def(half)->written);
     g.player.feet = g.player.step_to = (TilePos){ px - 4, ground };
     g.player.climbing = false;
     clear_inventory(&g);
     inventory_add(inv, board, 3);
     inventory_select(inv, 0, -1);
-    world_set_at(w, LAYER_WALL, px - 6, ground - 4, TILE_STONE);
-    CHECK(!game_queue_action(&g, ACTION_PLACE, px - 6, ground - 4)); /* backwall, and nothing else */
-    CHECK(game_queue_action(&g, ACTION_PLACE, px - 6, ground));       /* standing on the ground */
+    for (int dx = 0; dx < 2; dx++) world_set_at(w, LAYER_WALL, px - 7 + dx, ground - 5, TILE_STONE);
+    CHECK(!game_queue_action(&g, ACTION_PLACE, px - 7, ground - 5)); /* backwall, and nothing else */
+    CHECK(game_queue_action(&g, ACTION_PLACE, px - 7, ground));       /* standing on the ground */
     run(&g, 5.0f);
-    CHECK(world_get(w, px - 6, ground) == sign && world_mount_block(w, px - 6, ground) == MOUNT_FLOOR && game_sign_at(&g, px - 6, ground) == NULL);
-    world_set(w, px - 8, ground - 2, TILE_STONE);
-    CHECK(game_queue_action(&g, ACTION_PLACE, px - 8, ground - 1));   /* hanging under a block */
+    CHECK(world_get(w, px - 7, ground) == sign && world_get(w, px - 6, ground) == half && world_mount_block(w, px - 7, ground) == MOUNT_FLOOR);
+    CHECK(game_sign_at(&g, px - 7, ground) == NULL && count_item(&g, board) == 2);
+    /* Another cannot go in either of the squares it is in, nor where it would have to overlap one of them. */
+    CHECK(!game_queue_action(&g, ACTION_PLACE, px - 6, ground) && !game_queue_action(&g, ACTION_PLACE, px - 8, ground));
+    /* Hanging under a block, held by either half. */
+    world_set(w, px - 10, ground - 2, TILE_STONE);
+    CHECK(game_queue_action(&g, ACTION_PLACE, px - 11, ground - 1)); /* its right half is the one under the block */
     run(&g, 5.0f);
-    CHECK(world_get(w, px - 8, ground - 1) == sign && world_mount_block(w, px - 8, ground - 1) == MOUNT_CEILING);
-    /* Three lines can be written on it; each is cut to what a line holds. */
-    const char *words[SIGN_LINES] = { "Keep out", "", "This line is much too long to fit on a sign" };
-    CHECK(game_sign_write(&g, px - 6, ground, words) && !game_sign_write(&g, px - 5, ground, words));
-    const SignText *text = game_sign_at(&g, px - 6, ground);
-    CHECK(text && strcmp(text->lines[0], "Keep out") == 0 && text->lines[1][0] == '\0' && strlen(text->lines[2]) == SIGN_LINE_MAX);
-    const char *other[SIGN_LINES] = { "Mine", "", "" };
-    CHECK(game_sign_write(&g, px - 8, ground - 1, other));
+    CHECK(world_get(w, px - 11, ground - 1) == sign && world_get(w, px - 10, ground - 1) == half && world_mount_block(w, px - 10, ground - 1) == MOUNT_CEILING);
+    /* One line can be written on it, by way of either half; it is cut to what a sign holds. */
+    CHECK(game_sign_write(&g, px - 7, ground, "Keep out") && !game_sign_write(&g, px - 4, ground, "Nothing here"));
+    const SignText *text = game_sign_at(&g, px - 7, ground);
+    CHECK(text && strcmp(text->text, "Keep out") == 0 && game_sign_at(&g, px - 6, ground) == text);
+    CHECK(game_sign_write(&g, px - 10, ground - 1, "This is far too long to go on a sign"));
+    CHECK(strlen(game_sign_at(&g, px - 11, ground - 1)->text) == SIGN_TEXT_MAX);
+    CHECK(game_sign_write(&g, px - 10, ground - 1, "Mine"));
     /* Kept with the world. */
     CHECK(save_game(&g, "build/test_sign.world"));
     Game loaded;
     CHECK(load_game(&loaded, "build/test_sign.world"));
-    CHECK(game_sign_at(&loaded, px - 6, ground) && strcmp(game_sign_at(&loaded, px - 6, ground)->lines[0], "Keep out") == 0);
-    CHECK(game_sign_at(&loaded, px - 8, ground - 1) && strcmp(game_sign_at(&loaded, px - 8, ground - 1)->lines[0], "Mine") == 0);
+    CHECK(game_sign_at(&loaded, px - 7, ground) && strcmp(game_sign_at(&loaded, px - 7, ground)->text, "Keep out") == 0);
+    CHECK(game_sign_at(&loaded, px - 11, ground - 1) && strcmp(game_sign_at(&loaded, px - 11, ground - 1)->text, "Mine") == 0);
     game_free(&loaded);
-    /* Taken down, each keeps what it says; and signs that say different things still stack. */
+    /* Taken down - by either half - each keeps what it says; and signs that say different things still stack. */
     CHECK(game_queue_action(&g, ACTION_MINE, px - 6, ground));
     run(&g, 5.0f);
-    CHECK(game_queue_action(&g, ACTION_MINE, px - 8, ground - 1));
+    CHECK(world_get(w, px - 7, ground) == TILE_AIR && world_get(w, px - 6, ground) == TILE_AIR);
+    CHECK(game_queue_action(&g, ACTION_MINE, px - 11, ground - 1));
     run(&g, 5.0f);
-    CHECK(world_get(w, px - 6, ground) == TILE_AIR && count_item(&g, board) == 3 && inv->slots[0].count == 3 && inv->slots[1].count == 0);
+    CHECK(world_get(w, px - 10, ground - 1) == TILE_AIR && count_item(&g, board) == 3 && inv->slots[0].count == 3 && inv->slots[1].count == 0);
     const SignText *top = game_sign_text(&g, inventory_meter(inv, &inv->slots[0]));
-    CHECK(top && strcmp(top->lines[0], "Mine") == 0); /* the last one picked up is on top */
+    CHECK(top && strcmp(top->text, "Mine") == 0); /* the last one picked up is on top */
     /* Put up again, it says what it said. */
-    CHECK(game_queue_action(&g, ACTION_PLACE, px - 6, ground));
-    run(&g, 5.0f);
-    CHECK(game_sign_at(&g, px - 6, ground) && strcmp(game_sign_at(&g, px - 6, ground)->lines[0], "Mine") == 0);
     CHECK(game_queue_action(&g, ACTION_PLACE, px - 7, ground));
     run(&g, 5.0f);
-    CHECK(game_sign_at(&g, px - 7, ground) && strcmp(game_sign_at(&g, px - 7, ground)->lines[0], "Keep out") == 0);
-    CHECK(game_queue_action(&g, ACTION_PLACE, px - 9, ground));
+    CHECK(game_sign_at(&g, px - 7, ground) && strcmp(game_sign_at(&g, px - 7, ground)->text, "Mine") == 0);
+    CHECK(game_queue_action(&g, ACTION_PLACE, px - 9, ground)); /* right up against the other: its two squares are free */
     run(&g, 5.0f);
-    CHECK(world_get(w, px - 9, ground) == sign && game_sign_at(&g, px - 9, ground) == NULL); /* and the blank one is blank */
+    CHECK(game_sign_at(&g, px - 9, ground) && strcmp(game_sign_at(&g, px - 9, ground)->text, "Keep out") == 0);
+    CHECK(game_queue_action(&g, ACTION_PLACE, px - 11, ground));
+    run(&g, 5.0f);
+    CHECK(world_get(w, px - 11, ground) == sign && game_sign_at(&g, px - 11, ground) == NULL); /* and the blank one is blank */
     /* Writing on one copy of a sign leaves the others as they were. */
-    world_set(w, px - 10, ground, sign);
-    world_set_meta(w, px - 10, ground, world_meta(w, px - 6, ground));
-    const char *changed[SIGN_LINES] = { "Changed", "", "" };
-    CHECK(game_sign_write(&g, px - 10, ground, changed));
-    CHECK(strcmp(game_sign_at(&g, px - 6, ground)->lines[0], "Mine") == 0 && strcmp(game_sign_at(&g, px - 10, ground)->lines[0], "Changed") == 0);
+    world_set(w, px - 14, ground, sign);
+    world_set(w, px - 13, ground, half);
+    world_set_meta(w, px - 14, ground, world_meta(w, px - 7, ground));
+    CHECK(game_sign_write(&g, px - 14, ground, "Changed"));
+    CHECK(strcmp(game_sign_at(&g, px - 7, ground)->text, "Mine") == 0 && strcmp(game_sign_at(&g, px - 14, ground)->text, "Changed") == 0);
     /* Rubbed out, it is a blank sign again. */
-    const char *nothing[SIGN_LINES] = { "", "", "" };
-    CHECK(game_sign_write(&g, px - 10, ground, nothing) && game_sign_at(&g, px - 10, ground) == NULL);
+    CHECK(game_sign_write(&g, px - 14, ground, "") && game_sign_at(&g, px - 14, ground) == NULL);
     game_free(&g);
 }
 

@@ -314,6 +314,7 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->written = flag(e, "written", false);
         t->pair = t->pair_of = TILE_AIR;
         if (!tile_ref(r, e, "pair", &t->pair)) return false;
+        t->pair_floats = flag(e, "pair_floats", false);
         t->sleep_speed = (float)num(field(e, "bed"), "speed", 0.0);
         t->sleep_over = flag(field(e, "bed"), "over", false);
         const cJSON *gen = field(e, "generator");

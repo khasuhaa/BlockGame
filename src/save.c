@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 22u
+#define SAVE_VERSION 23u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -417,7 +417,7 @@ bool save_game(const Game *g, const char *path)
     for (int id = 1; id < MAX_SIGN_TEXTS; id++) texts += g->signs[id].used;
     ok = ok && fwrite(&texts, sizeof texts, 1, f) == 1;
     for (uint32_t id = 1; id < MAX_SIGN_TEXTS && ok; id++)
-        if (g->signs[id].used) ok = fwrite(&id, sizeof id, 1, f) == 1 && fwrite(g->signs[id].lines, sizeof g->signs[id].lines, 1, f) == 1;
+        if (g->signs[id].used) ok = fwrite(&id, sizeof id, 1, f) == 1 && fwrite(g->signs[id].text, sizeof g->signs[id].text, 1, f) == 1;
     /* Paint: few squares have any, so only those, each with where it is. */
     uint32_t painted = 0;
     for (size_t i = 0; i < cells; i++) painted += w->paint[0][i] != 0 || w->paint[1][i] != 0;
@@ -605,11 +605,23 @@ bool load_game(Game *g, const char *path)
             uint32_t texts = 0, id = 0;
             ok = fread(&texts, sizeof texts, 1, f) == 1 && texts < MAX_SIGN_TEXTS;
             for (uint32_t i = 0; ok && i < texts; i++) {
+                /* (In version 22 a sign had three lines of 20 letters: they are run together into the one it has now.) */
+                char old[3][21] = { { 0 } };
                 ok = fread(&id, sizeof id, 1, f) == 1 && id >= 1 && id < MAX_SIGN_TEXTS &&
-                     fread(g->signs[id].lines, sizeof g->signs[id].lines, 1, f) == 1;
+                     (h.version >= 23 ? fread(g->signs[id].text, sizeof g->signs[id].text, 1, f) == 1 : fread(old, sizeof old, 1, f) == 1);
                 if (!ok) break;
                 g->signs[id].used = true;
-                for (int k = 0; k < SIGN_LINES; k++) g->signs[id].lines[k][SIGN_LINE_MAX] = '\0';
+                if (h.version < 23) {
+                    char joined[72] = "";
+                    for (int k = 0; k < 3; k++) {
+                        old[k][20] = '\0';
+                        if (!old[k][0]) continue;
+                        size_t n = strlen(joined);
+                        snprintf(joined + n, sizeof joined - n, "%s%s", n ? " " : "", old[k]);
+                    }
+                    snprintf(g->signs[id].text, sizeof g->signs[id].text, "%s", joined);
+                }
+                g->signs[id].text[SIGN_TEXT_MAX] = '\0';
             }
         }
         if (ok && h.version >= 21) {
@@ -651,6 +663,13 @@ bool load_game(Game *g, const char *path)
                 if (h.version < 11) g->drops[i].held_off = false;
                 g->drops[i].item = g->drops[i].item < MAX_ITEMS ? items[g->drops[i].item] : 0;
                 if (g->drops[i].item == ITEM_NONE) g->drops[i].active = false;
+            }
+        }
+        /* Before version 23 a sign was one block wide: each gets its other half, where there is room for it. */
+        for (int y = 0; ok && h.version == 22 && y < w->height; y++) {
+            for (int x = 0; x < w->width; x++) {
+                const TileDef *def = tile_def(world_get(w, x, y));
+                if (def->written && def->pair != TILE_AIR && world_get(w, x + 1, y) == TILE_AIR) world_set(w, x + 1, y, def->pair);
             }
         }
         /* Old saves kept trees in the foreground; move each to its own layer. */

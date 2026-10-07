@@ -84,8 +84,7 @@ typedef enum {
 #define MAX_ISLAND_TREES 8
 #define MAX_WORLD_CHOICES 8
 #define MAX_SIGN_TEXTS 512 /* different texts a world's signs can carry */
-#define SIGN_LINES 3
-#define SIGN_LINE_MAX 20
+#define SIGN_TEXT_MAX 14 /* letters a sign holds: one line, across its two blocks */
 #define MAX_SEASONS 4
 #define MAX_MOB_BIOMES 8
 
@@ -184,6 +183,7 @@ typedef struct {
     /* Two blocks wide: this one is put down with `pair` to the right of it, on
      * level ground under both, and the two come up as one. (`pair_of` is worked out: the block this is the right half of.) */
     TileType pair, pair_of;
+    bool pair_floats; /* its two halves need no ground under them: it is held up some other way, like anything else */
     /* A bed: sleeping at it is this many times as quick, and in a soft one goes on past a full bar. */
     float sleep_speed;
     bool sleep_over;

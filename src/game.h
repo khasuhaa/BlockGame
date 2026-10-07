@@ -224,10 +224,10 @@ typedef struct {
     int16_t made, given;
 } Storage;
 
-/* One text for a sign: its lines, top to bottom. */
+/* One text for a sign: a single line. */
 typedef struct SignText {
     bool used;
-    char lines[SIGN_LINES][SIGN_LINE_MAX + 1];
+    char text[SIGN_TEXT_MAX + 1];
 } SignText;
 
 /* Electricity on its way along a wire from one thing to another. It moves a
@@ -571,8 +571,8 @@ void game_attacked(Game *g, float amount);
 const SignText *game_sign_at(const Game *g, int x, int y);
 /* The text with a number (what a carried sign's meter reads), or NULL. */
 const SignText *game_sign_text(const Game *g, int id);
-/* Writes on the sign in a square: three lines, each cut to what a line holds. False if there is no sign there. */
-bool game_sign_write(Game *g, int x, int y, const char *const lines[SIGN_LINES]);
+/* Writes on the sign in a square - either of the two it takes up: one line, cut to what a sign holds. False if there is no sign there. */
+bool game_sign_write(Game *g, int x, int y, const char *text);
 /* How quick sleep is where the character is: more than 1 in a bed; and whether it can go on past a full bar there. */
 float game_sleep_speed(const Game *g, bool *over);
 /* Poisons the player for so many ticks: each takes a little health. A

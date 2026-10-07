@@ -604,6 +604,8 @@ static bool target_valid(const World *w, Action a)
         if (tile_def(placed)->layer == LAYER_BACKGROUND &&
             tile_def(world_get_at(w, LAYER_BACKGROUND, a.target.x, a.target.y + 1))->supports)
             return true;
+        /* (Something two blocks wide is held by a block beside either half of it.) */
+        if (tile_def(placed)->pair != TILE_AIR && beside_block(w, (TilePos){ a.target.x + 1, a.target.y })) return true;
         return beside_block(w, a.target);
     }
     case ACTION_PLANT: return can_plant(w, (ItemId)a.item, a.target);
@@ -1438,7 +1440,7 @@ static bool room_for(const World *w, TilePos t, TileType tile)
     TileType other = tile_def(tile)->pair;
     if (other != TILE_AIR) {
         if (world_get(w, t.x + 1, t.y) != TILE_AIR || world_get_at(w, tile_def(other)->layer, t.x + 1, t.y) != TILE_AIR) return false;
-        if (!world_is_solid(w, t.x, t.y + 1) || !world_is_solid(w, t.x + 1, t.y + 1)) return false;
+        if (!tile_def(tile)->pair_floats && (!world_is_solid(w, t.x, t.y + 1) || !world_is_solid(w, t.x + 1, t.y + 1))) return false;
     }
     return true;
 }
@@ -2690,9 +2692,19 @@ static bool sign_in(const World *w, int x, int y)
     return tile_def(world_get(w, x, y))->written || tile_def(world_get_at(w, LAYER_BACKGROUND, x, y))->written;
 }
 
+/* The square a sign's text is kept with: its left half. (Given either half.) */
+static bool sign_head(const World *w, int *x, int y)
+{
+    if (sign_in(w, *x, y)) return true;
+    TileType of = tile_def(world_get(w, *x, y))->pair_of;
+    if (of == TILE_AIR || !tile_def(of)->written || world_get(w, *x - 1, y) != of) return false;
+    *x = world_wrap_x(w, *x - 1);
+    return true;
+}
+
 const SignText *game_sign_at(const Game *g, int x, int y)
 {
-    return sign_in(&g->world, x, y) ? game_sign_text(g, world_meta(&g->world, x, y)) : NULL;
+    return sign_head(&g->world, &x, y) ? game_sign_text(g, world_meta(&g->world, x, y)) : NULL;
 }
 
 /* A number for a new text. When they have all been given out, the ones no
@@ -2723,12 +2735,10 @@ static int sign_alloc(Game *g)
     return 0;
 }
 
-bool game_sign_write(Game *g, int x, int y, const char *const lines[SIGN_LINES])
+bool game_sign_write(Game *g, int x, int y, const char *text)
 {
-    if (!g->signs || !sign_in(&g->world, x, y)) return false;
-    bool blank = true;
-    for (int k = 0; k < SIGN_LINES; k++) blank = blank && (!lines[k] || !lines[k][0]);
-    if (blank) {
+    if (!g->signs || !sign_head(&g->world, &x, y)) return false;
+    if (!text || !text[0]) {
         world_set_meta(&g->world, x, y, 0);
         return true;
     }
@@ -2737,7 +2747,7 @@ bool game_sign_write(Game *g, int x, int y, const char *const lines[SIGN_LINES])
     if (id == 0) return false;
     memset(&g->signs[id], 0, sizeof g->signs[id]);
     g->signs[id].used = true;
-    for (int k = 0; k < SIGN_LINES; k++) snprintf(g->signs[id].lines[k], sizeof g->signs[id].lines[k], "%s", lines[k] ? lines[k] : "");
+    snprintf(g->signs[id].text, sizeof g->signs[id].text, "%s", text);
     world_set_meta(&g->world, x, y, id);
     return true;
 }
