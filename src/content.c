@@ -1182,6 +1182,11 @@ static bool read_rules(Reader *r, const cJSON *root)
         u->light_solid_falloff = (int)num(light, "solid_falloff", u->light_solid_falloff);
         u->light_minimum = (int)num(light, "minimum", u->light_minimum);
         u->light_glow = (int)num(light, "glow", u->light_glow);
+        u->light_darkness = num(light, "darkness", u->light_darkness);
+        u->light_contrast = num(light, "contrast", u->light_contrast);
+        u->light_bloom = num(light, "bloom", u->light_bloom);
+        if (u->light_darkness < 0.0f || u->light_darkness > 1.0f || u->light_contrast < 0.0f || u->light_bloom < 0.0f || u->light_bloom > 1.0f)
+            return fail(r, "rules: light \"darkness\" and \"bloom\" are 0 to 1, and \"contrast\" is not less than 0");
         u->light_water_depth = (int)num(light, "water_depth_per_level", u->light_water_depth);
     }
     return true;

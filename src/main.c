@@ -765,6 +765,16 @@ static void draw_light(const Game *g, Vector2 origin)
     for (int cy = 0; cy < rows; cy++)
         for (int cx = 0; cx < cols; cx++) glow[cy * cols + cx] = (uint8_t)light_glow(g, x0 + cx, y0 + cy);
 
+    /* How dark each amount of light is shown, in quarters of a level (a corner is the mean of four squares). */
+    unsigned char shade[4 * LIGHT_MAX + 1];
+    float deepest = content.rules.light_darkness > 0.0f ? content.rules.light_darkness : 1.0f;
+    float contrast = content.rules.light_contrast > 0.0f ? content.rules.light_contrast : 1.0f;
+    for (int i = 0; i <= 4 * LIGHT_MAX; i++)
+        shade[i] = (unsigned char)(255.0f * deepest * (1.0f - powf((float)i / (4 * LIGHT_MAX), contrast)) + 0.5f);
+    for (int pass = 0; pass < 2; pass++) {
+    /* (Second time round: the glow itself, added on top, so that what gives light is brighter than daylight makes anything.) */
+    if (pass == 1 && content.rules.light_bloom <= 0.0f) break;
+    if (pass == 1) BeginBlendMode(BLEND_ADDITIVE);
     for (int cy = 1; cy < rows - 1; cy++) {
         for (int cx = 1; cx < cols - 1; cx++) {
             Color corner[4]; /* top left, bottom left, bottom right, top right */
@@ -779,8 +789,12 @@ static void draw_light(const Game *g, Vector2 origin)
                 if (glow[(by + 1) * cols + bx] > bright) bright = glow[(by + 1) * cols + bx];
                 if (glow[(by + 1) * cols + bx + 1] > bright) bright = glow[(by + 1) * cols + bx + 1];
                 if (bright * 4 > sum) sum = bright * 4;
-                int dark = 255 - sum * 255 / (4 * LIGHT_MAX);
-                corner[k] = (Color){ 4, 5, 14, (unsigned char)dark };
+                int dark = shade[sum];
+                if (pass == 1) {
+                    float share = (float)bright / LIGHT_MAX;
+                    dark = (int)(255.0f * content.rules.light_bloom * share * share);
+                }
+                corner[k] = pass == 0 ? (Color){ 2, 2, 6, (unsigned char)dark } : (Color){ 255, 236, 200, (unsigned char)dark };
                 if (dark > darkest) darkest = dark;
             }
             if (darkest == 0) continue;
@@ -789,6 +803,8 @@ static void draw_light(const Game *g, Vector2 origin)
             /* (raylib takes the corners anticlockwise from the top left.) */
             DrawRectangleGradientEx(r, corner[0], corner[1], corner[2], corner[3]);
         }
+    }
+    if (pass == 1) EndBlendMode();
     }
 }
 

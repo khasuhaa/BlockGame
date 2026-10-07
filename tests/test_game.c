@@ -2206,6 +2206,14 @@ static int light_at(const Game *g, int x, int y)
     return v;
 }
 
+/* The lighting the game ships with goes all the way to black, and past true colours for what glows. */
+static void test_shipped_light(void)
+{
+    const RulesDef *u = &content.rules;
+    CHECK(u->light_minimum == 0 && u->light_darkness >= 0.95f && u->light_darkness <= 1.0f);
+    CHECK(u->light_contrast > 1.0f && u->light_bloom > 0.0f && u->light_glow > 0);
+}
+
 static void test_light(void)
 {
     Game g;
@@ -2251,7 +2259,9 @@ static void test_light(void)
     CHECK(world_get_at(w, WALL, sx, s + 12) == TILE_DIRT && light_at(&g, sx, s + 12) == u->light_sun);
     /* A lid on the shaft cuts the beam off. */
     world_set(w, sx, s, TILE_STONE);
-    CHECK(light_at(&g, sx, s + 12) == u->light_minimum);
+    /* (What gets through the lid still falls off down the shaft.) */
+    int through = u->light_sun - u->light_solid_falloff - 12 * u->light_air_falloff;
+    CHECK(light_at(&g, sx, s + 12) == (through > u->light_minimum ? through : u->light_minimum));
     world_set(w, sx, s, TILE_AIR);
     /* Round a corner at the bottom it falls away a tile at a time. */
     world_set(w, sx + 1, s + 12, TILE_AIR);
@@ -8582,6 +8592,7 @@ int main(void)
      * that are of how the game works, and are run against a small fixed set
      * of content of their own - the recipes and benches in tests/legacy -
      * so that changing what the game ships with does not change them. */
+    test_shipped_light();
     test_shipped_recipes();
     test_guide();
     shipped_torch_light = tile_def(tile_id("torch"))->light;
