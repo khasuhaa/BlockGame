@@ -683,6 +683,8 @@ For someone writing a mod, what the engine was taught for this one is all in the
 - **The industrial crate** holds 16 stacks and sorts: if anything is in its first four slots, conveyors put in it only those kinds of thing.
 - **The power plant** makes 100 units a tick while it burns, and burns only dreadsteel ingots (1,000 ticks each) and imperial ingots (1,800).
 
+(Two things the engine learnt for Explorer's Delight, for someone writing a mod: a biome that is `"below_sea"` and has a `"heat"` or `"dryness"` is that sea only where the climate is right; and `"cave_biomes"` in `worldgen.json`, each with a `"depth"`, a `"share"` of the columns, a `"wavelength"`, a `"lining"` and lists of what is on its `"floor"` and hangs from its `"roof"`.)
+
 For someone writing a mod: `"endless"` on a block; `"conveyor"` (items a tick) and `"extractor"`; `"draw"` (units a tick while working) with `"miner"` (ticks an ore) or `"automat"` (`"bench"`, `"inputs"`, `"speed"`); `"sorts"` on a store; `"fuels"` on a generator; and `"vein_rares"` in `worldgen.json`. The code is `src/industry.c`.
 
 ### Digital Storage
@@ -719,7 +721,7 @@ For someone writing a mod: `"network"` on a block (`cable`, `controller`, `drive
 
 ### Explorer's Delight
 
-`mods/explorers_delight`: ten more kinds of country, each made of ground and rock of its own, and a great many things to build with out of what is found there. Data only; it goes with every other mod.
+`mods/explorers_delight`: ten more kinds of country, three kinds of sea and six kinds of cave, each made of ground and rock of its own, and a great many things to build with out of what is found there. It goes with every other mod.
 
 - **Ten biomes**, placed among the others by heat and dryness (so only worlds made with the mod on have them):
   - **Red mesa** - red sand over terracotta, with red sandstone at its heart; baobabs and dead bushes.
@@ -732,10 +734,22 @@ For someone writing a mod: `"network"` on a block (`cable`, `controller`, `drive
   - **Birch woods** - thick with birch, over granite at its heart.
   - **Mossy hollow** - moss underfoot, mossy stone below, and glowcaps: mushrooms the size of trees, whose caps give light.
   - **Bamboo grove** - bamboo, close together.
+- **Three seas**, by how warm the water is (where none of them is, the sea is the one the game has):
+  - **Coral reef**, in warm water - coral sand over pink coral stone, with red, blue and yellow coral growing on it, sea grass, and now and then a clam with a pearl in it.
+  - **Frozen sea**, in cold water - sea gravel over glacial ice.
+  - **Seagrass meadow**, in between - sand thick with sea grass, and more clams.
+- **Six kinds of cave**, by how deep. A stretch of the underground is one kind or none, settled by the world's seed; in it the rock round the caves, and the wall behind them, is that kind's own, and its own things grow there:
+  - **Ice caves** (near the surface) - glacial ice, hung with icicles.
+  - **Lush caves** (near the surface) - moss, ferns, and glow vines hanging from the roof, which give light and bear glow berries.
+  - **Dripstone caves** (further down) - dripstone, with stalactites above and stalagmites below.
+  - **Mushroom caves** (further down) - mycelium, and glowshrooms, which give light and can be eaten.
+  - **Crystal caverns** (deep) - dark geode, set with crystal clusters that give a strong light and leave prism shards.
+  - **Magma caves** (deepest) - magma rock, which glows a little, and ember blooms, which leave embers.
 - A biome's own ground is a block deep at its edge and deepens toward its middle. Granite, mossy stone, pumice and red sandstone, which lie only under the heart of their country, are in pockets in the rock everywhere as well.
-- **Nine stones** - terracotta, red sandstone, rock salt, scoria, pumice, slate, granite, mossy stone and glacial ice - each a block to build with as it is, and each with **bricks**, a **polished** block, **tiles**, a **column** and **stairs**, made at the builder's bench: 54 blocks. **Mud bricks** (mud and dry grass), with their column and stairs, besides.
+- **Thirteen stones** - terracotta, red sandstone, rock salt, scoria, pumice, slate, granite, mossy stone, glacial ice, and from the sea and the caves coral stone, dripstone, geode and magma rock - each a block to build with as it is, and each with **bricks**, a **polished** block, **tiles**, a **column** and **stairs**, made at the builder's bench: 78 blocks. **Mud bricks** (mud and dry grass), with their column and stairs, besides.
 - **Six woods** - acacia, baobab, birch, willow, bamboo and glowcap - each a block of its own colour with a column and stairs, and each good wherever wood is wanted (one of any makes one wood at a workbench). Each tree is grown again from what it bears: a seed, a catkin, a spore, a baobab fruit or a bamboo shoot, the last two of which can be eaten.
-- **Ground to build with too**: red sand, salt crust, ash, packed snow, permafrost, mud, peat, highland grass, dry grass and moss are all blocks that are dug up and put down.
+- **Ground to build with too**: red sand, salt crust, ash, packed snow, permafrost, mud, peat, coral sand, sea gravel, mycelium, highland grass, dry grass and moss are all blocks that are dug up and put down.
+- **From the sea and the caves**, at the builder's bench: **coral blocks** in red, blue and yellow (four pieces of coral each), the **pearl block** (four pearls), and the **prism block** (four prism shards), which gives light. Coral and sea grass are grown again under water from what they leave.
 - Odds and ends: rock salt and salt crust give salt; four packed snow make glacial ice; four red sand make red sandstone; stone and moss make mossy stone; reeds make sticks.
 
 ### Golden chests
