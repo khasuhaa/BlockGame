@@ -433,6 +433,8 @@ static bool is_goal(const World *w, Pose p, Action a)
         return in_reach(w, p.feet, a.target);
     case ACTION_PLACE:
     case ACTION_BUCKET:
+    case ACTION_PAINT:
+    case ACTION_RELEASE:
     case ACTION_PLANT: return in_reach(w, p.feet, a.target);
     case ACTION_ATTACK: return in_attack_range(w, p.feet, a.target, a.amount);
     case ACTION_USE:
@@ -564,6 +566,15 @@ static void place_tile(World *w, TilePos t, TileType tile);
 static void replace_block(World *w, int layer, TilePos t, TileType with);
 static bool room_for(const World *w, TilePos t, TileType tile);
 
+/* What paint would go on in a square: the block in front if there is a solid
+ * one (0), else the backwall if there is any (1); -1 for nothing to paint. */
+static int paintable(const World *w, TilePos t)
+{
+    if (!world_in_bounds(w, t.x, t.y)) return -1;
+    if (world_get(w, t.x, t.y) != TILE_AIR && world_is_solid(w, t.x, t.y)) return 0;
+    return world_get_at(w, LAYER_WALL, t.x, t.y) != TILE_AIR ? 1 : -1;
+}
+
 /* Whether the target tile is still something the action can be done to. */
 static bool target_valid(const World *w, Action a)
 {
@@ -591,6 +602,10 @@ static bool target_valid(const World *w, Action a)
         return beside_block(w, a.target);
     }
     case ACTION_PLANT: return can_plant(w, (ItemId)a.item, a.target);
+    case ACTION_PAINT: return paintable(w, a.target) >= 0;
+    /* A creature is let out where one could stand: open, with ground under it. */
+    case ACTION_RELEASE:
+        return !world_is_solid(w, a.target.x, a.target.y) && world_is_solid(w, a.target.x, a.target.y + 1) && !world_is_water(w, a.target.x, a.target.y);
     case ACTION_USE: return usable_at(w, a.target.x, a.target.y, NULL) != TILE_AIR;
     default: return !tile_def(t)->solid || tile_def(t)->passable; /* (somewhere to go to: a door will do) */
     }
@@ -928,8 +943,10 @@ bool game_click_mob(Game *g, int mob)
     const ItemStack *held = inventory_selected(&g->inventory);
     bool shear = held->count > 0 && item_def((ItemId)held->id)->shears && content.mobs[m->kind].shear_item != ITEM_NONE;
     bool milk = held->count > 0 && item_def((ItemId)held->id)->milks && content.mobs[m->kind].milk_item != ITEM_NONE;
+    bool cage = held->count > 0 && item_def((ItemId)held->id)->cages && content.mobs[m->kind].caged != ITEM_NONE;
     Action a = { .type = ACTION_ATTACK, .target = { m->x, m->y }, .drop = mob, .drop_id = m->id,
-                 .amount = shear || milk ? 0 : game_attack_range(g), .arg = shear ? HAND_SHEAR : milk ? HAND_MILK : HAND_HIT };
+                 .amount = shear || milk || cage ? 0 : game_attack_range(g),
+                 .arg = shear ? HAND_SHEAR : milk ? HAND_MILK : cage ? HAND_CAGE : HAND_HIT };
     return queue_checked(g, sim_pending(g), a);
 }
 
@@ -961,6 +978,15 @@ bool game_click_tile(Game *g, int tx, int ty)
         ((wet > 0 && holds < item_def((ItemId)held->id)->meter_max) || holds > 0)) {
         a.type = ACTION_BUCKET;
         a.item = held->id;
+    } else if (held->count > 0 && (item_def((ItemId)held->id)->paints || item_def((ItemId)held->id)->strips) &&
+               paintable(&g->sim, a.target) >= 0) {
+        /* Paint, or what takes it off, in hand: the block or the backwall here is done, not dug. */
+        a.type = ACTION_PAINT;
+        a.item = held->id;
+    } else if (held->count > 0 && item_def((ItemId)held->id)->releases >= 0) {
+        /* A creature in a cage: it is let out here, if here is somewhere it could stand. */
+        Action out = { .type = ACTION_RELEASE, .target = a.target, .item = held->id };
+        if (target_valid(&g->sim, out)) a = out;
     } else if (held->count > 0 && can_plant(&g->sim, (ItemId)held->id, a.target)) {
         /* Holding something that grows: soil with room above is where it is planted. */
         a = plant;
@@ -1358,6 +1384,7 @@ static void place_tile(World *w, TilePos t, TileType tile)
     /* A tall block goes up as a column of itself from where it is put. */
     for (int i = 0; i < tile_def(tile)->height; i++)
         world_set_at(w, tile_def(tile)->layer, t.x, t.y - i, tile);
+    if (tile_def(tile)->pair != TILE_AIR) world_set_at(w, tile_def(tile_def(tile)->pair)->layer, t.x + 1, t.y, tile_def(tile)->pair);
     if (tile_def(tile)->wall && world_get_at(w, LAYER_WALL, t.x, t.y) == TILE_AIR)
         world_set_at(w, LAYER_WALL, t.x, t.y, tile);
     /* Put up not far above another block, it has backwall of itself run
@@ -1387,6 +1414,12 @@ static bool room_for(const World *w, TilePos t, TileType tile)
         if (!world_in_bounds(w, t.x, t.y - i) || world_get(w, t.x, t.y - i) != TILE_AIR ||
             world_get_at(w, tile_def(tile)->layer, t.x, t.y - i) != TILE_AIR)
             return false;
+    }
+    /* Something two blocks wide needs the square to its right as well, and level ground under both. */
+    TileType other = tile_def(tile)->pair;
+    if (other != TILE_AIR) {
+        if (world_get(w, t.x + 1, t.y) != TILE_AIR || world_get_at(w, tile_def(other)->layer, t.x + 1, t.y) != TILE_AIR) return false;
+        if (!world_is_solid(w, t.x, t.y + 1) || !world_is_solid(w, t.x + 1, t.y + 1)) return false;
     }
     return true;
 }
@@ -1443,6 +1476,10 @@ static void finish_activity(Game *g)
     } else if (p->activity == ACTIVITY_MINING) {
         TilePos t = g->current.target;
         int layer = action_layer(&g->world, g->current);
+        /* The right half of something two blocks wide: it is the whole thing that comes up, from its left. */
+        if (layer >= 0 && layer != LAYER_WALL && tile_def(world_get_at(&g->world, layer, t.x, t.y))->pair_of != TILE_AIR &&
+            world_get_at(&g->world, layer, t.x - 1, t.y) == tile_def(world_get_at(&g->world, layer, t.x, t.y))->pair_of)
+            t.x = world_wrap_x(&g->world, t.x - 1);
         if (layer == LAYER_WALL) {
             /* Backwall comes away with nothing to show for it. */
             world_set_at(&g->world, layer, t.x, t.y, TILE_AIR);
@@ -1483,6 +1520,8 @@ static void finish_activity(Game *g)
             int tones = def->two_tone ? tile_tones(&g->world, layer, t.x, t.y) : 0;
             drop_block_items_toned(g, def, (TilePos){ t.x, bottom }, inside, count, tones);
             replace_block(&g->world, layer, t, TILE_AIR);
+            if (def->pair != TILE_AIR && world_get_at(&g->world, tile_def(def->pair)->layer, t.x + 1, t.y) == def->pair)
+                world_set_at(&g->world, tile_def(def->pair)->layer, t.x + 1, t.y, TILE_AIR);
             /* The top of a wall taken away - a block with no backwall over
              * it - takes the backwall under it down too, as far as the next block or as far as walls are run. */
             if (layer == LAYER_FOREGROUND && def->solid && content.rules.wall_span > 0 &&
@@ -1509,6 +1548,16 @@ static void finish_activity(Game *g)
                 /* Shearing: it has to be in reach, and to have something to give. */
                 if (!with->shears || !in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y }) || !mob_shear(g, g->current.drop))
                     deny(g, (TilePos){ m->x, m->y });
+            } else if (g->current.arg == HAND_CAGE) {
+                /* Caging: the creature is gone from the world and is an item in hand, in place of the cage. */
+                ItemId caged = content.mobs[m->kind].caged;
+                if (!with->cages || caged == ITEM_NONE || !in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y }) ||
+                    inventory_remove(&g->inventory, held->id, 1) != 1) {
+                    deny(g, (TilePos){ m->x, m->y });
+                } else {
+                    m->active = false;
+                    game_give_items(g, caged, 1);
+                }
             } else if (g->current.arg == HAND_MILK) {
                 /* Milking: into something empty, from a creature that has milk to give. */
                 bool empty = with->milks && (!with->holds_water || inventory_meter(&g->inventory, held) == 0);
@@ -1584,6 +1633,31 @@ static void use_bucket(Game *g, ItemId item, TilePos at)
 }
 
 /* Picks what the idle player does next. Returns false if nothing. */
+/* Paint, or stripper, at a square: the block there, or failing a block the
+ * backwall, takes the paint's colour or loses its own. Each use wears the
+ * thing used; the last one finishes it. Painting something the colour it
+ * already is, or stripping what is bare, uses nothing. */
+static void use_paint(Game *g, ItemId item, TilePos at)
+{
+    const ItemDef *def = item_def(item);
+    ItemStack *held = inventory_find(&g->inventory, item);
+    int where = paintable(&g->world, at);
+    if (!held || where < 0) return;
+    int reads = inventory_meter(&g->inventory, held), now = world_paint(&g->world, where == 1, at.x, at.y);
+    if (def->paints) {
+        int tint = reads % PAINT_USED, used = reads / PAINT_USED;
+        if (tint < 1 || tint > content.tint_count || now == tint) return;
+        world_set_paint(&g->world, where == 1, at.x, at.y, tint);
+        if (used + 1 >= def->uses) inventory_remove(&g->inventory, item, 1);
+        else inventory_set_meter(&g->inventory, held, tint + (used + 1) * PAINT_USED);
+    } else if (def->strips) {
+        if (now == 0) return;
+        world_set_paint(&g->world, where == 1, at.x, at.y, 0);
+        if (reads <= 1) inventory_remove(&g->inventory, item, 1);
+        else inventory_set_meter(&g->inventory, held, reads - 1);
+    }
+}
+
 static bool start_next_activity(Game *g)
 {
     Player *p = &g->player;
@@ -1650,6 +1724,26 @@ static bool start_next_activity(Game *g)
                     use_bucket(g, (ItemId)g->current.item, g->current.target);
                     g->has_current = false;
                     continue;
+                case ACTION_PAINT:
+                    use_paint(g, (ItemId)g->current.item, g->current.target);
+                    g->has_current = false;
+                    continue;
+                case ACTION_RELEASE: {
+                    /* Out it comes, the player's own from now on; and the cage is empty again. */
+                    ItemId item = (ItemId)g->current.item, cage = ITEM_NONE;
+                    ItemStack one;
+                    if (item_def(item)->releases < 0 || !inventory_take_one(&g->inventory, item, &one)) break;
+                    container_free(&g->inventory, one.container);
+                    if (mob_spawn(g, item_def(item)->releases, g->current.target.x, g->current.target.y, true, false) < 0) {
+                        inventory_add(&g->inventory, item, 1);
+                        break;
+                    }
+                    for (ItemId i = 1; i < content.item_count && cage == ITEM_NONE; i++)
+                        if (content.items[i].cages) cage = i;
+                    if (cage != ITEM_NONE) game_give_items(g, cage, 1);
+                    g->has_current = false;
+                    continue;
+                }
                 case ACTION_COLLECT: {
                     Drop *d = &g->drops[g->current.drop];
                     bool there = d->active && d->id == g->current.drop_id && d->collect == 0.0f;
@@ -2497,6 +2591,8 @@ bool game_can_eat(const Game *g, ItemId id)
     if (!game_is_food(id)) return false;
     /* Something that gives breath can always be eaten for that, when breath is short. */
     if (item_def(id)->food_oxygen > 0.0f && g->vitals.oxygen < 1.0f) return true;
+    /* And something that takes energy past full, while there is further to take it. */
+    if (item_def(id)->energy_over && g->vitals.energy < 1.0f + content.rules.energy_over - 0.001f) return true;
     return !game_saturated(g);
 }
 
@@ -2516,7 +2612,12 @@ bool game_eat(Game *g)
     v->hunger = clamp01(v->hunger + def->food);
     float mend = def->food_health >= 0.0f ? def->food_health : def->food * content.rules.food_health;
     heal(g, mend);
-    v->energy = clamp01(v->energy + def->food_energy);
+    /* (Some things - coffee - can take it past full, where it stays topped up for a while.) */
+    float most = def->energy_over ? 1.0f + content.rules.energy_over : 1.0f;
+    if (v->energy < most) {
+        v->energy += def->food_energy;
+        if (v->energy > most) v->energy = most;
+    }
     return true;
 }
 
@@ -2524,6 +2625,23 @@ void game_wake(Game *g)
 {
     g->vitals.rest = REST_NONE;
     g->vitals.meditation = 0.0f;
+}
+
+float game_sleep_speed(const Game *g, bool *over)
+{
+    /* A bed is where the character is standing: either of their two squares, either layer. */
+    float best = 1.0f;
+    if (over) *over = false;
+    for (int dy = 0; dy <= 1; dy++) {
+        for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
+            const TileDef *def = tile_def(world_get_at(&g->world, layer, g->player.feet.x, g->player.feet.y - dy));
+            if (def->pair_of != TILE_AIR) def = tile_def(def->pair_of);
+            if (def->sleep_speed <= 0.0f) continue;
+            if (def->sleep_speed > best) best = def->sleep_speed;
+            if (over && def->sleep_over) *over = true;
+        }
+    }
+    return best;
 }
 
 bool game_rest(Game *g, Rest kind)
@@ -2534,7 +2652,9 @@ bool game_rest(Game *g, Rest kind)
         return true;
     }
     if (!game_alive(g)) return false;
-    if (kind == REST_SLEEP && game_bar_full(g->vitals.energy)) return false;
+    bool over = false;
+    game_sleep_speed(g, &over);
+    if (kind == REST_SLEEP && game_bar_full(g->vitals.energy) && !(over && g->vitals.energy < 1.0f + content.rules.energy_over)) return false;
     /* Only from standing on the ground, or about to be. */
     TilePos at = p->activity == ACTIVITY_STEPPING ? p->step_to : p->feet;
     bool climbing = p->activity == ACTIVITY_STEPPING ? p->step.climb : p->climbing;
@@ -2651,10 +2771,17 @@ static void vitals_tick(Game *g)
     }
 
     if (v->rest == REST_SLEEP) {
-        if (u->sleep_ticks > 0) v->energy = clamp01(v->energy + 1.0f / (float)u->sleep_ticks);
-        if (v->energy >= 1.0f || u->sleep_ticks <= 0) game_wake(g);
+        /* In a bed it comes quicker; in a soft one it goes on past full. */
+        bool over = false;
+        float speed = game_sleep_speed(g, &over), most = over ? 1.0f + u->energy_over : 1.0f;
+        if (u->sleep_ticks > 0 && v->energy < most) {
+            v->energy += speed / (float)u->sleep_ticks;
+            if (v->energy > most) v->energy = most;
+        }
+        if (v->energy >= most || u->sleep_ticks <= 0) game_wake(g);
     } else if (u->energy_ticks > 0 && !still) {
-        v->energy = clamp01(v->energy - 1.0f / (float)u->energy_ticks);
+        v->energy -= 1.0f / (float)u->energy_ticks;
+        if (v->energy < 0.0f) v->energy = 0.0f;
     }
 
     if (v->rest == REST_MEDITATE && u->meditation_ticks > 0) {

@@ -676,7 +676,9 @@ bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind)
     w->water = calloc((size_t)width, (size_t)height);
     w->water_awake = calloc((size_t)width, 1);
     w->meta = calloc((size_t)width * (size_t)height, sizeof(uint16_t));
-    if (!w->biome || !w->water || !w->water_awake || !w->meta) {
+    w->paint[0] = calloc((size_t)width, (size_t)height);
+    w->paint[1] = calloc((size_t)width, (size_t)height);
+    if (!w->biome || !w->water || !w->water_awake || !w->meta || !w->paint[0] || !w->paint[1]) {
         world_free(w);
         return false;
     }
@@ -716,6 +718,8 @@ void world_free(World *w)
     free(w->water);
     free(w->water_awake);
     free(w->meta);
+    free(w->paint[0]);
+    free(w->paint[1]);
     memset(w, 0, sizeof *w);
 }
 
@@ -787,6 +791,11 @@ void world_set_at(World *w, int layer, int x, int y, TileType t)
     if (w->meta && w->meta[cell] != 0) {
         const TileDef *was = tile_def((TileType)w->layers[layer][cell]);
         if (was->two_tone || was->motor_power > 0 || (TileType)w->layers[layer][cell] == content.rules.ice) w->meta[cell] = 0;
+    }
+    /* Paint goes with the block, or the backwall, it was on. */
+    if (w->paint[0] && (TileType)w->layers[layer][cell] != t) {
+        if (layer == LAYER_FOREGROUND) w->paint[0][cell] = 0;
+        if (layer == LAYER_WALL) w->paint[1][cell] = 0;
     }
     w->layers[layer][cell] = (uint16_t)t;
     if (layer != LAYER_FOREGROUND || !w->water) return;
@@ -864,6 +873,18 @@ TileType world_looks_like(const World *w, int x, int y)
         }
     }
     return ends[0] == ends[1] && ends[0] != TILE_AIR && tile_def(ends[0])->solid ? ends[0] : t;
+}
+
+int world_paint(const World *w, bool wall, int x, int y)
+{
+    if (!world_in_bounds(w, x, y) || !w->paint[wall]) return 0;
+    return w->paint[wall][(size_t)y * w->width + world_wrap_x(w, x)];
+}
+
+void world_set_paint(World *w, bool wall, int x, int y, int tint)
+{
+    if (!world_in_bounds(w, x, y) || !w->paint[wall]) return;
+    w->paint[wall][(size_t)y * w->width + world_wrap_x(w, x)] = (uint8_t)(tint < 0 || tint > 255 ? 0 : tint);
 }
 
 bool world_is_wired(const World *w, int x, int y)

@@ -12,10 +12,10 @@ Everything is treated as an item unless it can actually be put down in the world
 (the "X block" things, benches, and the blocks the game already had). Beds, doors,
 columns, stairs, ladders and the like are items for now.
 
-Totals: 371 items, 379 recipes, 25 kinds of bench.
+Totals: 390 items, 379 recipes, 25 kinds of bench.
 
 ==============================================================================
-1. UNOBTAINABLE ITEMS  (31 of 371)
+1. UNOBTAINABLE ITEMS  (31 of 390)
 ==============================================================================
 The Workbench is made at any portal (1 dirt), so the benches can all be started.
 The list is split in two: what has no source at all (1a), and what has a recipe that
@@ -24,7 +24,7 @@ cannot be completed because of something in 1a (1b).
 Clay is now dug from veins in the dirt, which opens the kiln, and with it charcoal, the
 furnace, bronze and the press.
 
-340 of the 371 items can be got as things stand.
+359 of the 390 items can be got as things stand.
 
 1a. NOTHING MAKES OR GIVES THESE  (12) - the roots: settle these and most of 1b follows
     (after each: what it is wanted for)
@@ -63,20 +63,25 @@ furnace, bronze and the press.
   - Silicon wafer                  Metalwork bench tier 2   needs: Silicon crystal
   - Solar panel                    Workbench tier 4         needs: Silicon wafer
 
-For reference, what CAN be got as things stand (340): 
+For reference, what CAN be got as things stand (359): 
     Acorn, Amethyst, Amethyst block, Amethyst chandelier, Amethyst column
     Amethyst dodo egg, Amethyst pickaxe, Amethyst shard, Amethyst stairs, Apple
     Armor bench, Armor bench II, Armor bench III, Basic torch, Basket, Black glass
     Black glass column, Black glass stairs, Black sand, Black window, Boat, Bread
     Brick column, Brick stairs, Bronze block, Bronze column, Bronze ingot
     Bronze machete, Bronze pickaxe, Bronze stairs, Bronze sword, Builder's bench
-    Cactus, Cage, Camera, Campfire, Carbon black, Carrot, Carrot on a stick
-    Charcoal, Cherry, Chest, Chilli, Clay, Coal, Coconut, Coffee cherry, Compost
-    Compost bin, Cooked dodo meat, Cooked fish, Copper block, Copper blue
-    Copper boiler, Copper bow & arrows, Copper coin, Copper column, Copper dodo egg
-    Copper ingot, Copper ore, Copper stairs, Copper wire, Coral, Craft bench
-    Craft bench II, Craft bench III, Crowbar, Crushed limestone, Cup, Dev portal
-    Diamond, Diamond block, Diamond chandelier, Diamond column, Diamond dodo egg
+    Cactus, Cage, Caged amethyst dodo, Caged copper dodo, Caged diamond dodo
+    Caged dirt dodo, Caged dodo, Caged dropbear, Caged emerald dodo
+    Caged flint dodo, Caged gold dodo, Caged iron dodo, Caged platinum dodo
+    Caged ruby dodo, Caged sapphire dodo, Caged scorpion, Caged stone dodo
+    Caged tin dodo, Caged titanium dodo, Caged wood dodo, Caged yak, Camera
+    Campfire, Carbon black, Carrot, Carrot on a stick, Charcoal, Cherry, Chest
+    Chilli, Clay, Coal, Coconut, Coffee cherry, Compost, Compost bin
+    Cooked dodo meat, Cooked fish, Copper block, Copper blue, Copper boiler
+    Copper bow & arrows, Copper coin, Copper column, Copper dodo egg, Copper ingot
+    Copper ore, Copper stairs, Copper wire, Coral, Craft bench, Craft bench II
+    Craft bench III, Crowbar, Crushed limestone, Cup, Dev portal, Diamond
+    Diamond block, Diamond chandelier, Diamond column, Diamond dodo egg
     Diamond pickaxe, Diamond shard, Diamond stairs, Dirt, Dirt dodo egg
     Display cabinet, Dodo egg, Dodo feather, Dough, Dye bench, Easel, Egg extractor
     Electric elevator motor, Electric furnace, Electric kiln
@@ -148,24 +153,24 @@ teleports; a trade portal trades; a campfire, kiln and furnace also burn fuel).
 An item has a purpose if it is an ingredient, pays for an upgrade, is food, fuel, a
 working tool, a weapon, money, can be planted, or carries something.
 
-3a. DO NOTHING AT ALL  (27)
+3a. DO NOTHING AT ALL  (20)
 
-  Building (13):
-    Black window, Boat, Cup, Display cabinet, Feeder chest, Mirror
-    Reinforced platform, Safe, Shelf, Sign, Soft bed, Window, Wooden gate
+  Building (9):
+    Black window, Boat, Cup, Feeder chest, Mirror, Reinforced platform, Sign, Window
+    Wooden gate
 
   Clothing (1):
     Jetpack
 
-  Materials (9):
-    Cage, Compost, Ember, Green coffee bean, Luminous plaster, Paint, Paint stripper
-    Platinum ore, Titanium ore
+  Materials (6):
+    Compost, Ember, Green coffee bean, Luminous plaster, Platinum ore, Titanium ore
 
   Tools (4):
     Camera, Carrot on a stick, Crowbar, Fishing rod
 
 3b. CAN BE WORN, BUT WEARING THEM DOES NOTHING  (1)
-    (they go in the head / chest / legs / boots slots; there is no armour or warmth yet)
+    (Everything else that is worn - linen, fur, leather, tin, iron, titanium and carbon
+    fiber - stops a share of every attack. These go in a slot and stop none of it.)
     Tin foil hat
 
 3c. TOOLS THAT ARE TOOLS IN NAME ONLY
@@ -207,6 +212,7 @@ has in it: they only exist once a player makes and places them.
   - Diamond chandelier           obtainable
   - Diamond column               obtainable
   - Diamond stairs               obtainable
+  - Display cabinet              obtainable
   - Electric elevator motor      obtainable
   - Elevator shaft               obtainable
   - Emerald block                obtainable
@@ -244,6 +250,7 @@ has in it: they only exist once a player makes and places them.
   - Ruby chandelier              obtainable
   - Ruby column                  obtainable
   - Ruby stairs                  obtainable
+  - Safe                         obtainable
   - Sandstone column             obtainable
   - Sandstone stairs             obtainable
   - Sapphire block               obtainable
@@ -251,6 +258,8 @@ has in it: they only exist once a player makes and places them.
   - Sapphire column              obtainable
   - Sapphire stairs              obtainable
   - Shark head                   obtainable
+  - Shelf                        obtainable
+  - Soft bed                     obtainable
   - Steel block                  obtainable
   - Steel column                 obtainable
   - Steel downlight              obtainable
@@ -269,6 +278,7 @@ has in it: they only exist once a player makes and places them.
   - Wood                         obtainable
   - Wood column                  obtainable
   - Wood stairs                  obtainable
+  - Wooden bed                   obtainable
   - Wooden door                  obtainable
 
   Blocks that ARE generated, for reference:
@@ -335,5 +345,10 @@ dropped or found yet; this is the short list to decide on first.
   - Electricity: solar panels and steam generators make it, flywheels store it, copper wire carries
     it; the electric stove, kiln, furnace, press and metalwork bench make what their fuelled
     kinds make; the elevator motor and shaft make a lift.
+  - Safes hold 16 things like a chest; shelves and display cabinets hold 4 and show them. Beds
+    are two blocks wide and make sleep quicker; a soft bed, and coffee, take energy past full.
+    A cage takes up any creature of the land as a "Caged ..." item, to be let out elsewhere as
+    the player's own. Paint colours a block or a backwall and paint stripper takes it off:
+    100 uses each.
   - The recipe book (pause menu > Recipes) shows all of this in the game, from the same data.
 

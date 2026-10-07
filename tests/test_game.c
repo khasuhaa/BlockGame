@@ -4405,6 +4405,235 @@ static void test_trade_rules(void)
     for (ItemId i = 1; i < content.item_count; i++) content.items[i].price = legacy_price[i];
 }
 
+/* Safes, shelves and cabinets; beds; coffee; cages; paint and what takes it off. */
+static void test_furniture_cages_paint(void)
+{
+    Game g;
+    game_init(&g, 96, 48, 48, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    clear_mobs(&g);
+    g.tick_rate = 0;
+    g.random_events = 0;
+    int s = w->surface_y, ground = s - 1, px = g.player.feet.x;
+    const RulesDef *u = &content.rules;
+
+    /* A safe is a chest of iron: 16 slots. A shelf and a display cabinet hold 4, and show them. */
+    const TileDef *safe = tile_def(tile_id("safe")), *shelf = tile_def(tile_id("shelf")), *cabinet = tile_def(tile_id("display_cabinet"));
+    CHECK(safe->storage_columns * safe->storage_rows == 16 && safe->solid && !safe->shows_contents);
+    CHECK(shelf->storage_columns * shelf->storage_rows == 4 && shelf->shows_contents && shelf->layer == LAYER_BACKGROUND);
+    CHECK(cabinet->storage_columns * cabinet->storage_rows == 4 && cabinet->shows_contents && cabinet->layer == LAYER_BACKGROUND);
+    CHECK(item_def(item_id("safe"))->places == tile_id("safe") && item_def(item_id("safe"))->container_slots == 16);
+    CHECK(item_def(item_id("shelf"))->container_slots == 4 && item_def(item_id("display_cabinet"))->container_slots == 4);
+    CHECK(place_and_open(&g, "shelf", px + 3));
+    uint16_t box = game_open_storage(&g);
+    CHECK(box != 0);
+    inv->containers[box].slots[0] = (ItemStack){ (uint16_t)ITEM_STONE, 3, 0 };
+    game_close_bench(&g);
+    /* Taken down with things on it, it keeps them. */
+    CHECK(game_click_tile(&g, px + 3, ground));
+    game_cancel_actions(&g);
+    CHECK(game_queue_action(&g, ACTION_MINE, px + 3, ground));
+    run(&g, 5.0f);
+    ItemStack *taken = inventory_find(inv, item_id("shelf"));
+    CHECK(taken && taken->container != 0 && inv->containers[taken->container].slots[0].id == ITEM_STONE);
+
+    /* A bed is two blocks wide: it wants two squares side by side on level ground, and comes up from either end as one. */
+    TileType bed = tile_id("wooden_bed"), foot = tile_id("wooden_bed_foot"), soft = tile_id("soft_bed");
+    CHECK(tile_def(bed)->pair == foot && tile_def(foot)->pair_of == bed && tile_def(bed)->sleep_speed == 2.0f && !tile_def(bed)->sleep_over);
+    CHECK(tile_def(soft)->sleep_speed == 3.0f && tile_def(soft)->sleep_over && tile_def(soft)->pair == tile_id("soft_bed_foot"));
+    g.player.feet = g.player.step_to = (TilePos){ px + 9, ground };
+    clear_inventory(&g);
+    inventory_add(inv, item_id("wooden_bed"), 2);
+    inventory_select(inv, 0, -1);
+    world_set(w, px + 12, s, TILE_AIR); /* (a hole where its foot would rest) */
+    CHECK(!game_queue_action(&g, ACTION_PLACE, px + 11, ground));
+    world_set(w, px + 14, ground, TILE_STONE); /* (something in the way of its foot) */
+    CHECK(!game_queue_action(&g, ACTION_PLACE, px + 13, ground));
+    world_set(w, px + 14, ground, TILE_AIR);
+    world_set(w, px + 12, s, TILE_DIRT);
+    CHECK(game_queue_action(&g, ACTION_PLACE, px + 11, ground));
+    run(&g, 5.0f);
+    CHECK(world_get_at(w, BG, px + 11, ground) == bed && world_get_at(w, BG, px + 12, ground) == foot && count_item(&g, item_id("wooden_bed")) == 1);
+    clear_inventory(&g);
+    CHECK(game_queue_action(&g, ACTION_MINE, px + 12, ground)); /* by the foot */
+    run(&g, 5.0f);
+    CHECK(world_get_at(w, BG, px + 11, ground) == TILE_AIR && world_get_at(w, BG, px + 12, ground) == TILE_AIR);
+    CHECK(count_item(&g, item_id("wooden_bed")) + drops_of(&g, item_id("wooden_bed")) == 1);
+    clear_drops(&g);
+
+    /* Sleep: so long from a fifth of a bar on the ground, half that in a bed, a third in a soft one. */
+    int plain = 0, in_bed = 0, in_soft = 0;
+    g.player.feet = g.player.step_to = (TilePos){ px + 20, ground };
+    bool over = true;
+    CHECK(game_sleep_speed(&g, &over) == 1.0f && !over);
+    g.vitals.energy = 0.2f;
+    g.vitals.hunger = 1.0f;
+    CHECK(game_rest(&g, REST_SLEEP));
+    while (g.vitals.rest == REST_SLEEP && plain < 5000) game_tick(&g), plain++;
+    CHECK(g.vitals.energy >= 0.999f && g.vitals.energy <= 1.001f && !game_rest(&g, REST_SLEEP));
+    world_set_at(w, BG, px + 20, ground, bed);
+    world_set_at(w, BG, px + 21, ground, foot);
+    CHECK(game_sleep_speed(&g, &over) == 2.0f && !over);
+    g.vitals.energy = 0.2f;
+    g.vitals.hunger = 1.0f;
+    CHECK(game_rest(&g, REST_SLEEP));
+    while (g.vitals.rest == REST_SLEEP && in_bed < 5000) game_tick(&g), in_bed++;
+    CHECK(g.vitals.energy <= 1.001f && in_bed * 2 >= plain - 4 && in_bed * 2 <= plain + 4);
+    /* (Lying at the foot of it is being in it too.) */
+    g.player.feet = g.player.step_to = (TilePos){ px + 21, ground };
+    CHECK(game_sleep_speed(&g, &over) == 2.0f);
+    /* A soft bed goes on past full: half a bar over, which shows gold and runs down like the rest. */
+    CHECK(u->energy_over == 0.5f);
+    world_set_at(w, BG, px + 20, ground, soft);
+    world_set_at(w, BG, px + 21, ground, tile_id("soft_bed_foot"));
+    g.player.feet = g.player.step_to = (TilePos){ px + 20, ground };
+    CHECK(game_sleep_speed(&g, &over) == 3.0f && over);
+    g.vitals.energy = 0.2f;
+    g.vitals.hunger = 1.0f;
+    CHECK(game_rest(&g, REST_SLEEP));
+    while (g.vitals.rest == REST_SLEEP && in_soft < 5000) game_tick(&g), in_soft++;
+    CHECK(g.vitals.energy > 1.499f && g.vitals.energy < 1.501f && in_soft < plain);
+    CHECK(!game_rest(&g, REST_SLEEP)); /* as full as it gets */
+    g.vitals.energy = 1.0f;
+    CHECK(game_rest(&g, REST_SLEEP)); /* full, but in a soft bed there is further to go */
+    game_wake(&g);
+    g.vitals.energy = 1.5f;
+    g.vitals.hunger = 1.0f;
+    g.vitals.saturation = 100000.0f;
+    int lasted = 0;
+    while (g.vitals.energy > 1.0f && lasted < 100000) game_tick(&g), lasted++;
+    CHECK(lasted > u->energy_ticks / 2 - 5 && lasted < u->energy_ticks / 2 + 5);
+
+    /* Coffee takes it past full as well; other food does not. */
+    ItemId coffee = item_id("coffee_bean");
+    content.items[coffee].energy_over = true; /* (the coffee these tests run with is from before it did) */
+    CHECK(item_def(coffee)->food_energy > 0.0f && !item_def(item_id("apple"))->energy_over);
+    clear_inventory(&g);
+    inventory_add(inv, coffee, 20);
+    inventory_select(inv, 0, -1);
+    g.vitals.energy = 1.0f;
+    g.vitals.hunger = 1.0f;
+    g.vitals.saturation = 100000.0f;
+    CHECK(game_can_eat(&g, coffee) && game_eat(&g) && g.vitals.energy > 1.0f);
+    for (int k = 0; k < 10 && game_can_eat(&g, coffee); k++) game_eat(&g);
+    CHECK(g.vitals.energy > 1.499f && g.vitals.energy < 1.501f && !game_can_eat(&g, coffee) && count_item(&g, coffee) > 10);
+    g.vitals.saturation = 0.0f;
+    g.vitals.energy = 1.0f;
+
+    /* A cage takes up a creature of the land - not of the water - as an item... */
+    int dodo = mob_id("dodo"), fish = mob_id("fish"), caged = 0;
+    for (int m = 0; m < content.mob_count; m++) {
+        const MobDef *def = &content.mobs[m];
+        CHECK(def->swims == (def->caged == ITEM_NONE));
+        if (def->caged == ITEM_NONE) continue;
+        caged++;
+        CHECK(item_def(def->caged)->releases == m && item_def(def->caged)->category >= 0 && strncmp(item_def(def->caged)->label, "Caged ", 6) == 0);
+    }
+    CHECK(caged == content.mob_count - 2 && item_def(item_id("cage"))->cages && item_def(item_id("cage"))->releases < 0);
+    CHECK(item_def(item_id("caged_dropbear"))->releases == mob_id("dropbear") && item_def(item_id("caged_scorpion"))->releases == mob_id("scorpion"));
+    float moves = content.mobs[dodo].move_chance;
+    content.mobs[dodo].move_chance = 0.0f;
+    g.player.feet = g.player.step_to = (TilePos){ px + 30, ground };
+    clear_inventory(&g);
+    inventory_add(inv, item_id("cage"), 2);
+    inventory_select(inv, 0, -1);
+    int bird = mob_spawn(&g, dodo, px + 32, ground, false, false);
+    CHECK(game_click_mob(&g, bird) && g.queue[0].type == ACTION_ATTACK && g.queue[0].arg == HAND_CAGE);
+    run(&g, 5.0f);
+    CHECK(!g.mobs[bird].active && count_mobs(&g) == 0 && count_item(&g, item_id("caged_dodo")) == 1 && count_item(&g, item_id("cage")) == 1);
+    CHECK(drops_of(&g, item_id("dodo_meat")) == 0); /* (taken alive) */
+    int swimmer = mob_spawn(&g, fish, px + 32, ground, true, false);
+    CHECK(game_click_mob(&g, swimmer) && g.queue[0].arg == HAND_HIT);
+    game_cancel_actions(&g);
+    clear_mobs(&g);
+    /* ...to be let out somewhere else, where it is the player's own from then on, and the cage is empty again. */
+    for (int i = 0; i < INVENTORY_SLOTS; i++)
+        if (inv->slots[i].id == item_id("caged_dodo")) inventory_select(inv, i, -1);
+    CHECK(inventory_selected(inv)->id == item_id("caged_dodo"));
+    CHECK(game_click_tile(&g, px + 33, ground) && g.queue[0].type == ACTION_RELEASE);
+    run(&g, 5.0f);
+    CHECK(count_mobs(&g) == 1 && count_item(&g, item_id("caged_dodo")) == 0 && count_item(&g, item_id("cage")) == 2);
+    for (int i = 0; i < MAX_MOBS; i++)
+        if (g.mobs[i].active) CHECK(g.mobs[i].kind == dodo && g.mobs[i].owned && !g.mobs[i].baby && g.mobs[i].x == px + 33 && g.mobs[i].y == ground);
+    /* Not into a block, nor into the air. */
+    inventory_add(inv, item_id("caged_dodo"), 1);
+    for (int i = 0; i < INVENTORY_SLOTS; i++)
+        if (inv->slots[i].id == item_id("caged_dodo")) inventory_select(inv, i, -1);
+    CHECK(!game_queue_action(&g, ACTION_RELEASE, px + 31, ground - 6) && !game_queue_action(&g, ACTION_RELEASE, px + 31, s));
+    content.mobs[dodo].move_chance = moves;
+    clear_mobs(&g);
+
+    /* Paint. (Three colours of it, for these tests.) */
+    static const unsigned char colours[3][3] = { { 200, 40, 40 }, { 40, 80, 200 }, { 240, 220, 60 } };
+    memcpy(content.tints, colours, sizeof colours);
+    content.tint_count = 3;
+    ItemId paint = item_id("paint"), stripper = item_id("paint_stripper");
+    CHECK(item_def(paint)->paints && item_def(paint)->uses == 100 && item_def(paint)->tinted && item_def(stripper)->strips && item_def(stripper)->uses == 100);
+    g.player.feet = g.player.step_to = (TilePos){ px + 40, ground };
+    clear_inventory(&g);
+    ItemStack can = { (uint16_t)paint, 1, 0 };
+    CHECK(inventory_set_meter(inv, &can, 2) && inventory_add_stack(inv, can) == 0);
+    inventory_add(inv, stripper, 1);
+    inventory_select(inv, 0, -1);
+    world_set(w, px + 42, ground, TILE_STONE);
+    /* On a block: the block takes the colour, and the paint is one use the less. */
+    CHECK(world_paint(w, false, px + 42, ground) == 0);
+    CHECK(game_click_tile(&g, px + 42, ground) && g.queue[0].type == ACTION_PAINT);
+    run(&g, 5.0f);
+    CHECK(world_paint(w, false, px + 42, ground) == 2 && world_get(w, px + 42, ground) == TILE_STONE);
+    CHECK(inventory_meter(inv, &inv->slots[0]) == 2 + PAINT_USED && count_item(&g, paint) == 1);
+    /* The same colour again uses nothing. */
+    CHECK(game_click_tile(&g, px + 42, ground));
+    run(&g, 5.0f);
+    CHECK(inventory_meter(inv, &inv->slots[0]) == 2 + PAINT_USED);
+    /* On backwall, where there is no block: the wall takes it. */
+    world_set(w, px + 42, ground - 1, TILE_AIR);
+    world_set_at(w, LAYER_WALL, px + 42, ground - 1, TILE_STONE);
+    CHECK(game_click_tile(&g, px + 42, ground - 1) && g.queue[0].type == ACTION_PAINT);
+    run(&g, 5.0f);
+    CHECK(world_paint(w, true, px + 42, ground - 1) == 2 && world_paint(w, false, px + 42, ground - 1) == 0);
+    CHECK(inventory_meter(inv, &inv->slots[0]) == 2 + 2 * PAINT_USED);
+    /* Thin air takes none: a click there is not a painting. */
+    world_set_at(w, LAYER_WALL, px + 43, ground - 3, TILE_AIR);
+    CHECK(!game_click_tile(&g, px + 43, ground - 3) || g.queue[g.queue_count - 1].type != ACTION_PAINT);
+    game_cancel_actions(&g);
+    /* Kept with the world. */
+    CHECK(save_game(&g, "build/test_paint.world"));
+    Game loaded;
+    CHECK(load_game(&loaded, "build/test_paint.world"));
+    CHECK(world_paint(&loaded.world, false, px + 42, ground) == 2 && world_paint(&loaded.world, true, px + 42, ground - 1) == 2);
+    CHECK(world_paint(&loaded.world, false, px + 41, ground) == 0);
+    game_free(&loaded);
+    /* Stripper takes it off again, and is used the same way: a hundred times, then gone. */
+    inventory_select(inv, 1, -1);
+    CHECK(inventory_meter(inv, &inv->slots[1]) == 100);
+    CHECK(game_click_tile(&g, px + 42, ground) && g.queue[0].type == ACTION_PAINT);
+    run(&g, 5.0f);
+    CHECK(world_paint(w, false, px + 42, ground) == 0 && inventory_meter(inv, &inv->slots[1]) == 99);
+    CHECK(game_click_tile(&g, px + 42, ground)); /* bare already: nothing used */
+    run(&g, 5.0f);
+    CHECK(inventory_meter(inv, &inv->slots[1]) == 99);
+    /* The hundredth use is the last of a can. */
+    inventory_select(inv, 0, -1);
+    inventory_set_meter(inv, &inv->slots[0], 2 + 99 * PAINT_USED);
+    CHECK(game_click_tile(&g, px + 42, ground));
+    run(&g, 5.0f);
+    CHECK(world_paint(w, false, px + 42, ground) == 2 && count_item(&g, paint) == 0);
+    inventory_select(inv, 1, -1);
+    inventory_set_meter(inv, &inv->slots[1], 1);
+    CHECK(game_click_tile(&g, px + 42, ground - 1));
+    run(&g, 5.0f);
+    CHECK(world_paint(w, true, px + 42, ground - 1) == 0 && count_item(&g, stripper) == 0);
+    /* Paint goes with the block it is on. */
+    clear_inventory(&g);
+    CHECK(game_click_tile(&g, px + 42, ground) && g.queue[0].type == ACTION_MINE);
+    run(&g, 5.0f);
+    CHECK(world_get(w, px + 42, ground) == TILE_AIR && world_paint(w, false, px + 42, ground) == 0);
+    content.tint_count = 0;
+    game_free(&g);
+}
+
 static void test_plants(void)
 {
     Game g;
@@ -7558,7 +7787,7 @@ static void test_guide(void)
     n = guide_sources(item_id("tulip_seed"), s, 64);
     CHECK(source_of(s, n, SOURCE_BLOCK, "Tulip") && strstr(source_of(s, n, SOURCE_BLOCK, "Tulip")->where, "Grows wild"));
     /* A drop that only sometimes comes; milk; what hangs in caves. */
-    CHECK(item_def(item_id("bucket"))->milks);
+    CHECK(item_def(item_id("bucket"))->milks && item_def(item_id("coffee_bean"))->energy_over);
     n = guide_sources(item_id("worms"), s, 64);
     CHECK(n == 1 && source_of(s, n, SOURCE_BLOCK, "Dirt") && s[0].chance > 0.09f && s[0].chance < 0.11f);
     n = guide_sources(item_id("milk"), s, 64);
@@ -7841,6 +8070,7 @@ int main(void)
     test_doors_walls_lamps_armor();
     test_power();
     test_trade_rules();
+    test_furniture_cages_paint();
     test_new_trees();
     test_caves();
     test_backwall();

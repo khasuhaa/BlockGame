@@ -86,6 +86,8 @@ typedef enum {
 /* Two-tone things - a flower with a body of one colour and tips of another -
  * carry both colours as one number: a meter on the item, a number kept with
  * the block. Each colour is one of 216: six levels each of red, green, blue. */
+/* A painted thing keeps which colour in the low byte of its meter and how many times it has been used above that. */
+#define PAINT_USED 256
 #define TONE_LEVELS 6
 #define TONE_COLORS (TONE_LEVELS * TONE_LEVELS * TONE_LEVELS)
 #define TONE_MAX (TONE_COLORS * TONE_COLORS)
@@ -164,6 +166,13 @@ typedef struct {
      * attaches can be put up beside another that does, with no block or backwall to hold it. */
     bool attaches;
     bool floats;    /* it can be put up with nothing at all to hold it */
+    bool shows_contents; /* what is kept in it is drawn on it, small: a shelf */
+    /* Two blocks wide: this one is put down with `pair` to the right of it, on
+     * level ground under both, and the two come up as one. (`pair_of` is worked out: the block this is the right half of.) */
+    TileType pair, pair_of;
+    /* A bed: sleeping at it is this many times as quick, and in a soft one goes on past a full bar. */
+    float sleep_speed;
+    bool sleep_over;
     /* Electricity. A generator makes so much a tick while it has what it
      * needs; a battery holds so much; a wire carries it, a block a tick; an
      * electric bench takes so much for each second of what it makes, before
@@ -268,6 +277,7 @@ typedef struct {
     float food;      /* share of the hunger bar eating one fills; 0 if it cannot be eaten */
     float food_health; /* share of the health bar it mends; below 0 for the usual share of `food` */
     float food_energy; /* share of the energy bar it gives back */
+    bool energy_over;  /* what it gives can take the energy bar past full */
     float food_oxygen; /* share of the oxygen bar it gives back */
     /* A meter: a number each single item carries, shown as a bar under it -
      * how much water a bucket holds, how much use a tool has left. Items of
@@ -285,6 +295,13 @@ typedef struct {
     TileType crosses_with, crosses_into;
     bool shears;       /* used on a creature that can be shorn, it shears it and does it no harm */
     bool milks;        /* used on a creature that gives milk, it milks it */
+    bool cages;        /* used on a creature of the land, it takes it up: the item that creature is when caged */
+    int releases;      /* the kind of creature that is in it, to be let out where it is put down; -1 for none */
+    /* Paint and what takes it off. A thing that paints colours the block or
+     * backwall it is used on with the colour it is (see `tinted`); one that
+     * strips takes the colour off. Either is good for so many uses. */
+    bool paints, strips;
+    int uses;
     TileType places_sized[MAX_ITEM_SIZES]; /* for a sized item, the block each size is put down as */
     float armor;       /* worn, the share of an attack it stops; the pieces worn add up */
     int damage;        /* what a blow with it in hand takes off a creature; 0 for no better than a bare hand */
@@ -508,6 +525,7 @@ typedef struct {
     TileType ice;                     /* what water freezes into; TILE_AIR for nothing */
     float freeze_chance, thaw_chance; /* chance a random event on open water freezes it, or on ice thaws it */
     float lift_time; /* seconds a lift takes over each block it goes */
+    float energy_over;  /* how far past full the energy bar can be taken, by a soft bed or by coffee */
     float rush_seconds; /* seconds of crafting that one crystal buys off; 0 for no hurrying */
     int wall_span;   /* a block put up within this many blocks above another has backwall put in between */
 
@@ -621,6 +639,7 @@ typedef struct {
     ItemId shear_item;
     int shear_min, shear_max, shear_ticks;
     char texture_shorn[CONTENT_PATH_LEN]; /* how it looks until then; empty for no different */
+    ItemId caged;       /* what it is as an item once it has been caged; ITEM_NONE for one that cannot be */
     /* A creature that can be milked: what that gives, and how long before it can be again. */
     ItemId milk_item;
     int milk_ticks;

@@ -21,7 +21,7 @@
   "vitals": {
     "hunger_ticks": 3600, "energy_ticks": 1800, "sleep_ticks": 600,
     "health_regen_ticks": 6000, "starve_ticks": 3000, "starve_floor": 0.1,
-    "food_health": 0.1, "saturation_ticks": 3600, "full_margin": 0.02, "rest_speed": 3
+    "food_health": 0.1, "saturation_ticks": 3600, "full_margin": 0.02, "rest_speed": 3, "energy_over": 0.5
   },
   "meditation": {
     "ticks": 900,

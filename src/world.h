@@ -35,6 +35,9 @@ typedef struct {
     /* A number kept with a square, for a block there that is more than its
      * kind says: the two colours of a two-tone flower (see tone_pack). 0 for none. */
     uint16_t *meta;
+    /* Paint: which of content.tints, plus one, the block in the foreground
+     * of each square has been painted, and the backwall of it; 0 for unpainted. */
+    uint8_t *paint[2];
 } World;
 
 /* Allocates the grid and generates terrain from the seed. */
@@ -90,6 +93,9 @@ TileType world_looks_like(const World *w, int x, int y);
  * column) under it, then the block over it, then the one to its left, then
  * its right. MOUNT_NONE if there is nothing. */
 int world_mount(const World *w, int x, int y);
+/* Paint on the block (`wall` false) or the backwall of a square: a tint, plus one; 0 for none. */
+int world_paint(const World *w, bool wall, int x, int y);
+void world_set_paint(World *w, bool wall, int x, int y, int tint);
 /* Electricity. Whether a square has wire in it, in front or behind. */
 bool world_is_wired(const World *w, int x, int y);
 /* Whether a square is part of a lift - shaft or motor - and whether the lift

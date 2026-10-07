@@ -578,6 +578,20 @@ Lamps, torches, gems and the like go on a backwall where there is one, and look 
 
 How a thing looks fixed each way is its `"texture_mount": { "floor", "ceiling", "side" }`; `"hangs": true` makes it a thing that only hangs, and `"supports": true` lets a background block be stood on.
 
+### Furniture
+
+- A **safe** is a chest of iron: 16 slots, opened and carried off the same way.
+- A **shelf** and a **display cabinet** hold 4 things each and go in the background; what is on one is drawn on it, small, so it can be seen from across the room. Taken down, they keep what they hold. (`"shows_contents": true`.)
+- A **bed** is two blocks wide: it needs two squares side by side with level ground under both, and comes up as one bed from either end. Sleeping while standing at a bed is quicker - twice as quick in a **wooden bed**, three times in a **soft bed** - and a soft bed goes on past a full bar: up to half a bar over, which shows gold and then runs down like the rest, so the next sleep is that much further off. **Coffee cherries** take energy past full in the same way. (A bed is a block with `"pair"`, the block that is its other half, and `"bed": { "speed", "over" }`; how far past full is `"energy_over"` in `rules.json`.)
+
+### Cages
+
+A **cage** in hand, a click on any creature of the land takes it up alive: the cage becomes a "Caged dodo", "Caged dropbear", "Caged scorpion", "Caged yak" or whichever it was. With that in hand, a click on open ground lets the creature out there - grown, and the player's own from then on, so it never wanders off for good - and gives the empty cage back. Creatures of the water cannot be caged. (A creature's `"caged"` names the item it becomes.)
+
+### Paint
+
+**Paint** in hand, a click on a block colours it the paint's colour; on a square with no block but a backwall, it colours the backwall. **Paint stripper** takes the colour off again. Each can is good for 100 uses - the dark part of a paint's swatch, and a stripper's bar, show how much is gone - and painting something the colour it already is, or stripping what is bare, uses none. Paint is kept with the world, and goes when the block or backwall it is on does.
+
 ### Columns and stairs
 
 Every **column** and every flight of **stairs** from the builder's bench is put down in the background layer, in the 27 materials they are made in. Neither is solid: both are walked straight past.

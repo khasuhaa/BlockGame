@@ -55,7 +55,9 @@ typedef enum {
     ACTION_USE,  /* walk up to the bench on the target tile, then open it */
     ACTION_COLLECT, /* walk up to a dropped item, then pick it up */
     ACTION_ATTACK,  /* go after a creature, and kill it */
-    ACTION_BUCKET   /* go within reach of a tile, then scoop its water up or pour some out */
+    ACTION_BUCKET,  /* go within reach of a tile, then scoop its water up or pour some out */
+    ACTION_PAINT,   /* go within reach of a tile, then paint its block or backwall, or strip the paint off */
+    ACTION_RELEASE  /* walk next to the target tile, then let out there the creature in the item held */
 } ActionType;
 
 /* What can be done at an open bench or trade block. Its menu can be looked
@@ -75,7 +77,8 @@ typedef enum {
 enum {
     HAND_HIT = 0,
     HAND_SHEAR,
-    HAND_MILK
+    HAND_MILK,
+    HAND_CAGE
 };
 
 typedef struct {
@@ -551,6 +554,8 @@ int game_sky_floor(const Game *g, int x, bool water);
 float game_protection(const Game *g);
 /* An attack on the player: as game_hurt, less what their armor stops. */
 void game_attacked(Game *g, float amount);
+/* How quick sleep is where the character is: more than 1 in a bed; and whether it can go on past a full bar there. */
+float game_sleep_speed(const Game *g, bool *over);
 /* Poisons the player for so many ticks: each takes a little health. A
  * second dose does not add to the first, it only makes it last as long. */
 void game_poison(Game *g, int ticks);

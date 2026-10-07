@@ -302,6 +302,11 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->attaches = flag(e, "attaches", t->steps);
         t->supports = flag(e, "supports", false);
         t->floats = flag(e, "floats", false);
+        t->shows_contents = flag(e, "shows_contents", false);
+        t->pair = t->pair_of = TILE_AIR;
+        if (!tile_ref(r, e, "pair", &t->pair)) return false;
+        t->sleep_speed = (float)num(field(e, "bed"), "speed", 0.0);
+        t->sleep_over = flag(field(e, "bed"), "over", false);
         const cJSON *gen = field(e, "generator");
         const char *needs = str(gen, "needs");
         t->gen_power = (int)num(gen, "power", 0);
@@ -490,6 +495,7 @@ static bool read_items(Reader *r, const cJSON *root)
         it->food = cJSON_IsNumber(food) ? (float)food->valuedouble : (float)num(food, "hunger", 0.0);
         it->food_health = (float)num(food, "health", -1.0);
         it->food_energy = (float)num(food, "energy", 0.0);
+        it->energy_over = flag(food, "energy_over", false);
         it->food_oxygen = (float)num(food, "oxygen", 0.0);
         if (it->food < 0.0f || it->food > 1.0f)
             return fail(r, "item \"%s\": \"food\" is a share of the hunger bar, 0 to 1", it->name);
@@ -547,6 +553,18 @@ static bool read_items(Reader *r, const cJSON *root)
             return fail(r, "item \"%s\": \"crosses\" needs both \"with\" and \"into\"", it->name);
         it->shears = flag(e, "shears", false);
         it->milks = flag(e, "milks", false);
+        it->cages = flag(e, "cages", false);
+        it->releases = -1;
+        it->paints = flag(e, "paints", false);
+        it->strips = flag(e, "strips", false);
+        it->uses = (int)num(e, "uses", 0);
+        if ((it->paints || it->strips) && (it->uses < 1 || it->uses > 120))
+            return fail(r, "item \"%s\": something that paints or strips needs \"uses\", 1 to 120", it->name);
+        if (it->paints) it->meter_max = MAX_TINTS + PAINT_USED * it->uses;
+        if (it->strips) {
+            it->meter_max = it->uses;
+            it->meter_start = it->uses;
+        }
         it->places = TILE_AIR;
         it->sized = false;
         /* "places" is one block, or a list of them: the block for each size of a sized thing. */
@@ -970,6 +988,7 @@ static bool read_rules(Reader *r, const cJSON *root)
     }
     if (field(root, "building")) u->wall_span = (int)num(field(root, "building"), "wall_span", u->wall_span);
     if (field(root, "power")) u->lift_time = (float)num(field(root, "power"), "lift_time", u->lift_time);
+    if (field(root, "vitals")) u->energy_over = (float)num(field(root, "vitals"), "energy_over", u->energy_over);
     if (field(root, "crafting")) u->rush_seconds = (float)num(field(root, "crafting"), "rush_seconds_per_crystal", u->rush_seconds);
     if (player) {
         u->walk_time = (float)num(player, "walk_time", u->walk_time);
@@ -1130,6 +1149,7 @@ static bool read_mobs(Reader *r, const cJSON *root)
             if (m->spawn_above_count < MAX_MOB_SPAWN_TILES) m->spawn_above[m->spawn_above_count++] = t;
         }
         m->cap = (int)num(e, "cap", 0);
+        if (str(e, "caged") && !item_ref(r, e, "caged", &m->caged)) return false;
         m->health = (int)num(e, "health", 1);
         m->size_min = m->size_max = 1;
         pair(e, "size", &m->size_min, &m->size_max);
@@ -1359,6 +1379,13 @@ static bool validate(Reader *r)
         return fail(r, "worldgen has a bad \"gap\" or spawn \"column\" range");
     if (u->tick_rate < 1 || u->day_ticks < 1 || u->night_ticks < 1 || u->chunk_width < 1)
         return fail(r, "rules need a tick rate, day and night length and chunk width");
+    /* Things that come in two halves, and things with a creature in them: each side told of the other. */
+    for (TileType t = 1; t < content.tile_count; t++) content.tiles[t].pair_of = TILE_AIR;
+    for (TileType t = 1; t < content.tile_count; t++)
+        if (content.tiles[t].pair > TILE_AIR && content.tiles[t].pair < content.tile_count) content.tiles[content.tiles[t].pair].pair_of = t;
+    for (ItemId i = 1; i < content.item_count; i++) content.items[i].releases = -1;
+    for (int m = 0; m < content.mob_count; m++)
+        if (content.mobs[m].caged > ITEM_NONE && content.mobs[m].caged < content.item_count) content.items[content.mobs[m].caged].releases = m;
     /* What water freezes into is named in the rules, and found now that the blocks are known. */
     content.rules.ice = u->ice_name[0] ? tile_id(u->ice_name) : TILE_AIR;
     if (u->ice < 0) return fail(r, "the weather names a block of \"ice\" that does not exist: \"%s\"", u->ice_name);

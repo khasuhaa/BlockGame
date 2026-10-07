@@ -555,12 +555,24 @@ static void draw_world(const Game *g, Vector2 origin)
             TileType t = world_get(w, x, y), behind = world_get_at(w, LAYER_BACKGROUND, x, y);
             int wx = world_wrap_x(w, x);
             float px = origin.x + (float)(x * TILE_SIZE), py = origin.y + (float)(y * TILE_SIZE);
+            /* (Paint is a wash of its colour over the backwall or the block it is on, as bright as that is lit.) */
+            int wall_paint = world_paint(w, true, x, y), block_paint = world_paint(w, false, x, y);
             if (!tile_def(t)->solid) {
                 assets_draw_tile(world_get_at(w, LAYER_WALL, x, y), wx, y, px, py, TILE_SIZE, WALL_DIM,
                                  TILE_PART_BODY);
+                if (wall_paint > 0 && wall_paint <= content.tint_count && world_get_at(w, LAYER_WALL, x, y) != TILE_AIR) {
+                    const unsigned char *c = content.tints[wall_paint - 1];
+                    float lit = 1.0f - WALL_DIM;
+                    DrawRectangleRec((Rectangle){ px, py, TILE_SIZE, TILE_SIZE },
+                                     (Color){ (unsigned char)(c[0] * lit), (unsigned char)(c[1] * lit), (unsigned char)(c[2] * lit), 170 });
+                }
                 if (!tile_def(behind)->front) draw_block(g, LAYER_BACKGROUND, behind, x, y, px, py, BACKGROUND_DIM);
             }
             if (!tile_def(t)->front) draw_block(g, LAYER_FOREGROUND, t, x, y, px, py, 0.0f);
+            if (block_paint > 0 && block_paint <= content.tint_count && tile_def(t)->solid) {
+                const unsigned char *c = content.tints[block_paint - 1];
+                DrawRectangleRec((Rectangle){ px, py, TILE_SIZE, TILE_SIZE }, (Color){ c[0], c[1], c[2], 170 });
+            }
             int wet = world_water(w, x, y);
             if (wet > 0) {
                 /* Water tints what is in it. A square with water over it is
@@ -574,6 +586,21 @@ static void draw_world(const Game *g, Vector2 origin)
                 if (top) DrawRectangleRec((Rectangle){ px, py + TILE_SIZE - depth, TILE_SIZE, 3 }, Fade(WHITE, 0.35f));
             }
         }
+    }
+    /* Shelves and cabinets: what is kept in each, drawn small on it, four to a block. */
+    for (int i = 0; i < MAX_STORAGES; i++) {
+        const Storage *st = &g->storages[i];
+        if (!st->used || st->container == 0 || st->y < y0 || st->y > y1) continue;
+        const TileDef *def = tile_def(world_get(w, st->x, st->y));
+        if (!def->shows_contents) def = tile_def(world_get_at(w, LAYER_BACKGROUND, st->x, st->y));
+        if (!def->shows_contents) continue;
+        float bx = origin.x + ((float)x0 + (float)world_dx(w, world_wrap_x(w, x0), st->x)) * TILE_SIZE, by = origin.y + (float)st->y * TILE_SIZE;
+        if (bx < origin.x + (float)(x0 - 1) * TILE_SIZE || bx > origin.x + (float)(x1 + 1) * TILE_SIZE) continue;
+        const ItemStack *kept = g->inventory.containers[st->container].slots;
+        float half = TILE_SIZE / 2.0f;
+        for (int k = 0; k < 4; k++)
+            if (kept[k].count > 0)
+                hud_draw_item_icon((ItemId)kept[k].id, (Rectangle){ bx + (float)(k % 2) * half + 1, by + (float)(k / 2) * half + 1, half - 2, half - 2 });
     }
     /* Electricity: how full each battery is, as a bar over it; and what is
      * on its way along the wires, as sparks running down them. */

@@ -34,6 +34,10 @@
     {
       "name": "building",
       "label": "Building"
+    },
+    {
+      "name": "animals",
+      "label": "Animals"
     }
   ],
   "currencies": [

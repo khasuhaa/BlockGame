@@ -119,7 +119,9 @@ static int button_at(Vector2 m)
 
 static bool can_sleep(const Game *g)
 {
-    return g->vitals.rest == REST_SLEEP || !game_bar_full(g->vitals.energy);
+    bool over = false;
+    game_sleep_speed(g, &over);
+    return g->vitals.rest == REST_SLEEP || !game_bar_full(g->vitals.energy) || (over && g->vitals.energy < 1.0f + content.rules.energy_over);
 }
 
 bool playerui_mouse_over(const PlayerUi *ui)
@@ -321,7 +323,8 @@ void playerui_draw(const PlayerUi *ui, const Game *g)
     if (v->health <= 0.0f || v->death < 1.0f) draw_row(p, 0, "Dying", v->death, BAR_RED);
     else draw_row(p, 0, v->poison > 0 ? "Poisoned" : "Health", v->health, v->poison > 0 ? BAR_POISON : BAR_GREEN);
     draw_row(p, 1, "Hunger", v->hunger, game_saturated(g) ? BAR_GOLD : BAR_GREEN);
-    draw_row(p, 2, "Energy", v->energy, BAR_GREEN);
+    /* (Past full - from a soft bed, or coffee - it shows gold until it has run back down to full.) */
+    draw_row(p, 2, "Energy", v->energy > 1.0f ? 1.0f : v->energy, v->energy > 1.0f ? BAR_GOLD : BAR_GREEN);
     draw_row(p, 3, "Oxygen", v->oxygen, BAR_BLUE);
     draw_action(action_rect(0), v->rest == REST_SLEEP ? "Wake up" : "Sleep", can_sleep(g), v->rest == REST_SLEEP);
     draw_action(action_rect(1), v->rest == REST_MEDITATE ? "Stop" : "Meditate", true, v->rest == REST_MEDITATE);
