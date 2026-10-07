@@ -236,37 +236,128 @@ static void place_veins(World *w, const int *level, uint32_t *rng)
 
 /* ---- islands in the sky ------------------------------------------------ */
 
-/* Scatters islands through the sky: each a wedge, widest at its top and
- * narrowing to a point underneath, of the base rock under a few blocks of
- * soil and a surface. One goes only where there is nothing but air for it
- * and for a tree on top of it, and never over the spawn. */
+/* Scatters islands through the sky: each a ragged wedge, widest at its top
+ * and narrowing to a point underneath, of the base rock under soil and a
+ * surface. Its top rises and falls, its underside juts, and the soil runs
+ * deeper in some places than others, so nothing about it is a straight line;
+ * and a cave winds through the rock of it from one end to the other, open to
+ * the sky underneath at both. One goes only where there is nothing but air
+ * for it and for a tree on top of it, and never over the spawn. */
 static void place_islands(World *w, uint32_t *rng)
 {
     const WorldGenDef *gen = &content.worldgen;
     if (gen->island_rate <= 0.0f || gen->island_base == TILE_AIR) return;
     float wanted = gen->island_rate * (float)w->width / 100.0f;
     int attempts = (int)wanted + (rng_unit(rng) < wanted - floorf(wanted) ? 1 : 0);
+    int jag = gen->island_jag;
+    int *tops = malloc(sizeof(int) * 3 * (size_t)(gen->island_max_length + 1));
+    if (!tops) return;
+    int *rock = tops + gen->island_max_length + 1, *ends = rock + gen->island_max_length + 1;
     for (int i = 0; i < attempts; i++) {
         int length = rng_range(rng, gen->island_min_length, gen->island_max_length);
         int depth = rng_range(rng, gen->island_min_depth, gen->island_max_depth);
         int soil = rng_range(rng, gen->island_min_soil, gen->island_max_soil);
         int x0 = rng_range(rng, 0, w->width - 1);
         /* (Its lowest point is no lower than islands go: so its top is that much higher.) */
-        int lowest = gen->island_min_y + depth, highest = gen->island_max_y > lowest ? gen->island_max_y : lowest;
+        int lowest = gen->island_min_y + depth + jag, highest = gen->island_max_y > lowest ? gen->island_max_y : lowest;
         int top_y = rng_range(rng, lowest, highest), top = world_y_to_row(w, top_y);
-        if (top - 14 < 0 || top + depth + 3 >= w->height) continue;
+        if (top - 14 - jag < 0 || top + depth + jag + 3 >= w->height) continue;
         bool clear = abs(world_dx(w, w->spawn_x, x0 + length / 2)) > length + 16;
         for (int dx = -3; clear && dx < length + 3; dx++)
-            for (int y = top - 14; clear && y <= top + depth + 3; y++)
+            for (int y = top - 14 - jag; clear && y <= top + depth + jag + 3; y++)
                 clear = world_get(w, x0 + dx, y) == TILE_AIR && world_get_at(w, LAYER_BACKGROUND, x0 + dx, y) == TILE_AIR;
         if (!clear) continue;
+        int rise = jag > 0 ? rng_range(rng, 0, jag) : 0, soil_here = soil;
+        float full = 0.72f + 0.28f * rng_unit(rng);
         for (int dx = 0; dx < length; dx++) {
             float across = ((float)dx + 0.5f) / (float)length, in = 1.0f - fabsf(2.0f * across - 1.0f);
-            int deep = (int)floorf((float)depth * powf(in, 0.85f) + (rng_unit(rng) - 0.5f) * 1.6f + 0.5f);
+            int deep;
+            if (jag > 0) {
+                /* The top wanders a row at a time; the soil thickens and thins; the underside is all juts. */
+                rise += rng_range(rng, -1, 1);
+                if (rise < 0) rise = 0;
+                if (rise > jag) rise = jag;
+                soil_here += rng_range(rng, -1, 1);
+                if (soil_here < 1) soil_here = 1;
+                if (soil_here > gen->island_max_soil + 1) soil_here = gen->island_max_soil + 1;
+                /* (How full the wedge is drifts from column to column, so the underside bulges and
+                 * pinches rather than bristling; and here and there a spur of rock hangs down from it.) */
+                full += (rng_unit(rng) - 0.5f) * 0.22f;
+                if (full < 0.72f) full = 0.72f;
+                if (full > 1.0f) full = 1.0f;
+                deep = (int)floorf((float)depth * powf(in, 0.6f) * full + 0.5f);
+                if (rng_unit(rng) < 0.18f) deep += rng_range(rng, 1, jag);
+                /* (Thick enough through the middle for the cave.) */
+                if (in > 0.5f && deep < soil_here + 5) deep = soil_here + 5;
+                if (deep > depth + jag) deep = depth + jag;
+            } else {
+                deep = (int)floorf((float)depth * powf(in, 0.85f) + (rng_unit(rng) - 0.5f) * 1.6f + 0.5f);
+                if (deep > depth) deep = depth;
+            }
             if (deep < 1) deep = 1;
-            if (deep > depth) deep = depth;
-            for (int k = 0; k < deep; k++)
-                world_set(w, x0 + dx, top + k, k == 0 ? gen->island_surface : k <= soil ? gen->island_soil : gen->island_base);
+            int first = top - rise, last = top + deep - 1;
+            for (int y = first; y <= last; y++)
+                world_set(w, x0 + dx, y, y == first ? gen->island_surface : y - first <= soil_here ? gen->island_soil : gen->island_base);
+            tops[dx] = first;
+            rock[dx] = first + soil_here + 1; /* the first row of rock, if there is any */
+            ends[dx] = last;
+        }
+        /* The cave: along the rock, under a roof of it and over a floor of it, from where the rock is
+         * first thick enough for one to where it last is - the rock at each end is left whole, and
+         * holds the floor up - with a way down and out through the floor somewhere along it. */
+        if (gen->island_max_cave > 0) {
+            int from = -1, to = -1;
+            for (int dx = 0; dx < length; dx++) {
+                if (ends[dx] - rock[dx] + 1 < 3) continue;
+                if (from < 0) from = dx;
+                to = dx;
+            }
+            int cy = from >= 0 ? (rock[from] + ends[from]) / 2 : 0;
+            int mouth = to - from > 2 ? rng_range(rng, from + 1, to - 1) : -1;
+            for (int dx = from + 1; from >= 0 && dx < to; dx++) {
+                /* (No lower than leaves a floor under it that joins the floor on either side.) */
+                int floor_at = ends[dx];
+                if (ends[dx - 1] < floor_at) floor_at = ends[dx - 1];
+                if (ends[dx + 1] < floor_at) floor_at = ends[dx + 1];
+                if (floor_at - rock[dx] < 2) continue;
+                int high = rng_range(rng, gen->island_min_cave > 1 ? gen->island_min_cave : 1, gen->island_max_cave);
+                int middle = (rock[dx] + floor_at) / 2;
+                cy += (middle > cy) - (middle < cy) + (rng_unit(rng) < 0.4f ? rng_range(rng, -1, 1) : 0);
+                if (cy < rock[dx] + 1) cy = rock[dx] + 1;
+                if (cy > floor_at - 1) cy = floor_at - 1;
+                for (int y = cy - (high - 1) / 2; y <= (dx == mouth ? ends[dx] : cy + high / 2); y++) {
+                    if (y <= rock[dx] || (dx != mouth && y >= floor_at)) continue;
+                    if (world_get(w, x0 + dx, y) == gen->island_base) world_set(w, x0 + dx, y, TILE_AIR);
+                }
+            }
+        }
+        /* Whatever the cave has cut loose from the rest - rock hanging in the air by itself - goes. */
+        if (gen->island_max_cave > 0) {
+            int rows = depth + 2 * jag + 2, first_row = top - jag;
+            uint8_t *held = calloc((size_t)length, (size_t)rows);
+            int *todo = malloc(sizeof(int) * (size_t)length * (size_t)rows);
+            int n = 0;
+            for (int dx = 0; held && todo && dx < length; dx++) {
+                held[(tops[dx] - first_row) * length + dx] = 1;
+                todo[n++] = (tops[dx] - first_row) * length + dx;
+            }
+            while (held && todo && n > 0) {
+                static const int beside[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
+                int at = todo[--n], ax = at % length, ay = at / length;
+                for (int d = 0; d < 4; d++) {
+                    int nx = ax + beside[d][0], ny = ay + beside[d][1];
+                    if (nx < 0 || nx >= length || ny < 0 || ny >= rows || held[ny * length + nx]) continue;
+                    if (world_get(w, x0 + nx, first_row + ny) == TILE_AIR) continue;
+                    held[ny * length + nx] = 1;
+                    todo[n++] = ny * length + nx;
+                }
+            }
+            for (int ry = 0; held && todo && ry < rows; ry++)
+                for (int dx = 0; dx < length; dx++)
+                    if (!held[ry * length + dx] && world_get(w, x0 + dx, first_row + ry) != TILE_AIR)
+                        world_set(w, x0 + dx, first_row + ry, TILE_AIR);
+            free(held);
+            free(todo);
         }
         /* A tree on some: one of the kinds that grow at this height, the commoner the likelier. */
         if (gen->island_tree_count == 0 || rng_unit(rng) >= gen->island_tree_chance) continue;
@@ -280,11 +371,12 @@ static void place_islands(World *w, uint32_t *rng)
             roll -= gen->island_trees[k].weight;
             if (roll < 0) kind = gen->island_trees[k].tree;
         }
-        int tx = world_wrap_x(w, x0 + length / 2 + rng_range(rng, -2, 2));
-        if (kind < 0 || world_get(w, tx, top) != gen->island_surface) continue;
-        tree_plant(w, tx, top - 1, kind);
-        for (int steps = 0; steps < 400 && tree_grow(w, tx, top - 1, rng).grew; steps++) {}
+        int at = length / 2 + rng_range(rng, -2, 2), tx = world_wrap_x(w, x0 + at);
+        if (kind < 0 || at < 0 || at >= length || world_get(w, tx, tops[at]) != gen->island_surface) continue;
+        tree_plant(w, tx, tops[at] - 1, kind);
+        for (int steps = 0; steps < 400 && tree_grow(w, tx, tops[at] - 1, rng).grew; steps++) {}
     }
+    free(tops);
 }
 
 /* ---- backwalls and caves ------------------------------------------------ */

@@ -126,7 +126,7 @@
 
   "islands": {
     "per_100_columns": 0.8, "height": [80, 185], "length": [15, 30], "depth": [10, 15],
-    "surface": "grass", "soil": "dirt", "soil_depth": [2, 3], "base": "marble",
+    "surface": "grass", "soil": "dirt", "soil_depth": [2, 3], "base": "marble", "jag": 3, "cave": [1, 2],
     "tree_chance": 0.5,
     "trees": [
       { "tree": "amethyst_tree", "weight": 16, "above": 80 }, { "tree": "sapphire_tree", "weight": 8, "above": 105 },

@@ -5183,16 +5183,21 @@ static void test_islands_and_options(void)
         for (ItemId i = 1; i < content.item_count; i++) CHECK(content.items[i].plants != kind[k]);
     }
 
+    CHECK(gen->island_jag == 3 && gen->island_min_cave == 1 && gen->island_max_cave == 2);
     int islands = 0, low = 0, bad_shape = 0, trees[5] = { 0 }, too_low_tree = 0, with_wall = 0, over_spawn = 0;
+    int flat_topped = 0, level_soil = 0, solid_rock = 0, smooth_under = 0;
     for (uint32_t seed = 1; seed <= 6; seed++) {
         World w;
         CHECK(world_init(&w, 2048, 401, seed, WORLD_TERRAIN));
         TileType marble = tile_id("marble");
+        /* The ground: where the backwalls begin. Anything solid above that is part of an island. */
+        int *land = malloc(sizeof(int) * (size_t)w.width);
+        uint8_t *seen = calloc((size_t)w.width, (size_t)w.height);
+        int *stack = malloc(sizeof(int) * (size_t)w.width * 64);
         for (int x = 0; x < w.width; x++) {
-            /* The ground: where the backwalls begin. Anything solid above that is an island. */
-            int land = 0;
-            while (land < w.height && world_get_at(&w, LAYER_WALL, x, land) == TILE_AIR) land++;
-            for (int y = 0; y < land; y++) {
+            land[x] = 0;
+            while (land[x] < w.height && world_get_at(&w, LAYER_WALL, x, land[x]) == TILE_AIR) land[x]++;
+            for (int y = 0; y < land[x]; y++) {
                 TileType t = world_get_at(&w, BG, x, y);
                 for (int k = 0; k < 5; k++) {
                     if (t != content.trees[kind[k]].log) continue;
@@ -5200,44 +5205,85 @@ static void test_islands_and_options(void)
                     if (world_row_to_y(&w, y) < gen->island_trees[k].min_y) too_low_tree++;
                 }
             }
-            /* (One island may hang over another: each run of blocks down a column is looked at by itself.) */
-            for (int top = 0; top < land; top++) {
-                if (!world_is_solid(&w, x, top) || world_is_solid(&w, x, top - 1)) continue;
-                int bottom = top;
-                while (world_is_solid(&w, x, bottom + 1)) bottom++;
-                for (int y = top; y <= bottom; y++)
-                    if (world_get_at(&w, LAYER_WALL, x, y) != TILE_AIR) with_wall++;
-                if (abs(world_dx(&w, w.spawn_x, x)) < 10) over_spawn++;
-                /* Nothing of it below 80; grass on top, 2 or 3 of dirt, then marble. */
-                if (world_row_to_y(&w, bottom) < gen->island_min_y) low++;
-                if (world_get(&w, x, top) != TILE_GRASS) bad_shape++;
-                int dirt = 0;
-                for (int y = top + 1; y <= bottom; y++) {
-                    TileType t = world_get(&w, x, y);
-                    if (t == TILE_DIRT) dirt++;
-                    else if (t != marble) bad_shape++;
-                    if (t == TILE_DIRT && y > top + 3) bad_shape++;
+        }
+        /* Each island: everything solid that hangs together, corner to corner. */
+        for (int x = 0; x < w.width; x++) {
+            for (int y = 0; y < land[x]; y++) {
+                if (!world_is_solid(&w, x, y) || seen[(size_t)y * w.width + x]) continue;
+                int n = 0, left = 0, right = 0, top_row = y, bottom_row = y;
+                stack[n++] = y * w.width + x;
+                seen[(size_t)y * w.width + x] = 1;
+                /* (Columns are counted from where it was first met, so one across the seam of the world is all of a piece.) */
+                static int col_top[128], col_soil[128], col_end[128];
+                for (int k = 0; k < 128; k++) col_top[k] = col_soil[k] = col_end[k] = -1;
+                bool cave = false;
+                while (n > 0) {
+                    int at = stack[--n], ax = at % w.width, ay = at / w.width, off = world_dx(&w, x, ax);
+                    if (off < left) left = off;
+                    if (off > right) right = off;
+                    if (ay < top_row) top_row = ay;
+                    if (ay > bottom_row) bottom_row = ay;
+                    TileType t = world_get(&w, ax, ay);
+                    if (world_get_at(&w, LAYER_WALL, ax, ay) != TILE_AIR) with_wall++;
+                    if (abs(world_dx(&w, w.spawn_x, ax)) < 10) over_spawn++;
+                    if (world_row_to_y(&w, ay) < gen->island_min_y) low++;
+                    /* Grass, dirt and marble and nothing else; grass only on top, and marble never over dirt. */
+                    if (t != TILE_GRASS && t != TILE_DIRT && t != marble) bad_shape++;
+                    if (t == TILE_GRASS && world_is_solid(&w, ax, ay - 1)) bad_shape++;
+                    if (t == TILE_DIRT && world_get(&w, ax, ay - 1) == marble) bad_shape++;
+                    int c = off + 64;
+                    if (c >= 0 && c < 128) {
+                        if (col_top[c] < 0 || ay < col_top[c]) col_top[c] = ay;
+                        if (ay > col_end[c]) col_end[c] = ay;
+                        if (t == TILE_DIRT && ay > col_soil[c]) col_soil[c] = ay;
+                    } else {
+                        bad_shape++;
+                    }
+                    /* A cave: open space with the rock of the island over it and under it. */
+                    if (t == marble && world_get(&w, ax, ay + 1) == TILE_AIR) {
+                        int under = ay + 1;
+                        while (under < land[ax] && world_get(&w, ax, under) == TILE_AIR) under++;
+                        if (under < land[ax] && world_get(&w, ax, under) == marble && under - ay <= 4) cave = true;
+                    }
+                    for (int dy = -1; dy <= 1; dy++) {
+                        for (int dx = -1; dx <= 1; dx++) {
+                            int nx = world_wrap_x(&w, ax + dx), ny = ay + dy;
+                            if (ny < 0 || ny >= land[nx] || !world_is_solid(&w, nx, ny) || seen[(size_t)ny * w.width + nx]) continue;
+                            seen[(size_t)ny * w.width + nx] = 1;
+                            stack[n++] = ny * w.width + nx;
+                        }
+                    }
                 }
-                if (dirt > 3 || bottom - top + 1 > gen->island_max_depth) bad_shape++;
-                /* (The left end of one: it is counted, and measured.) */
-                if (world_is_solid(&w, x - 1, top)) continue;
                 islands++;
-                int length = 0, deepest = 0, deepest_at = 0;
-                for (; world_is_solid(&w, x + length, top); length++) {
-                    int b2 = top;
-                    while (world_is_solid(&w, x + length, b2 + 1)) b2++;
-                    if (world_is_solid(&w, x + length, top - 1)) bad_shape++; /* flat on top */
-                    if (b2 - top + 1 > deepest) deepest = b2 - top + 1, deepest_at = length;
-                }
+                int length = right - left + 1;
                 if (length < gen->island_min_length || length > gen->island_max_length) bad_shape++;
-                /* A wedge: deepest about the middle, shallow at the ends. */
-                if (deepest < gen->island_min_depth - 2 || deepest_at < length / 4 || deepest_at > length * 3 / 4) bad_shape++;
-                top = bottom;
+                if (bottom_row - top_row + 1 > gen->island_max_depth + 2 * gen->island_jag) bad_shape++;
+                /* Nothing about it is a straight line: not its top, not where the soil meets the rock, not its underside. */
+                bool flat = true, level = true;
+                int first_top = -1, first_soil = -1, steps_under = 0, last_end = -1;
+                for (int c = 0; c < 128; c++) {
+                    if (col_top[c] < 0) continue;
+                    if (first_top < 0) first_top = col_top[c];
+                    if (col_top[c] != first_top) flat = false;
+                    if (col_soil[c] >= 0 && first_soil < 0) first_soil = col_soil[c];
+                    if (col_soil[c] >= 0 && col_soil[c] != first_soil) level = false;
+                    if (last_end >= 0 && abs(col_end[c] - last_end) >= 2) steps_under++;
+                    last_end = col_end[c];
+                }
+                flat_topped += flat;
+                level_soil += level;
+                solid_rock += !cave;
+                smooth_under += steps_under < 2;
             }
         }
+        free(land);
+        free(seen);
+        free(stack);
         world_free(&w);
     }
     CHECK(islands > 40 && low == 0 && bad_shape == 0 && with_wall == 0 && over_spawn == 0);
+    /* Every one has a cave through it; and none - or as good as none - has a flat top, a level bed of soil or a smooth underside. */
+    CHECK(solid_rock == 0 && flat_topped * 20 <= islands && level_soil * 20 <= islands && smooth_under * 20 <= islands);
     CHECK(trees[0] > 0 && trees[1] > 0 && trees[0] >= trees[3] && too_low_tree == 0);
     content.worldgen.island_rate = off;
 

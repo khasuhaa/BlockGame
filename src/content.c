@@ -977,6 +977,11 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         pair(isles, "length", &g->island_min_length, &g->island_max_length);
         pair(isles, "depth", &g->island_min_depth, &g->island_max_depth);
         pair(isles, "soil_depth", &g->island_min_soil, &g->island_max_soil);
+        g->island_jag = (int)num(isles, "jag", 0);
+        g->island_min_cave = g->island_max_cave = 0;
+        pair(isles, "cave", &g->island_min_cave, &g->island_max_cave);
+        if (g->island_jag < 0 || g->island_jag > 8 || g->island_min_cave < 0 || g->island_max_cave < g->island_min_cave)
+            return fail(r, "\"islands\": \"jag\" is 0 to 8, and \"cave\" a least and a most height");
         if (!tile_ref(r, isles, "surface", &g->island_surface) || !tile_ref(r, isles, "soil", &g->island_soil) ||
             !tile_ref(r, isles, "base", &g->island_base))
             return false;

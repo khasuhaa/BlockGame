@@ -524,6 +524,10 @@ typedef struct {
     int island_min_y, island_max_y;
     int island_min_length, island_max_length, island_min_depth, island_max_depth;
     int island_min_soil, island_max_soil;
+    /* How ragged they are: how many rows the top of one rises and falls by
+     * along its length, and its underside juts by; 0 for a smooth wedge. And
+     * how tall the cave through the base rock of each is, least and most; 0 for none. */
+    int island_jag, island_min_cave, island_max_cave;
     TileType island_surface, island_soil, island_base;
     float island_tree_chance;
     struct {
