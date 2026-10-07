@@ -2100,6 +2100,10 @@ static void test_caves(void)
 
 static void test_backwall(void)
 {
+    /* (These are of backwall as a block leaves it behind. Walls that are run
+     * and taken down by themselves have a test of their own, and are off here.) */
+    int span = content.rules.wall_span;
+    content.rules.wall_span = 0;
     Game g;
     game_init(&g, 64, 48, 31, WORLD_FLAT);
     World *w = &g.world;
@@ -2191,6 +2195,7 @@ static void test_backwall(void)
     game_free(&loaded);
     remove("build/test_wall.world");
     game_free(&g);
+    content.rules.wall_span = span;
 }
 
 static int light_at(const Game *g, int x, int y)
@@ -3385,7 +3390,10 @@ static void test_stairs_and_more(void)
     run(&g, 3.0f);
     CHECK(world_get_at(w, BG, px - 2, ground) == column && world_get_at(w, BG, px - 2, ground - 1) == column);
     inventory_select(inv, 2, -1);
-    CHECK(inv->slots[2].id == item_id("workbench") && !game_queue_action(&g, ACTION_PLACE, px - 2, ground - 2));
+    /* (A bench will stand on a column as on a block, but not hang beside one in the air.) */
+    CHECK(inv->slots[2].id == item_id("workbench") && !game_queue_action(&g, ACTION_PLACE, px - 3, ground - 1 - 1));
+    CHECK(game_queue_action(&g, ACTION_PLACE, px - 2, ground - 2));
+    game_cancel_actions(&g);
     /* Taken down, each gives itself back. */
     clear_inventory(&g);
     CHECK(game_click_tile(&g, px - 2, ground - 1) && g.queue[0].type == ACTION_MINE);
@@ -3817,7 +3825,7 @@ static void test_doors_walls_lamps_armor(void)
     CHECK(game_click_tile(&g, wx, ground - 9) && g.queue[0].type == ACTION_MINE);
     run(&g, 20.0f);
     CHECK(world_get(w, wx, ground - 9) == TILE_AIR);
-    for (int k = 0; k < 9; k++) CHECK(world_get_at(w, LAYER_WALL, wx, ground - k) == TILE_AIR);
+    for (int k = 0; k <= 9; k++) CHECK(world_get_at(w, LAYER_WALL, wx, ground - k) == TILE_AIR); /* (the one behind itself too) */
     /* With backwall over it, it is not the top of anything, and the wall stays. */
     clear_inventory(&g);
     inventory_add(inv, item_id("stone"), 5);
@@ -3829,6 +3837,76 @@ static void test_doors_walls_lamps_armor(void)
     CHECK(game_click_tile(&g, wx, ground - 5) && g.queue[0].type == ACTION_MINE);
     run(&g, 20.0f);
     CHECK(world_get(w, wx, ground - 5) == TILE_AIR && world_get_at(w, LAYER_WALL, wx, ground - 2) == TILE_STONE);
+    CHECK(world_get_at(w, LAYER_WALL, wx, ground - 5) == TILE_STONE); /* (and so does the one behind itself) */
+
+    /* Things of the background, put up where there is no backwall, are fixed
+     * to a block: the one under them first, then over, then to the left, then the right. */
+    int mx = px + 20, my = ground - 8;
+    for (int dy = -3; dy <= 3; dy++)
+        for (int dx2 = -3; dx2 <= 3; dx2++) world_set_at(w, LAYER_WALL, mx + dx2, my + dy, TILE_AIR), world_set(w, mx + dx2, my + dy, TILE_AIR);
+    CHECK(world_mount(w, mx, my) == MOUNT_NONE);
+    world_set(w, mx + 1, my, TILE_STONE);
+    CHECK(world_mount(w, mx, my) == MOUNT_RIGHT);
+    world_set(w, mx - 1, my, TILE_STONE);
+    CHECK(world_mount(w, mx, my) == MOUNT_LEFT);
+    world_set(w, mx, my - 1, TILE_STONE);
+    CHECK(world_mount(w, mx, my) == MOUNT_CEILING);
+    world_set(w, mx, my + 1, TILE_STONE);
+    CHECK(world_mount(w, mx, my) == MOUNT_FLOOR);
+    world_set_at(w, LAYER_WALL, mx, my, TILE_STONE);
+    CHECK(world_mount(w, mx, my) == MOUNT_WALL);
+    world_set_at(w, LAYER_WALL, mx, my, TILE_AIR);
+    /* A column under it counts as a block, though it is only in the background. */
+    world_set(w, mx, my + 1, TILE_AIR);
+    world_set(w, mx, my - 1, TILE_AIR);
+    world_set_at(w, BG, mx, my + 1, tile_id("marble_column"));
+    CHECK(tile_def(tile_id("marble_column"))->supports && world_mount(w, mx, my) == MOUNT_FLOOR);
+    /* Each of them has a look for standing, hanging and being fixed to a side. */
+    static const char *mounted[] = { "oil_lantern", "steel_lantern", "steel_uplight", "steel_downlight", "amethyst", "diamond", "time_crystal" };
+    for (int k = 0; k < 7; k++) {
+        const TileDef *def = tile_def(tile_id(mounted[k]));
+        CHECK(def->texture_mount[0][0] && def->texture_mount[1][0] && def->texture_mount[2][0] && !def->hangs);
+    }
+
+    /* Putting them up. With nothing to fix it to, a lantern cannot be put up at all. */
+    for (int dy = -3; dy <= 3; dy++)
+        for (int dx2 = -3; dx2 <= 3; dx2++) world_set(w, mx + dx2, my + dy, TILE_AIR), world_set_at(w, BG, mx + dx2, my + dy, TILE_AIR);
+    for (int k = 0; k < 12; k++) world_set(w, mx - 4, ground - k, TILE_STONE); /* (something to reach it from) */
+    g.player.feet = g.player.step_to = (TilePos){ mx - 4, ground - 12 };
+    clear_inventory(&g);
+    inventory_add(inv, item_id("oil_lantern"), 4);
+    inventory_add(inv, item_id("ruby_chandelier"), 4);
+    inventory_add(inv, item_id("stone_stairs"), 2);
+    inventory_select(inv, 0, -1);
+    CHECK(!game_queue_action(&g, ACTION_PLACE, mx - 2, my));
+    /* On a column, it can. */
+    world_set_at(w, BG, mx - 2, my + 1, tile_id("marble_column"));
+    CHECK(game_queue_action(&g, ACTION_PLACE, mx - 2, my));
+    run(&g, 20.0f);
+    CHECK(world_get_at(w, BG, mx - 2, my) == tile_id("oil_lantern") && world_mount(w, mx - 2, my) == MOUNT_FLOOR);
+    /* Beside a block, or under one. */
+    world_set(w, mx - 1, my - 3, TILE_STONE);
+    CHECK(game_queue_action(&g, ACTION_PLACE, mx - 2, my - 3));
+    run(&g, 20.0f);
+    CHECK(world_get_at(w, BG, mx - 2, my - 3) == tile_id("oil_lantern") && world_mount(w, mx - 2, my - 3) == MOUNT_RIGHT);
+    /* A chandelier goes under a block and nowhere else: not beside one, not on a column, not on backwall. */
+    CHECK(tile_def(tile_id("ruby_chandelier"))->hangs && !tile_def(tile_id("oil_lantern"))->hangs);
+    inventory_select(inv, 1, -1);
+    CHECK(inv->slots[1].id == item_id("ruby_chandelier"));
+    CHECK(!game_queue_action(&g, ACTION_PLACE, mx - 1, my - 2) || world_is_solid(w, mx - 1, my - 3));
+    CHECK(!game_queue_action(&g, ACTION_PLACE, mx - 2, my - 4)); /* over the lantern: nothing above */
+    CHECK(!game_queue_action(&g, ACTION_PLACE, mx, my - 3));     /* beside the block */
+    world_set_at(w, LAYER_WALL, mx - 3, my - 5, TILE_STONE);
+    CHECK(!game_queue_action(&g, ACTION_PLACE, mx - 3, my - 5)); /* on backwall, with no block over it */
+    game_cancel_actions(&g);
+    CHECK(game_queue_action(&g, ACTION_PLACE, mx - 1, my - 2));  /* under the block */
+    run(&g, 20.0f);
+    CHECK(world_get_at(w, BG, mx - 1, my - 2) == tile_id("ruby_chandelier"));
+    /* Stairs are the exception still: a step up on the slant from other stairs, with nothing else by them. */
+    inventory_select(inv, 2, -1);
+    world_set_at(w, BG, mx - 3, my + 3, tile_id("stone_stairs"));
+    CHECK(game_queue_action(&g, ACTION_PLACE, mx - 2, my + 2));
+    game_cancel_actions(&g);
     game_free(&g);
 
     /* Lamps: gems, then torches, oil lanterns, steel lanterns, chandeliers. */

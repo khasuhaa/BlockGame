@@ -30,6 +30,8 @@ void assets_draw_tile_lit(TileType t, int x, int y, float px, float py, float ti
                           bool lit);
 /* A block drawn plainly, as it is or mirrored left to right: steps, which rise one way or the other. */
 void assets_draw_tile_facing(TileType t, int x, int y, float px, float py, float tile_size, float dim, bool flip);
+/* Something in the background as it looks fixed to what `mount` says (a MOUNT_*), where it has a look for that. */
+void assets_draw_tile_mounted(TileType t, int x, int y, float px, float py, float tile_size, float dim, int mount);
 /* And for a block that joins up with the ones beside it: `joined` says which
  * sides have one, 1 for above + 2 right + 4 below + 8 left. */
 void assets_draw_tile_joined(TileType t, int x, int y, float px, float py, float tile_size, float dim, int joined);

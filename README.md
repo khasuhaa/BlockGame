@@ -538,12 +538,22 @@ A **door** or **trapdoor** (wooden or iron) is a solid block to everything excep
 ### Walls that run themselves
 
 - A block put up within 10 blocks above the next block below it has backwall of itself run down through the open squares between the two - so roofing a room over its floor closes in the back of it. Squares that already have backwall keep it.
-- Taking a block away when there is no backwall behind the square above it - the top of such a wall - takes the backwall under it away too, down to the next block or 10 squares, whichever comes first. A block with backwall above it leaves the wall alone.
+- Taking a block away when there is no backwall behind the square above it - the top of such a wall - takes away the backwall behind the block itself and the backwall under it, down to the next block or 10 squares, whichever comes first. A block with backwall above it leaves the wall alone, its own included. (So digging down from open ground leaves no backwall behind, and the hole is open to the sky.)
 - How far is `"wall_span"` in `rules.json`.
 
 ### Armour
 
 Clothes and armour worn in the four slots each stop a share of every **attack** - a dropbear's or shark's bite, and how long a scorpion's poison lasts - and the shares add up. Linen stops 2% a piece, fur 4%, leather 6%, tin 9%, iron 13%, titanium and carbon fiber 17% each, so a full suit of iron stops 52% and of titanium 68%. It does nothing for hunger, drowning or poison already in. An item's share is its `"armor"`.
+
+### Putting things up without a backwall
+
+Lamps, torches, gems and the like go on a backwall where there is one, and look as they always have. Where there is none, a thing is fixed to a block instead - the one under it if there is one, failing that the one over it, failing that the one to its left, then its right - and is drawn to suit: standing on a foot, hanging from a chain, or held out on a bracket; a gem or a crystal grows out of whichever it is on. With no backwall and no block beside it, it cannot be put up.
+
+- A **column** under it counts as a block, for anything that can stand on one: a lantern or a bench can be stood on top of a column.
+- **Chandeliers** hang, and only hang: one can be put up under a block and nowhere else, backwall or no.
+- **Stairs** are the exception already described: a flight can be put a step up or down on the slant from another with nothing else by it.
+
+How a thing looks fixed each way is its `"texture_mount": { "floor", "ceiling", "side" }`; `"hangs": true` makes it a thing that only hangs, and `"supports": true` lets a background block be stood on.
 
 ### Columns and stairs
 

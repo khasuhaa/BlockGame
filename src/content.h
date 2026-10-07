@@ -53,6 +53,8 @@
 /* Ids are positions in the tables below, fixed only for one run of the game.
  * 0 is always "nothing": empty space, or no item. */
 enum { MIMIC_NONE = 0, MIMIC_UPRIGHT, MIMIC_FLAT };
+/* What something in the background is fixed to (see world_mount). */
+enum { MOUNT_NONE = 0, MOUNT_WALL, MOUNT_FLOOR, MOUNT_CEILING, MOUNT_LEFT, MOUNT_RIGHT };
 
 typedef int TileType;
 typedef int ItemId;
@@ -159,6 +161,12 @@ typedef struct {
     /* Building pieces of the background hold on to each other: one that
      * attaches can be put up beside another that does, with no block or backwall to hold it. */
     bool attaches;
+    bool supports;  /* though it is in the background, things can be stood on top of it as on a block */
+    bool hangs;     /* it can only be put up under a block: hung from its underside */
+    /* How it looks put up with no backwall behind it: standing on what is
+     * under it, hanging from what is over it, or fixed to what is beside it
+     * (drawn for something to its left; mirrored for the right). Empty for no different. */
+    char texture_mount[3][CONTENT_PATH_LEN];
     /* A plant that ends up two blocks tall. Its last low stage grows into
      * its foot and puts `grows_top` on that; the foot is `topped_by` the
      * same, which goes when the foot does; and taking the top alone leaves

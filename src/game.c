@@ -537,8 +537,15 @@ static bool target_valid(const World *w, Action a)
         if (item_def((ItemId)a.item)->places == TILE_AIR ||
             !room_for(w, a.target, item_def((ItemId)a.item)->places))
             return false;
+        /* Something that hangs goes under a block and nowhere else, backwall or no. */
+        if (tile_def(item_def((ItemId)a.item)->places)->hangs) return world_is_solid(w, a.target.x, a.target.y - 1);
         if (tile_def(item_def((ItemId)a.item)->places)->layer == LAYER_BACKGROUND &&
             (bare_wall(w, a.target) != TILE_AIR || beside_background(w, a.target, item_def((ItemId)a.item)->places)))
+            return true;
+        /* With no backwall it is fixed to a block: under it, over it or beside
+         * it. A column under it does as well as a block. */
+        if (tile_def(item_def((ItemId)a.item)->places)->layer == LAYER_BACKGROUND &&
+            tile_def(world_get_at(w, LAYER_BACKGROUND, a.target.x, a.target.y + 1))->supports)
             return true;
         return beside_block(w, a.target);
     case ACTION_PLANT: return can_plant(w, (ItemId)a.item, a.target);
@@ -1426,7 +1433,10 @@ static void finish_activity(Game *g)
             replace_block(&g->world, layer, t, TILE_AIR);
             /* The top of a wall taken away - a block with no backwall over
              * it - takes the backwall under it down too, as far as the next block or as far as walls are run. */
-            if (layer == LAYER_FOREGROUND && def->solid && world_get_at(&g->world, LAYER_WALL, t.x, t.y - 1) == TILE_AIR) {
+            if (layer == LAYER_FOREGROUND && def->solid && content.rules.wall_span > 0 &&
+                world_get_at(&g->world, LAYER_WALL, t.x, t.y - 1) == TILE_AIR) {
+                /* (The wall behind the block itself goes with them.) */
+                world_set_at(&g->world, LAYER_WALL, t.x, t.y, TILE_AIR);
                 for (int k = 1; k <= content.rules.wall_span; k++) {
                     if (!world_in_bounds(&g->world, t.x, t.y + k) || world_is_solid(&g->world, t.x, t.y + k)) break;
                     world_set_at(&g->world, LAYER_WALL, t.x, t.y + k, TILE_AIR);

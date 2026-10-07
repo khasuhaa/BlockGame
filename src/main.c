@@ -513,6 +513,9 @@ static void draw_block(const Game *g, int layer, TileType t, int x, int y, float
             left = !right;
         }
         assets_draw_tile_facing(t, wx, y, px, py, TILE_SIZE, dim, left && !right);
+    } else if (layer == LAYER_BACKGROUND && (def->texture_mount[0][0] || def->texture_mount[1][0] || def->texture_mount[2][0])) {
+        /* Something put up with no backwall behind it shows what it is fixed to instead. */
+        assets_draw_tile_mounted(t, wx, y, px, py, TILE_SIZE, dim, world_mount(&g->world, x, y));
     } else if (def->join_count > 0)
         assets_draw_tile_joined(t, wx, y, px, py, TILE_SIZE, dim, tile_joined(&g->world, layer, x, y));
     else

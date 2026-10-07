@@ -299,6 +299,12 @@ static bool read_tiles(Reader *r, const cJSON *root)
             return fail(r, "tile \"%s\": a \"beam\" needs a \"direction\" of \"up\" or \"down\" and a \"light\"", t->name);
         t->steps = flag(e, "steps", false);
         t->attaches = flag(e, "attaches", t->steps);
+        t->supports = flag(e, "supports", false);
+        t->hangs = flag(e, "hangs", false);
+        const cJSON *mount = field(e, "texture_mount");
+        copy_name(t->texture_mount[0], CONTENT_PATH_LEN, str(mount, "floor"));
+        copy_name(t->texture_mount[1], CONTENT_PATH_LEN, str(mount, "ceiling"));
+        copy_name(t->texture_mount[2], CONTENT_PATH_LEN, str(mount, "side"));
         if (t->steps && t->solid) return fail(r, "tile \"%s\": steps are walked through, so they cannot be solid", t->name);
         t->drop_meter = (int)num(e, "drop_meter", 0);
         t->decays_into = TILE_AIR;

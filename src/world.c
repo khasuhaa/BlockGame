@@ -863,6 +863,17 @@ TileType world_looks_like(const World *w, int x, int y)
     return ends[0] == ends[1] && ends[0] != TILE_AIR && tile_def(ends[0])->solid ? ends[0] : t;
 }
 
+int world_mount(const World *w, int x, int y)
+{
+    if (world_get_at(w, LAYER_WALL, x, y) != TILE_AIR) return MOUNT_WALL;
+    if (!world_in_bounds(w, x, y)) return MOUNT_NONE;
+    if (world_is_solid(w, x, y + 1) || tile_def(world_get_at(w, LAYER_BACKGROUND, x, y + 1))->supports) return MOUNT_FLOOR;
+    if (world_is_solid(w, x, y - 1)) return MOUNT_CEILING;
+    if (world_is_solid(w, x - 1, y)) return MOUNT_LEFT;
+    if (world_is_solid(w, x + 1, y)) return MOUNT_RIGHT;
+    return MOUNT_NONE;
+}
+
 bool world_is_step(const World *w, int x, int y)
 {
     if (!world_in_bounds(w, x, y)) return false;

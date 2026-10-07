@@ -133,6 +133,8 @@ void assets_unload(void)
     image_count = 0;
 }
 
+static Texture2D image_texture(const char *file);
+
 /* Stands in for a texture that could not be loaded. */
 static void draw_placeholder(Rectangle r)
 {
@@ -210,6 +212,23 @@ void assets_draw_tile_lit(TileType t, int x, int y, float px, float py, float ti
     DrawTexturePro(tex, (Rectangle){ 0, 0, (float)tex.width, (float)tex.height },
                    (Rectangle){ px + (tile_size - w) / 2, py + tile_size - hgt, w, hgt },
                    (Vector2){ 0, 0 }, 0.0f, (Color){ v, v, v, 255 });
+}
+
+void assets_draw_tile_mounted(TileType t, int x, int y, float px, float py, float tile_size, float dim, int mount)
+{
+    if (t <= TILE_AIR || t >= content.tile_count) return;
+    const TileDef *def = &content.tiles[t];
+    int which = mount == MOUNT_FLOOR ? 0 : mount == MOUNT_CEILING ? 1 : mount == MOUNT_LEFT || mount == MOUNT_RIGHT ? 2 : -1;
+    Texture2D tex = which >= 0 && def->texture_mount[which][0] ? image_texture(def->texture_mount[which]) : (Texture2D){ 0 };
+    if (!tex.id) {
+        assets_draw_tile(t, x, y, px, py, tile_size, dim, TILE_PART_BODY);
+        return;
+    }
+    float light = 1.0f - dim;
+    if (def->pulse > 0.0f) light *= 1.0f - def->pulse * (0.5f + 0.5f * sinf((float)GetTime() * 2.5f));
+    unsigned char v = (unsigned char)(255.0f * (light < 0.0f ? 0.0f : light));
+    DrawTexturePro(tex, (Rectangle){ 0, 0, mount == MOUNT_RIGHT ? -(float)tex.width : (float)tex.width, (float)tex.height },
+                   (Rectangle){ px, py, tile_size, tile_size }, (Vector2){ 0, 0 }, 0.0f, (Color){ v, v, v, 255 });
 }
 
 void assets_draw_tile_facing(TileType t, int x, int y, float px, float py, float tile_size, float dim, bool flip)

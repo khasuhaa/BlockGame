@@ -85,6 +85,11 @@ int world_structure(const World *w, int layer, int x, int y, int *bottom);
  * the same block on both sides - above and below for one that is upright,
  * left and right for one that lies flat - looking past any other doors on the way. */
 TileType world_looks_like(const World *w, int x, int y);
+/* What something in the background of a square is fixed to, one of MOUNT_*:
+ * the backwall behind it if there is one; failing that the block (or the
+ * column) under it, then the block over it, then the one to its left, then
+ * its right. MOUNT_NONE if there is nothing. */
+int world_mount(const World *w, int x, int y);
 /* Whether a square has steps in it: something not solid that can still be stood on. */
 bool world_is_step(const World *w, int x, int y);
 /* Above and below the world counts as solid. */
