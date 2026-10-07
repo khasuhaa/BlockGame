@@ -49,5 +49,6 @@
     "snow_layers": 4, "snow_line": 50, "snow_chance": 0.004, "melt_chance": 0.002,
     "ice": "ice", "freeze_chance": 0.5, "thaw_chance": 0.5
   },
-  "building": { "wall_span": 10 }
+  "building": { "wall_span": 10 },
+  "power": { "lift_time": 0.04 }
 }

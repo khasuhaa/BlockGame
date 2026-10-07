@@ -784,7 +784,10 @@ void world_set_at(World *w, int layer, int x, int y, TileType t)
     if (!world_in_bounds(w, x, y)) return;
     size_t cell = (size_t)y * w->width + world_wrap_x(w, x);
     /* What was kept with the block that was there goes with it. */
-    if (w->meta && w->meta[cell] != 0 && tile_def((TileType)w->layers[layer][cell])->two_tone) w->meta[cell] = 0;
+    if (w->meta && w->meta[cell] != 0) {
+        const TileDef *was = tile_def((TileType)w->layers[layer][cell]);
+        if (was->two_tone || was->motor_power > 0 || (TileType)w->layers[layer][cell] == content.rules.ice) w->meta[cell] = 0;
+    }
     w->layers[layer][cell] = (uint16_t)t;
     if (layer != LAYER_FOREGROUND || !w->water) return;
     /* A block where there was water pushes it out; one taken away lets it in. */
@@ -861,6 +864,32 @@ TileType world_looks_like(const World *w, int x, int y)
         }
     }
     return ends[0] == ends[1] && ends[0] != TILE_AIR && tile_def(ends[0])->solid ? ends[0] : t;
+}
+
+bool world_is_wired(const World *w, int x, int y)
+{
+    if (!world_in_bounds(w, x, y)) return false;
+    return tile_def(world_get(w, x, y))->wire || tile_def(world_get_at(w, LAYER_BACKGROUND, x, y))->wire;
+}
+
+static bool is_motor(const World *w, int x, int y)
+{
+    return tile_def(world_get(w, x, y))->motor_power > 0 || tile_def(world_get_at(w, LAYER_BACKGROUND, x, y))->motor_power > 0;
+}
+
+bool world_is_shaft(const World *w, int x, int y)
+{
+    if (!world_in_bounds(w, x, y)) return false;
+    return tile_def(world_get(w, x, y))->shaft || tile_def(world_get_at(w, LAYER_BACKGROUND, x, y))->shaft || is_motor(w, x, y);
+}
+
+bool world_lift_runs(const World *w, int x, int y)
+{
+    if (!world_is_shaft(w, x, y)) return false;
+    for (int way = -1; way <= 1; way += 2)
+        for (int at = way < 0 ? y : y + 1; world_is_shaft(w, x, at); at += way)
+            if (is_motor(w, x, at) && world_meta(w, x, at) != 0) return true;
+    return false;
 }
 
 int world_mount(const World *w, int x, int y)

@@ -3,6 +3,7 @@
 #include "../src/guide.h"
 #include "../src/light.h"
 #include "../src/mob.h"
+#include "../src/power.h"
 #include "../src/save.h"
 #include "../src/trade.h"
 
@@ -3995,6 +3996,281 @@ static void test_doors_walls_lamps_armor(void)
     game_free(&d);
 }
 
+/* Puts something that keeps count of itself - a generator, a battery, a bench - straight into the world. */
+static Storage *put_device(Game *g, const char *tile, int x, int y)
+{
+    world_set_at(&g->world, tile_def(tile_id(tile))->layer, x, y, tile_id(tile));
+    for (int i = 0; i < MAX_STORAGES; i++) {
+        if (g->storages[i].used) continue;
+        g->storages[i] = (Storage){ .used = true, .x = world_wrap_x(&g->world, x), .y = y };
+        return &g->storages[i];
+    }
+    return NULL;
+}
+
+static int in_the_wires(const Game *g)
+{
+    int total = 0;
+    for (int i = 0; i < MAX_POWER_FLOWS; i++)
+        for (int k = 0; g->flows[i].active && k < g->flows[i].length; k++) total += g->flows[i].moving[k];
+    return total;
+}
+
+/* Electricity: made, stored, carried a block a tick, and used by benches and lifts. */
+static void test_power(void)
+{
+    Game g;
+    game_init(&g, 128, 96, 46, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    clear_mobs(&g);
+    g.tick_rate = 0;
+    g.random_events = 0;
+    int s = w->surface_y, ground = s - 1, px = g.player.feet.x;
+    TileType wire = tile_id("copper_wire"), floor_wire = tile_id("copper_wire_floor");
+    const TileDef *solar = tile_def(tile_id("solar_panel")), *steam = tile_def(tile_id("steam_generator")),
+                  *wheel = tile_def(tile_id("flywheel"));
+
+    /* What each thing is. */
+    CHECK(solar->gen_power == 10 && solar->gen_needs == POWER_NEEDS_SUN && steam->gen_power == 10 && steam->gen_needs == POWER_NEEDS_FUEL);
+    CHECK(steam->fuel_capacity > 0 && wheel->battery == 10000 && wheel->gen_power == 0);
+    CHECK(wire > 0 && tile_def(wire)->wire && tile_def(wire)->layer == LAYER_BACKGROUND && tile_def(wire)->floats && !tile_def(wire)->solid);
+    CHECK(tile_def(floor_wire)->wire && tile_def(floor_wire)->layer == LAYER_FOREGROUND && !tile_def(floor_wire)->solid);
+    CHECK(item_def(item_id("copper_wire"))->places == wire && item_def(item_id("copper_wire"))->places_on_block == floor_wire);
+    CHECK(tile_def(tile_id("electric_furnace"))->electric == 100 && strcmp(tile_def(tile_id("electric_furnace"))->bench_kind, "furnace") == 0);
+    CHECK(tile_def(tile_id("electric_furnace"))->fuel_capacity == 0 && tile_def(tile_id("furnace"))->electric == 0);
+    CHECK(tile_def(tile_id("electric_elevator_motor"))->motor_power == 10 && tile_def(tile_id("elevator_shaft"))->shaft);
+
+    /* Wire: on top of a block it lies in front; anywhere else - in thin air too - it runs behind. */
+    clear_inventory(&g);
+    inventory_add(inv, item_id("copper_wire"), 4);
+    inventory_select(inv, 0, -1);
+    CHECK(game_queue_action(&g, ACTION_PLACE, px + 2, ground));
+    run(&g, 5.0f);
+    CHECK(world_get(w, px + 2, ground) == floor_wire && world_get_at(w, BG, px + 2, ground) == TILE_AIR && world_is_wired(w, px + 2, ground));
+    world_set_at(w, LAYER_WALL, px + 2, ground - 2, TILE_AIR);
+    CHECK(game_queue_action(&g, ACTION_PLACE, px + 2, ground - 2));
+    run(&g, 5.0f);
+    CHECK(world_get_at(w, BG, px + 2, ground - 2) == wire && world_get(w, px + 2, ground - 2) == TILE_AIR && world_is_wired(w, px + 2, ground - 2));
+    CHECK(!world_is_wired(w, px + 2, ground - 1) && count_item(&g, item_id("copper_wire")) == 2);
+    /* It is walked through, and comes up again as the same wire. */
+    CHECK(!world_is_solid(w, px + 2, ground));
+    clear_inventory(&g);
+    CHECK(game_click_tile(&g, px + 2, ground) && g.queue[0].type == ACTION_MINE);
+    run(&g, 5.0f);
+    CHECK(world_get(w, px + 2, ground) == TILE_AIR && count_item(&g, item_id("copper_wire")) + drops_of(&g, item_id("copper_wire")) == 1);
+    world_set_at(w, BG, px + 2, ground - 2, TILE_AIR);
+    clear_drops(&g);
+
+    /* A steam generator with fuel in it, five squares of wire, and a flywheel. */
+    int gx = px + 10, row = ground - 10;
+    Storage *gen = put_device(&g, "steam_generator", gx, row);
+    for (int k = 1; k <= 5; k++) world_set_at(w, BG, gx + k, row, wire);
+    Storage *fly = put_device(&g, "flywheel", gx + 6, row);
+    /* With no fuel, nothing. */
+    for (int t = 0; t < 30; t++) game_tick(&g);
+    CHECK(fly->power == 0 && game_power_made(&g, gx, row) == 0 && in_the_wires(&g) == 0);
+    /* With fuel, 10 a tick: and it takes as many ticks to arrive as the wire is long. */
+    gen->fuel = 1000;
+    game_tick(&g);
+    CHECK(game_power_made(&g, gx, row) == 10 && fly->power == 0);
+    int sent_at = 0;
+    for (int t = 0; t < 4; t++) game_tick(&g);
+    CHECK(fly->power == 0 && in_the_wires(&g) > 0);
+    sent_at = in_the_wires(&g);
+    for (int t = 0; t < 2; t++) game_tick(&g);
+    CHECK(fly->power > 0 && sent_at > 0);
+    int before = fly->power;
+    for (int t = 0; t < 50; t++) game_tick(&g);
+    CHECK(fly->power == before + 500 && in_the_wires(&g) == 50); /* ten a tick, with five ticks' worth always on the way */
+    int capacity = 0;
+    CHECK(game_power_at(&g, gx + 6, row, &capacity) == fly->power && capacity == 10000);
+    /* It can be seen going: a spark in each square of the wire, each headed for the next. */
+    static Spark sparks[64];
+    int seen = game_sparks(&g, sparks, 64);
+    CHECK(seen == 5);
+    for (int k = 0; k < seen; k++) CHECK(sparks[k].y == row && sparks[k].x > gx && sparks[k].x < gx + 6 && sparks[k].to_x == sparks[k].x + 1);
+    /* A flywheel holds 10,000 and no more. */
+    fly->power = 9970;
+    for (int t = 0; t < 40; t++) game_tick(&g);
+    CHECK(fly->power == 10000 && in_the_wires(&g) == 0);
+    /* A cut wire carries nothing: what was in it is lost, and no more comes. */
+    fly->power = 100;
+    for (int t = 0; t < 10; t++) game_tick(&g);
+    CHECK(fly->power > 100);
+    world_set_at(w, BG, gx + 3, row, TILE_AIR);
+    game_tick(&g);
+    before = fly->power;
+    for (int t = 0; t < 20; t++) game_tick(&g);
+    CHECK(fly->power == before && in_the_wires(&g) == 0);
+    world_set_at(w, BG, gx + 3, row, wire);
+    /* Kept with the world. */
+    CHECK(save_game(&g, "build/test_power.world"));
+    Game loaded;
+    CHECK(load_game(&loaded, "build/test_power.world"));
+    CHECK(game_power_at(&loaded, gx + 6, row, NULL) == fly->power);
+    game_free(&loaded);
+
+    /* A solar panel makes it only by day, and only with the sun straight on it. */
+    Storage *panel = put_device(&g, "solar_panel", px + 30, row);
+    (void)panel;
+    g.tick = (uint64_t)content.rules.day_ticks / 2;
+    game_tick(&g);
+    CHECK(game_power_made(&g, px + 30, row) == 10);
+    world_set(w, px + 30, row - 6, TILE_STONE);
+    game_tick(&g);
+    CHECK(game_power_made(&g, px + 30, row) == 0);
+    world_set(w, px + 30, row - 6, TILE_AIR);
+    g.tick = (uint64_t)content.rules.day_ticks + (uint64_t)content.rules.night_ticks / 2;
+    game_tick(&g);
+    CHECK(game_power_made(&g, px + 30, row) == 0);
+    g.tick = 10;
+
+    /* An electric bench. It makes what the bench it is an electric kind of makes, and burns nothing;
+     * but it will not start until what the work takes has come down the wire to it. */
+    gen->fuel = 0;
+    fly->power = 5000;
+    for (int k = 1; k <= 5; k++) world_set_at(w, BG, gx + k, row, TILE_AIR);
+    int bx = px + 3, far = bx + 12;
+    world_set_at(w, BG, far, ground, TILE_AIR);
+    Storage *bench = put_device(&g, "electric_furnace", bx, ground);
+    Storage *near = put_device(&g, "flywheel", bx + 8, ground);
+    for (int k = 1; k < 8; k++) world_set(w, bx + k, ground, floor_wire);
+    /* (Another flywheel, further off along the same wire.) */
+    Storage *further = put_device(&g, "flywheel", bx + 20, ground);
+    for (int k = 9; k < 20; k++) world_set(w, bx + k, ground, floor_wire);
+    near->power = 3000;
+    further->power = 3000;
+    Recipe *ingot = (Recipe *)find_recipe(tile_id("electric_furnace"), "copper_ingot");
+    CHECK(ingot != NULL && find_recipe(tile_id("electric_furnace"), "iron_ingot") != NULL);
+    float old_time = ingot->time;
+    ingot->time = 2.0f;
+    int need = game_power_for(&g, tile_id("electric_furnace"), ingot, 3);
+    CHECK(need == 600 && game_power_for(&g, tile_id("furnace"), ingot, 3) == 0);
+    g.player.feet = g.player.step_to = (TilePos){ bx - 1, ground };
+    clear_inventory(&g);
+    inventory_add(inv, item_id("copper_ore"), 3);
+    CHECK(game_open_bench(&g, bx, ground) && game_craft(&g, ingot, 3));
+    run(&g, 0.5f);
+    int arrived = -1;
+    CHECK(g.craft_remaining == 3 && g.craft_power == need && game_craft_power(&g, &arrived) == need && arrived == 0);
+    /* It asks the nearest thing that has any - the near flywheel, not the far one - for just that much. */
+    game_tick(&g); /* asked for */
+    game_tick(&g); /* sent */
+    CHECK(near->power == 3000 - need && further->power == 3000 && in_the_wires(&g) == need);
+    for (int t = 0; t < 5; t++) {
+        game_tick(&g);
+        run(&g, 0.1f);
+    }
+    CHECK(bench->power == 0 && g.craft_remaining == 3 && count_item(&g, item_id("copper_ingot")) == 0); /* still on its way: 7 squares */
+    for (int t = 0; t < 3; t++) game_tick(&g);
+    CHECK(bench->power == need && in_the_wires(&g) == 0 && near->power == 3000 - need);
+    /* Now it starts, and the electricity is used. */
+    run(&g, 0.2f);
+    CHECK(g.craft_power == 0 && bench->power == 0 && g.craft_remaining == 3);
+    run(&g, 6.5f);
+    CHECK(g.craft_remaining == 0 && count_item(&g, item_id("copper_ingot")) + drops_of(&g, item_id("copper_ingot")) == 3);
+    for (int t = 0; t < 30; t++) game_tick(&g);
+    CHECK(near->power == 3000 - need && further->power == 3000); /* and nothing more is drawn */
+    /* With nothing stored it comes straight from a generator, ten a tick: slower to start. */
+    near->power = 0;
+    further->power = 0;
+    world_set(w, bx + 8 + 1, ground, TILE_AIR); /* (the far flywheel cut off) */
+    world_set_at(w, BG, bx, ground - 1, wire);
+    world_set_at(w, BG, bx, ground - 2, wire);
+    Storage *boiler = put_device(&g, "steam_generator", bx, ground - 3);
+    boiler->fuel = 5000;
+    /* (The flywheel beside the bench fills from it too, once the bench has had its share.) */
+    clear_inventory(&g);
+    clear_drops(&g);
+    inventory_add(inv, item_id("copper_ore"), 1);
+    CHECK(game_craft(&g, ingot, 1));
+    run(&g, 0.3f);
+    need = game_power_for(&g, tile_id("electric_furnace"), ingot, 1);
+    CHECK(need == 200 && g.craft_power == need);
+    int ticks = 0;
+    while (g.craft_power > 0 && ticks < 200) {
+        game_tick(&g);
+        run(&g, 0.05f);
+        ticks++;
+    }
+    CHECK(ticks >= need / 10 + 2 && ticks <= need / 10 + 6);
+    run(&g, 3.0f);
+    CHECK(count_item(&g, item_id("copper_ingot")) + drops_of(&g, item_id("copper_ingot")) == 1);
+    ingot->time = old_time;
+    game_close_bench(&g);
+
+    /* A lift: a motor, shaft above it through whatever is in the way, and a floor to get off at. */
+    int lx = px - 6, top = ground - 20;
+    for (int y = top - 1; y <= ground; y++) world_set_at(w, BG, lx, y, tile_id("elevator_shaft"));
+    Storage *motor = put_device(&g, "electric_elevator_motor", lx, ground);
+    world_set(w, lx, top + 1, TILE_STONE);            /* the upper floor, with the shaft behind it */
+    world_set(w, lx - 1, top + 1, TILE_STONE);
+    for (int y = ground - 9; y <= ground - 7; y++) world_set(w, lx, y, TILE_STONE); /* and rock in the way */
+    CHECK(world_is_shaft(w, lx, ground - 8) && world_is_shaft(w, lx, ground) && !world_is_shaft(w, lx + 1, ground));
+    g.player.feet = g.player.step_to = (TilePos){ lx, ground };
+    /* With no power it does not run, and there is no other way up. */
+    for (int t = 0; t < 10; t++) game_tick(&g);
+    CHECK(!world_lift_runs(w, lx, ground) && !world_lift_runs(w, lx, top));
+    game_queue_action(&g, ACTION_MOVE, lx, top - 1);
+    run(&g, 3.0f);
+    CHECK(g.player.feet.y == ground);
+    game_cancel_actions(&g);
+    /* A flywheel wired to the motor: it takes 10 a tick for as long as it is there to take. */
+    Storage *cell = put_device(&g, "flywheel", lx - 4, ground);
+    cell->power = 2000;
+    for (int k = 1; k < 4; k++) world_set(w, lx - k, ground, floor_wire);
+    for (int t = 0; t < 10; t++) game_tick(&g);
+    CHECK(world_lift_runs(w, lx, ground) && world_lift_runs(w, lx, top) && motor->power >= 0);
+    before = cell->power;
+    for (int t = 0; t < 50; t++) game_tick(&g);
+    CHECK(cell->power == before - 500);
+    /* Up it goes, through the rock, and quickly: 20 blocks in about a second. */
+    CHECK(game_queue_action(&g, ACTION_MOVE, lx, top - 1));
+    Trace ride = run_traced(&g, 1.6f);
+    CHECK(g.player.feet.x == lx && g.player.feet.y == top && is_idle(&g) && !ride.climbed);
+    /* And down again with the down key. */
+    /* (By way of the top of the rock, which is a floor like any other.) */
+    game_set_move_input(&g, 0, 1);
+    run(&g, 0.1f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 1.0f);
+    CHECK(g.player.feet.y == ground - 10 && g.player.feet.x == lx);
+    game_set_move_input(&g, 0, 1);
+    run(&g, 0.1f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 1.0f);
+    CHECK(g.player.feet.y == ground && g.player.feet.x == lx);
+    /* A door in front of the shaft at a floor does not stop it being used. */
+    world_set(w, lx, top, tile_id("wooden_door"));
+    world_set(w, lx, top - 1, tile_id("wooden_door"));
+    CHECK(game_queue_action(&g, ACTION_MOVE, lx, top - 1));
+    run(&g, 1.6f);
+    CHECK(g.player.feet.y == top);
+    CHECK(game_queue_action(&g, ACTION_MOVE, lx, ground));
+    run(&g, 1.6f);
+    CHECK(g.player.feet.y == ground);
+    /* A click on a floor of a running lift is a ride there; with the power off, it takes the shaft down. */
+    world_set(w, lx, top, TILE_AIR);
+    world_set(w, lx, top - 1, TILE_AIR);
+    CHECK(game_click_tile(&g, lx, top) && g.queue[0].type == ACTION_MOVE);
+    run(&g, 1.6f);
+    CHECK(g.player.feet.y == top);
+    CHECK(game_click_tile(&g, lx, ground) && g.queue[0].type == ACTION_MOVE);
+    run(&g, 1.6f);
+    CHECK(g.player.feet.y == ground);
+    /* When the power is gone, so is the lift. */
+    cell->power = 0;
+    for (int t = 0; t < 30; t++) game_tick(&g);
+    CHECK(!world_lift_runs(w, lx, ground));
+    game_queue_action(&g, ACTION_MOVE, lx, top - 1);
+    run(&g, 2.0f);
+    CHECK(g.player.feet.y == ground);
+    game_cancel_actions(&g);
+    CHECK(game_click_tile(&g, lx, ground - 1) && g.queue[0].type == ACTION_MINE);
+    game_free(&g);
+}
+
 static void test_plants(void)
 {
     Game g;
@@ -7421,6 +7697,7 @@ int main(void)
     test_stairs_and_more();
     test_seasons_and_weather();
     test_doors_walls_lamps_armor();
+    test_power();
     test_new_trees();
     test_caves();
     test_backwall();

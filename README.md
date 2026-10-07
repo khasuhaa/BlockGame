@@ -528,6 +528,19 @@ Every block that can be mined belongs to one kind of tool, and a tool of that ki
 
 Without the right tool a block takes its ordinary time. Tools stack; none of them wears out. (A spade is a shovel.)
 
+### Electricity
+
+Electricity is made, stored, carried along wires and used. Nothing shows it as numbers: a flywheel has a bar over it for how full it is, a bench says when it is waiting, and what is on its way along a wire shows as sparks running down it.
+
+- **Generators.** A **solar panel** makes up to 10 units a tick, by day and only with the sun straight on it - nothing solid anywhere above it - and less toward dusk and dawn. A **steam generator** makes 10 a tick for as long as it has fuel burning, which is put in from its menu like a furnace's. What a generator makes in a tick and nobody takes is gone.
+- **The flywheel** stores it: up to 10,000 units, 1000 ticks' worth of a generator. It fills itself from any generator it is wired to that has something to spare, and keeps what it holds when the world is saved.
+- **Copper wire** carries it, one block a tick. Put down on top of a block it lies in the foreground, in front of whatever stands there - a bench, say - and is walked over; put anywhere else, against a backwall or in thin air, it runs in the background. Either kind joins to wire beside it, in front or behind, and to anything electric beside it or in the same square. A thing touching another directly needs no wire.
+- **Asking for it.** Anything that wants electricity looks along the wires for the nearest thing that has some - a flywheel with a charge, or a generator with output to spare - and it comes from there. It arrives no sooner than the wire is long. A flywheel sends what is asked for all at once; a generator can only send its 10 a tick. If the wire is cut, what was in it is lost.
+- **Electric benches** - the electric stove, kiln, furnace, press and metalwork bench - make what the campfire, kiln, furnace (tier 3), press (tier 3) and metalwork bench (tier 2) make, and burn no fuel. Starting something at one asks for the electricity the work will take - 100 units for each second of crafting, for the whole batch, and no more than that - and the work does not begin until all of it has reached the bench: the craft button reads "Waiting for power" and fills as it comes. So a flywheel close by a bench starts it at once, and a generator at the end of a long wire keeps it waiting.
+- **Lifts.** An **electric elevator motor** with **elevator shaft** above and below it, as much as is wanted, is a lift. The motor takes 10 units every tick, all the time, and the lift runs while it gets them. Shaft and motor go in the background, so blocks can be built in front of them, floors included. A character standing in the shaft of a running lift can ride to any other floor of it - any square of the shaft with room for them and something to stand on - straight through whatever blocks are between, and fast: 25 blocks a second. Routes use lifts by themselves; with the keys, up and down in a lift go to the next floor that way; and a click on a floor of a running lift is a ride there. A door in front of the shaft is no bar to getting in. (With the power off a click on the shaft takes it down, like any block.)
+
+In data: `"generator": { "power", "needs": "sun" | "fuel" }`, `"battery"`, `"wire"`, `"electric": { "per_second" }`, `"motor": { "power" }` and `"shaft"` on a block; an item's `"places_on_block"` is the block it becomes instead when put down on top of one; `"floats"` lets a block be put up with nothing to hold it.
+
 ### Doors and trapdoors
 
 A **door** or **trapdoor** (wooden or iron) is a solid block to everything except a character: water, light and creatures are stopped by it and it can be stood on, but a character walks straight through it. A trapdoor can also be climbed: standing on one, the down key lets the character down through it, and from below they climb up through it and out onto its top.
@@ -596,6 +609,7 @@ Under a beach, quite often - about one column in six, a dozen or more to a world
 - `src/inventory.c` — stacks, baskets and the rules for moving them
 - `src/craft.c` — crafting from the recipes
 - `src/trade.c` — buying, selling and exchanging coins
+- `src/power.c` — electricity: generators, flywheels, wires, and what draws on them
 - `src/guide.c` — what the content says about where each item comes from, for the recipe book
 - `src/mob.c` — creatures: spawning, wandering, eggs and hunting
 - `src/light.c` — how well lit each tile is

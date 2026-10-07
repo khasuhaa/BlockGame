@@ -11,7 +11,7 @@ Everything is treated as an item unless it can actually be put down in the world
 (the "X block" things, benches, and the blocks the game already had). Beds, doors,
 columns, stairs, ladders and the like are items for now.
 
-Totals: 370 items, 379 recipes, 30 kinds of bench.
+Totals: 370 items, 379 recipes, 25 kinds of bench.
 
 ==============================================================================
 1. UNOBTAINABLE ITEMS  (31 of 370)
@@ -133,16 +133,8 @@ teleports; the Shop trades; a campfire, kiln and furnace also burn fuel).
   - Dye bench                    can be made
   - Easel                        can be made
   - Egg extractor                can be made
-  - Electric furnace             can be made
-  - Electric kiln                can be made
-  - Electric metalwork bench     can be made
-  - Electric press               can be made
   - Electric sluice              can be made
-  - Electric stove               can be made
-  - Flywheel                     can be made
   - Refinery                     can be made
-  - Solar panel                  cannot be made yet either (see 1b)
-  - Steam generator              can be made
   - Train yard                   can be made
 
   Benches whose higher tiers unlock nothing:
@@ -154,7 +146,7 @@ teleports; the Shop trades; a campfire, kiln and furnace also burn fuel).
 An item has a purpose if it is an ingredient, pays for an upgrade, is food, fuel, a
 working tool, a weapon, money, can be planted, or carries something.
 
-3a. DO NOTHING AT ALL  (29)
+3a. DO NOTHING AT ALL  (27)
 
   Building (13):
     Black window, Boat, Cup, Display cabinet, Feeder chest, Mirror
@@ -163,9 +155,9 @@ working tool, a weapon, money, can be planted, or carries something.
   Clothing (1):
     Jetpack
 
-  Materials (11):
-    Cage, Compost, Electric elevator motor, Elevator shaft, Ember, Green coffee bean
-    Luminous plaster, Paint, Paint stripper, Platinum ore, Titanium ore
+  Materials (9):
+    Cage, Compost, Ember, Green coffee bean, Luminous plaster, Paint, Paint stripper
+    Platinum ore, Titanium ore
 
   Tools (4):
     Camera, Carrot on a stick, Crowbar, Fishing rod
@@ -208,10 +200,13 @@ has in it: they only exist once a player makes and places them.
   - Copper block                 obtainable
   - Copper column                obtainable
   - Copper stairs                obtainable
+  - Copper wire                  obtainable
   - Diamond block                obtainable
   - Diamond chandelier           obtainable
   - Diamond column               obtainable
   - Diamond stairs               obtainable
+  - Electric elevator motor      obtainable
+  - Elevator shaft               obtainable
   - Emerald block                obtainable
   - Emerald chandelier           obtainable
   - Emerald column               obtainable
@@ -335,5 +330,8 @@ dropped or found yet; this is the short list to decide on first.
     yaks and dropbears; vines hang in caves; mangoes grow on mango trees in the tropics.
   - Ice is what open water freezes into in winter, and is dug. Doors, trapdoors, lanterns,
     chandeliers, uplights and downlights are blocks now; worn armour stops part of an attack.
+  - Electricity: solar panels and steam generators make it, flywheels store it, copper wire carries
+    it; the electric stove, kiln, furnace, press and metalwork bench make what their fuelled
+    kinds make; the elevator motor and shaft make a lift.
   - The recipe book (pause menu > Recipes) shows all of this in the game, from the same data.
 

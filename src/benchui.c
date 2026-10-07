@@ -2,6 +2,7 @@
 
 #include "assets.h"
 #include "hud.h"
+#include "power.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -527,6 +528,12 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
     Rectangle b = craft_rect(menu);
     if (game_bench_fuel(g, NULL) == 0) {
         draw_centered("Needs fuel", b, 18, (Color){ 240, 150, 60, 255 });
+    } else if (game_craft_power(g, NULL) > 0) {
+        /* An electric bench, waiting for what it needs to come down the wire. */
+        int arrived, needs = game_craft_power(g, &arrived);
+        DrawRectangleRec(b, (Color){ 44, 47, 58, 255 });
+        DrawRectangleRec((Rectangle){ b.x, b.y, b.width * (float)arrived / (float)needs, b.height }, (Color){ 150, 120, 30, 255 });
+        draw_centered("Waiting for power", b, 18, (Color){ 250, 224, 110, 255 });
     } else if (g->craft_remaining > 0) {
         int done = g->craft_total - g->craft_remaining;
         float part = game_craft_progress(g);

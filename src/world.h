@@ -90,6 +90,13 @@ TileType world_looks_like(const World *w, int x, int y);
  * column) under it, then the block over it, then the one to its left, then
  * its right. MOUNT_NONE if there is nothing. */
 int world_mount(const World *w, int x, int y);
+/* Electricity. Whether a square has wire in it, in front or behind. */
+bool world_is_wired(const World *w, int x, int y);
+/* Whether a square is part of a lift - shaft or motor - and whether the lift
+ * it is part of is running: the motor in that run of shaft has power (which
+ * the game notes in the number kept with the motor's square). */
+bool world_is_shaft(const World *w, int x, int y);
+bool world_lift_runs(const World *w, int x, int y);
 /* Whether a square has steps in it: something not solid that can still be stood on. */
 bool world_is_step(const World *w, int x, int y);
 /* Above and below the world counts as solid. */

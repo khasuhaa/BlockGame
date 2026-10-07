@@ -9,7 +9,8 @@
 
 #define MAX_QUEUED_ACTIONS 32
 #define MAX_DENIALS 8
-#define MAX_MOVES 12
+#define MAX_MOVES 48
+#define MAX_LIFT_STOPS 16 /* floors a lift offers each way from where it is boarded */
 #define MAX_DROPS 2048
 #define MAX_TICK_RATE 1000
 #define MAX_TICKS_PER_UPDATE 200 /* so a slow frame cannot snowball */
@@ -98,7 +99,8 @@ typedef struct {
  * `climb` says whether the step ends hanging on a wall. Falling is never
  * planned; gravity is applied between steps. */
 typedef struct {
-    int8_t dx, dy;
+    int8_t dx;
+    int16_t dy; /* (more than a block or two only for a ride in a lift) */
     bool climb;
 } Step;
 
@@ -211,8 +213,26 @@ typedef struct {
     int x, y;
     uint16_t container; /* 0 if it stores nothing */
     int fuel;           /* ticks of burning left */
-    int reserved[2];
+    /* Electricity: what a battery has in it, or a bench or a motor has had
+     * sent to it and not yet used; and for a generator, what it made this
+     * tick and how much of that has been taken. */
+    int power;
+    int16_t made, given;
 } Storage;
+
+/* Electricity on its way along a wire from one thing to another. It moves a
+ * block a tick: `moving` is how much is in each square of the way. */
+#define MAX_WIRE_PATH 512
+#define MAX_POWER_FLOWS 64
+typedef struct {
+    bool active;
+    int from_x, from_y, to_x, to_y;
+    int rate;      /* units put in each tick; 0 for all of it at once */
+    int remaining; /* units still to be put in; below 0 for as long as it is wanted */
+    int length;    /* squares of wire between the two */
+    int32_t cells[MAX_WIRE_PATH];  /* which squares, from the source's end */
+    int32_t moving[MAX_WIRE_PATH];
+} PowerFlow;
 
 /* Everything that is one character's own: where they are and what they are
  * doing, what they carry, what they have queued, how they are. A world can
@@ -239,6 +259,7 @@ typedef struct {
     const Recipe *craft_recipe;
     int craft_total, craft_remaining;
     float craft_timer;
+    int craft_power;
     bool upgrading;
     float upgrade_timer;
 } Character;
@@ -297,6 +318,9 @@ typedef struct {
     uint8_t *explored;
     bool fog; /* whether this world hides what has not been uncovered */
     int random_events; /* random blocks hit in each chunk every tick: a setting of the world */
+    PowerFlow *flows;  /* electricity on its way along the wires (see power.h); not kept in a save */
+    /* What the bench still has to be sent before it starts on what was asked for: an electric one waits for it. */
+    int craft_power;
     /* Snow lying on each column, in eighths of a block. It is only looked at: nothing stands on it. */
     uint8_t *snow;
 

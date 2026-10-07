@@ -6,6 +6,7 @@
 #include "menu.h"
 #include "mob.h"
 #include "playerui.h"
+#include "power.h"
 #include "raylib.h"
 #include "save.h"
 #include "tradeui.h"
@@ -516,6 +517,20 @@ static void draw_block(const Game *g, int layer, TileType t, int x, int y, float
     } else if (layer == LAYER_BACKGROUND && (def->texture_mount[0][0] || def->texture_mount[1][0] || def->texture_mount[2][0])) {
         /* Something put up with no backwall behind it shows what it is fixed to instead. */
         assets_draw_tile_mounted(t, wx, y, px, py, TILE_SIZE, dim, world_mount(&g->world, x, y));
+    } else if (def->wire) {
+        /* Wire runs to whatever beside it carries or takes electricity. */
+        static const int beside[4][2] = { { 0, -1 }, { 1, 0 }, { 0, 1 }, { -1, 0 } };
+        int joined = 0;
+        for (int d = 0; d < 4; d++) {
+            int nx = x + beside[d][0], ny = y + beside[d][1];
+            bool thing = false;
+            for (int l = 0; l < BLOCK_LAYERS; l++) {
+                const TileDef *n = tile_def(world_get_at(&g->world, l, nx, ny));
+                thing = thing || n->gen_power > 0 || n->battery > 0 || n->electric > 0 || n->motor_power > 0;
+            }
+            if (thing || world_is_wired(&g->world, nx, ny)) joined |= 1 << d;
+        }
+        assets_draw_tile_joined(t, wx, y, px, py, TILE_SIZE, dim, joined);
     } else if (def->join_count > 0)
         assets_draw_tile_joined(t, wx, y, px, py, TILE_SIZE, dim, tile_joined(&g->world, layer, x, y));
     else
@@ -558,6 +573,31 @@ static void draw_world(const Game *g, Vector2 origin)
                 DrawRectangleRec((Rectangle){ px, py + TILE_SIZE - depth, TILE_SIZE, depth }, water);
                 if (top) DrawRectangleRec((Rectangle){ px, py + TILE_SIZE - depth, TILE_SIZE, 3 }, Fade(WHITE, 0.35f));
             }
+        }
+    }
+    /* Electricity: how full each battery is, as a bar over it; and what is
+     * on its way along the wires, as sparks running down them. */
+    for (int i = 0; i < MAX_STORAGES; i++) {
+        const Storage *st = &g->storages[i];
+        int holds = 0, has = st->used ? game_power_at(g, st->x, st->y, &holds) : 0;
+        if (holds <= 0) continue;
+        float bx = origin.x + ((float)x0 + (float)world_dx(w, world_wrap_x(w, x0), st->x)) * TILE_SIZE, by = origin.y + (float)st->y * TILE_SIZE;
+        if (st->y < y0 || st->y > y1 || bx < origin.x + (float)(x0 - 1) * TILE_SIZE || bx > origin.x + (float)(x1 + 1) * TILE_SIZE) continue;
+        DrawRectangleRec((Rectangle){ bx + 2, by - 7, TILE_SIZE - 4, 5 }, (Color){ 12, 13, 18, 255 });
+        DrawRectangleRec((Rectangle){ bx + 3, by - 6, (TILE_SIZE - 6) * (float)has / (float)holds, 3 }, (Color){ 250, 214, 60, 255 });
+    }
+    {
+        static Spark sparks[512];
+        int count = game_sparks(g, sparks, 512);
+        float part = g->tick_timer < 0.0f ? 0.0f : g->tick_timer > 1.0f ? 1.0f : g->tick_timer;
+        for (int i = 0; i < count; i++) {
+            const Spark *k = &sparks[i];
+            float fx = (float)x0 + (float)world_dx(w, world_wrap_x(w, x0), k->x) + (float)world_dx(w, k->x, k->to_x) * part;
+            float fy = (float)k->y + (float)(k->to_y - k->y) * part;
+            if (fx < (float)x0 - 1 || fx > (float)x1 + 1 || fy < (float)y0 - 1 || fy > (float)y1 + 1) continue;
+            float sx = origin.x + (fx + 0.5f) * TILE_SIZE, sy = origin.y + (fy + 0.5f) * TILE_SIZE;
+            DrawRectangleRec((Rectangle){ sx - 4, sy - 4, 8, 8 }, (Color){ 255, 240, 120, 110 });
+            DrawRectangleRec((Rectangle){ sx - 2, sy - 2, 4, 4 }, (Color){ 255, 255, 220, 255 });
         }
     }
     /* Snow: lying on the top of each column, as deep as it has fallen. */

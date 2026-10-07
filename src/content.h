@@ -53,6 +53,7 @@
 /* Ids are positions in the tables below, fixed only for one run of the game.
  * 0 is always "nothing": empty space, or no item. */
 enum { MIMIC_NONE = 0, MIMIC_UPRIGHT, MIMIC_FLAT };
+enum { POWER_NEEDS_NOTHING = 0, POWER_NEEDS_SUN, POWER_NEEDS_FUEL };
 /* What something in the background is fixed to (see world_mount). */
 enum { MOUNT_NONE = 0, MOUNT_WALL, MOUNT_FLOOR, MOUNT_CEILING, MOUNT_LEFT, MOUNT_RIGHT };
 
@@ -161,6 +162,18 @@ typedef struct {
     /* Building pieces of the background hold on to each other: one that
      * attaches can be put up beside another that does, with no block or backwall to hold it. */
     bool attaches;
+    bool floats;    /* it can be put up with nothing at all to hold it */
+    /* Electricity. A generator makes so much a tick while it has what it
+     * needs; a battery holds so much; a wire carries it, a block a tick; an
+     * electric bench takes so much for each second of what it makes, before
+     * it starts; a motor takes so much every tick, and while it gets it, runs
+     * the lift whose shaft it is in. */
+    int gen_power, gen_needs; /* a POWER_NEEDS_* */
+    int battery;
+    bool wire;
+    int electric;   /* units for each second of crafting; 0 for a bench that needs none */
+    int motor_power;
+    bool shaft;
     bool supports;  /* though it is in the background, things can be stood on top of it as on a block */
     bool hangs;     /* it can only be put up under a block: hung from its underside */
     /* How it looks put up with no backwall behind it: standing on what is
@@ -249,6 +262,7 @@ typedef struct {
     bool opens_in_bar;   /* those slots can be opened from the inventory bar */
     EquipSlot equip; /* armor slot it can be worn in, or EQUIP_NONE */
     TileType places; /* block it becomes when placed, or TILE_AIR */
+    TileType places_on_block; /* the block it becomes instead when it is put down on top of a block, or TILE_AIR */
     int fuel;        /* ticks it burns for as fuel; 0 if it is not fuel */
     float food;      /* share of the hunger bar eating one fills; 0 if it cannot be eaten */
     float food_health; /* share of the health bar it mends; below 0 for the usual share of `food` */
@@ -492,6 +506,7 @@ typedef struct {
     char ice_name[CONTENT_NAME_LEN];
     TileType ice;                     /* what water freezes into; TILE_AIR for nothing */
     float freeze_chance, thaw_chance; /* chance a random event on open water freezes it, or on ice thaws it */
+    float lift_time; /* seconds a lift takes over each block it goes */
     int wall_span;   /* a block put up within this many blocks above another has backwall put in between */
 
     float walk_time, fall_time, climb_time, hop_time, crawl_time; /* seconds per step */

@@ -300,6 +300,19 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->steps = flag(e, "steps", false);
         t->attaches = flag(e, "attaches", t->steps);
         t->supports = flag(e, "supports", false);
+        t->floats = flag(e, "floats", false);
+        const cJSON *gen = field(e, "generator");
+        const char *needs = str(gen, "needs");
+        t->gen_power = (int)num(gen, "power", 0);
+        t->gen_needs = !needs ? POWER_NEEDS_NOTHING : strcmp(needs, "sun") == 0 ? POWER_NEEDS_SUN : strcmp(needs, "fuel") == 0 ? POWER_NEEDS_FUEL : -1;
+        if (t->gen_needs < 0) return fail(r, "tile \"%s\": a generator \"needs\" \"sun\" or \"fuel\"", t->name);
+        t->battery = (int)num(e, "battery", 0);
+        t->wire = flag(e, "wire", false);
+        t->electric = (int)num(field(e, "electric"), "per_second", 0);
+        t->motor_power = (int)num(field(e, "motor"), "power", 0);
+        t->shaft = flag(e, "shaft", false);
+        if (t->gen_power < 0 || t->battery < 0 || t->electric < 0 || t->motor_power < 0)
+            return fail(r, "tile \"%s\": amounts of electricity cannot be less than nothing", t->name);
         t->hangs = flag(e, "hangs", false);
         const cJSON *mount = field(e, "texture_mount");
         copy_name(t->texture_mount[0], CONTENT_PATH_LEN, str(mount, "floor"));
@@ -552,6 +565,8 @@ static bool read_items(Reader *r, const cJSON *root)
             it->meter_start = 1;
             it->places = it->places_sized[0];
         } else if (!tile_ref(r, e, "places", &it->places)) return false;
+        it->places_on_block = TILE_AIR;
+        if (!tile_ref(r, e, "places_on_block", &it->places_on_block)) return false;
         it->sows = TILE_AIR;
         if (!tile_ref(r, e, "sows", &it->sows)) return false;
         /* Trees are read later; the name is matched to one once they are. */
@@ -953,6 +968,7 @@ static bool read_rules(Reader *r, const cJSON *root)
         u->thaw_chance = (float)num(weather, "thaw_chance", u->thaw_chance);
     }
     if (field(root, "building")) u->wall_span = (int)num(field(root, "building"), "wall_span", u->wall_span);
+    if (field(root, "power")) u->lift_time = (float)num(field(root, "power"), "lift_time", u->lift_time);
     if (player) {
         u->walk_time = (float)num(player, "walk_time", u->walk_time);
         u->fall_time = (float)num(player, "fall_time", u->fall_time);

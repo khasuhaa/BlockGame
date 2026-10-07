@@ -1,4 +1,5 @@
 #include "game.h"
+#include "power.h"
 
 #include "mob.h"
 #include "trade.h"
@@ -57,6 +58,25 @@ static bool can_step_up(const World *w, TilePos feet, int d)
 {
     return world_is_step(w, feet.x + d, feet.y) && !world_is_solid(w, feet.x + d, feet.y) &&
            body_fits(w, feet.x, feet.y - 1) && body_fits(w, feet.x + d, feet.y - 1);
+}
+
+/* The floors a running lift will take a character at `feet` to: every place
+ * along its shaft, up or down, where there is room for them and something to
+ * stand on. It goes through whatever blocks are between. `out` gets how far
+ * each is (negative for up), nearest first each way; returns how many. */
+static int lift_stops(const World *w, TilePos feet, int16_t *out)
+{
+    int n = 0;
+    if (!world_is_shaft(w, feet.x, feet.y) || !world_lift_runs(w, feet.x, feet.y)) return 0;
+    for (int way = -1; way <= 1; way += 2) {
+        int found = 0;
+        for (int dy = way; world_is_shaft(w, feet.x, feet.y + dy) && found < MAX_LIFT_STOPS && abs(dy) < 30000; dy += way) {
+            if (!body_fits(w, feet.x, feet.y + dy) || !is_supported(w, (TilePos){ feet.x, feet.y + dy })) continue;
+            out[n++] = (int16_t)dy;
+            found++;
+        }
+    }
+    return n;
 }
 
 /* A wall on side `d` that a player at `feet` can hold on to. */
@@ -219,6 +239,11 @@ static int list_moves(const World *w, Pose p, Step *out)
     if (can_climb_up(w, p.feet)) out[n++] = (Step){ 0, -1, true };
     /* Down through a trapdoor in the floor. */
     if (hatch_below(w, p.feet)) out[n++] = (Step){ 0, 1, true };
+    /* A lift, to any of its floors. */
+    int16_t floors[2 * MAX_LIFT_STOPS];
+    int stops = lift_stops(w, p.feet, floors);
+    for (int i = 0; i < stops && n < MAX_MOVES; i++)
+        if (floors[i] != -1 || !can_climb_up(w, p.feet)) out[n++] = (Step){ 0, floors[i], false };
     return n;
 }
 
@@ -287,6 +312,13 @@ static Step key_step(const World *w, Pose p, int dx, int dy)
             return (Step){ (int8_t)(2 * dx), 0, false };
         if (is_supported(w, (TilePos){ x + dx, y + 1 })) return (Step){ (int8_t)dx, 0, false };
         return (Step){ (int8_t)dx, 1, true };
+    }
+    /* In a running lift, up and down are the next floor that way. */
+    if (dy != 0) {
+        int16_t floors[2 * MAX_LIFT_STOPS];
+        int stops = lift_stops(w, p.feet, floors);
+        for (int i = 0; i < stops; i++)
+            if ((floors[i] < 0) == (dy < 0)) return (Step){ 0, floors[i], false };
     }
     if (dy < 0 && body_fits(w, x, y - 1)) return (Step){ 0, -1, true };
     if (dy > 0 && hatch_below(w, p.feet)) return (Step){ 0, 1, true };
@@ -434,6 +466,15 @@ static bool beside_background(const World *w, TilePos t, TileType tile)
     return false;
 }
 
+/* The block an item goes down as in a square: its usual one, or - for an item
+ * that has one - another where it is being put down on top of a block. */
+static TileType placed_tile(const World *w, ItemId item, TilePos t)
+{
+    const ItemDef *it = item_def(item);
+    if (it->places_on_block != TILE_AIR && world_is_solid(w, t.x, t.y + 1)) return it->places_on_block;
+    return it->places;
+}
+
 /* Whether an item can be planted on a block: it grows a tree, the block is
  * soil for that tree, and there is room above for the first trunk block. */
 static bool can_plant(const World *w, ItemId item, TilePos t)
@@ -532,25 +573,26 @@ static bool target_valid(const World *w, Action a)
     TileType t = world_get(w, a.target.x, a.target.y);
     switch (a.type) {
     case ACTION_MINE: return action_layer(w, a) >= 0;
-    case ACTION_PLACE:
-        /* Something that hangs in the background can go up against a backwall. */
-        if (item_def((ItemId)a.item)->places == TILE_AIR ||
-            !room_for(w, a.target, item_def((ItemId)a.item)->places))
-            return false;
+    case ACTION_PLACE: {
+        TileType placed = placed_tile(w, (ItemId)a.item, a.target);
+        if (placed == TILE_AIR || !room_for(w, a.target, placed)) return false;
         /* Something that hangs goes under a block and nowhere else, backwall or no. */
-        if (tile_def(item_def((ItemId)a.item)->places)->hangs) return world_is_solid(w, a.target.x, a.target.y - 1);
-        if (tile_def(item_def((ItemId)a.item)->places)->layer == LAYER_BACKGROUND &&
-            (bare_wall(w, a.target) != TILE_AIR || beside_background(w, a.target, item_def((ItemId)a.item)->places)))
+        if (tile_def(placed)->hangs) return world_is_solid(w, a.target.x, a.target.y - 1);
+        /* And something that floats, anywhere there is room for it. */
+        if (tile_def(placed)->floats) return true;
+        if (tile_def(placed)->layer == LAYER_BACKGROUND &&
+            (bare_wall(w, a.target) != TILE_AIR || beside_background(w, a.target, placed)))
             return true;
         /* With no backwall it is fixed to a block: under it, over it or beside
          * it. A column under it does as well as a block. */
-        if (tile_def(item_def((ItemId)a.item)->places)->layer == LAYER_BACKGROUND &&
+        if (tile_def(placed)->layer == LAYER_BACKGROUND &&
             tile_def(world_get_at(w, LAYER_BACKGROUND, a.target.x, a.target.y + 1))->supports)
             return true;
         return beside_block(w, a.target);
+    }
     case ACTION_PLANT: return can_plant(w, (ItemId)a.item, a.target);
     case ACTION_USE: return usable_at(w, a.target.x, a.target.y, NULL) != TILE_AIR;
-    default: return !tile_def(t)->solid;
+    default: return !tile_def(t)->solid || tile_def(t)->passable; /* (somewhere to go to: a door will do) */
     }
 }
 
@@ -696,7 +738,7 @@ static Pose sim_effect(Game *g, Pose pose, Action a)
     if (a.type == ACTION_MINE && layer >= 0)
         replace_block(&g->sim, layer, a.target, TILE_AIR);
     else if (a.type == ACTION_PLACE)
-        place_tile(&g->sim, a.target, item_def((ItemId)a.item)->places);
+        place_tile(&g->sim, a.target, placed_tile(&g->sim, (ItemId)a.item, a.target));
     else if (a.type == ACTION_PLANT)
         plant_item(g, &g->sim, (ItemId)a.item, a.target, 0);
     return pose_rest(&g->sim, pose);
@@ -729,6 +771,8 @@ static Pose sim_pending(Game *g)
     g->sim.sea_row = g->world.sea_row;
     /* (The plan takes the water as it lies now.) */
     memcpy(g->sim.water, g->world.water, (size_t)g->world.width * g->world.height);
+    /* (And the numbers kept with squares: a lift is planned for as it stands, running or not.) */
+    memcpy(g->sim.meta, g->world.meta, (size_t)g->world.width * g->world.height * sizeof(uint16_t));
     for (int layer = 0; layer < LAYER_COUNT; layer++)
         memcpy(g->sim.layers[layer], g->world.layers[layer],
                (size_t)g->world.width * g->world.height * sizeof(uint16_t));
@@ -927,6 +971,9 @@ bool game_click_tile(Game *g, int tx, int ty)
         /* Onto the very plant it crosses with: it goes into the soil under that. */
         a = plant;
         a.target.y = ty + 1;
+    } else if (world_lift_runs(&g->sim, tx, ty) && !blocks_body(&g->sim, tx, ty)) {
+        /* A floor of a lift that is running is somewhere to go, not something
+         * to take down. (With its power off, the shaft is mined like anything.) */
     } else if (world_in_bounds(&g->world, tx, ty) && mine_layer(&g->sim, a.target) >= 0) {
         /* A block here, in front or behind, is mined. */
         a.type = ACTION_MINE;
@@ -1072,7 +1119,9 @@ static Storage *storage_at(Game *g, TilePos t)
 static bool needs_storage(const TileDef *def)
 {
     /* (A shared store keeps its contents with the player, not the block.) */
-    return (def->storage_columns > 0 && !def->storage_shared) || def->fuel_capacity > 0;
+    return (def->storage_columns > 0 && !def->storage_shared) || def->fuel_capacity > 0 ||
+           /* (Anything that makes, holds or uses electricity keeps count of it.) */
+           def->gen_power > 0 || def->battery > 0 || def->electric > 0 || def->motor_power > 0;
 }
 
 /* Sets up the record of a newly placed block. A storage block takes over the
@@ -1291,7 +1340,10 @@ static void begin_step(Game *g, Step s)
     bool swim = in_water(&g->world, p->feet) && in_water(&g->world, to) && !is_supported(&g->world, to) &&
                 content.rules.swim_time > 0.0f;
     p->step_swim = swim;
-    if (hop) p->duration = HOP_TIME;
+    /* (A ride in a lift: quick, and so much a block.) */
+    bool ride = s.dx == 0 && !s.climb && !p->climbing && (s.dy < -1 || s.dy > 1 || (s.dy != 0 && world_is_shaft(&g->world, to.x, to.y)));
+    if (ride) p->duration = (content.rules.lift_time > 0.0f ? content.rules.lift_time : 0.04f) * (float)abs(s.dy);
+    else if (hop) p->duration = HOP_TIME;
     else if (swim) p->duration = content.rules.swim_time * (s.dx != 0 && s.dy != 0 ? 1.4142f : 1.0f);
     else if (s.climb || p->climbing) p->duration = CLIMB_TIME;
     else if (s.dy > 0) p->duration = FALL_TIME;
@@ -1481,7 +1533,7 @@ static void finish_activity(Game *g)
     } else if (p->activity == ACTIVITY_PLACING) {
         TilePos t = g->current.target;
         ItemId item = (ItemId)g->current.item;
-        TileType tile = item_def(item)->places;
+        TileType tile = placed_tile(&g->world, item, t);
         ItemStack one;
         if (!inventory_take_one(&g->inventory, item, &one)) {
             deny(g, t);
@@ -1670,6 +1722,9 @@ static bool craft_now(Game *g, const Recipe *r, int count)
     g->craft_recipe = r;
     g->craft_total = g->craft_remaining = count < max ? count : max;
     g->craft_timer = 0.0f;
+    /* An electric bench has to be sent what the work will take before it begins. */
+    g->craft_power = game_power_for(g, bench, r, g->craft_remaining);
+    storage_ensure(g, g->bench_pos, tile_def(bench));
     return true;
 }
 
@@ -1878,6 +1933,13 @@ static void update_bench(Game *g, float dt)
     /* The fire going out stops the work. */
     if (game_bench_fuel(g, NULL) == 0) g->craft_remaining = 0;
     if (g->craft_remaining <= 0) return;
+    if (g->craft_power > 0) {
+        /* Waiting for the electricity: when all of it has come down the wire, it is used and the work starts. */
+        Storage *st = storage_at(g, g->bench_pos);
+        if (!st || st->power < g->craft_power) return;
+        st->power -= g->craft_power;
+        g->craft_power = 0;
+    }
     g->craft_timer += dt;
     float each = game_craft_time(g->craft_recipe);
     while (g->craft_remaining > 0 && g->craft_timer >= each) {
@@ -1996,6 +2058,7 @@ static void character_stash(Game *g, Character *c)
     c->craft_total = g->craft_total;
     c->craft_remaining = g->craft_remaining;
     c->craft_timer = g->craft_timer;
+    c->craft_power = g->craft_power;
     c->upgrading = g->upgrading;
     c->upgrade_timer = g->upgrade_timer;
 }
@@ -2025,6 +2088,7 @@ static void character_fetch(Game *g, const Character *c)
     g->craft_total = c->craft_total;
     g->craft_remaining = c->craft_remaining;
     g->craft_timer = c->craft_timer;
+    g->craft_power = c->craft_power;
     g->upgrading = c->upgrading;
     g->upgrade_timer = c->upgrade_timer;
 }
@@ -2583,6 +2647,7 @@ void game_tick(Game *g)
 
     mobs_tick(g);
     water_step(w);
+    power_tick(g);
     /* Everybody gets hungry, whoever is being played. */
     for (int c = 0; c < g->character_count; c++) {
         game_use_character(g, c);
@@ -2903,8 +2968,9 @@ bool game_init(Game *g, int width, int height, uint32_t seed, WorldKind kind)
     g->rng = seed ^ 0x5EED1E57u;
     g->explored = calloc(cells, 1);
     g->snow = calloc((size_t)width, 1);
+    g->flows = calloc(MAX_POWER_FLOWS, sizeof(PowerFlow));
     g->random_events = content.rules.random_events_per_chunk;
-    if (!g->explored || !g->snow) {
+    if (!g->explored || !g->snow || !g->flows) {
         game_free(g);
         return false;
     }
@@ -2934,5 +3000,6 @@ void game_free(Game *g)
     free(g->bfs_seen);
     free(g->explored);
     free(g->snow);
+    free(g->flows);
     memset(g, 0, sizeof *g);
 }
