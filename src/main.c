@@ -24,6 +24,8 @@
 #define SIGN_TEXT_WIDTH (2 * TILE_SIZE - 6)
 
 static void sign_open(const Game *g, TilePos at);
+static float pair_shift(const World *w, int head, int y);
+
 
 #define DATA_DIR "data"
 #define PROFILE_PATH SAVE_DIR "/profile.txt"
@@ -97,6 +99,21 @@ static Vector2 view_origin(const MapCamera *cam)
 }
 
 /* The tile under a screen point. Its x is not wrapped into the world. */
+/* The sign drawn over a point of the world, given in blocks: where it is drawn, not the squares it is in. */
+static bool sign_under(const Game *g, float fx, float fy, TilePos *out)
+{
+    int y = (int)floorf(fy);
+    for (int head = (int)floorf(fx) - 2; head <= (int)floorf(fx) + 1; head++) {
+        const TileDef *def = tile_def(world_get(&g->world, head, y));
+        if (!def->written || def->pair == TILE_AIR) continue;
+        float left = (float)head + pair_shift(&g->world, head, y) / TILE_SIZE;
+        if (fx < left || fx >= left + 2.0f) continue;
+        *out = (TilePos){ world_wrap_x(&g->world, head), y };
+        return true;
+    }
+    return false;
+}
+
 static TilePos tile_at_screen(const MapCamera *cam, Vector2 screen)
 {
     Vector2 origin = view_origin(cam);
@@ -407,7 +424,7 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
             game_open_bench(g, at.x, at.y);
         }
         if (!cam->dragging && !on_map) {
-            TilePos t = tile_at_screen(cam, mouse);
+            TilePos t = tile_at_screen(cam, mouse), sign;
             t.x = world_wrap_x(&g->world, t.x);
             const TileDef *def = tile_def(game_bench_at(g, t.x, t.y));
             bool opens = def->bench || def->trade || def->storage_columns > 0;
@@ -429,9 +446,8 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
             else if (opens && game_open_bench(g, t.x, t.y)) {}
             else if (opens) game_queue_action(g, ACTION_USE, t.x, t.y);
             /* A sign is read and written on, not dug at. */
-            else if (tile_def(world_get(&g->world, t.x, t.y))->written ||
-                     tile_def(tile_def(world_get(&g->world, t.x, t.y))->pair_of)->written)
-                sign_open(g, t);
+            else if (sign_under(g, (mouse.x / zoom - view.origin.x) / TILE_SIZE, (mouse.y / zoom - view.origin.y) / TILE_SIZE, &sign))
+                sign_open(g, sign);
             else game_click_tile(g, t.x, t.y);
         }
         cam->pressed = false;
@@ -507,9 +523,31 @@ static int tile_joined(const World *w, int layer, int x, int y)
     return joined;
 }
 
+/* Something two blocks wide that is put up against a block - a sign - is
+ * drawn centred on the block that holds it, where that is one under it or
+ * over it: half a block to the left of the two squares it is in if that is
+ * the block at its left half, half a block to the right if only its right
+ * half has one. `head` is its left square. How far across to draw it, in pixels. */
+static float pair_shift(const World *w, int head, int y)
+{
+    int mount = world_mount_block(w, head, y), way = -1;
+    if (mount == MOUNT_NONE) {
+        mount = world_mount_block(w, head + 1, y);
+        way = 1;
+    }
+    if (mount != MOUNT_FLOOR && mount != MOUNT_CEILING) return 0.0f;
+    /* (Not into a block that is in the way.) */
+    if (world_is_solid(w, way < 0 ? head - 1 : head + 2, y)) return 0.0f;
+    return (float)way * TILE_SIZE / 2.0f;
+}
+
+/* Set while those are being drawn: they go on after the rest of the blocks, since they lie across the squares. */
+static bool drawing_pairs;
+
 /* One block of a layer, in whichever of its looks applies. */
 static void draw_block(const Game *g, int layer, TileType t, int x, int y, float px, float py, float dim)
 {
+    if (!drawing_pairs && (tile_def(t)->pair_floats || (tile_def(t)->pair_of != TILE_AIR && tile_def(tile_def(t)->pair_of)->pair_floats))) return;
     if (tile_def(t)->mimics != MIMIC_NONE && layer == LAYER_FOREGROUND) t = world_looks_like(&g->world, x, y);
     const TileDef *def = tile_def(t);
     int wx = world_wrap_x(&g->world, x);
@@ -618,12 +656,30 @@ static void draw_world(const Game *g, Vector2 origin)
             }
         }
     }
-    /* Signs: what is written on each, in one line across the two blocks it takes up. */
+    /* Signs, and anything else two blocks wide that is put up against a block: each centred on the block that holds it. */
+    drawing_pairs = true;
     for (int y = y0; y <= y1; y++) {
-        for (int x = x0 - 1; x <= x1; x++) {
+        for (int x = x0 - 2; x <= x1 + 1; x++) {
+            for (int layer = BLOCK_LAYERS - 1; layer >= 0; layer--) {
+                TileType t = world_get_at(w, layer, x, y);
+                const TileDef *def = tile_def(t);
+                if (!def->pair_floats || def->pair == TILE_AIR) continue;
+                /* (Not one hidden behind a block.) */
+                if (layer != LAYER_FOREGROUND && tile_def(world_get(w, x, y))->solid && !tile_def(world_get(w, x, y))->see_through) continue;
+                float px = origin.x + (float)(x * TILE_SIZE) + pair_shift(w, x, y), py = origin.y + (float)(y * TILE_SIZE);
+                float dim = layer == LAYER_FOREGROUND ? 0.0f : BACKGROUND_DIM;
+                draw_block(g, layer, t, x, y, px, py, dim);
+                if (world_get_at(w, layer, x + 1, y) == def->pair) draw_block(g, layer, def->pair, x + 1, y, px + TILE_SIZE, py, dim);
+            }
+        }
+    }
+    drawing_pairs = false;
+    /* What is written on each sign, in one line across it. */
+    for (int y = y0; y <= y1; y++) {
+        for (int x = x0 - 2; x <= x1 + 1; x++) {
             const SignText *text = tile_def(world_get(w, x, y))->written ? game_sign_at(g, x, y) : NULL;
             if (!text || !text->text[0]) continue;
-            float px = origin.x + (float)(x * TILE_SIZE), py = origin.y + (float)(y * TILE_SIZE);
+            float px = origin.x + (float)(x * TILE_SIZE) + pair_shift(w, x, y), py = origin.y + (float)(y * TILE_SIZE);
             /* Written smaller when it would not otherwise fit, so that it never runs off the board. */
             float wide = (float)MeasureText(text->text, SIGN_TEXT_SIZE);
             float scale = wide > SIGN_TEXT_WIDTH ? (float)SIGN_TEXT_WIDTH / wide : 1.0f;
