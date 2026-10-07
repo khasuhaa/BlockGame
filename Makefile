@@ -12,7 +12,7 @@ else
 LDLIBS := -lGL -lm -lpthread -ldl -lrt -lX11
 endif
 
-ENGINE_SRC := third_party/cjson/cJSON.c src/content.c src/world.c src/water.c src/tree.c src/inventory.c src/craft.c src/game.c src/mob.c src/light.c src/trade.c src/guide.c src/power.c src/save.c
+ENGINE_SRC := third_party/cjson/cJSON.c src/content.c src/world.c src/water.c src/tree.c src/inventory.c src/craft.c src/game.c src/mob.c src/light.c src/trade.c src/guide.c src/power.c src/save.c src/mods.c
 HEADERS := $(wildcard src/*.h)
 DATA := $(wildcard data/*.json)
 

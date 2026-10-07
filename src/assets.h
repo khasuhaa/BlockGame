@@ -10,6 +10,8 @@
  * window, and the content to be loaded first. A texture that is missing is
  * reported and drawn as a placeholder. */
 void assets_load(const char *dir);
+/* The same from several directories: the game's own first, then each mod's, a later one's textures coming before an earlier one's. */
+void assets_load_from(const char *const *dirs, int count);
 void assets_unload(void);
 /* Which season blocks that change with the seasons are drawn in from now on. */
 void assets_set_season(int season);

@@ -376,7 +376,7 @@
     {"bench": "portal", "level": 5, "output": {"item": "ruby_pickaxe", "count": 1}, "inputs": [{"item": "ruby", "count": 3}, {"item": "stick", "count": 1}]},
     {"bench": "portal", "level": 6, "output": {"item": "diamond_pickaxe", "count": 1}, "inputs": [{"item": "diamond", "count": 3}, {"item": "stick", "count": 1}]},
     {"bench": "portal", "level": 6, "output": {"item": "portal_chest", "count": 1}, "inputs": [{"item": "golden_chest", "count": 1}], "crystals": 100},
-    {"bench": "portal", "output": {"item": "new_player", "count": 1}, "random_inputs": {"of": ["apple", "orange", "cherry"], "count": 5}, "crystals": 100},
+    {"bench": "portal", "output": {"item": "new_player", "count": 1}, "random_inputs": {"of": ["apple", "orange", "cherry"], "count": 5}, "crystals": 100, "characters": 1},
     {"bench": "electric_furnace", "output": {"item": "copper_ingot", "count": 1}, "inputs": [{"item": "copper_ore", "count": 2}], "time": 30},
     {"bench": "electric_furnace", "output": {"item": "tin_ingot", "count": 1}, "inputs": [{"item": "tin_ore", "count": 2}], "time": 30},
     {"bench": "electric_furnace", "output": {"item": "bronze_ingot", "count": 3}, "inputs": [{"item": "copper_ingot", "count": 2}, {"item": "tin_ingot", "count": 1}], "time": 30},

@@ -58,7 +58,8 @@ typedef enum {
     ACTION_BUCKET,  /* go within reach of a tile, then scoop its water up or pour some out */
     ACTION_PAINT,   /* go within reach of a tile, then paint its block or backwall, or strip the paint off */
     ACTION_RELEASE, /* walk next to the target tile, then let out there the creature in the item held */
-    ACTION_SLEEP    /* go to the target tile - a bed - and lie down to sleep there */
+    ACTION_SLEEP,   /* go to the target tile - a bed - and lie down to sleep there */
+    ACTION_CAST     /* get within range of the target tile, then cast there the spell in the item held */
 } ActionType;
 
 /* What can be done at an open bench or trade block. Its menu can be looked
@@ -274,6 +275,7 @@ typedef struct {
     bool upgrading;
     float upgrade_timer;
     bool menu_hold;
+    float shield;
 } Character;
 
 typedef struct {
@@ -353,6 +355,8 @@ typedef struct {
     /* An upgrade of that bench under way, if it is one that takes time. */
     bool upgrading;
     float upgrade_timer;
+    /* A shield a spell has put round the character: so much of a health bar of harm it will still take for them. */
+    float shield;
     /* What is open was opened by something queued, and is for the player to
      * close: nothing queued after it starts until they have. */
     bool menu_hold;
@@ -543,6 +547,12 @@ bool game_bar_full(float value);
  * full. Sleep ends by itself once energy is full; anything the player is told
  * to do ends either. While it lasts the ticks go faster. */
 bool game_rest(Game *g, Rest kind);
+/* What is left of the character's shield, as a share of a health bar; 0 for none. */
+float game_shield(const Game *g);
+/* The same for any character of the world, by number. */
+float game_character_shield(const Game *g, int c);
+/* How many times faster work at the bench at a square goes for what stands near it; 1 for no faster. */
+float game_craft_boost(const Game *g, int x, int y);
 /* The bed at a square, if there is one there, in front or behind: the block
  * it is (its first half, for either half of it). TILE_AIR if there is none. */
 TileType game_bed_at(const Game *g, int x, int y);

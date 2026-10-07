@@ -34,6 +34,14 @@ Every item in the game except the coins belongs to a trade category and has a bu
 
 The loader enforces the category: an item with none that is neither a currency nor never held stops the game at startup, naming the item. Do not weaken that check to get a new item in; give the item a category.
 
+### Mods
+
+- A mod is a directory under `mods/` loaded on top of `data/` by `content_load` (see `src/mods.c`); the one the game comes with is `mods/magic_mayhem`, written out from `MagicMayhem.txt`. Everything a mod does it does through the data: if a mod needs the engine to do something new, that is a new field the base game could use as well, never a check for the mod.
+- A mod's items follow the same rules as the game's: every one has a category and a price.
+- A mod adds to lists the game already has by naming things (tiles, items, trees, mobs, veins, cave decorations) or through the lists made for adding (`"biome_plants"`, `"island_trees"`, recipes). Do not make a mod restate a whole biome to add a plant to it.
+- Worlds, crystals and the portal chest belong to the playset the enabled mods make (`mods_saves`). Anything new that is kept between worlds goes in that directory too, not in `saves/` itself.
+- `tests/test_game.c` loads the mod on top of the shipped data in `test_magic_mod` and checks its counts: change them there when the mod's content changes.
+
 ### Still in code, to be moved when touched
 
 - The interface: layouts, wording and colours of the inventory bar, bench menu and menus.

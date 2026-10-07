@@ -1,0 +1,67 @@
+New Recipes - 
+
+Workbench I 
+Lectern - 2 wood, 1 dodo feather, 20s
+
+Workbench III 
+Magic Orb - 3 glass, 1 magic gem, 2m
+
+Workbench V - 5 obsidian
+Magic Core - 5 magic gems, 5 obsidian, 5m
+
+Magic Core 
+Magic Conduit - 1 Magic Gem, 1 Elemental Essence, 2m
+2 Soulstone - 3 magic gems, 3 obsidian, 1 diamond, 3m
+Magic Array - 5 Magic Conduit, 5 Soulstone, 1 Sundial Essence, 5m - Magic array can be placed down and increases crafting time on all benches in a 5 block radius by 2x. It's a background item.
+
+Lectern I
+3 Paper - 1 sugarcane, 15s
+Spellbook - 2 leather, 2 paper, 30s
+Fireball Scroll - Spellbook, Flame Catalyst, 30s - Has 10 durability (can cast 10 spells), shoots a fireball dealing 10 damage in a splash of 1 tile radius at a mob. If it kills a mob and they drop meat, cook the meat.
+Water Scroll - Spellbook, Water Catalyst, 30s - 50 durability, spawns a bucket's worth of water on a block.
+Shield Scroll - Spellbook, Air Catalyst, 30s - 10 durability, spawns a shield layer on the player that can absorb 1 health bar's worth of damage before breaking.
+Miner's Scroll - Spellbook, Earth Catalyst, 30s - 1 durability, breaks all blocks in a 5 block radius of the targeted block.
+
+Lectern II - 1 Elemental Essence
+Master's Spellbook - Spellbook, 2 magic gems, 2m
+Sunrise Scroll - Master's Spellbook, Sun Catalyst, 3m - 1 durability, sets the time to sunrise
+Moonrise Scroll - Master's Spellbook, Moon Catalyst, 3m - 1 durability, set the time to moonrise
+
+Lectern III - 1 Sundial Essence
+Grandmaster's Spellbook - Master's Spellbook, 1 Soulstone, 5m
+Life Scroll - Grandmaster's Spellbook, Life Catalyst, 5m
+
+(The life scroll is used for the third character. After creating a second character, the limit is no longer 2, but 3. The third character requires 1 Life Scroll and 100 Crystals to spawn in.)
+
+Magic Orb I 
+Glass Jar - 2 glass, 20s
+Flame Catalyst - 1 Flame Essence, 2 ember, 20s
+Water Catalyst - 1 Water Essence, 1 bucket of water, 20s
+Air Catalyst - 1 Air Essence, 5 dodo feather, 20s
+Earth Catalyst - 1 Earth Essence, 3 iron ore, 20s
+Elemental Essence - 2 Flame Catalyst, 2 Water Catalyst, 2 Air Catalyst, 2 Earth Catalyst, 1 Glass Jar, 2m
+
+Magic Orb II - 1 Elemental Essence 
+Sun Catalyst - 1 Flame Catalyst, 5 Fuel, 1 Rainbow Essence, 5m
+Moon Catalyst - 1 Water Catalyst, 5 Poison, 1 Platinum Ingot, 5m
+Sundial Essence - 2 Sun Catalyst, 2 Moon Catalyst, 1 Glass Jar, 5m
+
+Magic Orb III - 1 Sundial Essence
+Life Catalyst - 1 Sundial Essence, 1 Elemental Essence, 5 Magic Gems, 5m
+
+New Crops -
+2 tall - Sugarcane, grows by oceans
+
+New Blocks - 
+Obsidian - Generates in veins near the bottom of the world
+
+New World Gen -
+Magic Gems - Around the same rarity as emeralds
+Magic Gem Floating Island/Gem tree
+
+New Mobs -
+Flame Spirit - Spawns during the day, flies in the sky. Vulnerable to water magic, canno tbe hurt with physical damage. Drops 0-1 Flame Essence
+Water Spirit - Spawns during the night, swims in the ocean. Vulnerable to flame magic, cannot be hurt with physical damage. Drops 0-1 Water Essence
+Air Spirit - Spawns during the night, flies in the sky. Vulnerable to earth magic, etc etc, Drops 0-1 Air Essence
+Earth Spirit - Spawns during the day in caves, Vulnerable to air magic etc etc, Drops 0-1 Earth Essence
+

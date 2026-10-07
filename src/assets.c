@@ -23,11 +23,24 @@ static struct {
 } images[MAX_IMAGES];
 static int image_count;
 static char data_dir[256];
+/* Where else textures are looked for, before the game's own: the mods that are on. A later one comes first. */
+static char more_dirs[16][256];
+static int more_count;
+
+/* Where a texture is: in the last of those that has it, or else in `dir`. */
+static const char *find_file(const char *dir, const char *file)
+{
+    for (int i = more_count - 1; i >= 0; i--) {
+        const char *path = TextFormat("%s/textures/%s", more_dirs[i], file);
+        if (FileExists(path)) return path;
+    }
+    return TextFormat("%s/textures/%s", dir, file);
+}
 
 static Texture2D load(const char *dir, const char *file)
 {
     if (!file[0]) return (Texture2D){ 0 };
-    const char *path = TextFormat("%s/textures/%s", dir, file);
+    const char *path = find_file(dir, file);
     if (!FileExists(path)) {
         fprintf(stderr, "missing texture: %s\n", path);
         return (Texture2D){ 0 };
@@ -38,7 +51,7 @@ static Texture2D load(const char *dir, const char *file)
 /* The average of a texture's solid pixels. */
 static Color average_color(const char *dir, const char *file)
 {
-    const char *path = TextFormat("%s/textures/%s", dir, file);
+    const char *path = find_file(dir, file);
     if (!file[0] || !FileExists(path)) return MAGENTA;
     Image img = LoadImage(path);
     long r = 0, g = 0, b = 0, n = 0;
@@ -57,7 +70,7 @@ static Color average_color(const char *dir, const char *file)
 /* The box round the solid pixels of an image; the whole image if it has none. */
 static Rectangle solid_bounds(const char *dir, const char *file)
 {
-    const char *path = TextFormat("%s/textures/%s", dir, file);
+    const char *path = find_file(dir, file);
     if (!file[0] || !FileExists(path)) return (Rectangle){ 0 };
     Image img = LoadImage(path);
     int x0 = img.width, y0 = img.height, x1 = -1, y1 = -1;
@@ -79,6 +92,13 @@ static Rectangle solid_bounds(const char *dir, const char *file)
 Color assets_tile_color(TileType t)
 {
     return t > TILE_AIR && t < content.tile_count ? tile_colors[t] : BLANK;
+}
+
+void assets_load_from(const char *const *dirs, int count)
+{
+    more_count = 0;
+    for (int i = 1; i < count && more_count < 16; i++) snprintf(more_dirs[more_count++], sizeof more_dirs[0], "%s", dirs[i]);
+    if (count > 0) assets_load(dirs[0]);
 }
 
 void assets_load(const char *dir)

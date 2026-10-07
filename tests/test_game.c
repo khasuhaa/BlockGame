@@ -3,6 +3,7 @@
 #include "../src/guide.h"
 #include "../src/light.h"
 #include "../src/mob.h"
+#include "../src/mods.h"
 #include "../src/power.h"
 #include "../src/save.h"
 #include "../src/trade.h"
@@ -12,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 /* Content is looked up by name: the engine has no ids of its own. */
 #define TILE_DIRT tile_id("dirt")
@@ -9028,6 +9030,336 @@ static void test_shipped_recipes(void)
     CHECK(item_def(item_id("iron_helmet"))->equip == EQUIP_HEAD && item_def(item_id("fur_boots"))->equip == EQUIP_BOOTS);
 }
 
+/* Mods: which there are, which are on, and the worlds each set of them has to itself. */
+static void test_mods(void)
+{
+    mkdir("build/modtest", 0755);
+    mkdir("build/modtest/mods", 0755);
+    mkdir("build/modtest/mods/alpha", 0755);
+    mkdir("build/modtest/mods/beta", 0755);
+    mkdir("build/modtest/mods/not a mod", 0755);
+    remove("build/modtest/saves/mods.txt");
+    write_file("build/modtest/mods/alpha/mod.json", "{ \"label\": \"Alpha\", \"icon\": \"a.png\" }");
+    write_file("build/modtest/mods/beta/mod.json", "{ }");
+    write_file("build/modtest/mods/alpha/items.json", "{ \"items\": [ { \"name\": \"alpha_thing\", \"label\": \"Alpha thing\", \"category\": \"materials\" } ] }");
+    remove("build/modtest/mods/beta/items.json");
+    static ModList mods;
+    mods_scan(&mods, "build/modtest/mods", "build/modtest/saves");
+    CHECK(mods.count == 2 && strcmp(mods.mods[0].id, "alpha") == 0 && strcmp(mods.mods[1].id, "beta") == 0);
+    CHECK(strcmp(mods.mods[0].label, "Alpha") == 0 && strcmp(mods.mods[1].label, "beta") == 0);
+    CHECK(strcmp(mods.mods[0].icon, "build/modtest/mods/alpha/a.png") == 0 && !mods.mods[1].icon[0]);
+    CHECK(!mods.mods[0].enabled && !mods.mods[1].enabled);
+    /* With none on, the worlds are the game's own. */
+    char playset[128], saves[256];
+    mods_playset(&mods, playset, sizeof playset);
+    mods_saves(&mods, "build/modtest/saves", saves, sizeof saves);
+    CHECK(playset[0] == '\0' && strcmp(saves, "build/modtest/saves") == 0);
+    /* One on: a playset of its own, with its own directory, and that is remembered. */
+    mods.mods[1].enabled = true;
+    CHECK(mods_remember(&mods, "build/modtest/saves"));
+    mods_scan(&mods, "build/modtest/mods", "build/modtest/saves");
+    CHECK(!mods.mods[0].enabled && mods.mods[1].enabled);
+    mods_saves(&mods, "build/modtest/saves", saves, sizeof saves);
+    CHECK(strcmp(saves, "build/modtest/saves/playsets/beta") == 0);
+    write_file("build/modtest/saves/playsets/beta/kept.world", "x");
+    /* Both on is another again; and back to the one is back to the same place, with what was left there. */
+    mods.mods[0].enabled = true;
+    mods_playset(&mods, playset, sizeof playset);
+    mods_saves(&mods, "build/modtest/saves", saves, sizeof saves);
+    CHECK(strcmp(playset, "alpha+beta") == 0 && strcmp(saves, "build/modtest/saves/playsets/alpha+beta") == 0);
+    mods.mods[0].enabled = false;
+    mods_saves(&mods, "build/modtest/saves", saves, sizeof saves);
+    FILE *kept = fopen("build/modtest/saves/playsets/beta/kept.world", "r");
+    CHECK(strcmp(saves, "build/modtest/saves/playsets/beta") == 0 && kept != NULL);
+    if (kept) fclose(kept);
+    /* Loading: the game's data, then each mod that is on. */
+    char err[256];
+    mods.mods[0].enabled = true;
+    CHECK(mods_load_content(&mods, "data", err, sizeof err) && err[0] == '\0' && item_id("alpha_thing") > 0);
+    const char *dirs[MAX_MODS + 1];
+    CHECK(mods_texture_dirs(&mods, "data", dirs) == 3 && strcmp(dirs[0], "data") == 0 && strcmp(dirs[1], "build/modtest/mods/alpha") == 0);
+    /* One that will not load is turned off, with a word of why, and the rest go on without it. */
+    write_file("build/modtest/mods/beta/items.json", "{ \"items\": [ { \"name\": \"nowhere\" } ] }");
+    CHECK(mods_load_content(&mods, "data", err, sizeof err) && strstr(err, "beta") && !mods.mods[1].enabled && mods.mods[0].enabled);
+    CHECK(item_id("alpha_thing") > 0 && item_id("nowhere") <= 0);
+    mods.mods[0].enabled = false;
+    CHECK(mods_load_content(&mods, "data", err, sizeof err) && item_id("alpha_thing") <= 0);
+    /* The mod the game comes with is found where the game looks. */
+    mods_scan(&mods, MODS_DIR, "build/modtest/saves");
+    bool found = false;
+    for (int k = 0; k < mods.count; k++) found = found || (strcmp(mods.mods[k].id, "magic_mayhem") == 0 && strcmp(mods.mods[k].label, "Magic and Mayhem") == 0);
+    CHECK(found);
+}
+
+static int mob_count(const Game *g, int kind)
+{
+    int n = 0;
+    for (int i = 0; i < MAX_MOBS; i++) n += g->mobs[i].active && g->mobs[i].kind == kind;
+    return n;
+}
+
+/* Magic and Mayhem, on top of the game. */
+static void test_magic_mod(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count;
+    if (!content_load("mods/magic_mayhem", err, sizeof err)) {
+        printf("FAIL magic_mayhem does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    /* What it adds; and the game's own things are still there. */
+    CHECK(content.tile_count == tiles + 18 && content.item_count == items + 40 && content.recipe_count == recipes + 29);
+    CHECK(content.rules.max_players == 3 && mob_id("flame_spirit") >= 0 && tree_id("magic_tree") >= 0);
+    TileType lectern = tile_id("lectern"), orb = tile_id("magic_orb"), core = tile_id("magic_core");
+    CHECK(tile_def(lectern)->bench && tile_def(lectern)->upgrade_to == tile_id("lectern_2") && tile_def(tile_id("lectern_2"))->upgrade_to == tile_id("lectern_3"));
+    CHECK(tile_def(lectern)->upgrade_cost[0].id == item_id("elemental_essence") && tile_def(tile_id("lectern_2"))->upgrade_cost[0].id == item_id("sundial_essence"));
+    CHECK(tile_def(orb)->upgrade_cost[0].id == item_id("elemental_essence") && tile_def(tile_id("magic_orb_3"))->bench_level == 3);
+    CHECK(tile_def(tile_id("workbench_4"))->upgrade_to == tile_id("workbench_5") && tile_def(tile_id("workbench_4"))->upgrade_cost[0].id == item_id("obsidian") &&
+          tile_def(tile_id("workbench_4"))->upgrade_cost[0].count == 5 && tile_def(tile_id("workbench_5"))->bench_level == 5);
+    /* The recipes, a few of them. */
+    const Recipe *r = find_recipe(TILE_WORKBENCH, "lectern");
+    CHECK(r && costs(r, "wood", 2, "feather", 1) && r->level == 1 && r->time == 20.0f);
+    r = find_recipe(TILE_WORKBENCH, "magic_core");
+    CHECK(r && costs(r, "magic_gem", 5, "obsidian", 5) && r->level == 5);
+    r = find_recipe_from(lectern, "paper", "sugarcane");
+    CHECK(r && costs(r, "sugarcane", 1, NULL, 0) && r->output.count == 3);
+    r = find_recipe(lectern, "fireball_scroll");
+    CHECK(r && costs(r, "spellbook", 1, "flame_catalyst", 1));
+    r = find_recipe(lectern, "life_scroll");
+    CHECK(r && costs(r, "grandmasters_spellbook", 1, "life_catalyst", 1) && r->level == 3);
+    r = find_recipe(orb, "elemental_essence");
+    CHECK(r && r->input_count == 5 && r->level == 1);
+    r = find_recipe(orb, "life_catalyst");
+    CHECK(r && r->level == 3 && r->input_count == 3);
+    r = find_recipe_from(core, "soulstone", "magic_gem");
+    CHECK(r && r->output.count == 2 && r->input_count == 3);
+    r = find_recipe(core, "magic_array");
+    CHECK(r && r->input_count == 3 && r->time == 300.0f);
+    /* The spells. */
+    const ItemDef *fire = item_def(item_id("fireball_scroll")), *wet = item_def(item_id("water_scroll")), *dig = item_def(item_id("miners_scroll"));
+    CHECK(fire->casts && fire->uses == 10 && fire->cast_damage == 10 && fire->cast_splash == 1 && fire->cast_cooks && fire->range == 10);
+    CHECK(wet->casts && wet->uses == 50 && wet->cast_water == 8 && wet->cast_damage == 0 && wet->cast_bane == 10);
+    CHECK(dig->uses == 1 && dig->cast_dig == 5 && item_def(item_id("shield_scroll"))->cast_shield == 1.0f && item_def(item_id("shield_scroll"))->uses == 10);
+    CHECK(item_def(item_id("sunrise_scroll"))->cast_time == 0 && item_def(item_id("moonrise_scroll"))->cast_time == 1);
+    CHECK(item_def(item_id("dodo_meat"))->cooks_into == item_id("cooked_dodo_meat"));
+    /* The spirits. */
+    int flame = mob_id("flame_spirit"), water = mob_id("water_spirit"), air = mob_id("air_spirit"), earth = mob_id("earth_spirit");
+    CHECK(content.mobs[flame].flies && content.mobs[flame].immune && content.mobs[flame].spawn_sky && content.mobs[flame].spawn_time == 1);
+    CHECK(content.mobs[air].flies && content.mobs[air].spawn_time == 2 && content.mobs[water].swims && content.mobs[water].spawn_time == 2);
+    CHECK(!content.mobs[earth].flies && content.mobs[earth].spawn_cave && content.mobs[earth].spawn_time == 1);
+    CHECK(content.mobs[flame].weak_to == wet->cast_element && content.mobs[water].weak_to == fire->cast_element && content.mobs[air].weak_to == dig->cast_element);
+    CHECK(content.mobs[earth].weak_to == item_def(item_id("shield_scroll"))->cast_element && content.mobs[mob_id("dodo")].weak_to < 0);
+
+    Game g;
+    game_init(&g, 160, 96, 21, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    g.tick_rate = 0;
+    g.random_events = 0;
+    clear_mobs(&g);
+    int s = w->surface_y, ground = s - 1, px = g.player.feet.x;
+
+    /* A fireball: at a dodo six blocks off, it and the one beside it are killed and their meat is cooked; a use is gone. */
+    clear_inventory(&g);
+    inventory_add(inv, item_id("fireball_scroll"), 1);
+    inventory_select(inv, 0, -1);
+    CHECK(inventory_meter(inv, &inv->slots[0]) == 10);
+    int dodo = mob_spawn(&g, mob_id("dodo"), px + 6, ground, true, false), beside = mob_spawn(&g, mob_id("dodo"), px + 7, ground, true, false);
+    int far = mob_spawn(&g, mob_id("dodo"), px + 10, ground, true, false);
+    CHECK(dodo >= 0 && beside >= 0 && far >= 0 && game_click_mob(&g, dodo));
+    for (int i = 0; i < 120 && g.mobs[dodo].active; i++) game_update(&g, 1.0f / 60.0f);
+    CHECK(!g.mobs[dodo].active && !g.mobs[beside].active && g.mobs[far].active && g.player.feet.x == px);
+    CHECK(drops_of(&g, item_id("cooked_dodo_meat")) >= 2 && drops_of(&g, item_id("dodo_meat")) == 0);
+    CHECK(inventory_meter(inv, &inv->slots[0]) == 9);
+    clear_mobs(&g);
+    clear_drops(&g);
+    /* A spirit is not hurt by blows, nor by magic it is not weak to; by the magic it is weak to, it is. */
+    int ws = mob_spawn(&g, water, px + 4, ground, true, false), fs = mob_spawn(&g, flame, px + 5, ground - 6, true, false);
+    CHECK(!mob_hurt(&g, ws, 100) && g.mobs[ws].active && !mob_hurt_by(&g, ws, 100, wet->cast_element, false) && g.mobs[ws].active);
+    CHECK(mob_weak_to(&g, ws, fire->cast_element) && !mob_weak_to(&g, fs, fire->cast_element) && !mob_weak_to(&g, ws, -1));
+    CHECK(game_click_mob(&g, ws));
+    for (int i = 0; i < 120 && g.mobs[ws].active; i++) game_update(&g, 1.0f / 60.0f);
+    CHECK(!g.mobs[ws].active && inventory_meter(inv, &inv->slots[0]) == 8);
+    CHECK(game_click_mob(&g, fs));
+    run(&g, 2.0f);
+    CHECK(g.mobs[fs].active && g.mobs[fs].hp > 0); /* fire does nothing to a spirit of fire */
+    /* Water, on a square: a bucket's worth of it there; and the end of a flame spirit beside it. */
+    clear_inventory(&g);
+    inventory_add(inv, item_id("water_scroll"), 1);
+    inventory_select(inv, 0, -1);
+    g.mobs[fs].x = g.mobs[fs].to_x = px + 4;
+    g.mobs[fs].y = g.mobs[fs].to_y = ground - 1;
+    g.mobs[fs].step_left = 0;
+    long before = water_total(w);
+    CHECK(game_click_tile(&g, px + 4, ground) && (g.has_current ? g.current.type : g.queue[0].type) == ACTION_CAST);
+    run(&g, 0.2f);
+    CHECK(water_total(w) == before + 8 && !g.mobs[fs].active && inventory_meter(inv, &inv->slots[0]) == 49);
+    for (int x = px - 20; x <= px + 20; x++) world_set_water(w, x, ground, 0);
+    clear_mobs(&g);
+    clear_drops(&g);
+    /* A shield: a health bar's worth of harm is taken by it, and then it is gone. */
+    clear_inventory(&g);
+    inventory_add(inv, item_id("shield_scroll"), 1);
+    inventory_select(inv, 0, -1);
+    CHECK(game_shield(&g) == 0.0f && game_click_tile(&g, px + 30, ground - 20));
+    run(&g, 0.2f);
+    CHECK(game_shield(&g) == 1.0f && g.player.feet.x == px && inventory_meter(inv, &inv->slots[0]) == 9); /* (cast where they stood) */
+    game_hurt(&g, 0.4f);
+    CHECK(g.vitals.health == 1.0f && game_shield(&g) > 0.59f && game_shield(&g) < 0.61f);
+    CHECK(save_game(&g, "build/test_magic.world"));
+    Game loaded;
+    CHECK(load_game(&loaded, "build/test_magic.world") && game_shield(&loaded) > 0.59f && game_shield(&loaded) < 0.61f);
+    game_free(&loaded);
+    game_hurt(&g, 0.8f);
+    CHECK(game_shield(&g) == 0.0f && g.vitals.health > 0.79f && g.vitals.health < 0.81f);
+    g.vitals.health = 1.0f;
+    /* The miner's scroll: every plain block within five of the one it is cast at; one use, and it is spent. A bench is left standing. */
+    clear_inventory(&g);
+    inventory_add(inv, item_id("miners_scroll"), 1);
+    inventory_select(inv, 0, -1);
+    world_set_at(w, tile_def(TILE_WORKBENCH)->layer, px + 5, s + 4, TILE_WORKBENCH);
+    world_set(w, px + 6, s + 3, tile_id("chest"));
+    CHECK(game_click_tile(&g, px + 5, s + 3));
+    run(&g, 3.0f);
+    int left = 0, outside = 0;
+    for (int dy = -5; dy <= 5; dy++)
+        for (int dx = -5; dx <= 5; dx++)
+            if (dx * dx + dy * dy <= 25 && s + 3 + dy >= s && world_get(w, px + 5 + dx, s + 3 + dy) != TILE_AIR) left++;
+    for (int dx = -9; dx <= 9; dx++) outside += world_get(w, px + 5 + dx, s + 9) != TILE_AIR;
+    CHECK(left == 1 && world_get(w, px + 6, s + 3) == tile_id("chest") && outside == 19); /* (only the chest) */
+    CHECK(world_get_at(w, tile_def(TILE_WORKBENCH)->layer, px + 5, s + 4) == TILE_WORKBENCH && count_item(&g, item_id("miners_scroll")) == 0);
+    CHECK(drops_of(&g, ITEM_DIRT) + count_item(&g, ITEM_DIRT) > 20);
+    clear_drops(&g);
+    /* Sunrise and moonrise: on to the next one. */
+    clear_inventory(&g);
+    inventory_add(inv, item_id("moonrise_scroll"), 1);
+    inventory_add(inv, item_id("sunrise_scroll"), 1);
+    g.player.feet = g.player.step_to = (TilePos){ px - 20, ground };
+    g.tick = 100;
+    inventory_select(inv, 0, -1);
+    CHECK(game_click_tile(&g, px - 18, ground - 5));
+    run(&g, 0.2f);
+    bool day = true;
+    game_day_phase(&g, &day);
+    CHECK(!day && g.tick >= (uint64_t)DAY_TICKS && g.tick < (uint64_t)DAY_TICKS + 30 && count_item(&g, item_id("moonrise_scroll")) == 0);
+    for (int k = 0; k < INVENTORY_SLOTS; k++)
+        if (inv->slots[k].count > 0 && inv->slots[k].id == item_id("sunrise_scroll")) inventory_select(inv, k, -1);
+    CHECK(game_click_tile(&g, px - 18, ground - 5));
+    run(&g, 0.2f);
+    game_day_phase(&g, &day);
+    CHECK(day && g.tick >= (uint64_t)(DAY_TICKS + NIGHT_TICKS) && g.tick < (uint64_t)(DAY_TICKS + NIGHT_TICKS) + 30);
+
+    /* A magic array: work at a bench within five blocks of one goes twice as fast. */
+    TileType array = tile_id("magic_array");
+    world_set_at(w, tile_def(lectern)->layer, px - 30, ground, lectern);
+    CHECK(tile_def(array)->craft_speed == 2.0f && tile_def(array)->craft_radius == 5 && game_open_bench(&g, px - 30, ground));
+    r = find_recipe(lectern, "spellbook");
+    CHECK(game_craft_boost(&g, px - 30, ground) == 1.0f && game_craft_seconds(&g, r) == 30.0f);
+    world_set_at(w, tile_def(array)->layer, px - 34, ground - 3, array);
+    CHECK(game_craft_boost(&g, px - 30, ground) == 2.0f && game_craft_seconds(&g, r) == 15.0f);
+    world_set_at(w, tile_def(array)->layer, px - 34, ground - 3, TILE_AIR);
+    world_set_at(w, tile_def(array)->layer, px - 36, ground, array);
+    CHECK(game_craft_boost(&g, px - 30, ground) == 1.0f); /* six off: too far */
+    game_close_bench(&g);
+
+    /* The third character: made with a life scroll and 100 crystals, and only once there are two. */
+    const Recipe *second = find_recipe_from(TILE_SPAWN_PORTAL, "new_player", "apple"), *third = find_recipe_from(TILE_SPAWN_PORTAL, "new_player", "life_scroll");
+    if (!second) second = find_recipe_from(TILE_SPAWN_PORTAL, "new_player", "orange");
+    if (!second) second = find_recipe_from(TILE_SPAWN_PORTAL, "new_player", "cherry");
+    CHECK(third && third->characters == 2 && third->crystals == 100 && third->input_count == 1);
+    for (int k = 0; k < content.recipe_count && !second; k++)
+        if (content.recipes[k].output.id == item_id("new_player") && content.recipes[k].characters == 1) second = &content.recipes[k];
+    CHECK(second && second->characters == 1);
+    clear_inventory(&g);
+    inventory_add(inv, item_id("life_scroll"), 2);
+    g.crystals = 1000;
+    g.player.feet = g.player.step_to = (TilePos){ w->spawn_x + 1, w->spawn_y };
+    CHECK(g.character_count == 1 && game_open_bench(&g, w->spawn_x, w->spawn_y) && !game_craft(&g, third, 1));
+    CHECK(game_add_character(&g, (TilePos){ w->spawn_x + 2, w->spawn_y }) == 1 && g.character_count == 2);
+    CHECK(second && !game_craft(&g, second, 1)); /* (the way the second is made is no longer open) */
+    CHECK(game_craft(&g, third, 1));
+    run(&g, 3.0f);
+    CHECK(g.character_count == 3 && count_item(&g, item_id("life_scroll")) == 1 && g.crystals == 900);
+    /* And three is as many as there can be. */
+    game_craft(&g, third, 1);
+    run(&g, 3.0f);
+    CHECK(g.character_count == 3 && g.crystals == 900);
+    game_free(&g);
+
+    /* Where the spirits turn up: by day flame spirits in the sky, and by night air spirits; never the other way about. */
+    game_init(&g, 160, 96, 22, WORLD_FLAT);
+    w = &g.world;
+    g.tick_rate = 0;
+    g.random_events = 0;
+    clear_mobs(&g);
+    s = w->surface_y, ground = s - 1, px = g.player.feet.x;
+    float chances[4] = { content.mobs[flame].spawn_chance, content.mobs[air].spawn_chance, content.mobs[earth].spawn_chance, content.mobs[water].spawn_chance };
+    ((MobDef *)&content.mobs[flame])->spawn_chance = ((MobDef *)&content.mobs[air])->spawn_chance = 1.0f;
+    ((MobDef *)&content.mobs[earth])->spawn_chance = 1.0f;
+    g.tick = (uint64_t)DAY_TICKS / 2;
+    CHECK(!mobs_try_spawn(&g, px + 5, ground - 2)); /* too near the ground for the sky */
+    CHECK(mobs_try_spawn(&g, px + 5, ground - 12) && mob_count(&g, flame) == 1 && mob_count(&g, air) == 0);
+    /* (An earth spirit: on stone, under ground, by day.) */
+    for (int x = px - 3; x <= px + 3; x++) world_set(w, x, s + 6, TILE_AIR), world_set(w, x, s + 7, TILE_STONE);
+    CHECK(world_get_at(w, LAYER_WALL, px, s + 6) != TILE_AIR && mobs_try_spawn(&g, px, s + 6) && mob_count(&g, earth) == 1);
+    world_set(w, px + 10, ground + 1, TILE_STONE);
+    CHECK(!mobs_try_spawn(&g, px + 10, ground) || mob_count(&g, earth) == 1); /* not on stone in the open */
+    g.tick = (uint64_t)DAY_TICKS + (uint64_t)NIGHT_TICKS / 2;
+    clear_mobs(&g);
+    CHECK(mobs_try_spawn(&g, px - 5, ground - 12) && mob_count(&g, air) == 1 && mob_count(&g, flame) == 0);
+    CHECK(!mobs_try_spawn(&g, px, s + 6) && mob_count(&g, earth) == 0);
+    /* It stays up there: after a good while it has moved about, and never come down to the ground or into a block. */
+    int spirit = -1;
+    for (int k = 0; k < MAX_MOBS; k++)
+        if (g.mobs[k].active) spirit = k;
+    int lowest = 0, moved = 0, sx = g.mobs[spirit].x;
+    for (int t = 0; t < 600; t++) {
+        game_tick(&g);
+        if (!g.mobs[spirit].active) break;
+        if (g.mobs[spirit].y > lowest) lowest = g.mobs[spirit].y;
+        if (g.mobs[spirit].x != sx) moved++;
+        if (world_is_solid(w, g.mobs[spirit].x, g.mobs[spirit].y)) lowest = 10000;
+    }
+    CHECK(g.mobs[spirit].active && moved > 0 && lowest < ground);
+    ((MobDef *)&content.mobs[flame])->spawn_chance = chances[0];
+    ((MobDef *)&content.mobs[air])->spawn_chance = chances[1];
+    ((MobDef *)&content.mobs[earth])->spawn_chance = chances[2];
+    (void)chances[3];
+    game_free(&g);
+
+    /* The world: obsidian near the bottom, magic gems in the caves, sugarcane on the beaches, and a magic tree on an island here and there. */
+    int obsidian = 0, shallow = 0, gems = 0, cane = 0, off_beach = 0, magic_logs = 0;
+    TileType ob = tile_id("obsidian"), gem = tile_id("magic_gem"), log = tile_id("magic_tree_log");
+    for (uint32_t seed = 1; seed <= 3; seed++) {
+        World world;
+        CHECK(world_init(&world, 2048, 401, seed, WORLD_TERRAIN));
+        for (int y = 0; y < world.height; y++) {
+            for (int x = 0; x < world.width; x++) {
+                if (world_get(&world, x, y) == ob) {
+                    obsidian++;
+                    if (world_row_to_y(&world, y) > -120) shallow++;
+                }
+                TileType back = world_get_at(&world, BG, x, y);
+                if (back == gem) gems++;
+                if (back == log) magic_logs++;
+                if (strncmp(tile_def(back)->name, "sugarcane", 9) == 0) {
+                    cane++;
+                    if (strcmp(content.biomes[world_biome(&world, x)].name, "beach") != 0) off_beach++;
+                }
+            }
+        }
+        world_free(&world);
+    }
+    CHECK(obsidian > 100 && shallow == 0 && gems > 20 && cane > 10 && off_beach == 0 && magic_logs > 0);
+
+    /* And the game by itself again. */
+    content_reset();
+    CHECK(content_load("data", err, sizeof err) && content.tile_count == tiles && item_id("fireball_scroll") <= 0 && content.rules.max_players == 2);
+}
+
 int main(void)
 {
     char err[256];
@@ -9147,6 +9479,8 @@ int main(void)
     test_planting();
     test_chests();
     test_content();
+    test_mods();
+    test_magic_mod();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;

@@ -5,7 +5,9 @@
 #include "recipeui.h"
 #include "save.h"
 
-#define SAVE_DIR "saves"
+#include "mods.h"
+
+#define SAVE_DIR SAVES_DIR
 #define WORLD_NAME_MAX 24
 #define MAX_LISTED_WORLDS 64
 
@@ -35,6 +37,7 @@ typedef enum {
     MAIN_MENU_STAY,
     MAIN_MENU_LOAD,   /* open the save at `path` */
     MAIN_MENU_CREATE, /* make a new world and save it to `path` */
+    MAIN_MENU_MODS,   /* which mods are on has been changed: everything is to be loaded again */
     MAIN_MENU_QUIT
 } MainMenuResult;
 
@@ -53,6 +56,9 @@ typedef struct {
     /* Which tab of that screen is up (0 the world, 1 advanced), and whether a debug world was asked for. */
     int tab, debug;
     bool deleting; /* asking whether the chosen world is really to be deleted */
+    /* The mods there are and which are on; whether the screen that turns them on and off is up, and whether it has changed anything. */
+    ModList mods;
+    bool modding, mods_changed;
     char name[WORLD_NAME_MAX + 1];
     char error[96];
     char path[256];
@@ -65,6 +71,10 @@ typedef struct {
     int selected;
     float slide;    /* where the row has slid to, in worlds; eases toward `selected` */
 } MainMenu;
+
+/* Where worlds are kept now: the directory of the playset the mods that are on make. Set it whenever they change. */
+void main_menu_set_saves(const char *dir);
+const char *main_menu_saves(void);
 
 /* What the "new world" screen was set to, as the generator wants it. */
 int main_menu_world_width(const MainMenu *m);

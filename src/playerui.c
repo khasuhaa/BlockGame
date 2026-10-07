@@ -304,6 +304,12 @@ void playerui_draw(const PlayerUi *ui, const Game *g)
         /* With no health left, what shows in its place is the death bar. */
         if (v->health <= 0.0f || v->death < 1.0f) playerui_draw_bar(small_bar(c, 0), v->death, BAR_RED);
         else playerui_draw_bar(small_bar(c, 0), v->health, v->poison > 0 ? BAR_POISON : BAR_GREEN); /* (poisoned, it turns sickly) */
+        /* (A shield shows as a pale line along the top of it, as long as what is left of the shield.) */
+        float shield = game_character_shield(g, c);
+        if (shield > 0.0f) {
+            Rectangle bar = small_bar(c, 0);
+            DrawRectangleRec((Rectangle){ bar.x, bar.y, bar.width * (shield > 1.0f ? 1.0f : shield), 2.0f }, (Color){ 190, 230, 255, 255 });
+        }
         playerui_draw_bar(small_bar(c, 1), v->hunger, v->saturation > 0.0f ? BAR_GOLD : BAR_GREEN);
         /* Breath only shows while it is short. */
         if (v->oxygen < 1.0f) playerui_draw_bar(small_bar(c, 2), v->oxygen, BAR_BLUE);

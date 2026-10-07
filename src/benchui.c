@@ -599,8 +599,11 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
             DrawText(cost, (int)(hurry.x + (hurry.width - (float)wide - 18) / 2), (int)hurry.y + 10, 14, can ? RAYWHITE : GRAY);
             assets_draw_image(content.trade.crystal_icon, (Rectangle){ hurry.x + (hurry.width - (float)wide - 18) / 2 + (float)wide + 2, hurry.y + 9, 16, 16 });
         }
-    } else if (item_def(r->output.id)->becomes_player && g->character_count >= content.rules.max_players) {
+    } else if ((item_def(r->output.id)->becomes_player && g->character_count >= content.rules.max_players) ||
+               (r->characters > 0 && g->character_count > r->characters)) {
         draw_centered("Already made", b, 18, (Color){ 170, 172, 184, 255 });
+    } else if (r->characters > 0 && g->character_count < r->characters) {
+        draw_centered("Not yet", b, 18, (Color){ 170, 172, 184, 255 });
     } else if (cap < 1) {
         draw_centered("Not enough items", b, 18, (Color){ 235, 90, 90, 255 });
     } else {

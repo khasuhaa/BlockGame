@@ -1,0 +1,45 @@
+{
+  "veins": [
+    {
+      "name": "obsidian",
+      "tile": "obsidian",
+      "in": [
+        "stone"
+      ],
+      "size": [
+        8,
+        24
+      ],
+      "per_100_columns": 3,
+      "depth": [
+        165,
+        198
+      ]
+    }
+  ],
+  "cave_decor": [
+    {
+      "name": "magic_gem",
+      "tile": "magic_gem",
+      "per_100_columns": 2,
+      "depth": [
+        45,
+        190
+      ]
+    }
+  ],
+  "island_trees": [
+    {
+      "tree": "magic_tree",
+      "weight": 4,
+      "above": 110
+    }
+  ],
+  "biome_plants": [
+    {
+      "biome": "beach",
+      "tile": "sugarcane_0",
+      "one_in": 10
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "trees": [
+    {"name": "magic_tree", "log": "magic_tree_log", "leaves": "magic_tree_leaves", "fruit": "magic_gem_shard", "fruit_ticks": 1800, "layer": "background", "soil": ["dirt", "grass", "compost"], "max_height": 5, "rows": [{"offset": -1, "left": 1, "right": 1, "center": true}, {"offset": 0, "left": 2, "right": 2}, {"offset": 1, "left": 2, "right": 2}, {"offset": 2, "left": 1, "right": 1}]}
+  ]
+}

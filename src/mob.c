@@ -108,6 +108,34 @@ static bool try_spawn_in_tree(Game *g, int x, int y)
     return false;
 }
 
+static bool flyable(const World *w, int x, int y);
+
+/* Whether it is the time of day a creature turns up at. */
+static bool spawns_now(const Game *g, const MobDef *def)
+{
+    bool day;
+    game_day_phase(g, &day);
+    return def->spawn_time == 0 || (def->spawn_time == 1) == day;
+}
+
+/* A random event on a square of open sky, well clear of the ground, can bring something that lives up there. */
+static bool try_spawn_in_sky(Game *g, int x, int y)
+{
+    const World *w = &g->world;
+    for (int k = 0; k <= 4; k++)
+        if (!flyable(w, x, y + k)) return false;
+    for (int kind = 0; kind < content.mob_count; kind++) {
+        const MobDef *def = &content.mobs[kind];
+        if (!def->flies || !def->spawn_sky || def->spawn_chance <= 0.0f) continue;
+        if (!spawns_in(w, def, x) || !spawns_now(g, def)) continue;
+        if (!in_range(g, x, y) || mobs_near_player(g) >= content.mob_cap) return false;
+        if (def->cap > 0 && kind_near_player(g, kind) >= def->cap) continue;
+        if (chance(g) >= def->spawn_chance) continue;
+        return mob_spawn(g, kind, x, y, false, false) >= 0;
+    }
+    return false;
+}
+
 /* A random event on a square of water can bring something that lives in it. */
 static bool try_spawn_in_water(Game *g, int x, int y)
 {
@@ -116,7 +144,7 @@ static bool try_spawn_in_water(Game *g, int x, int y)
     for (int kind = 0; kind < content.mob_count; kind++) {
         const MobDef *def = &content.mobs[kind];
         if (!def->swims || !def->spawn_water) continue;
-        if (!spawns_in(w, def, x)) continue;
+        if (!spawns_in(w, def, x) || !spawns_now(g, def)) continue;
         if (!in_range(g, x, y) || mobs_near_player_in_water(g) >= content.mob_water_cap) return false;
         if (def->cap > 0 && kind_near_player(g, kind) >= def->cap) continue;
         if (chance(g) >= def->spawn_chance) continue;
@@ -131,6 +159,7 @@ bool mobs_try_spawn(Game *g, int x, int y)
     if (!world_in_bounds(w, x, y) || !game_alive(g)) return false; /* nothing turns up with nobody there */
     if (try_spawn_in_tree(g, x, y)) return true;
     if (try_spawn_in_water(g, x, y)) return true;
+    if (try_spawn_in_sky(g, x, y)) return true;
     if (world_get(w, x, y) != TILE_AIR) return false;
     if (world_get_at(w, LAYER_BACKGROUND, x, y) != TILE_AIR || world_is_water(w, x, y)) return false;
     TileType ground = world_get(w, x, y + 1);
@@ -139,7 +168,8 @@ bool mobs_try_spawn(Game *g, int x, int y)
         const MobDef *def = &content.mobs[kind];
         bool here = false;
         for (int i = 0; i < def->spawn_above_count; i++) here = here || def->spawn_above[i] == ground;
-        if (!here || def->perches || def->swims || def->spawn_chance <= 0.0f || !spawns_in(w, def, x)) continue;
+        if (!here || def->perches || def->swims || def->flies || def->spawn_chance <= 0.0f || !spawns_in(w, def, x)) continue;
+        if (!spawns_now(g, def) || (def->spawn_cave && world_get_at(w, LAYER_WALL, x, y) == TILE_AIR)) continue;
         /* Only near the player, and only while there is room for more. */
         if (!in_range(g, x, y) || mobs_near_player(g) >= content.mob_cap) return false;
         /* (Where several kinds live, each has its own chance in turn.) */
@@ -219,18 +249,7 @@ static bool spawns_in(const World *w, const MobDef *def, int x)
     return false;
 }
 
-bool mob_hurt(Game *g, int mob, int damage)
-{
-    if (mob < 0 || mob >= MAX_MOBS || !g->mobs[mob].active) return false;
-    Mob *m = &g->mobs[mob];
-    if (m->hp <= 0) m->hp = content.mobs[m->kind].health; /* (from before creatures had any) */
-    m->hp -= damage;
-    if (m->hp > 0) return false;
-    mob_kill(g, mob);
-    return true;
-}
-
-void mob_kill(Game *g, int mob)
+static void kill_mob(Game *g, int mob, bool cooked)
 {
     if (mob < 0 || mob >= MAX_MOBS || !g->mobs[mob].active) return;
     Mob *m = &g->mobs[mob];
@@ -239,12 +258,43 @@ void mob_kill(Game *g, int mob)
         if (def->drops[i].chance < 1.0f && chance(g) >= def->drops[i].chance) continue;
         int span = def->drops[i].max - def->drops[i].min + 1;
         int n = def->drops[i].min + (span > 1 ? (int)(game_random(g) % (uint32_t)span) : 0);
+        /* (Killed by a spell that cooks, what it leaves that can be cooked is.) */
+        ItemId item = def->drops[i].item;
+        if (cooked && item_def(item)->cooks_into != ITEM_NONE) item = item_def(item)->cooks_into;
         for (int k = 0; k < n; k++) {
-            if (def->drops[i].sized) game_drop_item_sized(g, def->drops[i].item, m->x, m->y, m->size > 0 ? m->size : 1);
-            else game_drop_item(g, def->drops[i].item, m->x, m->y);
+            if (def->drops[i].sized) game_drop_item_sized(g, item, m->x, m->y, m->size > 0 ? m->size : 1);
+            else game_drop_item(g, item, m->x, m->y);
         }
     }
     m->active = false;
+}
+
+bool mob_weak_to(const Game *g, int mob, int element)
+{
+    if (mob < 0 || mob >= MAX_MOBS || !g->mobs[mob].active || element < 0) return false;
+    return content.mobs[g->mobs[mob].kind].weak_to == element;
+}
+
+bool mob_hurt_by(Game *g, int mob, int damage, int element, bool cooks)
+{
+    if (mob < 0 || mob >= MAX_MOBS || !g->mobs[mob].active || damage <= 0) return false;
+    Mob *m = &g->mobs[mob];
+    if (content.mobs[m->kind].immune && !mob_weak_to(g, mob, element)) return false;
+    if (m->hp <= 0) m->hp = content.mobs[m->kind].health; /* (from before creatures had any) */
+    m->hp -= damage;
+    if (m->hp > 0) return false;
+    kill_mob(g, mob, cooks);
+    return true;
+}
+
+bool mob_hurt(Game *g, int mob, int damage)
+{
+    return mob_hurt_by(g, mob, damage, -1, false);
+}
+
+void mob_kill(Game *g, int mob)
+{
+    kill_mob(g, mob, false);
 }
 
 /* Sets a creature walking one block the way it faces: along the level, up a
@@ -413,10 +463,23 @@ static bool swimmable(const World *w, int x, int y)
     return world_in_bounds(w, x, y) && !world_is_solid(w, x, y) && world_is_water(w, x, y);
 }
 
+/* Open sky: nothing in it and nothing behind it, and not right down on the ground. */
+static bool flyable(const World *w, int x, int y)
+{
+    return world_in_bounds(w, x, y) && y >= 1 && !world_is_solid(w, x, y) && !world_is_water(w, x, y) &&
+           world_get_at(w, LAYER_WALL, x, y) == TILE_AIR && !world_is_solid(w, x, y + 1) && !world_is_water(w, x, y + 1);
+}
+
+/* The element a creature of the water or of the air lives in. */
+static bool in_element(const World *w, const MobDef *def, int x, int y)
+{
+    return def->flies ? flyable(w, x, y) : swimmable(w, x, y);
+}
+
 static bool swim_to(Game *g, Mob *m, int dx, int dy)
 {
     const World *w = &g->world;
-    if ((dx == 0 && dy == 0) || !swimmable(w, m->x + dx, m->y + dy)) return false;
+    if ((dx == 0 && dy == 0) || !in_element(w, &content.mobs[m->kind], m->x + dx, m->y + dy)) return false;
     /* Not through the corner of a block on the slant. */
     if (dx != 0 && dy != 0 && (world_is_solid(w, m->x + dx, m->y) || world_is_solid(w, m->x, m->y + dy))) return false;
     m->to_x = world_wrap_x(w, m->x + dx);
@@ -439,7 +502,15 @@ static void swim_tick(Game *g, Mob *m, const MobDef *def)
 {
     const World *w = &g->world;
     const Player *p = &g->player;
-    if (!swimmable(w, m->x, m->y)) {
+    if (!in_element(w, def, m->x, m->y)) {
+        /* (A creature of the air that has come down too low goes up again, if it can.) */
+        if (def->flies && flyable(w, m->x, m->y - 1) && swim_to(g, m, 0, -1)) return;
+        if (def->flies && !world_is_solid(w, m->x, m->y - 1) && !world_is_water(w, m->x, m->y)) {
+            m->to_x = m->x;
+            m->to_y = m->y - 1;
+            m->step_total = m->step_left = def->step_ticks;
+            return;
+        }
         /* Out of its element: it drops to whatever is under it, and lies there. */
         if (!world_is_solid(w, m->x, m->y + 1)) {
             m->to_x = m->x;
@@ -513,7 +584,7 @@ void mobs_tick(Game *g)
             m->x = m->to_x;
             m->y = m->to_y;
         }
-        if (def->swims) {
+        if (def->swims || def->flies) {
             swim_tick(g, m, def);
             continue;
         }

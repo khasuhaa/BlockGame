@@ -451,6 +451,10 @@ TileType game_bench_at(const Game *g, int x, int y)
     return usable_at(&g->world, x, y, NULL);
 }
 
+static bool spell_on_self(const ItemDef *it);
+static void spell_on_mobs(Game *g, const ItemDef *it, int x, int y);
+static void wear_spell(Game *g, ItemId item);
+
 static bool is_goal(const World *w, Pose p, Action a)
 {
     switch (a.type) {
@@ -464,6 +468,12 @@ static bool is_goal(const World *w, Pose p, Action a)
     case ACTION_RELEASE:
     case ACTION_PLANT: return in_reach(w, p.feet, a.target);
     case ACTION_ATTACK: return in_attack_range(w, p.feet, a.target, a.amount);
+    case ACTION_CAST: {
+        /* From where they stand, for a spell on themselves; else from as far off as the spell carries. */
+        if (spell_on_self(item_def((ItemId)a.item))) return true;
+        int dx = world_dx(w, p.feet.x, a.target.x), dy = a.target.y - p.feet.y, far = item_def((ItemId)a.item)->range;
+        return in_reach(w, p.feet, a.target) || dx * dx + dy * dy <= far * far;
+    }
     case ACTION_USE:
     case ACTION_COLLECT: return in_use_range(w, p.feet, a.target);
     default: return on_body(p.feet, a.target);
@@ -641,6 +651,7 @@ static bool target_valid(const World *w, Action a)
     case ACTION_RELEASE:
         return !world_is_solid(w, a.target.x, a.target.y) && world_is_solid(w, a.target.x, a.target.y + 1) && !world_is_water(w, a.target.x, a.target.y);
     case ACTION_USE: return usable_at(w, a.target.x, a.target.y, NULL) != TILE_AIR;
+    case ACTION_CAST: return true;
     default: return !tile_def(t)->solid || tile_def(t)->passable; /* (somewhere to go to: a door will do) */
     }
 }
@@ -1016,7 +1027,13 @@ bool game_click_tile(Game *g, int tx, int ty)
     /* Holding a bucket: water is scooped up into it, and poured out where there is room for it. */
     int holds = held->count > 0 && item_def((ItemId)held->id)->holds_water ? inventory_meter(&g->inventory, held) : -1;
     int wet = world_water(&g->world, tx, ty);
-    if (holds >= 0 && world_in_bounds(&g->world, tx, ty) && !world_is_solid(&g->sim, tx, ty) &&
+    const ItemDef *spell = item_def(held->count > 0 ? (ItemId)held->id : ITEM_NONE);
+    if (spell->casts && world_in_bounds(&g->world, tx, ty) &&
+        (spell->cast_water > 0 || spell->cast_dig > 0 || spell->cast_shield > 0.0f || spell->cast_time >= 0)) {
+        /* A spell in hand that is for a place, or for the one casting it: it is cast. */
+        a.type = ACTION_CAST;
+        a.item = held->id;
+    } else if (holds >= 0 && world_in_bounds(&g->world, tx, ty) && !world_is_solid(&g->sim, tx, ty) &&
         ((wet > 0 && holds < item_def((ItemId)held->id)->meter_max) || holds > 0)) {
         a.type = ACTION_BUCKET;
         a.item = held->id;
@@ -1642,7 +1659,11 @@ static void finish_activity(Game *g)
             }
             /* What it does at once, and what it leaves working in the creature. */
             if (g->current.arg != HAND_HIT) {}
-            else if (!mob_hurt(g, g->current.drop, game_attack_damage(g)) && with->poison > 0)
+            else if (with->casts) {
+                /* A spell: on this one and whatever is within its splash; and one use of it is gone. */
+                spell_on_mobs(g, with, m->x, m->y);
+                wear_spell(g, held->id);
+            } else if (!mob_hurt(g, g->current.drop, game_attack_damage(g)) && with->poison > 0)
                 mob_poison_add(m, with->poison, with->poison_every);
         }
         /* One blow to a click: hitting it again is asked for again. */
@@ -1730,6 +1751,70 @@ static void use_paint(Game *g, ItemId item, TilePos at)
 }
 
 static bool working(const Game *g);
+
+/* Uses up one use of the spell in an item; the item goes when it has none left. */
+static void wear_spell(Game *g, ItemId item)
+{
+    ItemStack *held = inventory_find(&g->inventory, item);
+    if (!held) return;
+    int left = inventory_meter(&g->inventory, held);
+    if (left <= 1) inventory_remove(&g->inventory, item, 1);
+    else inventory_set_meter(&g->inventory, held, left - 1);
+}
+
+/* What a spell does to the creatures about a square: those it is cast at and
+ * those within its splash. One weak to its element takes its bane; any other
+ * that can be hurt at all takes its damage. */
+static void spell_on_mobs(Game *g, const ItemDef *it, int x, int y)
+{
+    int reach = it->cast_splash;
+    for (int i = 0; i < MAX_MOBS; i++) {
+        const Mob *m = &g->mobs[i];
+        if (!m->active) continue;
+        int dx = world_dx(&g->world, x, m->x), dy = m->y - y;
+        if (dx * dx + dy * dy > reach * reach + reach) continue;
+        int harm = mob_weak_to(g, i, it->cast_element) ? it->cast_bane : it->cast_damage;
+        mob_hurt_by(g, i, harm, it->cast_element, it->cast_cooks);
+    }
+}
+
+/* Whether a spell is one for its caster and not for a place: there is nowhere to go to cast it. */
+static bool spell_on_self(const ItemDef *it)
+{
+    return it->casts && it->cast_water == 0 && it->cast_dig == 0 && (it->cast_shield > 0.0f || it->cast_time >= 0);
+}
+
+/* Casts the spell in an item at a square. */
+static void cast_spell(Game *g, ItemId item, TilePos at)
+{
+    const ItemDef *it = item_def(item);
+    World *w = &g->world;
+    if (!it->casts || inventory_count(&g->inventory, item) < 1) return;
+    if (it->cast_water > 0 && !world_is_solid(w, at.x, at.y)) water_add(w, at.x, at.y, it->cast_water);
+    if (it->cast_shield > 0.0f && g->shield < it->cast_shield) g->shield = it->cast_shield;
+    if (it->cast_time >= 0) {
+        /* On to the next sunrise, or the next moonrise: time only goes forward. */
+        uint64_t cycle = (uint64_t)(DAY_TICKS + NIGHT_TICKS), now = g->tick % cycle, want = it->cast_time == 0 ? 0 : (uint64_t)DAY_TICKS;
+        g->tick += (want + cycle - now) % cycle;
+    }
+    for (int dy = -it->cast_dig; it->cast_dig > 0 && dy <= it->cast_dig; dy++) {
+        for (int dx = -it->cast_dig; dx <= it->cast_dig; dx++) {
+            if (dx * dx + dy * dy > it->cast_dig * it->cast_dig) continue;
+            TilePos t = { world_wrap_x(w, at.x + dx), at.y + dy };
+            if (!world_in_bounds(w, t.x, t.y)) continue;
+            /* Plain blocks, each leaving what it leaves: not a bench, a chest, or anything of more than one square. */
+            TileType block = world_get(w, t.x, t.y);
+            const TileDef *def = tile_def(block);
+            if (block == TILE_AIR || !def->removable || def->bench || def->trade || def->storage_columns > 0 || def->height > 1 ||
+                def->pair != TILE_AIR || def->pair_of != TILE_AIR || def->written)
+                continue;
+            drop_block_items(g, def, t, 0, def->drop_count > 0 ? def->drop_count : 1);
+            world_set(w, t.x, t.y, TILE_AIR);
+        }
+    }
+    spell_on_mobs(g, it, at.x, at.y);
+    wear_spell(g, item);
+}
 
 static bool start_next_activity(Game *g)
 {
@@ -1834,6 +1919,10 @@ static bool start_next_activity(Game *g)
                     g->has_current = false;
                     continue;
                 }
+                case ACTION_CAST:
+                    cast_spell(g, (ItemId)g->current.item, g->current.target);
+                    g->has_current = false;
+                    continue;
                 case ACTION_SLEEP:
                     /* In the bed: they lie down, if they are tired enough to. */
                     g->has_current = false;
@@ -1905,6 +1994,8 @@ static bool craft_now(Game *g, const Recipe *r, int count)
         if (g->character_count >= content.rules.max_players || g->character_count >= MAX_CHARACTERS) return false;
         count = 1;
     }
+    /* Something made only at a certain number of characters: the way the next one is made, say. */
+    if (r->characters > 0 && g->character_count != r->characters) return false;
     g->craft_recipe = r;
     g->craft_total = g->craft_remaining = count < max ? count : max;
     g->craft_timer = 0.0f;
@@ -1975,10 +2066,37 @@ float game_craft_time(const Recipe *r)
     return r && r->time > 0.0f ? r->time : CRAFT_TIME;
 }
 
+float game_craft_boost(const Game *g, int x, int y)
+{
+    float best = 1.0f;
+    for (int dy = -12; dy <= 12; dy++) {
+        for (int dx = -12; dx <= 12; dx++) {
+            for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
+                const TileDef *def = tile_def(world_get_at(&g->world, layer, x + dx, y + dy));
+                if (def->craft_speed <= best || dx * dx + dy * dy > def->craft_radius * def->craft_radius) continue;
+                best = def->craft_speed;
+            }
+        }
+    }
+    return best;
+}
+
+float game_shield(const Game *g)
+{
+    return g->shield;
+}
+
+float game_character_shield(const Game *g, int c)
+{
+    if (c < 0 || c >= g->character_count) return 0.0f;
+    return c == g->live ? g->shield : g->characters[c].shield;
+}
+
 float game_craft_seconds(const Game *g, const Recipe *r)
 {
     if (g->quick_craft) return 1.0f / (float)(g->tick_rate > 0 ? g->tick_rate : DEFAULT_TICK_RATE > 0 ? DEFAULT_TICK_RATE : 10);
-    return game_craft_time(r);
+    /* (Quicker at a bench with something near it that quickens work.) */
+    return game_craft_time(r) / (g->bench_open ? game_craft_boost(g, g->bench_pos.x, g->bench_pos.y) : 1.0f);
 }
 
 int game_craft_rush_cost(const Game *g)
@@ -2337,6 +2455,7 @@ static void character_stash(Game *g, Character *c)
     c->craft_timer = g->craft_timer;
     c->craft_power = g->craft_power;
     c->menu_hold = g->menu_hold;
+    c->shield = g->shield;
     c->upgrading = g->upgrading;
     c->upgrade_timer = g->upgrade_timer;
 }
@@ -2368,6 +2487,7 @@ static void character_fetch(Game *g, const Character *c)
     g->craft_timer = c->craft_timer;
     g->craft_power = c->craft_power;
     g->menu_hold = c->menu_hold;
+    g->shield = c->shield;
     g->upgrading = c->upgrading;
     g->upgrade_timer = c->upgrade_timer;
 }
@@ -2577,6 +2697,14 @@ void game_hurt(Game *g, float amount)
 {
     Vitals *v = &g->vitals;
     if (!game_alive(g) || amount <= 0.0f) return;
+    /* A shield takes it first, for as long as it lasts. */
+    if (g->shield > 0.0f) {
+        float taken = amount < g->shield ? amount : g->shield;
+        g->shield -= taken;
+        amount -= taken;
+        if (g->shield < 0.0001f) g->shield = 0.0f;
+        if (amount <= 0.0f) return;
+    }
     v->health -= amount;
     if (v->health >= 0.0f) return;
     /* Past the end of health it comes off the bar underneath. */

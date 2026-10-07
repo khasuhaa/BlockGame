@@ -113,9 +113,21 @@ static const char *key_name(int key)
 
 /* ---- main menu --------------------------------------------------------- */
 
+static char saves_dir[256] = SAVE_DIR;
+
+void main_menu_set_saves(const char *dir)
+{
+    snprintf(saves_dir, sizeof saves_dir, "%s", dir && dir[0] ? dir : SAVE_DIR);
+}
+
+const char *main_menu_saves(void)
+{
+    return saves_dir;
+}
+
 static void world_path(char *out, size_t size, const char *name)
 {
-    snprintf(out, size, "%s/%s.world", SAVE_DIR, name);
+    snprintf(out, size, "%s/%s.world", saves_dir, name);
 }
 
 static void begin_creating(MainMenu *m)
@@ -238,6 +250,62 @@ static MainMenuResult create_screen(MainMenu *m)
     return MAIN_MENU_CREATE;
 }
 
+/* The icons of the mods, loaded as they are first wanted. */
+static struct {
+    char file[200];
+    Texture2D texture;
+} mod_icons[MAX_MODS];
+
+static void draw_mod_icon(const ModInfo *mod, Rectangle r)
+{
+    int slot = -1;
+    for (int i = 0; i < MAX_MODS && slot < 0; i++)
+        if (mod_icons[i].file[0] && strcmp(mod_icons[i].file, mod->icon) == 0) slot = i;
+    for (int i = 0; i < MAX_MODS && slot < 0 && mod->icon[0]; i++) {
+        if (mod_icons[i].file[0]) continue;
+        snprintf(mod_icons[i].file, sizeof mod_icons[i].file, "%s", mod->icon);
+        if (FileExists(mod->icon)) mod_icons[i].texture = LoadTexture(mod->icon);
+        slot = i;
+    }
+    DrawRectangleRec(r, (Color){ 18, 19, 24, 255 });
+    if (slot >= 0 && mod_icons[slot].texture.id) {
+        Texture2D t = mod_icons[slot].texture;
+        DrawTexturePro(t, (Rectangle){ 0, 0, (float)t.width, (float)t.height }, (Rectangle){ r.x + 2, r.y + 2, r.width - 4, r.height - 4 },
+                       (Vector2){ 0, 0 }, 0.0f, WHITE);
+    } else {
+        /* (No picture: its first letter.) */
+        draw_centered(TextFormat("%c", mod->label[0]), r, 20, RAYWHITE);
+    }
+    DrawRectangleLinesEx(r, 2.0f, edge_color);
+}
+
+/* The mods, each with a switch. */
+static MainMenuResult mods_screen(MainMenu *m)
+{
+    title("Mods", 60, 40);
+    float wide = 520.0f, x = ((float)GetScreenWidth() - wide) / 2.0f, y = 150.0f;
+    if (m->mods.count == 0) title("No mods found.", y + 10, 20);
+    for (int i = 0; i < m->mods.count; i++) {
+        ModInfo *mod = &m->mods.mods[i];
+        Rectangle row = { x, y, wide, 56 };
+        DrawRectangleRec(row, (Color){ 30, 33, 46, 255 });
+        draw_mod_icon(mod, (Rectangle){ row.x + 4, row.y + 4, 48, 48 });
+        DrawText(mod->label, (int)row.x + 64, (int)row.y + 18, 20, RAYWHITE);
+        if (button((Rectangle){ row.x + row.width - 96, row.y + 10, 88, 36 }, mod->enabled ? "On" : "Off", true)) {
+            mod->enabled = !mod->enabled;
+            m->mods_changed = true;
+        }
+        if (mod->enabled) DrawRectangleRec((Rectangle){ row.x, row.y, 3, row.height }, (Color){ 90, 160, 100, 255 });
+        y += 64.0f;
+    }
+    if (!button(column_button(y + 24.0f, 0), "Done", true) && !IsKeyPressed(KEY_ESCAPE)) return MAIN_MENU_STAY;
+    m->modding = false;
+    m->listed = false;
+    if (!m->mods_changed) return MAIN_MENU_STAY;
+    m->mods_changed = false;
+    return MAIN_MENU_MODS;
+}
+
 static int by_name(const void *a, const void *b)
 {
     return strcmp(((const ListedWorld *)a)->name, ((const ListedWorld *)b)->name);
@@ -251,9 +319,9 @@ static void list_worlds(MainMenu *m)
         snprintf(keep, sizeof keep, "%s", m->worlds[m->selected].name);
     m->world_count = 0;
     m->listed = true;
-    if (!DirectoryExists(SAVE_DIR)) return;
+    if (!DirectoryExists(saves_dir)) return;
 
-    FilePathList files = LoadDirectoryFilesEx(SAVE_DIR, ".world", false);
+    FilePathList files = LoadDirectoryFilesEx(saves_dir, ".world", false);
     for (unsigned i = 0; i < files.count && m->world_count < MAX_LISTED_WORLDS; i++) {
         ListedWorld *w = &m->worlds[m->world_count++];
         snprintf(w->name, sizeof w->name, "%s", GetFileNameWithoutExt(files.paths[i]));
@@ -343,6 +411,7 @@ MainMenuResult main_menu_frame(MainMenu *m)
         m->listed = false; /* whatever is made here should show up afterwards */
         return create_screen(m);
     }
+    if (m->modding) return mods_screen(m);
     if (!m->listed) list_worlds(m);
 
     MainMenuResult result = MAIN_MENU_STAY;
@@ -414,11 +483,21 @@ MainMenuResult main_menu_frame(MainMenu *m)
     float buttons = mid_y + size / 2.0f + 64.0f;
     if (button(column_button(buttons, 0), "Play", m->world_count > 0)) play = true;
     if (button(column_button(buttons, 1), "New world", true)) begin_creating(m);
-    /* (Delete and Quit share a row, so the column still fits a short window.) */
+    /* (Delete, Mods and Quit share a row, so the column still fits a short window.) */
     Rectangle last = column_button(buttons, 2);
-    float half = (last.width - BUTTON_GAP) / 2.0f;
-    if (button((Rectangle){ last.x, last.y, half, last.height }, "Delete", m->world_count > 0)) m->deleting = true;
-    if (button((Rectangle){ last.x + half + BUTTON_GAP, last.y, half, last.height }, "Quit", true)) result = MAIN_MENU_QUIT;
+    float third = (last.width - 2 * BUTTON_GAP) / 3.0f;
+    if (button((Rectangle){ last.x, last.y, third, last.height }, "Delete", m->world_count > 0)) m->deleting = true;
+    if (button((Rectangle){ last.x + third + BUTTON_GAP, last.y, third, last.height }, "Mods", true)) m->modding = true, m->mods_changed = false;
+    if (button((Rectangle){ last.x + 2 * (third + BUTTON_GAP), last.y, third, last.height }, "Quit", true)) result = MAIN_MENU_QUIT;
+
+    /* The mods that are on, as their icons, in the corner. */
+    float icon_x = sw - 16.0f;
+    for (int i = m->mods.count - 1; i >= 0; i--) {
+        if (!m->mods.mods[i].enabled) continue;
+        icon_x -= 44.0f;
+        draw_mod_icon(&m->mods.mods[i], (Rectangle){ icon_x, 16, 40, 40 });
+        icon_x -= 6.0f;
+    }
 
     if (play && m->world_count > 0) {
         snprintf(m->path, sizeof m->path, "%s", m->worlds[m->selected].path);

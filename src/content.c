@@ -248,6 +248,8 @@ static bool register_names(Reader *r, const cJSON *root)
     return true;
 }
 
+static int element_ref(const char *name);
+
 static bool read_tiles(Reader *r, const cJSON *root)
 {
     const cJSON *e;
@@ -289,6 +291,10 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->breaks_above = flag(e, "breaks_above", false);
         t->breaks_below = flag(e, "breaks_below", false);
         t->passable = flag(e, "passable", false);
+        t->craft_speed = (float)num(field(e, "quickens"), "speed", 0.0);
+        t->craft_radius = (int)num(field(e, "quickens"), "radius", 0);
+        if (field(e, "quickens") && (t->craft_speed <= 0.0f || t->craft_radius < 1 || t->craft_radius > 12))
+            return fail(r, "tile \"%s\": \"quickens\" needs a \"speed\" above 0 and a \"radius\" of 1 to 12", t->name);
         t->solid_foot = flag(e, "solid_foot", false);
         const char *mimics = str(e, "mimics");
         t->mimics = !mimics ? MIMIC_NONE : strcmp(mimics, "upright") == 0 ? MIMIC_UPRIGHT : strcmp(mimics, "flat") == 0 ? MIMIC_FLAT : -1;
@@ -582,6 +588,29 @@ static bool read_items(Reader *r, const cJSON *root)
             it->meter_max = it->uses;
             it->meter_start = it->uses;
         }
+        /* "cast": a spell. */
+        const cJSON *cast = field(e, "cast");
+        it->casts = cJSON_IsObject(cast);
+        it->cast_element = element_ref(str(cast, "element"));
+        it->cast_damage = (int)num(cast, "damage", 0);
+        it->cast_bane = (int)num(cast, "bane", it->cast_damage);
+        it->cast_splash = (int)num(cast, "splash", 0);
+        it->cast_cooks = flag(cast, "cooks", false);
+        it->cast_water = (int)num(cast, "water", 0);
+        it->cast_dig = (int)num(cast, "dig", 0);
+        it->cast_shield = (float)num(cast, "shield", 0.0);
+        const char *brings = str(cast, "time");
+        it->cast_time = !brings ? -1 : strcmp(brings, "sunrise") == 0 ? 0 : strcmp(brings, "moonrise") == 0 ? 1 : -2;
+        if (it->casts && (it->uses < 1 || it->uses > 120 || it->cast_time == -2 || it->cast_dig < 0 || it->cast_dig > 12 ||
+                          it->cast_splash < 0 || it->cast_water < 0 || it->cast_shield < 0.0f))
+            return fail(r, "item \"%s\": a spell needs \"uses\", 1 to 120; its \"time\" is \"sunrise\" or \"moonrise\"; its \"dig\" is at most 12", it->name);
+        if (it->casts) {
+            it->holds_water = false;
+            it->meter_max = it->uses;
+            it->meter_start = it->uses;
+        }
+        it->cooks_into = ITEM_NONE;
+        if (str(e, "cooks_into") && !item_ref(r, e, "cooks_into", &it->cooks_into)) return false;
         it->places = TILE_AIR;
         it->sized = false;
         /* "places" is one block, or a list of them: the block for each size of a sized thing. */
@@ -616,6 +645,17 @@ static bool read_items(Reader *r, const cJSON *root)
 }
 
 static char island_tree_names[MAX_ISLAND_TREES][CONTENT_NAME_LEN];
+
+/* The element of a name, noted the first time it is met. -1 for no name, or no room for another. */
+static int element_ref(const char *name)
+{
+    if (!name || !name[0]) return -1;
+    for (int i = 0; i < content.element_count; i++)
+        if (strcmp(content.elements[i], name) == 0) return i;
+    if (content.element_count >= MAX_ELEMENTS) return -1;
+    copy_name(content.elements[content.element_count], CONTENT_NAME_LEN, name);
+    return content.element_count++;
+}
 
 /* ---- recipes and trees ------------------------------------------------- */
 
@@ -658,6 +698,7 @@ static bool read_recipes(Reader *r, const cJSON *root)
         /* "bench" is one kind of bench, or a list of kinds that all offer the recipe. */
         recipe.level = (int)num(e, "level", 1);
         recipe.crystals = (int)num(e, "crystals", 0);
+        recipe.characters = (int)num(e, "characters", 0);
         recipe.time = (float)num(e, "time", 0.0);
         /* "tint": what it makes comes out that colour. */
         const cJSON *tint = field(e, "tint");
@@ -864,6 +905,20 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         }
     }
 
+    /* "biome_plants": more for biomes that are already there to grow - what a mod adds to one without saying it all over again. */
+    cJSON_ArrayForEach(e, field(root, "biome_plants")) {
+        const char *where = str(e, "biome");
+        BiomeDef *b = NULL;
+        for (int i = 0; where && i < content.biome_count; i++)
+            if (strcmp(content.biomes[i].name, where) == 0) b = &content.biomes[i];
+        TileType tile = TILE_AIR;
+        if (!b || !tile_ref(r, e, "tile", &tile) || tile == TILE_AIR)
+            return fail(r, "\"biome_plants\": each needs a \"biome\" that exists and a \"tile\"");
+        if (b->plant_count >= MAX_BIOME_PLANTS) return fail(r, "biome \"%s\" has too many plants", b->name);
+        b->plants[b->plant_count].tile = tile;
+        b->plants[b->plant_count++].one_in = (int)num(e, "one_in", 20);
+    }
+
     const cJSON *caves = field(root, "caves");
     if (caves) {
         g->cave_per_100_columns = (float)num(caves, "per_100_columns", 0);
@@ -998,6 +1053,14 @@ static bool read_worldgen(Reader *r, const cJSON *root)
             g->island_trees[g->island_tree_count].weight = (int)num(one_tree, "weight", 1);
             g->island_trees[g->island_tree_count++].min_y = (int)num(one_tree, "above", 0);
         }
+    }
+    /* "island_trees": more trees for the islands there already are. */
+    cJSON_ArrayForEach(one_tree, field(root, "island_trees")) {
+        if (g->island_tree_count >= MAX_ISLAND_TREES || !str(one_tree, "tree"))
+            return fail(r, "\"island_trees\": there can be %d in all, each with a \"tree\"", MAX_ISLAND_TREES);
+        copy_name(island_tree_names[g->island_tree_count], CONTENT_NAME_LEN, str(one_tree, "tree"));
+        g->island_trees[g->island_tree_count].weight = (int)num(one_tree, "weight", 1);
+        g->island_trees[g->island_tree_count++].min_y = (int)num(one_tree, "above", 0);
     }
     const cJSON *options = field(root, "options");
     if (options) {
@@ -1231,6 +1294,14 @@ static bool read_mobs(Reader *r, const cJSON *root)
         m->turn_chance = (float)num(e, "turn_chance", 0.25);
         m->baby_ticks = (int)num(e, "baby_ticks", 600);
         m->spawn_chance = (float)num(field(e, "spawn"), "chance", 0.0);
+        m->spawn_sky = flag(field(e, "spawn"), "sky", false);
+        m->spawn_cave = flag(field(e, "spawn"), "cave", false);
+        const char *when = str(field(e, "spawn"), "time");
+        m->spawn_time = !when ? 0 : strcmp(when, "day") == 0 ? 1 : strcmp(when, "night") == 0 ? 2 : -1;
+        if (m->spawn_time < 0) return fail(r, "mob \"%s\": the \"time\" it spawns at is \"day\" or \"night\"", name);
+        m->flies = flag(e, "flies", false);
+        m->immune = flag(e, "immune", false);
+        m->weak_to = element_ref(str(e, "weak_to"));
         cJSON_ArrayForEach(one, field(field(e, "spawn"), "above")) {
             TileType t = cJSON_IsString(one) ? tile_id(one->valuestring) : -1;
             if (t < 0) return fail(r, "mob \"%s\": it spawns above a tile that does not exist", name);

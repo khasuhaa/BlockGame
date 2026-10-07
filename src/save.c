@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 25u
+#define SAVE_VERSION 26u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -431,6 +431,10 @@ bool save_game(const Game *g, const char *path)
     uint32_t known = (uint32_t)content.item_count;
     ok = ok && fwrite(&known, sizeof known, 1, f) == 1 && fwrite(g->discovered, 1, known, f) == known;
     game_use_character(mine, played);
+    /* What is left of each character's shield. */
+    float shields[MAX_CHARACTERS] = { 0 };
+    for (int c = 0; c < g->character_count && c < MAX_CHARACTERS; c++) shields[c] = c == g->live ? g->shield : g->characters[c].shield;
+    ok = ok && fwrite(shields, sizeof shields, 1, f) == 1;
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
         remove(tmp);
@@ -640,6 +644,15 @@ bool load_game(Game *g, const char *path)
             ok = fread(&known, sizeof known, 1, f) == 1 && known <= MAX_ITEMS && fread(found, 1, known, f) == known;
             for (uint32_t i = 0; ok && i < known; i++)
                 if (found[i] && items[i] != 0) g->discovered[items[i]] = 1;
+        }
+        if (ok && h.version >= 26) {
+            float shields[MAX_CHARACTERS] = { 0 };
+            ok = fread(shields, sizeof shields, 1, f) == 1;
+            for (int c = 0; ok && c < MAX_CHARACTERS; c++) {
+                float left = shields[c] >= 0.0f && shields[c] <= 16.0f ? shields[c] : 0.0f;
+                if (c == g->live) g->shield = left;
+                else g->characters[c].shield = left;
+            }
         }
         bool nobody = ok && h.version >= 15 && people[0] == 0;
         g->started = extra.started != 2;

@@ -28,7 +28,7 @@ static float pair_shift(const World *w, int head, int y);
 
 
 #define DATA_DIR "data"
-#define PROFILE_PATH SAVE_DIR "/profile.txt"
+#define PROFILE_PATH TextFormat("%s/profile.txt", main_menu_saves())
 #define TILE_SIZE 32
 #define DRAG_THRESHOLD 6.0f /* pixels the mouse must travel before a press becomes a pan */
 #define CAMERA_FOLLOW_SPEED 8.0f
@@ -1578,7 +1578,7 @@ static void session_begin(Session *s, const MainMenu *menu)
 
 static void session_save_profile(Session *s)
 {
-    if (!DirectoryExists(SAVE_DIR)) MakeDirectory(SAVE_DIR);
+    if (!DirectoryExists(main_menu_saves())) MakeDirectory(main_menu_saves());
     if (!profile_save(PROFILE_PATH, &s->game)) return;
     s->saved_crystals = s->game.crystals;
     s->saved_shared = s->game.inventory.containers[SHARED_CONTAINER];
@@ -1711,20 +1711,30 @@ static void session_draw(Session *s)
 int main(void)
 {
     char error[256];
-    if (!content_load(DATA_DIR, error, sizeof error)) {
+    /* The game's own data, and on top of it the mods that are on. */
+    static MainMenu menu;
+    mods_scan(&menu.mods, MODS_DIR, SAVE_DIR);
+    if (!mods_load_content(&menu.mods, DATA_DIR, error, sizeof error)) {
         fprintf(stderr, "could not load game data: %s\n", error);
         return 1;
     }
+    if (error[0]) {
+        fprintf(stderr, "a mod was left out: %s\n", error);
+        snprintf(menu.error, sizeof menu.error, "%.90s", error);
+    }
+    char saves[256];
+    mods_saves(&menu.mods, SAVE_DIR, saves, sizeof saves);
+    main_menu_set_saves(saves);
 
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
     InitWindow(1280, 720, "BlockGame");
     SetTargetFPS(60);
     SetExitKey(KEY_NULL); /* Escape opens the pause menu instead of quitting */
-    assets_load(DATA_DIR);
+    const char *texture_dirs[MAX_MODS + 1];
+    assets_load_from(texture_dirs, mods_texture_dirs(&menu.mods, DATA_DIR, texture_dirs));
 
     Keybinds keys;
     keybinds_load(&keys);
-    MainMenu menu = { 0 };
     static Session session;
     bool playing = false, quit = false;
 
@@ -1737,6 +1747,22 @@ int main(void)
             MainMenuResult r = main_menu_frame(&menu);
             bool ok = true;
             if (r == MAIN_MENU_QUIT) quit = true;
+            if (r == MAIN_MENU_MODS) {
+                /* Other mods on: other content, other textures, and that playset's own worlds. */
+                menu.error[0] = '\0';
+                if (!mods_load_content(&menu.mods, DATA_DIR, error, sizeof error)) {
+                    fprintf(stderr, "could not load game data: %s\n", error);
+                    quit = true;
+                } else {
+                    if (error[0]) snprintf(menu.error, sizeof menu.error, "%.90s", error);
+                    mods_remember(&menu.mods, SAVE_DIR);
+                    assets_load_from(texture_dirs, mods_texture_dirs(&menu.mods, DATA_DIR, texture_dirs));
+                    mods_saves(&menu.mods, SAVE_DIR, saves, sizeof saves);
+                    main_menu_set_saves(saves);
+                    menu.listed = false;
+                    menu.selected = 0;
+                }
+            }
             if (r == MAIN_MENU_LOAD) ok = load_game(&session.game, menu.path);
             if (r == MAIN_MENU_CREATE) {
                 uint32_t seed = (uint32_t)time(NULL) ^ (uint32_t)(GetTime() * 1000000.0);

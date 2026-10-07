@@ -27,7 +27,7 @@
 #define MAX_MOB_TREES 8
 #define MAX_MOB_NEXT 4
 #define MAX_BIOME_TREES 8
-#define MAX_BIOME_PLANTS 8
+#define MAX_BIOME_PLANTS 12
 #define MAX_TILE_SOILS 4
 #define MAX_EXTRA_DROPS 2
 #define MAX_ROW_CELLS 4
@@ -81,7 +81,8 @@ typedef enum {
 
 #define MAX_ZOOM_LEVELS 16
 #define MAX_RECIPE_CHOICES 8
-#define MAX_ISLAND_TREES 8
+#define MAX_ISLAND_TREES 12
+#define MAX_ELEMENTS 16 /* kinds of magic there can be */
 #define MAX_WORLD_CHOICES 8
 #define MAX_SIGN_TEXTS 512 /* different texts a world's signs can carry */
 #define SIGN_TEXT_MAX 14 /* letters a sign holds: one line, across its two blocks */
@@ -160,6 +161,9 @@ typedef struct {
     /* A door: solid to everything else - water, light, creatures, and it can
      * be stood on - but a character's body goes through it. */
     bool passable;
+    /* Work at a bench within so many blocks of this goes so many times faster; 0 for something that does no such thing. */
+    float craft_speed;
+    int craft_radius;
     /* A block that takes on the look of what it stands between: the same
      * block above and below it (MIMIC_UPRIGHT) or either side of it
      * (MIMIC_FLAT). Others like it in between are looked through. It takes
@@ -336,6 +340,19 @@ typedef struct {
     float tool_speed; /* how many times faster it mines blocks of its class */
     int ore_multiplier; /* how many times over it makes ore blocks drop; 1 for no effect */
     int crystals;    /* crystals it turns into when picked up; such an item is never held */
+    /* Something that casts a spell when it is used, so many times ("uses") before it is spent. A spell is of an
+     * element, and does any of these: hurts the creature it is cast at and those within `splash` blocks of it
+     * (`damage` to any that can be hurt, `bane` to one that is weak to its element); leaves what it kills cooked;
+     * puts so many eighths of water in a square; shields the one who casts it against so much of a health bar of
+     * harm; breaks every plain block within so many blocks of a square; brings on sunrise or moonrise. */
+    bool casts;
+    int cast_element;      /* which of content.elements; -1 for none */
+    int cast_damage, cast_bane, cast_splash;
+    bool cast_cooks;
+    int cast_water, cast_dig;
+    float cast_shield;
+    int cast_time;         /* -1 for none; 0 for sunrise, 1 for moonrise */
+    ItemId cooks_into;     /* what it is when a spell that cooks has killed what dropped it; ITEM_NONE for no different */
     bool becomes_player; /* made at a bench, it is not an item at all but another character to play */
     int plants;      /* tree it grows into when planted, or -1 */
     TileType sows;   /* plant block it puts down when planted, or TILE_AIR */
@@ -350,6 +367,7 @@ typedef struct {
     RecipeItem inputs[RECIPE_MAX_INPUTS];
     int input_count;
     int crystals; /* crystals it costs on top of the inputs */
+    int characters; /* it can be made only while the world has just this many characters; 0 for any number */
     float time;   /* seconds to make one; 0 for the usual */
     int tint;     /* which of content.tints what it makes is coloured, plus one; 0 for none */
     /* Inputs that differ from world to world: so many items in all, shared
@@ -691,6 +709,14 @@ typedef struct {
      * hunts goes for a player who is in the water, bites, makes off, and comes
      * round again. */
     bool swims, hunts;
+    /* A creature of the air: it drifts about the open sky as one of the water does the sea, and never lands. */
+    bool flies;
+    /* One that blows do nothing to: it is hurt by magic of the one element it is weak to, and by nothing else. */
+    bool immune;
+    int weak_to;        /* which of content.elements it is weak to; -1 for none in particular */
+    bool spawn_sky;     /* it turns up in the open sky */
+    bool spawn_cave;    /* it turns up only under ground: where there is backwall behind it */
+    int spawn_time;     /* 0 at any time; 1 only by day; 2 only by night */
     bool spawn_water;   /* it turns up in water */
     int spawn_biomes[MAX_MOB_BIOMES]; /* the only biomes it turns up in; anywhere, if none are named */
     int spawn_biome_count;
@@ -767,6 +793,9 @@ typedef struct {
     int recipe_count;
     /* Colours that things can be made in, each given by the recipe that makes it. */
     unsigned char tints[MAX_TINTS][3];
+    /* The elements of magic that the data names: a spell is of one, and a creature may be weak to one. */
+    char elements[MAX_ELEMENTS][CONTENT_NAME_LEN];
+    int element_count;
     int tint_count;
     TreeDef trees[MAX_TREES];
     int tree_count;

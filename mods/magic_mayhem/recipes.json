@@ -1,0 +1,33 @@
+{
+  "recipes": [
+    {"bench": "workbench", "output": {"item": "lectern", "count": 1}, "inputs": [{"item": "wood", "count": 2}, {"item": "feather", "count": 1}], "time": 20},
+    {"bench": "workbench", "output": {"item": "magic_orb", "count": 1}, "inputs": [{"item": "glass", "count": 3}, {"item": "magic_gem", "count": 1}], "time": 120, "level": 3},
+    {"bench": "workbench", "output": {"item": "magic_core", "count": 1}, "inputs": [{"item": "magic_gem", "count": 5}, {"item": "obsidian", "count": 5}], "time": 300, "level": 5},
+    {"bench": "magic_core", "output": {"item": "magic_conduit", "count": 1}, "inputs": [{"item": "magic_gem", "count": 1}, {"item": "elemental_essence", "count": 1}], "time": 120},
+    {"bench": "magic_core", "output": {"item": "soulstone", "count": 2}, "inputs": [{"item": "magic_gem", "count": 3}, {"item": "obsidian", "count": 3}, {"item": "diamond", "count": 1}], "time": 180},
+    {"bench": "magic_core", "output": {"item": "magic_array", "count": 1}, "inputs": [{"item": "magic_conduit", "count": 5}, {"item": "soulstone", "count": 5}, {"item": "sundial_essence", "count": 1}], "time": 300},
+    {"bench": "lectern", "output": {"item": "paper", "count": 3}, "inputs": [{"item": "sugarcane", "count": 1}], "time": 15},
+    {"bench": "lectern", "output": {"item": "spellbook", "count": 1}, "inputs": [{"item": "leather", "count": 2}, {"item": "paper", "count": 2}], "time": 30},
+    {"bench": "lectern", "output": {"item": "fireball_scroll", "count": 1}, "inputs": [{"item": "spellbook", "count": 1}, {"item": "flame_catalyst", "count": 1}], "time": 30},
+    {"bench": "lectern", "output": {"item": "water_scroll", "count": 1}, "inputs": [{"item": "spellbook", "count": 1}, {"item": "water_catalyst", "count": 1}], "time": 30},
+    {"bench": "lectern", "output": {"item": "shield_scroll", "count": 1}, "inputs": [{"item": "spellbook", "count": 1}, {"item": "air_catalyst", "count": 1}], "time": 30},
+    {"bench": "lectern", "output": {"item": "miners_scroll", "count": 1}, "inputs": [{"item": "spellbook", "count": 1}, {"item": "earth_catalyst", "count": 1}], "time": 30},
+    {"bench": "lectern", "output": {"item": "masters_spellbook", "count": 1}, "inputs": [{"item": "spellbook", "count": 1}, {"item": "magic_gem", "count": 2}], "time": 120, "level": 2},
+    {"bench": "lectern", "output": {"item": "sunrise_scroll", "count": 1}, "inputs": [{"item": "masters_spellbook", "count": 1}, {"item": "sun_catalyst", "count": 1}], "time": 180, "level": 2},
+    {"bench": "lectern", "output": {"item": "moonrise_scroll", "count": 1}, "inputs": [{"item": "masters_spellbook", "count": 1}, {"item": "moon_catalyst", "count": 1}], "time": 180, "level": 2},
+    {"bench": "lectern", "output": {"item": "grandmasters_spellbook", "count": 1}, "inputs": [{"item": "masters_spellbook", "count": 1}, {"item": "soulstone", "count": 1}], "time": 300, "level": 3},
+    {"bench": "lectern", "output": {"item": "life_scroll", "count": 1}, "inputs": [{"item": "grandmasters_spellbook", "count": 1}, {"item": "life_catalyst", "count": 1}], "time": 300, "level": 3},
+    {"bench": "magic_orb", "output": {"item": "glass_jar", "count": 1}, "inputs": [{"item": "glass", "count": 2}], "time": 20},
+    {"bench": "magic_orb", "output": {"item": "flame_catalyst", "count": 1}, "inputs": [{"item": "flame_essence", "count": 1}, {"item": "ember", "count": 2}], "time": 20},
+    {"bench": "magic_orb", "output": {"item": "water_catalyst", "count": 1}, "inputs": [{"item": "water_essence", "count": 1}, {"item": "bucket", "count": 1, "full": true}], "time": 20},
+    {"bench": "magic_orb", "output": {"item": "air_catalyst", "count": 1}, "inputs": [{"item": "air_essence", "count": 1}, {"item": "feather", "count": 5}], "time": 20},
+    {"bench": "magic_orb", "output": {"item": "earth_catalyst", "count": 1}, "inputs": [{"item": "earth_essence", "count": 1}, {"item": "iron_ore", "count": 3}], "time": 20},
+    {"bench": "magic_orb", "output": {"item": "elemental_essence", "count": 1}, "inputs": [{"item": "flame_catalyst", "count": 2}, {"item": "water_catalyst", "count": 2}, {"item": "air_catalyst", "count": 2}, {"item": "earth_catalyst", "count": 2}, {"item": "glass_jar", "count": 1}], "time": 120},
+    {"bench": "magic_orb", "output": {"item": "sun_catalyst", "count": 1}, "inputs": [{"item": "flame_catalyst", "count": 1}, {"item": "fuel", "count": 5}, {"item": "rainbow_essence", "count": 1}], "time": 300, "level": 2},
+    {"bench": "magic_orb", "output": {"item": "moon_catalyst", "count": 1}, "inputs": [{"item": "water_catalyst", "count": 1}, {"item": "poison", "count": 5}, {"item": "platinum_ingot", "count": 1}], "time": 300, "level": 2},
+    {"bench": "magic_orb", "output": {"item": "sundial_essence", "count": 1}, "inputs": [{"item": "sun_catalyst", "count": 2}, {"item": "moon_catalyst", "count": 2}, {"item": "glass_jar", "count": 1}], "time": 300, "level": 2},
+    {"bench": "magic_orb", "output": {"item": "life_catalyst", "count": 1}, "inputs": [{"item": "sundial_essence", "count": 1}, {"item": "elemental_essence", "count": 1}, {"item": "magic_gem", "count": 5}], "time": 300, "level": 3},
+    {"bench": "press", "output": {"item": "magic_gem", "count": 1}, "inputs": [{"item": "magic_gem_shard", "count": 3}], "time": 80, "level": 3},
+    {"bench": "portal", "output": {"item": "new_player", "count": 1}, "inputs": [{"item": "life_scroll", "count": 1}], "crystals": 100, "characters": 2}
+  ]
+}
