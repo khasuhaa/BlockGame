@@ -2285,6 +2285,32 @@ static void test_light(void)
         for (int cx = 0; cx < 9; cx++)
             if (block[cy * 9 + cx] != light_at(&g, start.x - 2 + cx, s - 4 + cy)) differ++;
     CHECK(differ == 0);
+    /* Something that gives light is itself shown brighter than the light it gives: by the glow of the rules. */
+    {
+        int glow = content.rules.light_glow, gx = start.x - 8;
+        TileType torch = tile_id("torch"), fire = tile_id("campfire");
+        content.rules.light_glow = 2;
+        CHECK(torch > 0 && tile_def(torch)->light > 0 && light_glow(&g, gx, s - 1) == 0);
+        world_set_at(w, tile_def(torch)->layer, gx, s - 1, torch);
+        int want = tile_def(torch)->light + 2 > LIGHT_MAX ? LIGHT_MAX : tile_def(torch)->light + 2;
+        CHECK(light_glow(&g, gx, s - 1) == want && light_glow(&g, gx + 1, s - 1) == 0);
+        /* Not one out of sight behind a block; nor a fire that is out. */
+        if (tile_def(torch)->layer != LAYER_FOREGROUND) {
+            world_set(w, gx, s - 1, TILE_STONE);
+            CHECK(light_glow(&g, gx, s - 1) == 0);
+            world_set(w, gx, s - 1, TILE_AIR);
+        }
+        if (fire > 0 && tile_def(fire)->light_needs_fuel) {
+            world_set_at(w, tile_def(fire)->layer, gx + 3, s - 1, fire);
+            CHECK(light_glow(&g, gx + 3, s - 1) == 0);
+            world_set_at(w, tile_def(fire)->layer, gx + 3, s - 1, TILE_AIR);
+        }
+        /* With no glow in the rules, nothing is shown any brighter. */
+        content.rules.light_glow = 0;
+        CHECK(light_glow(&g, gx, s - 1) == 0);
+        content.rules.light_glow = glow;
+        world_set_at(w, tile_def(torch)->layer, gx, s - 1, TILE_AIR);
+    }
     game_free(&g);
 }
 

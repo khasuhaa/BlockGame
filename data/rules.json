@@ -17,7 +17,7 @@
     ]
   },
   "drops": { "fall_speed": 12.0, "pickup_delay": 0.45, "collect_time": 0.15, "lifetime": 600, "float_speed": 5.0 },
-  "light": { "sun": 15, "moon": 5, "air_falloff": 1, "solid_falloff": 2, "minimum": 2, "water_depth_per_level": 4 },
+  "light": { "sun": 15, "moon": 5, "air_falloff": 1, "solid_falloff": 2, "minimum": 2, "glow": 8, "water_depth_per_level": 4 },
   "vitals": {
     "hunger_ticks": 3600, "energy_ticks": 1800, "sleep_ticks": 600,
     "health_regen_ticks": 6000, "starve_ticks": 3000, "starve_floor": 0.1,

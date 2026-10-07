@@ -604,6 +604,7 @@ typedef struct {
     int light_sun, light_moon;
     int light_air_falloff, light_solid_falloff;
     int light_minimum; /* the least anything is ever lit, so the dark is not blind */
+    int light_glow;    /* how much brighter than the light it gives something that gives light is itself shown; 0 for no brighter */
     int light_water_depth; /* blocks of water that cost one level of sky light */
     int water_color[4];    /* red, green, blue, alpha of the tint drawn over water */
     int water_flow;        /* eighths of water a level stretch moves sideways in one tick */

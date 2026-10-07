@@ -10,6 +10,29 @@ int light_sky(const Game *g)
     return (int)((float)u->light_moon + (float)(u->light_sun - u->light_moon) * day + 0.5f);
 }
 
+/* Whether a block is giving light where it is: one that needs a fire has to have one. */
+static bool shines(const Game *g, const TileDef *def, int x, int y)
+{
+    if (def->light <= 0 && (def->beam_dir == 0 || def->beam_light <= 0)) return false;
+    return !def->light_needs_fuel || game_fuel_at(g, x, y) > 0;
+}
+
+int light_glow(const Game *g, int x, int y)
+{
+    if (content.rules.light_glow <= 0) return 0;
+    const TileDef *front = tile_def(world_get(&g->world, x, y));
+    int best = 0;
+    for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
+        const TileDef *def = layer == LAYER_FOREGROUND ? front : tile_def(world_get_at(&g->world, layer, x, y));
+        /* (Not what is out of sight behind a block.) */
+        if (layer != LAYER_FOREGROUND && front->solid && !front->see_through) continue;
+        if (!shines(g, def, x, y)) continue;
+        int bright = (def->light > def->beam_light ? def->light : def->beam_light) + content.rules.light_glow;
+        if (bright > best) best = bright;
+    }
+    return best > LIGHT_MAX ? LIGHT_MAX : best;
+}
+
 /* Light a tile gives off of its own accord. */
 static int emitted(const Game *g, int x, int y)
 {

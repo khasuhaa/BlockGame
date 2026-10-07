@@ -19,4 +19,9 @@ int light_sky(const Game *g);
  * LIGHT_MAX tiles outside the rectangle are counted. */
 void light_compute(const Game *g, int x0, int y0, int width, int height, uint8_t *out);
 
+/* How brightly something in a square that gives light is itself to be shown,
+ * 0..LIGHT_MAX: the light it gives and the glow of the rules on top. 0 if
+ * nothing there is giving light, or it is hidden behind a block. */
+int light_glow(const Game *g, int x, int y);
+
 #endif

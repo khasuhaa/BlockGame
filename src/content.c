@@ -1181,6 +1181,7 @@ static bool read_rules(Reader *r, const cJSON *root)
         u->light_air_falloff = (int)num(light, "air_falloff", u->light_air_falloff);
         u->light_solid_falloff = (int)num(light, "solid_falloff", u->light_solid_falloff);
         u->light_minimum = (int)num(light, "minimum", u->light_minimum);
+        u->light_glow = (int)num(light, "glow", u->light_glow);
         u->light_water_depth = (int)num(light, "water_depth_per_level", u->light_water_depth);
     }
     return true;

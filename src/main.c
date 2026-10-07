@@ -595,7 +595,9 @@ static void draw_world(const Game *g, Vector2 origin)
                     DrawRectangleRec((Rectangle){ px, py, TILE_SIZE, TILE_SIZE },
                                      (Color){ (unsigned char)(c[0] * lit), (unsigned char)(c[1] * lit), (unsigned char)(c[2] * lit), 170 });
                 }
-                if (!tile_def(behind)->front) draw_block(g, LAYER_BACKGROUND, behind, x, y, px, py, BACKGROUND_DIM);
+                /* (Something giving light is not dimmed for being behind.) */
+                bool shining = (tile_def(behind)->light > 0 || tile_def(behind)->beam_light > 0) && light_glow(g, x, y) > 0;
+                if (!tile_def(behind)->front) draw_block(g, LAYER_BACKGROUND, behind, x, y, px, py, shining ? 0.0f : BACKGROUND_DIM);
             }
             if (!tile_def(t)->front) draw_block(g, LAYER_FOREGROUND, t, x, y, px, py, 0.0f);
             if (block_paint > 0 && block_paint <= content.tint_count && tile_def(t)->solid) {
@@ -750,6 +752,18 @@ static void draw_light(const Game *g, Vector2 origin)
         capacity = cols * rows;
     }
     light_compute(g, x0, y0, cols, rows, light);
+    /* Something that gives light is shown brighter than what it lights: its
+     * own square is as bright as it glows, and that fades out over the squares round it. */
+    static uint8_t *glow;
+    static int glow_capacity;
+    if (cols * rows > glow_capacity) {
+        uint8_t *bigger = realloc(glow, (size_t)cols * rows);
+        if (!bigger) return;
+        glow = bigger;
+        glow_capacity = cols * rows;
+    }
+    for (int cy = 0; cy < rows; cy++)
+        for (int cx = 0; cx < cols; cx++) glow[cy * cols + cx] = (uint8_t)light_glow(g, x0 + cx, y0 + cy);
 
     for (int cy = 1; cy < rows - 1; cy++) {
         for (int cx = 1; cx < cols - 1; cx++) {
@@ -760,6 +774,11 @@ static void draw_light(const Game *g, Vector2 origin)
                 int bx = cx + at[k][0], by = cy + at[k][1];
                 int sum = light[by * cols + bx] + light[by * cols + bx + 1] +
                           light[(by + 1) * cols + bx] + light[(by + 1) * cols + bx + 1];
+                int bright = glow[by * cols + bx];
+                if (glow[by * cols + bx + 1] > bright) bright = glow[by * cols + bx + 1];
+                if (glow[(by + 1) * cols + bx] > bright) bright = glow[(by + 1) * cols + bx];
+                if (glow[(by + 1) * cols + bx + 1] > bright) bright = glow[(by + 1) * cols + bx + 1];
+                if (bright * 4 > sum) sum = bright * 4;
                 int dark = 255 - sum * 255 / (4 * LIGHT_MAX);
                 corner[k] = (Color){ 4, 5, 14, (unsigned char)dark };
                 if (dark > darkest) darkest = dark;
