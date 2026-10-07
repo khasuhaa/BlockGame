@@ -10,7 +10,7 @@ static const TileDef *device_def(const World *w, int x, int y)
 {
     for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
         const TileDef *def = tile_def(world_get_at(w, layer, x, y));
-        if (def->gen_power > 0 || def->battery > 0 || def->electric > 0 || def->motor_power > 0) return def;
+        if (def->gen_power > 0 || def->battery > 0 || def->electric > 0 || def->motor_power > 0 || def->draw > 0) return def;
     }
     return NULL;
 }
@@ -206,10 +206,12 @@ static void run_flow(Game *g, PowerFlow *f)
     /* What to put in: all of it at once from a battery, a tick's worth at a
      * time from a generator or for a thing that takes it steadily. */
     int want = f->remaining < 0 ? f->rate : f->rate > 0 && f->rate < f->remaining ? f->rate : f->remaining;
-    if (sink->battery > 0) {
+    /* (A battery takes no more than it holds; a machine keeps only a few ticks' worth by it.) */
+    int holds = sink->battery > 0 ? sink->battery : sink->draw > 0 ? sink->draw * 4 : 0;
+    if (holds > 0) {
         int travelling = 0;
         for (int k = 0; k < f->length; k++) travelling += f->moving[k];
-        int room = sink->battery - to->power - arrived - travelling;
+        int room = holds - to->power - arrived - travelling;
         if (want > room) want = room < 0 ? 0 : room;
     }
     int have = source->battery > 0 ? from->power : from->made - from->given;
@@ -318,6 +320,9 @@ void power_tick(Game *g)
             bool runs = st->power >= def->motor_power;
             if (runs) st->power -= def->motor_power;
             world_set_meta(w, st->x, st->y, runs ? 1 : 0);
+        } else if (def->draw > 0) {
+            /* A machine keeps a little by it, ready for when it has work to do. */
+            if (!fed && st->power < def->draw * 2) ask(g, st, -1, def->draw, true);
         } else if (def->gen_power > 0 && st->made - st->given > 0) {
             /* What a generator makes and nothing has asked for, it looks for a battery to put in. */
             store(g, st, def);

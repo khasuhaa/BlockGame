@@ -115,10 +115,59 @@ void mods_saves(const ModList *list, const char *saves_dir, char *out, size_t si
     mkdir(out, 0755);
 }
 
+/* The names a mod gives things of one kind, as its file for them lists them. NULL if it has no such file. */
+static cJSON *mod_names(const ModInfo *mod, const char *file)
+{
+    char path[512];
+    snprintf(path, sizeof path, "%s/%s.json", mod->dir, file);
+    char *text = read_all(path);
+    if (!text) return NULL;
+    cJSON *root = cJSON_Parse(text);
+    free(text);
+    return root;
+}
+
+bool mods_conflict(const ModInfo *a, const ModInfo *b, char *what, size_t size)
+{
+    static const char *const kinds[] = { "tiles", "items", "mobs", "trees" };
+    bool clash = false;
+    for (int k = 0; k < 4 && !clash; k++) {
+        cJSON *mine = mod_names(a, kinds[k]), *theirs = mod_names(b, kinds[k]);
+        const cJSON *x, *y;
+        cJSON_ArrayForEach(x, cJSON_GetObjectItemCaseSensitive(mine, kinds[k])) {
+            const cJSON *name = cJSON_GetObjectItemCaseSensitive(x, "name");
+            if (!cJSON_IsString(name)) continue;
+            cJSON_ArrayForEach(y, cJSON_GetObjectItemCaseSensitive(theirs, kinds[k])) {
+                const cJSON *other = cJSON_GetObjectItemCaseSensitive(y, "name");
+                if (!cJSON_IsString(other) || strcmp(name->valuestring, other->valuestring) != 0) continue;
+                snprintf(what, size, "%s", name->valuestring);
+                clash = true;
+                break;
+            }
+            if (clash) break;
+        }
+        cJSON_Delete(mine);
+        cJSON_Delete(theirs);
+    }
+    return clash;
+}
+
 bool mods_load_content(ModList *list, const char *data_dir, char *error, size_t error_size)
 {
     char why[256];
     if (error_size > 0) error[0] = '\0';
+    /* Two that cannot be on together: then none is. */
+    for (int i = 0; i < list->count; i++) {
+        for (int k = i + 1; k < list->count; k++) {
+            if (!list->mods[i].enabled || !list->mods[k].enabled || !mods_conflict(&list->mods[i], &list->mods[k], why, sizeof why)) continue;
+            snprintf(error, error_size, "%s and %s both change \"%.40s\": no mods are on.", list->mods[i].label, list->mods[k].label, why);
+            for (int m = 0; m < list->count; m++) list->mods[m].enabled = false;
+            content_reset();
+            if (content_load(data_dir, why, sizeof why)) return true;
+            snprintf(error, error_size, "%s", why);
+            return false;
+        }
+    }
     for (;;) {
         content_reset();
         if (!content_load(data_dir, why, sizeof why)) {

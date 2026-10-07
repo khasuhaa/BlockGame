@@ -1,5 +1,7 @@
 #include "benchui.h"
 
+#include "industry.h"
+
 #include "assets.h"
 #include "hud.h"
 #include "power.h"
@@ -9,6 +11,7 @@
 
 #define MENU_WIDTH 340.0f
 #define MENU_HEIGHT 262.0f
+#define MACHINE_STRIP 44.0f /* under a machine's slots: what it is making, and how far along */
 #define MENU_HEADER 32.0f /* the bench's name, level and upgrade button */
 #define MENU_PAD 10.0f
 #define LIST_CELL 48.0f
@@ -42,6 +45,11 @@ static Rectangle menu_rect(const Game *g, const View *v)
     if (def->storage_columns > 0) {
         w = 2 * MENU_PAD + def->storage_columns * (STORAGE_SLOT + STORAGE_GAP) - STORAGE_GAP;
         h = MENU_HEADER + 2 * MENU_PAD + def->storage_rows * (STORAGE_SLOT + STORAGE_GAP) - STORAGE_GAP;
+        /* (A machine has a strip under its slots for what it is making, and room in its heading for an upgrade.) */
+        if (def->automat) {
+            h += MACHINE_STRIP;
+            if (w < 330.0f) w = 330.0f;
+        }
     }
     Vector2 tile = view_tile_pos(v, (float)g->bench_pos.x, (float)g->bench_pos.y);
     return (Rectangle){ tile.x + v->tile_size + 14.0f, tile.y + v->tile_size - h, w, h };
@@ -61,6 +69,64 @@ int benchui_storage_slots(const Game *g, const View *v, Rectangle *rects, int ma
                                       STORAGE_SLOT, STORAGE_SLOT };
     }
     return n;
+}
+
+/* The strip under a machine's slots, and the arrows at its ends that change what it is told to make. */
+static Rectangle machine_rect(Rectangle menu)
+{
+    return (Rectangle){ menu.x + MENU_PAD, menu.y + menu.height - MENU_PAD - MACHINE_STRIP + 8.0f, menu.width - 2 * MENU_PAD, MACHINE_STRIP - 8.0f };
+}
+
+static Rectangle machine_arrow(Rectangle menu, int which)
+{
+    Rectangle strip = machine_rect(menu);
+    return (Rectangle){ which == 0 ? strip.x : strip.x + strip.width - 30.0f, strip.y, 30.0f, strip.height - 6.0f };
+}
+
+/* Steps what a machine is told to make on to the next thing it could be, or back: nothing at all is one of them. */
+static void machine_step(Game *g, int way)
+{
+    const Recipe *could[MAX_BENCH_RECIPES];
+    int n = game_machine_recipes(g, g->bench_pos.x, g->bench_pos.y, could, MAX_BENCH_RECIPES), at = -1;
+    const Recipe *now = game_machine_recipe(g, g->bench_pos.x, g->bench_pos.y);
+    for (int i = 0; i < n; i++)
+        if (could[i] == now) at = i;
+    at += way;
+    if (at >= n) at = -1;
+    if (at < -1) at = n - 1;
+    game_machine_set_recipe(g, g->bench_pos.x, g->bench_pos.y, at < 0 ? NULL : could[at]);
+}
+
+static void draw_machine(const Game *g, Rectangle menu)
+{
+    Rectangle strip = machine_rect(menu);
+    bool chooses = game_machine_chooses(g, g->bench_pos.x, g->bench_pos.y);
+    const Recipe *r = game_machine_recipe(g, g->bench_pos.x, g->bench_pos.y);
+    Rectangle words = { strip.x, strip.y, strip.width, strip.height - 6.0f };
+    if (chooses) {
+        for (int i = 0; i < 2; i++) {
+            Rectangle b = machine_arrow(menu, i);
+            bool hot = CheckCollisionPointRec(GetMousePosition(), b);
+            DrawRectangleRec(b, hot ? (Color){ 80, 84, 100, 255 } : (Color){ 54, 57, 70, 255 });
+            DrawText(i == 0 ? "<" : ">", (int)(b.x + (b.width - MeasureText(i == 0 ? "<" : ">", 18)) / 2), (int)b.y + 6, 18, RAYWHITE);
+        }
+        words.x += 34.0f;
+        words.width -= 68.0f;
+    }
+    if (r) {
+        const char *name = TextFormat("%s x%d", item_def(r->output.id)->label, r->output.count);
+        int size = 16;
+        while (size > 10 && MeasureText(name, size) > words.width - 34.0f) size--;
+        assets_draw_item_tones(r->output.id, (Rectangle){ words.x, words.y + 1, 28, 28 }, 0);
+        DrawText(name, (int)words.x + 34, (int)(words.y + (words.height - (float)size) / 2), size, RAYWHITE);
+    } else {
+        DrawText(chooses ? "Nothing" : "Idle", (int)words.x + 4, (int)words.y + 8, 16, GRAY);
+    }
+    /* How far along the one in hand is. */
+    float done = game_machine_progress(g, g->bench_pos.x, g->bench_pos.y);
+    Rectangle bar = { strip.x, strip.y + strip.height - 4.0f, strip.width, 4.0f };
+    DrawRectangleRec(bar, (Color){ 44, 47, 58, 255 });
+    if (done >= 0.0f) DrawRectangleRec((Rectangle){ bar.x, bar.y, bar.width * (done > 1.0f ? 1.0f : done), bar.height }, button_color);
 }
 
 static Rectangle list_rect(Rectangle menu)
@@ -107,7 +173,7 @@ static int fuel_items(const Game *g, ItemId *out)
 {
     int n = 0;
     for (int i = 1; i < content.item_count && n < MAX_FUEL_ROWS; i++)
-        if (content.items[i].fuel > 0 && inventory_count(&g->inventory, i) > 0) out[n++] = i;
+        if (game_fuel_value(g, i) > 0 && inventory_count(&g->inventory, i) > 0) out[n++] = i;
     return n;
 }
 
@@ -238,7 +304,15 @@ static BenchPress press_target(const BenchUi *ui, const Game *g, const View *v, 
     }
     if (game_teleport_cost(g) >= 0 && CheckCollisionPointRec(m, teleport_rect(menu))) return BENCH_PRESS_TELEPORT;
     if (!CheckCollisionPointRec(m, menu)) return BENCH_PRESS_NONE;
-    if (tile_def(open_bench(g))->storage_columns > 0) return BENCH_PRESS_PANEL;
+    if (tile_def(open_bench(g))->storage_columns > 0) {
+        /* (A machine that can be told what to make has arrows to tell it by; and one that can be upgraded, the button for that.) */
+        if (game_machine_chooses(g, g->bench_pos.x, g->bench_pos.y)) {
+            if (CheckCollisionPointRec(m, machine_arrow(menu, 0))) return BENCH_PRESS_MAKE_PREV;
+            if (CheckCollisionPointRec(m, machine_arrow(menu, 1))) return BENCH_PRESS_MAKE_NEXT;
+        }
+        if (tile_def(open_bench(g))->upgrade_to != TILE_AIR && CheckCollisionPointRec(m, upgrade_rect(menu))) return BENCH_PRESS_UPGRADE;
+        return BENCH_PRESS_PANEL;
+    }
     if (tile_def(open_bench(g))->upgrade_to != TILE_AIR &&
         CheckCollisionPointRec(m, upgrade_rect(menu)))
         return BENCH_PRESS_UPGRADE;
@@ -346,6 +420,10 @@ bool benchui_handle_input(BenchUi *ui, Game *g, const View *v)
         game_craft_rush(g);
     } else if (ui->press == BENCH_PRESS_STOP && released == BENCH_PRESS_STOP) {
         game_craft_stop(g);
+    } else if (ui->press == BENCH_PRESS_MAKE_PREV && released == BENCH_PRESS_MAKE_PREV) {
+        machine_step(g, -1);
+    } else if (ui->press == BENCH_PRESS_MAKE_NEXT && released == BENCH_PRESS_MAKE_NEXT) {
+        machine_step(g, 1);
     } else if (ui->press == BENCH_PRESS_CRAFT && released == BENCH_PRESS_CRAFT) {
         game_craft(g, recipes[ui->selected], ui->amount);
     } else if (ui->press == BENCH_PRESS_OPEN && released == BENCH_PRESS_OPEN) {
@@ -696,7 +774,10 @@ void benchui_draw(const BenchUi *ui, const Game *g, const View *v)
     draw_fuel(ui, g, menu);
     /* A storage block is just its name: the inventory draws the slots, so
      * that items can be dragged between them and the bar. */
-    if (tile_def(open_bench(g))->storage_columns > 0) return;
+    if (tile_def(open_bench(g))->storage_columns > 0) {
+        if (tile_def(open_bench(g))->automat) draw_machine(g, menu);
+        return;
+    }
     draw_list(ui, g, recipes, count, list_rect(menu));
     /* Until input has caught up with a newly opened bench, show no selection. */
     bool current = ui->was_open && ui->shown.x == g->bench_pos.x && ui->shown.y == g->bench_pos.y;

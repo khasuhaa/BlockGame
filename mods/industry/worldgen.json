@@ -1,0 +1,62 @@
+{
+  "veins": [
+    {
+      "name": "lead",
+      "tile": "lead_ore",
+      "in": [
+        "stone"
+      ],
+      "size": [
+        2,
+        8
+      ],
+      "per_100_columns": 12,
+      "depth": [
+        8,
+        150
+      ]
+    }
+  ],
+  "vein_rares": [
+    {
+      "vein": "copper",
+      "tile": "copper_source_ore",
+      "one_in": 100
+    },
+    {
+      "vein": "tin",
+      "tile": "tin_source_ore",
+      "one_in": 100
+    },
+    {
+      "vein": "coal",
+      "tile": "coal_source_ore",
+      "one_in": 100
+    },
+    {
+      "vein": "iron",
+      "tile": "iron_source_ore",
+      "one_in": 200
+    },
+    {
+      "vein": "lead",
+      "tile": "lead_source_ore",
+      "one_in": 200
+    },
+    {
+      "vein": "gold",
+      "tile": "gold_source_ore",
+      "one_in": 200
+    },
+    {
+      "vein": "titanium",
+      "tile": "titanium_source_ore",
+      "one_in": 300
+    },
+    {
+      "vein": "platinum",
+      "tile": "platinum_source_ore",
+      "one_in": 300
+    }
+  ]
+}

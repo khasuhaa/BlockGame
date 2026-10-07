@@ -41,8 +41,14 @@ bool mods_remember(const ModList *list, const char *saves_dir);
 void mods_playset(const ModList *list, char *out, size_t size);
 /* Where that playset's worlds are kept; the directory is made if it is not there. */
 void mods_saves(const ModList *list, const char *saves_dir, char *out, size_t size);
+/* Whether two mods cannot be on together: each defines something - a block,
+ * an item, a creature or a tree - under a name the other also defines. `what`
+ * gets that name. */
+bool mods_conflict(const ModInfo *a, const ModInfo *b, char *what, size_t size);
 /* Loads the game's data from `data_dir` and then each mod that is on, afresh.
- * A mod that will not load is turned off - `error` says which, and why - and
+ * If two of the mods that are on cannot be on together, none is loaded: every
+ * mod is turned off, and `error` says which two and over what. A mod that
+ * will not load by itself is turned off - `error` says which, and why - and
  * the rest are loaded without it. False only if the game's own data will not load. */
 bool mods_load_content(ModList *list, const char *data_dir, char *error, size_t error_size);
 /* The directories textures are looked for in, the game's own first: fills

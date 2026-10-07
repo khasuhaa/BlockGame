@@ -1,6 +1,7 @@
 /* Headless tests for the game rules: no window, just the simulation. */
 #include "../src/game.h"
 #include "../src/guide.h"
+#include "../src/industry.h"
 #include "../src/light.h"
 #include "../src/mob.h"
 #include "../src/mods.h"
@@ -9360,6 +9361,316 @@ static void test_magic_mod(void)
     CHECK(content_load("data", err, sizeof err) && content.tile_count == tiles && item_id("fireball_scroll") <= 0 && content.rules.max_players == 2);
 }
 
+/* A machine set down, with the slots it has. */
+static Storage *put_machine(Game *g, const char *tile, int x, int y)
+{
+    Storage *st = put_device(g, tile, x, y);
+    if (st && tile_def(tile_id(tile))->storage_columns > 0) st->container = container_alloc(&g->inventory);
+    return st;
+}
+
+static int held_in(const Game *g, const Storage *st, ItemId item)
+{
+    int n = 0;
+    for (int i = 0; st && st->container && i < CONTAINER_MAX_SLOTS; i++) {
+        const ItemStack *s = &g->inventory.containers[st->container].slots[i];
+        if (s->count > 0 && s->id == item) n += s->count;
+    }
+    return n;
+}
+
+static void fill_slot(Game *g, Storage *st, int slot, ItemId item, int count)
+{
+    g->inventory.containers[st->container].slots[slot] = (ItemStack){ .id = (uint16_t)item, .count = (uint16_t)count };
+}
+
+/* Industry, on top of the game. */
+static void test_industry_mod(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count;
+    if (!content_load("mods/industry", err, sizeof err)) {
+        printf("FAIL industry does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    CHECK(content.tile_count == tiles + 44 && content.item_count == items + 58 && content.recipe_count == recipes + 59);
+    /* The workbench goes on to a fifth tier and a sixth; the alloy furnace and the industrial bench have tiers of their own. */
+    CHECK(tile_def(tile_id("workbench_4"))->upgrade_to == tile_id("workbench_5") && tile_def(tile_id("workbench_4"))->upgrade_cost[0].id == item_id("heavy_bronze_ingot"));
+    CHECK(tile_def(tile_id("workbench_5"))->upgrade_to == tile_id("workbench_6") && tile_def(tile_id("workbench_5"))->upgrade_cost[0].id == item_id("dreadsteel_ingot") &&
+          tile_def(tile_id("workbench_5"))->upgrade_cost[0].count == 5 && tile_def(tile_id("workbench_6"))->bench_level == 6);
+    TileType alloy = tile_id("alloy_furnace");
+    CHECK(tile_def(alloy)->electric == 100 && tile_def(alloy)->upgrade_cost[0].id == item_id("lead_block") &&
+          tile_def(tile_id("alloy_furnace_2"))->upgrade_cost[0].id == item_id("royal_bronze_block"));
+    CHECK(tile_def(tile_id("industrial_bench"))->upgrade_cost[0].id == item_id("imperial_ingot") && tile_def(tile_id("industrial_bench"))->upgrade_cost[0].count == 2);
+    CHECK(tile_def(tile_id("industrial_armory"))->electric == 500 && tile_def(tile_id("industrial_processor"))->electric == 1000);
+    const Recipe *r = find_recipe_from(alloy, "bronze_ingot", "copper_ingot");
+    CHECK(r && costs(r, "copper_ingot", 1, "tin_ingot", 1) && r->output.count == 3 && r->time == 10.0f);
+    r = find_recipe_from(tile_id("alloy_furnace_3"), "imperial_ingot", "platinum_ingot");
+    CHECK(r && r->input_count == 3 && r->level == 3);
+    r = find_recipe_from(tile_id("alloy_furnace_2"), "heavy_bronze_ingot", "lead_ingot");
+    CHECK(r && r->output.count == 2 && r->level == 2 && r->time == 30.0f);
+    r = find_recipe_from(TILE_WORKBENCH, "factory", "heavy_bronze_block");
+    CHECK(r && r->level == 5 && r->input_count == 4);
+    r = find_recipe_from(tile_id("industrial_bench"), "conveyor", "heavy_bronze_ingot");
+    CHECK(r && r->output.count == 5 && costs(r, "heavy_bronze_ingot", 3, NULL, 0));
+    r = find_recipe_from(tile_id("industrial_bench_2"), "imperial_conveyor", "gilded_conveyor");
+    CHECK(r && r->output.count == 3 && r->level == 2);
+    CHECK(find_recipe(tile_id("industrial_smithery"), "dreadsteel_sword") && find_recipe(tile_id("industrial_armory"), "imperial_chestplate"));
+    CHECK(find_recipe(tile_id("furnace_2"), "lead_ingot") && find_recipe(tile_id("metalwork_bench_2"), "dreadsteel_block") && find_recipe_from(tile_id("builder_bench"), "imperial_stairs", "imperial_block"));
+    CHECK(item_def(item_id("dreadsteel_sword"))->damage == 50 && item_def(item_id("imperial_longbow"))->damage == 20 && item_def(item_id("imperial_longbow"))->range > 0);
+    CHECK(item_def(item_id("imperial_helmet"))->armor > item_def(item_id("dreadsteel_helmet"))->armor && item_def(item_id("dreadsteel_helmet"))->armor > item_def(item_id("titanium_helmet"))->armor);
+    CHECK(tile_def(tile_id("conveyor"))->conveyor == 1 && tile_def(tile_id("gilded_conveyor"))->conveyor == 2 && tile_def(tile_id("imperial_conveyor"))->conveyor == 5);
+
+    Game g;
+    game_init(&g, 160, 96, 31, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    g.tick_rate = 0;
+    g.random_events = 0;
+    clear_mobs(&g);
+    int s = w->surface_y, ground = s - 1, px = g.player.feet.x;
+    ItemId copper_ore = item_id("copper_ore"), iron_ore = item_id("iron_ore"), iron = item_id("iron_ingot");
+
+    /* A source ore is mined and is still there: again and again, an ore each time. */
+    TileType source = tile_id("copper_source_ore");
+    CHECK(tile_def(source)->endless && tile_def(source)->drop == copper_ore && !tile_def(tile_id("copper_ore"))->endless);
+    world_set(w, px + 2, ground, source);
+    clear_inventory(&g);
+    for (int k = 0; k < 3; k++) {
+        CHECK(game_queue_action(&g, ACTION_MINE, px + 2, ground));
+        run(&g, 6.0f);
+        CHECK(world_get(w, px + 2, ground) == source);
+    }
+    CHECK(count_item(&g, copper_ore) + drops_of(&g, copper_ore) >= 3);
+    clear_drops(&g);
+    clear_inventory(&g);
+
+    /* An electric miner beside one: with electricity, an ore every twenty ticks, ten units a tick; with none, nothing. */
+    int row = ground - 12, mx = px + 20;
+    world_set(w, mx, row, source);
+    Storage *miner = put_machine(&g, "electric_miner", mx + 1, row);
+    CHECK(tile_def(tile_id("electric_miner"))->draw == 10 && tile_def(tile_id("electric_miner"))->miner_ticks == 20 && miner && miner->container != 0);
+    for (int t = 0; t < 100; t++) game_tick(&g);
+    CHECK(held_in(&g, miner, copper_ore) == 0);
+    Storage *wheel = put_device(&g, "flywheel", mx + 2, row);
+    wheel->power = 5000;
+    for (int t = 0; t < 205; t++) game_tick(&g);
+    int mined = held_in(&g, miner, copper_ore);
+    CHECK(mined >= 9 && mined <= 10 && wheel->power <= 5000 - mined * 200 && wheel->power >= 5000 - (mined + 1) * 200 - 80);
+    /* Away from the ore it does nothing, and takes nothing. */
+    world_set(w, mx, row, TILE_AIR);
+    for (int t = 0; t < 20; t++) game_tick(&g);
+    int left = wheel->power, had = held_in(&g, miner, copper_ore);
+    for (int t = 0; t < 100; t++) game_tick(&g);
+    CHECK(wheel->power == left && held_in(&g, miner, copper_ore) == had);
+
+    /* An extractor beside the miner, a run of conveyor, and a chest at the end of it: an item a tick. */
+    int cy = row;
+    world_set_at(w, tile_def(tile_id("electric_miner"))->layer, mx + 1, row, TILE_AIR);
+    miner->used = false;
+    wheel->used = false;
+    world_set_at(w, tile_def(tile_id("flywheel"))->layer, mx + 2, row, TILE_AIR);
+    int ex = px + 40;
+    Storage *from = put_machine(&g, "chest", ex, cy), *pull = put_machine(&g, "conveyor_extractor", ex + 1, cy);
+    for (int k = 2; k <= 6; k++) world_set_at(w, tile_def(tile_id("conveyor"))->layer, ex + k, cy, tile_id("conveyor"));
+    Storage *to = put_machine(&g, "chest", ex + 7, cy);
+    fill_slot(&g, from, 0, copper_ore, 50);
+    fill_slot(&g, from, 1, iron_ore, 30);
+    for (int t = 0; t < 10; t++) game_tick(&g);
+    CHECK(held_in(&g, to, copper_ore) == 10 && held_in(&g, from, copper_ore) == 40 && held_in(&g, to, iron_ore) == 0);
+    /* Told one kind of thing - by one of it in its slot - it takes only that. */
+    fill_slot(&g, pull, 0, iron_ore, 1);
+    for (int t = 0; t < 10; t++) game_tick(&g);
+    CHECK(held_in(&g, to, copper_ore) == 10 && held_in(&g, to, iron_ore) == 10 && held_in(&g, pull, iron_ore) == 1);
+    fill_slot(&g, pull, 0, ITEM_NONE, 0);
+    /* A quicker conveyor all the way carries more; one slow stretch in it holds the whole run to its pace. */
+    for (int k = 2; k <= 6; k++) world_set_at(w, tile_def(tile_id("conveyor"))->layer, ex + k, cy, tile_id("imperial_conveyor"));
+    for (int t = 0; t < 4; t++) game_tick(&g);
+    CHECK(held_in(&g, to, copper_ore) == 30);
+    world_set_at(w, tile_def(tile_id("conveyor"))->layer, ex + 4, cy, tile_id("gilded_conveyor"));
+    for (int t = 0; t < 5; t++) game_tick(&g);
+    CHECK(held_in(&g, to, copper_ore) == 40);
+    /* The nearest thing that will have it gets it: a crate half way along, before the chest at the end. A crate that is
+     * sorting takes only the kinds of thing already in its first four slots. */
+    Storage *crate = put_machine(&g, "industrial_crate", ex + 4, cy - 1);
+    CHECK(tile_def(tile_id("industrial_crate"))->sorts == 4);
+    for (int t = 0; t < 3; t++) game_tick(&g);
+    CHECK(held_in(&g, crate, copper_ore) == 6 && held_in(&g, to, copper_ore) == 40);
+    for (int k = 0; k < CONTAINER_MAX_SLOTS; k++) fill_slot(&g, crate, k, ITEM_NONE, 0);
+    fill_slot(&g, crate, 0, iron_ore, 1);
+    for (int t = 0; t < 2; t++) game_tick(&g);
+    CHECK(held_in(&g, crate, copper_ore) == 0 && held_in(&g, to, copper_ore) == 44 && held_in(&g, from, copper_ore) == 0);
+    for (int t = 0; t < 30; t++) game_tick(&g);
+    CHECK(held_in(&g, crate, iron_ore) == 21 && held_in(&g, from, iron_ore) == 0); /* (what was left of the iron, to the crate that sorts for it) */
+    /* With the conveyor broken, nothing has anywhere to go, and nothing moves. */
+    fill_slot(&g, from, 0, copper_ore, 20);
+    world_set_at(w, tile_def(tile_id("conveyor"))->layer, ex + 2, cy, TILE_AIR);
+    for (int t = 0; t < 10; t++) game_tick(&g);
+    CHECK(held_in(&g, from, copper_ore) == 20);
+
+    /* The industrial furnace: what an electric furnace makes, in half the time, by itself, for 50 units a tick. */
+    int fx = px + 60;
+    Storage *furnace = put_machine(&g, "industrial_furnace", fx, cy), *battery = put_device(&g, "flywheel", fx + 1, cy);
+    const TileDef *fdef = tile_def(tile_id("industrial_furnace"));
+    CHECK(fdef->automat && fdef->automat_inputs == 1 && fdef->automat_speed == 2.0f && fdef->draw == 50 && strcmp(fdef->automat_kind, "electric_furnace") == 0);
+    CHECK(game_machine_inputs(&g, fx, cy) == 1 && !game_machine_chooses(&g, fx, cy));
+    const Recipe *smelt = find_recipe_from(tile_id("electric_furnace"), "iron_ingot", "iron_ore");
+    CHECK(smelt && smelt->inputs[0].count == 2 && smelt->time == 40.0f);
+    fill_slot(&g, furnace, 0, iron_ore, 5);
+    for (int t = 0; t < 100; t++) game_tick(&g);
+    CHECK(held_in(&g, furnace, iron) == 0 && game_machine_progress(&g, fx, cy) < 0.0f); /* no electricity: not begun */
+    battery->power = 10000;
+    for (int t = 0; t < 110; t++) game_tick(&g);
+    CHECK(held_in(&g, furnace, iron) == 0 && held_in(&g, furnace, iron_ore) == 3 && game_machine_progress(&g, fx, cy) > 0.3f);
+    CHECK(game_machine_recipe(&g, fx, cy) == smelt);
+    /* (Kept with the world, part way through.) */
+    CHECK(save_game(&g, "build/test_industry.world"));
+    Game loaded;
+    CHECK(load_game(&loaded, "build/test_industry.world"));
+    CHECK(game_machine_recipe(&loaded, fx, cy) == smelt && game_machine_progress(&loaded, fx, cy) > 0.3f);
+    game_free(&loaded);
+    for (int t = 0; t < 110; t++) game_tick(&g);
+    CHECK(held_in(&g, furnace, iron) == 1); /* 20 seconds: 200 ticks */
+    CHECK(battery->power <= 600); /* at 50 a tick: all but the last of what the flywheel had */
+    battery->power = 10000;
+    for (int t = 0; t < 220; t++) game_tick(&g);
+    CHECK(held_in(&g, furnace, iron) == 2 && held_in(&g, furnace, iron_ore) == 1 && battery->power <= 600);
+    battery->power = 10000;
+    /* With one ore left it has nothing it can make; and with something else in the way of what it makes, it does not start. */
+    for (int t = 0; t < 50; t++) game_tick(&g);
+    CHECK(game_machine_progress(&g, fx, cy) < 0.0f && held_in(&g, furnace, iron_ore) == 1);
+    fill_slot(&g, furnace, 0, iron_ore, 2);
+    fill_slot(&g, furnace, 1, copper_ore, 1);
+    battery->power = 10000;
+    for (int t = 0; t < 250; t++) game_tick(&g);
+    CHECK(held_in(&g, furnace, iron_ore) == 2 && held_in(&g, furnace, iron) == 0);
+    /* A conveyor puts into it only what it can make something of, and only where things go in; an extractor takes out only what it has made. */
+    fill_slot(&g, furnace, 0, ITEM_NONE, 0);
+    fill_slot(&g, furnace, 1, iron, 3);
+    Storage *feed = put_machine(&g, "chest", fx - 4, cy), *push = put_machine(&g, "conveyor_extractor", fx - 3, cy);
+    world_set_at(w, tile_def(tile_id("conveyor"))->layer, fx - 2, cy, tile_id("conveyor"));
+    world_set_at(w, tile_def(tile_id("conveyor"))->layer, fx - 1, cy, tile_id("conveyor"));
+    fill_slot(&g, feed, 0, ITEM_DIRT, 9);
+    fill_slot(&g, feed, 1, iron_ore, 4);
+    for (int t = 0; t < 6; t++) game_tick(&g);
+    CHECK(held_in(&g, feed, ITEM_DIRT) == 9 && held_in(&g, feed, iron_ore) == 0 && held_in(&g, furnace, ITEM_DIRT) == 0);
+    Storage *out = put_machine(&g, "conveyor_extractor", fx, cy - 1), *bin = put_machine(&g, "chest", fx, cy - 3);
+    world_set_at(w, tile_def(tile_id("conveyor"))->layer, fx, cy - 2, tile_id("conveyor"));
+    for (int t = 0; t < 5; t++) game_tick(&g);
+    CHECK(held_in(&g, bin, iron) >= 3 && held_in(&g, bin, iron_ore) == 0);
+    (void)push;
+    (void)out;
+
+    /* A factory: beside a bench, told one of that bench's recipes, it makes it from what is put in it. */
+    int qx = px - 30;
+    world_set_at(w, tile_def(alloy)->layer, qx, cy, alloy);
+    Storage *factory = put_machine(&g, "factory", qx + 1, cy), *cell = put_device(&g, "flywheel", qx + 2, cy);
+    cell->power = 10000;
+    const TileDef *qdef = tile_def(tile_id("factory"));
+    CHECK(qdef->automat && !qdef->automat_kind[0] && qdef->automat_inputs == 4 && qdef->draw == 50 && qdef->upgrade_to == tile_id("factory_2"));
+    CHECK(tile_def(tile_id("factory_2"))->automat_inputs == 6 && tile_def(tile_id("factory_2"))->automat_speed == 2.0f && qdef->upgrade_cost[0].id == item_id("processing_chip"));
+    const Recipe *could[64];
+    int n = game_machine_recipes(&g, qx + 1, cy, could, 64);
+    const Recipe *bronze = find_recipe_from(alloy, "bronze_ingot", "copper_ingot");
+    CHECK(game_machine_chooses(&g, qx + 1, cy) && n == 2); /* (a first-tier alloy furnace: bronze and steel) */
+    CHECK(game_machine_recipe(&g, qx + 1, cy) == NULL && !game_machine_set_recipe(&g, qx + 1, cy, smelt)); /* not a recipe of a bench beside it */
+    ItemId cu = item_id("copper_ingot"), tin = item_id("tin_ingot"), bz = item_id("bronze_ingot");
+    /* Until it is told, a conveyor puts nothing in it. */
+    Storage *stock = put_machine(&g, "chest", qx + 1, cy - 3), *tap = put_machine(&g, "conveyor_extractor", qx + 1, cy - 2);
+    world_set_at(w, tile_def(tile_id("conveyor"))->layer, qx + 1, cy - 1, tile_id("conveyor"));
+    fill_slot(&g, stock, 0, cu, 4);
+    fill_slot(&g, stock, 1, ITEM_DIRT, 4);
+    fill_slot(&g, stock, 2, tin, 4);
+    for (int t = 0; t < 10; t++) game_tick(&g);
+    CHECK(held_in(&g, stock, cu) == 4 && held_in(&g, factory, cu) == 0);
+    CHECK(game_machine_set_recipe(&g, qx + 1, cy, bronze) && game_machine_recipe(&g, qx + 1, cy) == bronze);
+    for (int t = 0; t < 12; t++) game_tick(&g);
+    /* Told: only what the recipe takes, each in its own slot. */
+    CHECK(held_in(&g, stock, ITEM_DIRT) == 4 && held_in(&g, stock, cu) == 0 && held_in(&g, stock, tin) == 0);
+    const Container *in = &inv->containers[factory->container];
+    CHECK(in->slots[0].id == cu && in->slots[1].id == tin && in->slots[2].count == 0);
+    /* Ten seconds apiece at the bench's own pace: 100 ticks. */
+    for (int t = 0; t < 95; t++) game_tick(&g);
+    CHECK(held_in(&g, factory, bz) == 3 && in->slots[4].id == bz);
+    for (int k = 0; k < 3; k++) {
+        cell->power = 10000;
+        for (int t = 0; t < 110; t++) game_tick(&g);
+    }
+    CHECK(held_in(&g, factory, bz) == 12 && held_in(&g, factory, cu) == 0 && held_in(&g, factory, tin) == 0);
+    /* The bench gone, it can make nothing: what it was told is forgotten. */
+    world_set_at(w, tile_def(alloy)->layer, qx, cy, TILE_AIR);
+    for (int t = 0; t < 3; t++) game_tick(&g);
+    CHECK(game_machine_recipe(&g, qx + 1, cy) == NULL && game_machine_recipes(&g, qx + 1, cy, could, 64) == 0);
+    (void)tap;
+
+    /* The power plant: a hundred units a tick, burning dreadsteel and imperial ingots and nothing else. */
+    const TileDef *plant = tile_def(tile_id("power_plant"));
+    CHECK(plant->gen_power == 100 && plant->fuel_count == 2 && plant->fuel_capacity >= 1800);
+    Storage *station = put_device(&g, "power_plant", px - 50, ground);
+    g.player.feet = g.player.step_to = (TilePos){ px - 49, ground };
+    clear_inventory(&g);
+    inventory_add(inv, item_id("coal"), 2);
+    inventory_add(inv, item_id("dreadsteel_ingot"), 1);
+    inventory_add(inv, item_id("imperial_ingot"), 1);
+    CHECK(game_open_bench(&g, px - 50, ground));
+    CHECK(game_fuel_value(&g, item_id("coal")) == 0 && game_fuel_value(&g, item_id("dreadsteel_ingot")) == 1000 && game_fuel_value(&g, item_id("imperial_ingot")) == 1800);
+    CHECK(!game_add_fuel(&g, item_id("coal")) || station->fuel == 0);
+    run(&g, 0.2f);
+    CHECK(station->fuel == 0 && count_item(&g, item_id("coal")) == 2);
+    CHECK(game_add_fuel(&g, item_id("dreadsteel_ingot")));
+    run(&g, 0.2f);
+    CHECK(station->fuel > 900 && station->fuel <= 1000 && count_item(&g, item_id("dreadsteel_ingot")) == 0);
+    game_tick(&g);
+    CHECK(game_power_made(&g, px - 50, ground) == 100);
+    game_close_bench(&g);
+    game_free(&g);
+
+    /* The world: lead in veins like iron's; and, rarely, an ore that is a source. */
+    int lead = 0, iron_blocks = 0, sources = 0, ores = 0;
+    for (uint32_t seed = 1; seed <= 3; seed++) {
+        World world;
+        CHECK(world_init(&world, 2048, 401, seed, WORLD_TERRAIN));
+        for (int y = 0; y < world.height; y++) {
+            for (int x = 0; x < world.width; x++) {
+                const TileDef *def = tile_def(world_get(&world, x, y));
+                if (!def->ore) continue;
+                ores++;
+                if (def->endless) sources++;
+                if (world_get(&world, x, y) == tile_id("lead_ore")) lead++;
+                if (world_get(&world, x, y) == tile_id("iron_ore")) iron_blocks++;
+            }
+        }
+        world_free(&world);
+    }
+    CHECK(lead > iron_blocks / 2 && lead < iron_blocks * 2 && sources > 10 && sources * 60 < ores);
+
+    /* It and Magic and Mayhem both remake the workbench: they cannot be on together, and asked for together no mod is on. */
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/modtest/none");
+    int magic = -1, industry = -1;
+    for (int k = 0; k < mods.count; k++) {
+        if (strcmp(mods.mods[k].id, "magic_mayhem") == 0) magic = k;
+        if (strcmp(mods.mods[k].id, "industry") == 0) industry = k;
+    }
+    CHECK(magic >= 0 && industry >= 0);
+    char what[64];
+    CHECK(magic >= 0 && industry >= 0 && mods_conflict(&mods.mods[magic], &mods.mods[industry], what, sizeof what) && strncmp(what, "workbench", 9) == 0);
+    mods.mods[magic].enabled = mods.mods[industry].enabled = true;
+    CHECK(mods_load_content(&mods, "data", err, sizeof err) && strstr(err, "Industry") && strstr(err, "Magic and Mayhem"));
+    CHECK(!mods.mods[magic].enabled && !mods.mods[industry].enabled && content.tile_count == tiles && item_id("conveyor") <= 0 && item_id("fireball_scroll") <= 0);
+    char playset[128];
+    mods_playset(&mods, playset, sizeof playset);
+    CHECK(playset[0] == '\0');
+    /* Either by itself is as it should be. */
+    mods.mods[industry].enabled = true;
+    CHECK(mods_load_content(&mods, "data", err, sizeof err) && err[0] == '\0' && mods.mods[industry].enabled && item_id("conveyor") > 0);
+    content_reset();
+    CHECK(content_load("data", err, sizeof err) && content.tile_count == tiles);
+}
+
 int main(void)
 {
     char err[256];
@@ -9481,6 +9792,7 @@ int main(void)
     test_content();
     test_mods();
     test_magic_mod();
+    test_industry_mod();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;

@@ -291,6 +291,26 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->breaks_above = flag(e, "breaks_above", false);
         t->breaks_below = flag(e, "breaks_below", false);
         t->passable = flag(e, "passable", false);
+        t->endless = flag(e, "endless", false);
+        t->conveyor = (int)num(e, "conveyor", 0);
+        t->extractor = flag(e, "extractor", false);
+        t->draw = (int)num(e, "draw", 0);
+        t->miner_ticks = (int)num(e, "miner", 0);
+        const cJSON *automat = field(e, "automat");
+        t->automat = cJSON_IsObject(automat);
+        copy_name(t->automat_kind, sizeof t->automat_kind, str(automat, "bench"));
+        t->automat_inputs = (int)num(automat, "inputs", 1);
+        t->automat_speed = (float)num(automat, "speed", 1.0);
+        t->sorts = (int)num(e, "sorts", 0);
+        t->fuel_count = 0;
+        const cJSON *burns;
+        cJSON_ArrayForEach(burns, field(e, "fuels")) {
+            if (t->fuel_count >= 4 || !item_ref(r, burns, "item", &t->fuels[t->fuel_count].item) || t->fuels[t->fuel_count].item == ITEM_NONE)
+                return fail(r, "tile \"%s\": \"fuels\" lists at most 4 items that exist, each with its \"ticks\"", t->name);
+            t->fuels[t->fuel_count++].ticks = (int)num(burns, "ticks", 0);
+        }
+        if (t->conveyor < 0 || t->draw < 0 || t->miner_ticks < 0 || t->sorts < 0 || (t->automat && (t->automat_inputs < 1 || t->automat_speed <= 0.0f)))
+            return fail(r, "tile \"%s\": a conveyor, a draw, a miner, an automat's inputs and speed cannot be less than nothing", t->name);
         t->craft_speed = (float)num(field(e, "quickens"), "speed", 0.0);
         t->craft_radius = (int)num(field(e, "quickens"), "radius", 0);
         if (field(e, "quickens") && (t->craft_speed <= 0.0f || t->craft_radius < 1 || t->craft_radius > 12))
@@ -984,6 +1004,8 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         pair(e, "depth", &v->min_depth, &v->max_depth);
         v->per_100_columns = (float)num(e, "per_100_columns", 1.0);
         v->buried = flag(e, "buried", false);
+        v->rare = TILE_AIR;
+        v->rare_one_in = 0;
         const char *shape = str(e, "shape");
         v->shape = shape && strcmp(shape, "streak") == 0 ? VEIN_STREAK : shape && strcmp(shape, "scar") == 0 ? VEIN_SCAR : VEIN_BLOB;
         if (shape && v->shape == VEIN_BLOB && strcmp(shape, "blob") != 0)
@@ -992,6 +1014,19 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         pair(e, "thickness", &v->min_thick, &v->max_thick);
         if (v->min_thick < 1 || v->max_thick < v->min_thick)
             return fail(r, "vein \"%s\": \"thickness\" is a range of 1 or more", name);
+    }
+
+    /* "vein_rares": now and then a block of a vein that is already there is something else. */
+    cJSON_ArrayForEach(e, field(root, "vein_rares")) {
+        const char *which = str(e, "vein");
+        VeinDef *v = NULL;
+        for (int i = 0; which && i < content.vein_count; i++)
+            if (strcmp(content.veins[i].name, which) == 0) v = &content.veins[i];
+        TileType tile = TILE_AIR;
+        if (!v || !tile_ref(r, e, "tile", &tile) || tile == TILE_AIR || num(e, "one_in", 0) < 1)
+            return fail(r, "\"vein_rares\": each needs a \"vein\" that exists, a \"tile\" and a \"one_in\"");
+        v->rare = tile;
+        v->rare_one_in = (int)num(e, "one_in", 0);
     }
 
     const cJSON *layers = field(root, "layers");

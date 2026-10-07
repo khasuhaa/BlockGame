@@ -36,11 +36,12 @@ The loader enforces the category: an item with none that is neither a currency n
 
 ### Mods
 
-- A mod is a directory under `mods/` loaded on top of `data/` by `content_load` (see `src/mods.c`); the one the game comes with is `mods/magic_mayhem`, written out from `MagicMayhem.txt`. Everything a mod does it does through the data: if a mod needs the engine to do something new, that is a new field the base game could use as well, never a check for the mod.
+- A mod is a directory under `mods/` loaded on top of `data/` by `content_load` (see `src/mods.c`); the ones the game comes with are `mods/magic_mayhem` and `mods/industry`, each written out from its plan in `ModDescriptions/`. Everything a mod does it does through the data: if a mod needs the engine to do something new, that is a new field the base game could use as well, never a check for the mod.
 - A mod's items follow the same rules as the game's: every one has a category and a price.
 - A mod adds to lists the game already has by naming things (tiles, items, trees, mobs, veins, cave decorations) or through the lists made for adding (`"biome_plants"`, `"island_trees"`, recipes). Do not make a mod restate a whole biome to add a plant to it.
 - Worlds, crystals and the portal chest belong to the playset the enabled mods make (`mods_saves`). Anything new that is kept between worlds goes in that directory too, not in `saves/` itself.
-- `tests/test_game.c` loads the mod on top of the shipped data in `test_magic_mod` and checks its counts: change them there when the mod's content changes.
+- `tests/test_game.c` loads each mod on top of the shipped data (`test_magic_mod`, `test_industry_mod`) and checks its counts: change them there when a mod's content changes.
+- Two mods that define the same name cannot be on together (`mods_conflict`): asked for together, none is loaded. Do not make a mod depend on another being on.
 
 ### Still in code, to be moved when touched
 

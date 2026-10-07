@@ -185,7 +185,11 @@ static void place_vein(World *w, const VeinDef *v, uint32_t *rng, int x, int y)
     }
 
     if (count < least) return;
-    for (int i = 0; i < count; i++) world_set(w, cells[i].x, cells[i].y, v->tile);
+    for (int i = 0; i < count; i++) {
+        /* (One in so many of its blocks, in a vein that has such a thing, is the rare kind.) */
+        bool rare = v->rare != TILE_AIR && v->rare_one_in > 0 && rng_range(rng, 1, v->rare_one_in) == 1;
+        world_set(w, cells[i].x, cells[i].y, rare ? v->rare : v->tile);
+    }
 }
 
 /* A scar: a long gash through the rock, thick in the middle and running out

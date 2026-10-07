@@ -205,6 +205,35 @@ typedef struct {
     int battery;
     bool wire;
     int electric;   /* units for each second of crafting; 0 for a bench that needs none */
+    /* Industry. A block that is mined and is still there, to be mined again. */
+    bool endless;
+    /* A conveyor: so many items a tick go along it. And an extractor: it takes
+     * items out of whatever holds any beside it and sends them along the
+     * conveyors beside it, to the nearest thing that will have them; the item
+     * in its one slot, if there is one, is the only kind it takes. */
+    int conveyor;
+    bool extractor;
+    /* A machine: what it takes of electricity each tick it is working. */
+    int draw;
+    /* A miner: beside a block that is `endless`, it takes one of what that drops every so many ticks of work. */
+    int miner_ticks;
+    /* A machine that makes things by itself. Its first `automat_inputs` slots
+     * are what goes in and the one after them is what comes out. It makes
+     * the recipes of one kind of bench (`automat_kind`), choosing by what is
+     * put in it - or, with no kind of its own, one recipe chosen for it from
+     * those of the benches beside it. So many times the usual speed. */
+    bool automat;
+    char automat_kind[CONTENT_NAME_LEN];
+    int automat_inputs;
+    float automat_speed;
+    /* A store that conveyors fill only with the kinds of thing already in its first so many slots, if any are; 0 for anything. */
+    int sorts;
+    /* A generator that burns only these, each for so many ticks, in place of whatever burns. */
+    struct {
+        ItemId item;
+        int ticks;
+    } fuels[4];
+    int fuel_count;
     int motor_power;
     bool shaft;
     bool supports;  /* though it is in the background, things can be stood on top of it as on a block */
@@ -450,6 +479,9 @@ typedef struct {
     bool buried;              /* never touches open air */
     VeinShape shape;
     int min_thick, max_thick; /* VEIN_SCAR: how thick at its middle; its size is its length */
+    /* Now and then a block of it is something else instead: one in so many. TILE_AIR for never. */
+    TileType rare;
+    int rare_one_in;
 } VeinDef;
 
 /* Something set into the caves: a gem on a wall, a crystal on the floor. */

@@ -1,0 +1,81 @@
+World Gen -
+New Source Ores - These have a rare chance to spawn in a vein instead of a normal ore, at a 1/100 chance
+Copper Source Ore
+Tin Source Ore
+Coal Source Ore
+The following have a 1/200 chance to spawn
+Iron Source Ore
+Lead Source Ore
+Gold Source Ore
+The following have a 1/300 chance to spawn
+Titanium Source Ore
+Platinum Source Ore
+
+New Lead Ore Veins at the same rarity as iron
+
+Source blocks can be mined with standard tools over and over and will not break, and will continue dropping Ores
+
+Workbench IV (All these items use 10 units of power/tick while crafting)
+Electric Miner - 1 Steel Block, 10 Copper Wires, 1 Titanium Pickaxe, 2m - This block can be placed in any of the 4 directions adjacent to a source ore and will consume 10 units/tick of power. These blocks have an inventory that can be opened, containing up to 4 stacks of the mined ores
+Alloy Furnace - 1 Steel Block, 10 Copper Wires, 1 Titanium Ingot, 2m
+Industrial Bench - 1 Steel Block, 10 Copper Wires, 1 Heavy Bronze Ingot, 2m
+
+Workbench V - 5 Heavy Bronze Ingots (All these items use 50 units of power/tick while running)
+Industrial Furnace - 1 Heavy Bronze Block, 5 Conveyor, 1 Chest, 1 Electric Furnace, 3m 
+Industrial Armory - 1 Heavy Bronze Block, 5 Conveyor, 1 Titanium Chestplate, 3m
+Industiral Smithery - 1 Heavy Bronze Block, 5 Conveyor, 1 Titanium Pickaxe, 3m
+Factory - 1 Heavy Bronze Block, 1 Refinery, 5 Conveyor, 1 Chest, 3m
+
+Workbench VI - 5 Dreadsteel Ingots (The processor uses 100 units of power/tick, the power plant produces up to 100 units of power/tick)
+Industrial Processor - 1 Dreadsteel Block, 5 Imperial Conveyor, 1 Chest, 5m
+Power Plant - 1 Dreadsteel Block, 5 Imperial Conveyor, 5m
+
+
+Industrial Bench
+5 Conveyor - 3 Heavy Bronze Ingot, 20s - Moves items at a pace of 1 item/tick
+3 Gilded Conveyor - 3 Conveyor, 1 Royal Bronze Ingot, 20s - Moves items at a pace of 2 items/tick
+Conveyor Extractor - 3 Royal Bronze Ingot, 20s - Place this adjacent to a block with an inventory to extract from the inventory to the conveyor. Allows you to filter to a specific item to be extracted.
+
+Industrial Bench II - 2 Imperial Ingots
+3 Imperial Conveyor - 3 Gilded Conveyor, 1 Imperial Ingot, 1m - Moves items at a pace of 5 items/ tick
+
+Conveyors can move items into inventories that they are connected to. They prioritize the closest empty inventory. If there is no empty inventory, the conveyor does not accept input from extractors.
+
+Industrial Furnace - Contains all standard electric furnace recipes but in half the time. This machine has a 1 slot input inventory and a 1 slot output inventory. (99 stack each). This machine can work automatically from the input inventory, but will not work if the output inventory is blocked by a different item than the output of the input inventory.
+Factory - Has a 4 slot input inventory and a 1 slot output inventory. The factory does NOT accept conveyor input until it is configured. The factory works by attaching to any bench. The factory must be placed adjacent to a bench. The factory shows recipes of all benches it is adjacent to, and a recipe can be selected. Then, inventory slots for each of the required inputs are unlocked for conveyors to input. They ONLY accept as input the required items for the recipe. Recipes with more than 4 items cannot be crafted. They work on standard crafting time of the bench.
+Factory II - Can be upgraded to a 6 slot input inventory and doubles crafting speed at the cost of 1 Processing Chip
+
+Industrial Processor
+Processing Chip - 3 Dreadsteel Ingots, 1 Imperial Ingot, 5m
+Industrial Crate - 3 Dreadsteel Ingots, 1 Safe, 1 Imperial Ingot, 5m - 16 item inventory, accepts conveyor input, but you can filter up to 4 input items that it accepts.
+
+Industrial Armory
+Dreadsteel/Imperial armor at the same cost as all other armors but replacing the ingots, 3m per piece
+
+Industrial Smithery 
+Dreadsteel/Imperial Pickaxe/Axe/Machete, Dreadsteel Sword, and Imperial Longbow at the same cost as the other tools but replacing ingots. Imperial Longbow does 20 dmg, Dreadsteel Sword does 50 dmg.
+
+Power Plant - Takes Dreadsteel and Imperial Ingots as fuel. Dreadsteel powers it for 1000 ticks, Imperial Ingots power it for 1800 Ticks. Produces 100 units of power per tick
+
+All inputs into the alloy furnace are ingots
+Alloy Furnace
+3 Bronze Ingot - 1 Copper, 1 Tin, 10s 
+3 Steel Ingot - 1 Iron, 1 Coal, 10s 
+
+Alloy Furnace II - 1 Lead Block
+2 Heavy Bronze Ingot - 1 Lead, 1 Bronze, 30s
+2 Royal Bronze Ingot - 1 Gold, 1 Bronze, 30s
+
+Alloy Furnace III - 1 Royal Bronze Block
+1 Dreadsteel Ingot - 1 Titanium, 1 Steel, 30s
+1 Imperial Ingot - 1 Platinum, 1 Lead, 1 Gold, 30s
+
+Ingot Recipes in Furnace/Electric Furnace
+
+for: Lead
+
+Block Recipes in Metalwork/Electric Metalwork
+Column/Stair Recipes
+
+for: Lead, Heavy Bronze, Royal Bronze, Dreadsteel, Imperial
+

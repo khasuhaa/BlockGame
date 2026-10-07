@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 26u
+#define SAVE_VERSION 27u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -132,6 +132,26 @@ typedef struct {
     int x, y;
     uint16_t container;
 } OldStorage;
+
+/* Before version 27 a block kept no note of what a machine was making. */
+typedef struct {
+    bool used;
+    int x, y;
+    uint16_t container;
+    int fuel;
+    int power;
+    int16_t made, given;
+} Storage26;
+
+static bool read_storages_26(FILE *f, Game *g)
+{
+    static Storage26 old[MAX_STORAGES];
+    if (fread(old, sizeof old, 1, f) != 1) return false;
+    for (int i = 0; i < MAX_STORAGES; i++)
+        g->storages[i] = (Storage){ .used = old[i].used, .x = old[i].x, .y = old[i].y, .container = old[i].container,
+                                    .fuel = old[i].fuel, .power = old[i].power, .made = old[i].made, .given = old[i].given };
+    return true;
+}
 
 static bool read_old_storages(FILE *f, Game *g)
 {
@@ -492,7 +512,8 @@ bool load_game(Game *g, const char *path)
                                        : fread(&g->inventory, sizeof g->inventory, 1, f) == 1 &&
                                              fread(g->drops, sizeof g->drops, 1, f) == 1) &&
                  (h.version == 3 ? read_old_storages(f, g)
-                                 : fread(g->storages, sizeof g->storages, 1, f) == 1);
+                  : h.version < 27 ? read_storages_26(f, g)
+                                   : fread(g->storages, sizeof g->storages, 1, f) == 1);
         }
         /* Creatures, from version 7: kinds by name, like blocks and items. */
         if (ok && h.version >= 7) {

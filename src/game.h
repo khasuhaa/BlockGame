@@ -224,6 +224,10 @@ typedef struct {
      * tick and how much of that has been taken. */
     int power;
     int16_t made, given;
+    /* A machine: the recipe it is making, or has been set to make (which of
+     * content.recipes, plus one; 0 for none), and how many ticks of work it
+     * has done on the one in hand (0 for none in hand). */
+    int16_t recipe, work;
 } Storage;
 
 /* One text for a sign: a single line. */
@@ -548,6 +552,8 @@ bool game_bar_full(float value);
  * to do ends either. While it lasts the ticks go faster. */
 bool game_rest(Game *g, Rest kind);
 /* What is left of the character's shield, as a share of a health bar; 0 for none. */
+/* How many ticks an item burns for in the bench that is open: what the item says, or what the bench says of it. 0 if it does not burn there. */
+int game_fuel_value(const Game *g, ItemId item);
 float game_shield(const Game *g);
 /* The same for any character of the world, by number. */
 float game_character_shield(const Game *g, int c);

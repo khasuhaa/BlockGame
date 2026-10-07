@@ -1,4 +1,5 @@
 #include "game.h"
+#include "industry.h"
 #include "power.h"
 
 #include "mob.h"
@@ -1213,7 +1214,7 @@ static bool needs_storage(const TileDef *def)
     /* (A shared store keeps its contents with the player, not the block.) */
     return (def->storage_columns > 0 && !def->storage_shared) || def->fuel_capacity > 0 ||
            /* (Anything that makes, holds or uses electricity keeps count of it.) */
-           def->gen_power > 0 || def->battery > 0 || def->electric > 0 || def->motor_power > 0;
+           def->gen_power > 0 || def->battery > 0 || def->electric > 0 || def->motor_power > 0 || def->draw > 0 || def->extractor;
 }
 
 /* Sets up the record of a newly placed block. A storage block takes over the
@@ -1604,6 +1605,11 @@ static void finish_activity(Game *g)
             decay_tree(&g->world, layer, t);
             int tones = def->two_tone ? tile_tones(&g->world, layer, t.x, t.y) : def->written ? world_meta(&g->world, t.x, t.y) : 0;
             drop_block_items_toned(g, def, (TilePos){ t.x, bottom }, inside, count, tones);
+            /* (Some blocks are still there when they have been mined: there is always more in them.) */
+            if (def->endless) {
+                g->has_current = false;
+                return;
+            }
             replace_block(&g->world, layer, t, TILE_AIR);
             if (def->pair != TILE_AIR && world_get_at(&g->world, tile_def(def->pair)->layer, t.x + 1, t.y) == def->pair)
                 world_set_at(&g->world, tile_def(def->pair)->layer, t.x + 1, t.y, TILE_AIR);
@@ -2026,12 +2032,23 @@ bool game_add_fuel(Game *g, ItemId item)
     return game_bench_work(g, WORK_FUEL, item, 1);
 }
 
+int game_fuel_value(const Game *g, ItemId item)
+{
+    if (!g->bench_open) return 0;
+    const TileDef *def = tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y));
+    /* (Something that burns only certain things burns each for as long as it says.) */
+    if (def->fuel_count == 0) return item_def(item)->fuel;
+    for (int i = 0; i < def->fuel_count; i++)
+        if (def->fuels[i].item == item) return def->fuels[i].ticks;
+    return 0;
+}
+
 static bool add_fuel_now(Game *g, ItemId item)
 {
     int capacity = 0, fuel = game_bench_fuel(g, &capacity);
-    if (fuel < 0 || fuel >= capacity || item_def(item)->fuel <= 0) return false;
+    if (fuel < 0 || fuel >= capacity || game_fuel_value(g, item) <= 0) return false;
     if (inventory_remove(&g->inventory, item, 1) != 1) return false;
-    fuel += item_def(item)->fuel;
+    fuel += game_fuel_value(g, item);
     storage_at(g, g->bench_pos)->fuel = fuel > capacity ? capacity : fuel;
     return true;
 }
@@ -3183,6 +3200,7 @@ void game_tick(Game *g)
     mobs_tick(g);
     water_step(w);
     power_tick(g);
+    industry_tick(g);
     /* Everybody gets hungry, whoever is being played. */
     for (int c = 0; c < g->character_count; c++) {
         game_use_character(g, c);
