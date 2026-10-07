@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-#define MAX_NESTING 8
+#define MAX_NESTING 32
 
 static bool is_empty(const ItemStack *s)
 {

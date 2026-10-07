@@ -9,7 +9,7 @@
 
 #define SAVE_DIR SAVES_DIR
 #define WORLD_NAME_MAX 24
-#define MAX_LISTED_WORLDS 64
+#define MAX_LISTED_WORLDS 256
 
 /* ---- key bindings ------------------------------------------------------ */
 

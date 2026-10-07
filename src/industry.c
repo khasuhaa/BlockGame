@@ -3,8 +3,8 @@
 #include <math.h>
 #include <string.h>
 
-#define MAX_ROUTE 2048 /* squares of conveyor looked along from one extractor */
-#define MAX_SINKS 32   /* things along them that might take what it has */
+#define MAX_ROUTE 8192 /* squares of conveyor looked along from one extractor */
+#define MAX_SINKS 128   /* things along them that might take what it has */
 
 static const int beside[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
 

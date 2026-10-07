@@ -3,7 +3,7 @@
 
 #include "world.h"
 
-#define TREE_MAX_LEAVES 96
+#define TREE_MAX_LEAVES 384
 
 /* A tree is nothing but its blocks: a column of log tiles and the leaf tiles
  * around it, in the layer its definition names. Its kind is an index into

@@ -7,19 +7,19 @@
 #include "water.h"
 #include "world.h"
 
-#define MAX_QUEUED_ACTIONS 32
-#define MAX_DENIALS 8
-#define MAX_MOVES 48
-#define MAX_LIFT_STOPS 16 /* floors a lift offers each way from where it is boarded */
-#define MAX_DROPS 2048
+#define MAX_QUEUED_ACTIONS 128
+#define MAX_DENIALS 32
+#define MAX_MOVES 192
+#define MAX_LIFT_STOPS 64 /* floors a lift offers each way from where it is boarded */
+#define MAX_DROPS 8192
 #define MAX_TICK_RATE 1000
 #define MAX_TICKS_PER_UPDATE 200 /* so a slow frame cannot snowball */
-#define MAX_STORAGES 256
-#define MAX_MOBS 64
+#define MAX_STORAGES 1024
+#define MAX_MOBS 256
 #define CHARACTER_NAME_MAX 16
 #define MAX_CHARACTERS 4 /* characters a world has room for; the rules say how many it may have */
-#define MAX_ATTACK_TRIES 8 /* times a hunt re-plans after its quarry has moved */
-#define MAX_SEARCH 60000 /* poses a route search looks at before giving up */
+#define MAX_ATTACK_TRIES 32 /* times a hunt re-plans after its quarry has moved */
+#define MAX_SEARCH 240000 /* poses a route search looks at before giving up */
 
 /* The pace of the game comes from the rules data; these are shorthands. */
 #define WALK_TIME (content.rules.walk_time)
@@ -238,8 +238,8 @@ typedef struct SignText {
 
 /* Electricity on its way along a wire from one thing to another. It moves a
  * block a tick: `moving` is how much is in each square of the way. */
-#define MAX_WIRE_PATH 512
-#define MAX_POWER_FLOWS 64
+#define MAX_WIRE_PATH 2048
+#define MAX_POWER_FLOWS 256
 typedef struct {
     bool active;
     int from_x, from_y, to_x, to_y;

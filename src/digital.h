@@ -12,9 +12,9 @@
  * move things in and out by themselves; and what the benches beside its
  * assemblers make, the network can be asked to make, on its crafting CPUs. */
 
-#define MAX_NET_JOBS 16
-#define MAX_JOB_STEPS 16
-#define MAX_NET_KINDS 512 /* kinds of thing a network is listed as holding */
+#define MAX_NET_JOBS 64
+#define MAX_JOB_STEPS 64
+#define MAX_NET_KINDS 2048 /* kinds of thing a network is listed as holding */
 
 /* What one storage cell has in it. */
 typedef struct CellStore {

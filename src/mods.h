@@ -16,7 +16,7 @@
 
 #define MODS_DIR "mods"
 #define SAVES_DIR "saves"
-#define MAX_MODS 16
+#define MAX_MODS 64
 #define MOD_NAME_MAX 31
 
 typedef struct {

@@ -4,7 +4,7 @@
 #include "inventory.h"
 
 #define MAX_CRAFT_AMOUNT 99
-#define MAX_BENCH_RECIPES 192
+#define MAX_BENCH_RECIPES 768
 
 /* Every recipe of a bench tile's kind, whatever level it needs: fills `out`
  * with up to `max` and returns how many. A tile that is not a bench has none. */

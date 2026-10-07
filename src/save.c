@@ -7,7 +7,14 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 28u
+#define SAVE_VERSION 29u
+
+/* Up to version 28 a world had room for a quarter as many of these, and they
+ * were written out whole: every reader of an older version goes by these. */
+#define V28_CONTAINERS 256
+#define V28_DROPS 2048
+#define V28_STORAGES 256
+#define V28_MOBS 64
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -50,7 +57,7 @@ typedef struct {
 typedef struct {
     StackV1 slots[INVENTORY_SLOTS];
     StackV1 armor[ARMOR_SLOTS];
-    ContainerV1 containers[MAX_CONTAINERS];
+    ContainerV1 containers[V28_CONTAINERS];
     int sel_slot, sel_inner;
     int8_t choice[INVENTORY_SLOTS]; /* (from version 13) */
 } InventoryV1;
@@ -78,7 +85,7 @@ static ItemStack widen(StackV1 s)
 static bool read_v1_state(FILE *f, Game *g, size_t inventory_size)
 {
     static InventoryV1 inv;
-    static DropV1 drops[MAX_DROPS];
+    static DropV1 drops[V28_DROPS];
     memset(&inv, 0, sizeof inv);
     memset(inv.choice, -1, sizeof inv.choice);
     if (inventory_size > sizeof inv || fread(&inv, inventory_size, 1, f) != 1 || fread(drops, sizeof drops, 1, f) != 1)
@@ -87,14 +94,14 @@ static bool read_v1_state(FILE *f, Game *g, size_t inventory_size)
     memset(to, 0, sizeof *to);
     for (int i = 0; i < INVENTORY_SLOTS; i++) to->slots[i] = widen(inv.slots[i]);
     for (int i = 0; i < ARMOR_SLOTS; i++) to->armor[i] = widen(inv.armor[i]);
-    for (int i = 0; i < MAX_CONTAINERS; i++) {
+    for (int i = 0; i < V28_CONTAINERS; i++) {
         to->containers[i].used = inv.containers[i].used;
         for (int j = 0; j < CONTAINER_MAX_SLOTS; j++) to->containers[i].slots[j] = widen(inv.containers[i].slots[j]);
     }
     to->sel_slot = inv.sel_slot;
     to->sel_inner = inv.sel_inner;
     memcpy(to->choice, inv.choice, sizeof to->choice);
-    for (int i = 0; i < MAX_DROPS; i++) {
+    for (int i = 0; i < V28_DROPS; i++) {
         const DropV1 *d = &drops[i];
         g->drops[i] = (Drop){ d->active, d->item, d->x, d->y, d->age, d->collect, d->attached, d->ttl,
                               d->id, d->container, d->held_off };
@@ -112,7 +119,7 @@ typedef struct {
 typedef struct {
     StackV1 slots[INVENTORY_SLOTS];
     StackV1 armor[ARMOR_SLOTS];
-    OldContainer containers[MAX_CONTAINERS];
+    OldContainer containers[V28_CONTAINERS];
     int sel_slot, sel_inner;
 } OldInventory;
 
@@ -147,9 +154,9 @@ typedef struct {
 
 static bool read_storages_26(FILE *f, Game *g)
 {
-    static Storage26 old[MAX_STORAGES];
+    static Storage26 old[V28_STORAGES];
     if (fread(old, sizeof old, 1, f) != 1) return false;
-    for (int i = 0; i < MAX_STORAGES; i++)
+    for (int i = 0; i < V28_STORAGES; i++)
         g->storages[i] = (Storage){ .used = old[i].used, .x = old[i].x, .y = old[i].y, .container = old[i].container,
                                     .fuel = old[i].fuel, .power = old[i].power, .made = old[i].made, .given = old[i].given };
     return true;
@@ -157,9 +164,9 @@ static bool read_storages_26(FILE *f, Game *g)
 
 static bool read_old_storages(FILE *f, Game *g)
 {
-    static OldStorage old[MAX_STORAGES];
+    static OldStorage old[V28_STORAGES];
     if (fread(old, sizeof old, 1, f) != 1) return false;
-    for (int i = 0; i < MAX_STORAGES; i++)
+    for (int i = 0; i < V28_STORAGES; i++)
         g->storages[i] = (Storage){ .used = old[i].used, .x = old[i].x, .y = old[i].y,
                                     .container = old[i].container };
     return true;
@@ -169,7 +176,7 @@ static bool read_old_storages(FILE *f, Game *g)
 static bool read_old_state(FILE *f, Game *g)
 {
     static OldInventory inv;
-    static OldDrop drops[MAX_DROPS];
+    static OldDrop drops[V28_DROPS];
     if (fread(&inv, sizeof inv, 1, f) != 1 || fread(drops, sizeof drops, 1, f) != 1) return false;
 
     memset(&g->inventory, 0, sizeof g->inventory);
@@ -177,11 +184,11 @@ static bool read_old_state(FILE *f, Game *g)
     for (int i = 0; i < ARMOR_SLOTS; i++) g->inventory.armor[i] = widen(inv.armor[i]);
     g->inventory.sel_slot = inv.sel_slot;
     g->inventory.sel_inner = inv.sel_inner;
-    for (int i = 0; i < MAX_CONTAINERS; i++) {
+    for (int i = 0; i < V28_CONTAINERS; i++) {
         g->inventory.containers[i].used = inv.containers[i].used;
         for (int j = 0; j < 4; j++) g->inventory.containers[i].slots[j] = widen(inv.containers[i].slots[j]);
     }
-    for (int i = 0; i < MAX_DROPS; i++) {
+    for (int i = 0; i < V28_DROPS; i++) {
         const OldDrop *d = &drops[i];
         g->drops[i] = (Drop){ d->active, d->item, d->x, d->y, d->age, d->collect, d->attached, d->ttl,
                               d->id, 0, false };
@@ -292,9 +299,9 @@ typedef struct {
 
 static bool read_old_mobs(FILE *f, Game *g)
 {
-    static OldMob old[MAX_MOBS];
+    static OldMob old[V28_MOBS];
     if (fread(old, sizeof old, 1, f) != 1) return false;
-    for (int i = 0; i < MAX_MOBS; i++) {
+    for (int i = 0; i < V28_MOBS; i++) {
         const OldMob *m = &old[i];
         g->mobs[i] = (Mob){ .active = m->active, .kind = m->kind, .owned = m->owned, .baby = m->baby,
                             .x = m->x, .y = m->y, .to_x = m->to_x, .to_y = m->to_y,
@@ -352,6 +359,32 @@ static void remap_stack(ItemStack *s, const uint16_t items[MAX_ITEMS])
 {
     s->id = s->id < MAX_ITEMS ? items[s->id] : 0;
     if (s->id == ITEM_NONE) *s = (ItemStack){ 0 };
+}
+
+/* The inventory as versions 16 to 28 wrote it: as it is now, with room for fewer containers. */
+typedef struct {
+    ItemStack slots[INVENTORY_SLOTS];
+    ItemStack armor[ARMOR_SLOTS];
+    Container containers[V28_CONTAINERS];
+    int sel_slot, sel_inner;
+    int8_t choice[INVENTORY_SLOTS];
+} InventoryV28;
+
+/* Reads the inventory and drops of a version 16 to 28 save into today's layout. */
+static bool read_v28_state(FILE *f, Game *g)
+{
+    static InventoryV28 inv;
+    if (fread(&inv, sizeof inv, 1, f) != 1 || fread(g->drops, sizeof(Drop) * V28_DROPS, 1, f) != 1) return false;
+    Inventory *to = &g->inventory;
+    memset(to, 0, sizeof *to);
+    memcpy(to->slots, inv.slots, sizeof to->slots);
+    memcpy(to->armor, inv.armor, sizeof to->armor);
+    /* (The last of them was the store shared between worlds, which is not kept with a world: it is left out.) */
+    memcpy(to->containers, inv.containers, sizeof(Container) * (V28_CONTAINERS - 1));
+    to->sel_slot = inv.sel_slot;
+    to->sel_inner = inv.sel_inner;
+    memcpy(to->choice, inv.choice, sizeof to->choice);
+    return true;
 }
 
 bool save_game(const Game *g, const char *path)
@@ -488,9 +521,10 @@ bool load_game(Game *g, const char *path)
               h.version >= 1 && h.version <= SAVE_VERSION &&
               h.inventory_size == (h.version < 3 ? sizeof(OldInventory)
                                    : h.version < 13 ? sizeof(InventoryV1) - INVENTORY_SLOTS
-                                   : h.version < 16 ? sizeof(InventoryV1) : sizeof g->inventory) &&
-              h.drops_size == (h.version < 3 ? sizeof(OldDrop) * MAX_DROPS
-                               : h.version < 16 ? sizeof(DropV1) * MAX_DROPS : sizeof g->drops) &&
+                                   : h.version < 16 ? sizeof(InventoryV1) : h.version < 29 ? sizeof(InventoryV28) : sizeof g->inventory) &&
+              h.drops_size == (h.version < 3 ? sizeof(OldDrop) * V28_DROPS
+                               : h.version < 16 ? sizeof(DropV1) * V28_DROPS
+                               : h.version < 29 ? sizeof(Drop) * V28_DROPS : sizeof g->drops) &&
               h.width > 0 && h.height > 0 && h.width <= 1 << 16 && h.height <= 1 << 12;
     /* A world from before there was a sea has none: nothing floods. */
     SaveExtra extra = { .sea_row = -1 };
@@ -520,11 +554,14 @@ bool load_game(Game *g, const char *path)
         } else {
             /* (Before version 16 item ids were a byte, and everything holding
              * them was smaller; before 13 there were no baskets' choices.) */
+            /* (And up to version 28 there was room for a quarter as many containers, drops, storage records and creatures.) */
             ok = ok && (h.version < 16 ? read_v1_state(f, g, h.inventory_size)
-                                       : fread(&g->inventory, sizeof g->inventory, 1, f) == 1 &&
-                                             fread(g->drops, sizeof g->drops, 1, f) == 1) &&
+                        : h.version < 29 ? read_v28_state(f, g)
+                                         : fread(&g->inventory, sizeof g->inventory, 1, f) == 1 &&
+                                               fread(g->drops, sizeof g->drops, 1, f) == 1) &&
                  (h.version == 3 ? read_old_storages(f, g)
                   : h.version < 27 ? read_storages_26(f, g)
+                  : h.version < 29 ? fread(g->storages, sizeof(Storage) * V28_STORAGES, 1, f) == 1
                                    : fread(g->storages, sizeof g->storages, 1, f) == 1);
         }
         /* Creatures, from version 7: kinds by name, like blocks and items. */
@@ -533,7 +570,9 @@ bool load_game(Game *g, const char *path)
             mob_names_read = 0;
             memset(mob_id_by_saved_name, 0, sizeof mob_id_by_saved_name);
             ok = read_names(f, kinds, mob_id_or_zero) &&
-                 (h.version < 10 ? read_old_mobs(f, g) : fread(g->mobs, sizeof g->mobs, 1, f) == 1) &&
+                 (h.version < 10 ? read_old_mobs(f, g)
+                  : h.version < 29 ? fread(g->mobs, sizeof(Mob) * V28_MOBS, 1, f) == 1
+                                   : fread(g->mobs, sizeof g->mobs, 1, f) == 1) &&
                  fread(&g->next_mob_id, sizeof g->next_mob_id, 1, f) == 1;
             for (int i = 0; ok && i < MAX_MOBS; i++) {
                 /* (A kind that no longer exists maps to 0 like any other; a
@@ -786,6 +825,8 @@ bool load_game(Game *g, const char *path)
         }
         /* The shared container belongs to the player, not this world. */
         memset(&g->inventory.containers[SHARED_CONTAINER], 0, sizeof(Container));
+        /* (Up to version 28 it was the last of 256: that one is an ordinary container now, and starts empty.) */
+        if (h.version < 29) memset(&g->inventory.containers[V28_CONTAINERS - 1], 0, sizeof(Container));
 
         w->y_top = h.y_top;
         w->sea_row = extra.sea_row;

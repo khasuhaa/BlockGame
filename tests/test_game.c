@@ -9398,6 +9398,33 @@ static void test_industry_mod(void)
         return;
     }
     CHECK(content.tile_count == tiles + 44 && content.item_count == items + 58 && content.recipe_count == recipes + 59);
+    /* A world saved at version 28, when there was room for a quarter as many containers, drops, storage records and
+     * creatures and they were written out whole: it loads as it was, a machine part way through its work and all. */
+    {
+        static Game old;
+        CHECK(load_game(&old, "tests/fixtures/v28_industry.world"));
+        int kept = 0, boxes = 0, held = 0, working = 0;
+        for (int k = 0; k < MAX_STORAGES; k++) {
+            kept += old.storages[k].used;
+            working += old.storages[k].used && old.storages[k].recipe > 0 && old.storages[k].work > 0;
+        }
+        for (int k = 1; k < MAX_CONTAINERS; k++) {
+            if (!old.inventory.containers[k].used) continue;
+            boxes++;
+            for (int j = 0; j < CONTAINER_MAX_SLOTS; j++) held += old.inventory.containers[k].slots[j].count;
+        }
+        CHECK(kept == 6 && boxes == 6 && held == 108 && working == 1 && old.tick == 709 && old.character_count == 1);
+        /* Saved again it is of today's version, and comes back the same. */
+        CHECK(save_game(&old, "build/test_v28_again.world"));
+        static Game again;
+        CHECK(load_game(&again, "build/test_v28_again.world"));
+        CHECK(memcmp(again.storages, old.storages, sizeof old.storages) == 0 && memcmp(&again.inventory, &old.inventory, sizeof old.inventory) == 0);
+        CHECK(memcmp(again.world.layers[0], old.world.layers[0], sizeof(uint16_t) * (size_t)old.world.width * old.world.height) == 0);
+        for (int t = 0; t < 20; t++) game_tick(&again);
+        game_free(&again);
+        game_free(&old);
+    }
+    CHECK(MAX_TILES == 4096 && MAX_ITEMS == 4096 && MAX_RECIPES == 4096 && MAX_STORAGES == 1024 && MAX_CONTAINERS == 1024 && MAX_DROPS == 8192 && MAX_MOBS == 256);
     /* The workbench goes on to a fifth tier and a sixth; the alloy furnace and the industrial bench have tiers of their own. */
     CHECK(tile_def(tile_id("workbench_4"))->upgrade_to == tile_id("workbench_5") && tile_def(tile_id("workbench_4"))->upgrade_cost[0].id == item_id("heavy_bronze_ingot"));
     CHECK(tile_def(tile_id("workbench_5"))->upgrade_to == tile_id("workbench_6") && tile_def(tile_id("workbench_5"))->upgrade_cost[0].id == item_id("dreadsteel_ingot") &&

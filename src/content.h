@@ -12,43 +12,43 @@
 
 #define CONTENT_NAME_LEN 32
 #define CONTENT_PATH_LEN 64
-#define MAX_TILES 1024 /* ids are stored in two bytes */
-#define MAX_ITEMS 1024 /* ids are stored in two bytes */
-#define MAX_RECIPES 1024
+#define MAX_TILES 4096 /* ids are stored in two bytes: 65,535 is as far as this can ever go */
+#define MAX_ITEMS 4096 /* ids are stored in two bytes */
+#define MAX_RECIPES 4096
 #define MAX_TINTS 250
-#define MAX_TREES 32
-#define MAX_FEATURES 16
-#define MAX_VEINS 48
-#define MAX_DECOR 16
-#define MAX_BIOMES 16
-#define MAX_MOB_KINDS 48
-#define MAX_MOB_DROPS 4
-#define MAX_MOB_SPAWN_TILES 4
-#define MAX_MOB_TREES 8
-#define MAX_MOB_NEXT 4
-#define MAX_BIOME_TREES 8
-#define MAX_BIOME_PLANTS 12
-#define MAX_TILE_SOILS 4
-#define MAX_EXTRA_DROPS 2
-#define MAX_ROW_CELLS 4
-#define MAX_TOOL_CLASSES 16
-#define MAX_CATEGORIES 16
-#define MAX_CURRENCIES 8
-#define MAX_VEIN_HOSTS 4
-#define MAX_VEIN_SIZE 64
-#define MAX_TILE_TEXTURES 4
-#define MAX_TILE_ALIASES 2
-#define MAX_TILE_JOINS 4
-#define MAX_TILE_LOOT 8
-#define MAX_ITEM_SIZES 8
-#define MAX_LOOT_CHOICES 6
-#define MAX_TREE_ROWS 12
-#define MAX_SWELLS 4
-#define MAX_START_ITEMS 8
-#define MAX_LOOT 32
-#define MAX_MOB_FRAMES 4
-#define RECIPE_MAX_INPUTS 5
-#define MAX_TREE_SOILS 8
+#define MAX_TREES 128
+#define MAX_FEATURES 64
+#define MAX_VEINS 192
+#define MAX_DECOR 64
+#define MAX_BIOMES 64
+#define MAX_MOB_KINDS 192
+#define MAX_MOB_DROPS 16
+#define MAX_MOB_SPAWN_TILES 16
+#define MAX_MOB_TREES 32
+#define MAX_MOB_NEXT 16
+#define MAX_BIOME_TREES 32
+#define MAX_BIOME_PLANTS 48
+#define MAX_TILE_SOILS 16
+#define MAX_EXTRA_DROPS 8
+#define MAX_ROW_CELLS 16
+#define MAX_TOOL_CLASSES 64
+#define MAX_CATEGORIES 64
+#define MAX_CURRENCIES 32
+#define MAX_VEIN_HOSTS 16
+#define MAX_VEIN_SIZE 256
+#define MAX_TILE_TEXTURES 16
+#define MAX_TILE_ALIASES 8
+#define MAX_TILE_JOINS 16
+#define MAX_TILE_LOOT 32
+#define MAX_ITEM_SIZES 32
+#define MAX_LOOT_CHOICES 24
+#define MAX_TREE_ROWS 48
+#define MAX_SWELLS 16
+#define MAX_START_ITEMS 32
+#define MAX_LOOT 128
+#define MAX_MOB_FRAMES 16
+#define RECIPE_MAX_INPUTS 20
+#define MAX_TREE_SOILS 32
 
 /* Ids are positions in the tables below, fixed only for one run of the game.
  * 0 is always "nothing": empty space, or no item. */
@@ -98,17 +98,17 @@ typedef enum {
     EQUIP_NONE
 } EquipSlot;
 
-#define MAX_ZOOM_LEVELS 16
-#define MAX_RECIPE_CHOICES 8
-#define MAX_ISLAND_TREES 12
-#define MAX_CELLS 256      /* storage cells with anything in them that a world can have */
+#define MAX_ZOOM_LEVELS 64
+#define MAX_RECIPE_CHOICES 32
+#define MAX_ISLAND_TREES 48
+#define MAX_CELLS 1024      /* storage cells with anything in them that a world can have */
 #define CELL_TYPES 63      /* kinds of thing one cell holds */
-#define MAX_ELEMENTS 16 /* kinds of magic there can be */
-#define MAX_WORLD_CHOICES 8
-#define MAX_SIGN_TEXTS 512 /* different texts a world's signs can carry */
+#define MAX_ELEMENTS 64 /* kinds of magic there can be */
+#define MAX_WORLD_CHOICES 32
+#define MAX_SIGN_TEXTS 2048 /* different texts a world's signs can carry */
 #define SIGN_TEXT_MAX 14 /* letters a sign holds: one line, across its two blocks */
 #define MAX_SEASONS 4
-#define MAX_MOB_BIOMES 8
+#define MAX_MOB_BIOMES 32
 
 /* Two-tone things - a flower with a body of one colour and tips of another -
  * carry both colours as one number: a meter on the item, a number kept with

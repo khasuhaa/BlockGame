@@ -7,11 +7,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_NET_CELLS 4096 /* squares of one network */
-#define MAX_PARTS 32       /* of each kind of thing in one */
+#define MAX_NET_CELLS 16384 /* squares of one network */
+#define MAX_PARTS 128       /* of each kind of thing in one */
 #define BUS_RATE 4         /* things a bus moves in a tick */
 #define PLANE_TICKS 10     /* ticks between one block and the next, for a plane */
-#define MAX_PLAN_DEPTH 8
+#define MAX_PLAN_DEPTH 32
 
 static const int beside[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
 

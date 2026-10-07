@@ -7,7 +7,7 @@
 #define BASKET_SLOTS 4 /* slots of a container shown when it is opened in the bar */
 #define ARMOR_SLOTS 4
 #define CONTAINER_MAX_SLOTS 16
-#define MAX_CONTAINERS 256
+#define MAX_CONTAINERS 1024
 /* The one container shared by every world. It is never handed out for an
  * item or a block, and nothing with contents of its own may go in it: what it
  * holds is saved as plain items, outside any world. */

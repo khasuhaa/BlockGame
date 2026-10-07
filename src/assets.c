@@ -24,7 +24,7 @@ static struct {
 static int image_count;
 static char data_dir[256];
 /* Where else textures are looked for, before the game's own: the mods that are on. A later one comes first. */
-static char more_dirs[16][256];
+static char more_dirs[64][256];
 static int more_count;
 
 /* Where a texture is: in the last of those that has it, or else in `dir`. */
@@ -97,7 +97,7 @@ Color assets_tile_color(TileType t)
 void assets_load_from(const char *const *dirs, int count)
 {
     more_count = 0;
-    for (int i = 1; i < count && more_count < 16; i++) snprintf(more_dirs[more_count++], sizeof more_dirs[0], "%s", dirs[i]);
+    for (int i = 1; i < count && more_count < 64; i++) snprintf(more_dirs[more_count++], sizeof more_dirs[0], "%s", dirs[i]);
     if (count > 0) assets_load(dirs[0]);
 }
 

@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_WIRE_SEARCH 8192 /* squares of wire looked along for something to draw on */
+#define MAX_WIRE_SEARCH 32768 /* squares of wire looked along for something to draw on */
 
 /* What a block does with electricity, if anything. */
 static const TileDef *device_def(const World *w, int x, int y)

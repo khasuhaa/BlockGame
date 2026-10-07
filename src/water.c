@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_RUN 2048 /* the longest stretch of level water evened out in one go */
+#define MAX_RUN 8192 /* the longest stretch of level water evened out in one go */
 
 static uint8_t *cell(const World *w, int x, int y)
 {

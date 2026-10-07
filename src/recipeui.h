@@ -4,7 +4,7 @@
 #include "content.h"
 
 #define RECIPEUI_SEARCH_MAX 31
-#define RECIPEUI_HISTORY 64
+#define RECIPEUI_HISTORY 256
 
 /* The recipe book: every item in a grid that can be searched; pick one to
  * see what makes it and where its raw materials come from, and pick anything
