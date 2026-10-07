@@ -215,7 +215,7 @@ static float clamp01(float v)
 static void draw_preview(const ListedWorld *w, Rectangle r, Color background, float dim)
 {
     float tile = r.width / PREVIEW_SIZE;
-    const uint8_t (*t)[PREVIEW_SIZE * PREVIEW_SIZE] = w->preview.tiles;
+    const uint16_t (*t)[PREVIEW_SIZE * PREVIEW_SIZE] = w->preview.tiles;
     DrawRectangleRec(r, (Color){ 135, 190, 235, 255 });
     if (!w->has_preview) {
         DrawRectangleRec(r, background);

@@ -31,9 +31,18 @@ static bool is_crawling(const World *w, TilePos feet)
     return world_is_solid(w, feet.x, feet.y - 1);
 }
 
+/* Something to stand on: a block, or steps, which hold up whoever is on top of them. */
 static bool is_supported(const World *w, TilePos feet)
 {
-    return world_is_solid(w, feet.x, feet.y + 1);
+    return world_is_solid(w, feet.x, feet.y + 1) || world_is_step(w, feet.x, feet.y + 1);
+}
+
+/* Up a flight of steps: from beside them onto the top of them. (They can as
+ * well be walked straight through.) */
+static bool can_step_up(const World *w, TilePos feet, int d)
+{
+    return world_is_step(w, feet.x + d, feet.y) && !world_is_solid(w, feet.x + d, feet.y) &&
+           body_fits(w, feet.x, feet.y - 1) && body_fits(w, feet.x + d, feet.y - 1);
 }
 
 /* A wall on side `d` that a player at `feet` can hold on to. */
@@ -174,6 +183,7 @@ static int list_moves(const World *w, Pose p, Step *out)
 
     bool upright = !is_crawling(w, p.feet);
     for (int d = -1; d <= 1; d += 2) {
+        if (can_step_up(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, -1, false };
         if (!low_fits(w, x + d, y)) {
             if (can_mantle(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, -1, false };
         } else if (is_supported(w, (TilePos){ x + d, y })) {
@@ -185,7 +195,7 @@ static int list_moves(const World *w, Pose p, Step *out)
             if (upright && body_fits(w, x + d, y) && body_fits(w, x + 2 * d, y) &&
                 is_supported(w, (TilePos){ x + 2 * d, y }))
                 out[n++] = (Step){ (int8_t)(2 * d), 0, false };
-            if (world_is_solid(w, x + d, y + 2)) out[n++] = (Step){ (int8_t)d, 0, false };
+            if (is_supported(w, (TilePos){ x + d, y + 1 })) out[n++] = (Step){ (int8_t)d, 0, false };
             else out[n++] = (Step){ (int8_t)d, 1, true };
         }
     }
@@ -244,6 +254,8 @@ static Step key_step(const World *w, Pose p, int dx, int dy)
 
     bool upright = !is_crawling(w, p.feet);
     if (dx != 0) {
+        /* Steps are gone up; with down held as well, walked through. */
+        if (dy <= 0 && can_step_up(w, p.feet, dx)) return (Step){ (int8_t)dx, -1, false };
         if (!low_fits(w, x + dx, y)) {
             if (can_mantle(w, p.feet, dx)) return (Step){ (int8_t)dx, -1, false };
             if (can_cling_side(w, (TilePos){ x, y - 1 }, dx) && can_climb_up(w, p.feet))
@@ -255,7 +267,7 @@ static Step key_step(const World *w, Pose p, int dx, int dy)
         if (dy <= 0 && upright && body_fits(w, x + dx, y) && body_fits(w, x + 2 * dx, y) &&
             is_supported(w, (TilePos){ x + 2 * dx, y }))
             return (Step){ (int8_t)(2 * dx), 0, false };
-        if (world_is_solid(w, x + dx, y + 2)) return (Step){ (int8_t)dx, 0, false };
+        if (is_supported(w, (TilePos){ x + dx, y + 1 })) return (Step){ (int8_t)dx, 0, false };
         return (Step){ (int8_t)dx, 1, true };
     }
     if (dy < 0 && body_fits(w, x, y - 1)) return (Step){ 0, -1, true };
@@ -388,6 +400,21 @@ static bool beside_block(const World *w, TilePos t)
     return false;
 }
 
+/* Whether something in the background could hold on here to something else
+ * in the background: a column on the one under it, steps on the steps a
+ * step down from them. */
+static bool beside_background(const World *w, TilePos t, TileType tile)
+{
+    static const int dirs[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
+    if (!tile_def(tile)->attaches) return false;
+    for (int i = 0; i < 4; i++)
+        if (tile_def(world_get_at(w, LAYER_BACKGROUND, t.x + dirs[i][0], t.y + dirs[i][1]))->attaches) return true;
+    for (int dx = -1; tile_def(tile)->steps && dx <= 1; dx += 2)
+        for (int dy = -1; dy <= 1; dy += 2)
+            if (world_is_step(w, t.x + dx, t.y + dy)) return true;
+    return false;
+}
+
 /* Whether an item can be planted on a block: it grows a tree, the block is
  * soil for that tree, and there is room above for the first trunk block. */
 static bool can_plant(const World *w, ItemId item, TilePos t)
@@ -492,7 +519,7 @@ static bool target_valid(const World *w, Action a)
             !room_for(w, a.target, item_def((ItemId)a.item)->places))
             return false;
         if (tile_def(item_def((ItemId)a.item)->places)->layer == LAYER_BACKGROUND &&
-            bare_wall(w, a.target) != TILE_AIR)
+            (bare_wall(w, a.target) != TILE_AIR || beside_background(w, a.target, item_def((ItemId)a.item)->places)))
             return true;
         return beside_block(w, a.target);
     case ACTION_PLANT: return can_plant(w, (ItemId)a.item, a.target);
@@ -678,7 +705,7 @@ static Pose sim_pending(Game *g)
     memcpy(g->sim.water, g->world.water, (size_t)g->world.width * g->world.height);
     for (int layer = 0; layer < LAYER_COUNT; layer++)
         memcpy(g->sim.layers[layer], g->world.layers[layer],
-               (size_t)g->world.width * g->world.height);
+               (size_t)g->world.width * g->world.height * sizeof(uint16_t));
     Pose pos = { p->feet, p->climbing };
     if (p->activity == ACTIVITY_STEPPING)
         pos = (Pose){ { world_wrap_x(&g->world, p->step_to.x), p->step_to.y }, p->step.climb };
@@ -830,8 +857,9 @@ bool game_click_mob(Game *g, int mob)
      * shears in hand, a creature that can be shorn is shorn and not hit.) */
     const ItemStack *held = inventory_selected(&g->inventory);
     bool shear = held->count > 0 && item_def((ItemId)held->id)->shears && content.mobs[m->kind].shear_item != ITEM_NONE;
+    bool milk = held->count > 0 && item_def((ItemId)held->id)->milks && content.mobs[m->kind].milk_item != ITEM_NONE;
     Action a = { .type = ACTION_ATTACK, .target = { m->x, m->y }, .drop = mob, .drop_id = m->id,
-                 .amount = shear ? 0 : game_attack_range(g), .arg = shear ? 1 : 0 };
+                 .amount = shear || milk ? 0 : game_attack_range(g), .arg = shear ? HAND_SHEAR : milk ? HAND_MILK : HAND_HIT };
     return queue_checked(g, sim_pending(g), a);
 }
 
@@ -1300,6 +1328,7 @@ static void drop_block_items_toned(Game *g, const TileDef *def, TilePos at, uint
         else spawn_drop_stack(g, (ItemStack){ (uint16_t)def->drop, 1, i == 0 ? inside : 0 }, at);
     }
     for (int k = 0; k < def->extra_drop_count; k++) {
+        if (def->extra_chance[k] < 1.0f && (float)(game_random(g) >> 8) / 16777216.0f >= def->extra_chance[k]) continue;
         for (int i = 0; i < def->extra_drops[k].count; i++) {
             if (tones > 0 && item_def(def->extra_drops[k].id)->two_tone)
                 game_drop_item_sized(g, def->extra_drops[k].id, at.x, at.y, tones);
@@ -1350,6 +1379,10 @@ static void finish_activity(Game *g)
                 drop_block_items(g, def, (TilePos){ t.x, y }, 0, 1);
                 world_set_at(&g->world, layer, t.x, y, TILE_AIR);
             }
+            for (int y = t.y + 1; def->breaks_below && world_get_at(&g->world, layer, t.x, y) == tile; y++) {
+                drop_block_items(g, def, (TilePos){ t.x, y }, 0, 1);
+                world_set_at(&g->world, layer, t.x, y, TILE_AIR);
+            }
             /* A plant two blocks tall: its top goes with its foot... */
             if (def->topped_by != TILE_AIR && world_get_at(&g->world, layer, t.x, t.y - 1) == def->topped_by) {
                 drop_block_items(g, tile_def(def->topped_by), (TilePos){ t.x, t.y - 1 }, 0,
@@ -1374,9 +1407,14 @@ static void finish_activity(Game *g)
             in_attack_range(&g->world, p->feet, (TilePos){ m->x, m->y }, range)) {
             const ItemStack *held = inventory_selected(&g->inventory);
             const ItemDef *with = item_def(held->count > 0 ? held->id : ITEM_NONE);
-            if (g->current.arg == 1) {
+            if (g->current.arg == HAND_SHEAR) {
                 /* Shearing: it has to be in reach, and to have something to give. */
                 if (!with->shears || !in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y }) || !mob_shear(g, g->current.drop))
+                    deny(g, (TilePos){ m->x, m->y });
+            } else if (g->current.arg == HAND_MILK) {
+                /* Milking: into something empty, from a creature that has milk to give. */
+                bool empty = with->milks && (!with->holds_water || inventory_meter(&g->inventory, held) == 0);
+                if (!empty || !in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y }) || !mob_milk(g, g->current.drop))
                     deny(g, (TilePos){ m->x, m->y });
             } else if (range > 0 && !in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y })) {
                 /* A shot: something to draw. */
@@ -1388,7 +1426,7 @@ static void finish_activity(Game *g)
                 g->shot.live = true;
             }
             /* What it does at once, and what it leaves working in the creature. */
-            if (g->current.arg == 1) {}
+            if (g->current.arg != HAND_HIT) {}
             else if (!mob_hurt(g, g->current.drop, game_attack_damage(g)) && with->poison > 0)
                 mob_poison_add(m, with->poison, with->poison_every);
         }
@@ -1486,7 +1524,7 @@ static bool start_next_activity(Game *g)
                     continue;
                 }
                 TilePos at = { m->x, m->y };
-                if (in_attack_range(w, p->feet, at, g->current.arg == 1 ? 0 : g->current.amount)) {
+                if (in_attack_range(w, p->feet, at, g->current.arg != HAND_HIT ? 0 : g->current.amount)) {
                     /* Within reach: one blow. */
                     begin_work(g, ACTIVITY_ATTACKING, content.rules.attack_time > 0.0f ? content.rules.attack_time : 0.3f);
                     return true;

@@ -372,6 +372,47 @@
      "right": 2
     }
    ]
+  },
+  {
+   "name": "mango",
+   "log": "mango_log",
+   "leaves": "mango_leaves",
+   "fruit": "mango",
+   "fruit_ticks": 1800,
+   "layer": "background",
+   "soil": [
+    "dirt",
+    "grass"
+   ],
+   "max_height": 6,
+   "rows": [
+    {
+     "offset": -1,
+     "left": 2,
+     "right": 2,
+     "center": true
+    },
+    {
+     "offset": 0,
+     "left": 3,
+     "right": 3
+    },
+    {
+     "offset": 1,
+     "left": 3,
+     "right": 3
+    },
+    {
+     "offset": 2,
+     "left": 2,
+     "right": 2
+    },
+    {
+     "offset": 3,
+     "left": 1,
+     "right": 1
+    }
+   ]
   }
  ]
 }

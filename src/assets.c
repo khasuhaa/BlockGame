@@ -193,6 +193,21 @@ void assets_draw_tile_lit(TileType t, int x, int y, float px, float py, float ti
                    (Vector2){ 0, 0 }, 0.0f, (Color){ v, v, v, 255 });
 }
 
+void assets_draw_tile_facing(TileType t, int x, int y, float px, float py, float tile_size, float dim, bool flip)
+{
+    if (t <= TILE_AIR || t >= content.tile_count) return;
+    const TileDef *def = &content.tiles[t];
+    unsigned h = (unsigned)x * 73856093u ^ (unsigned)y * 19349663u;
+    Texture2D tex = def->texture_count > 0 ? tile_textures[t][(h >> 4) % (unsigned)def->texture_count] : (Texture2D){ 0 };
+    if (!tex.id) {
+        draw_placeholder((Rectangle){ px, py, tile_size, tile_size });
+        return;
+    }
+    unsigned char v = (unsigned char)(255.0f * (dim > 1.0f ? 0.0f : 1.0f - dim));
+    DrawTexturePro(tex, (Rectangle){ 0, 0, flip ? -(float)tex.width : (float)tex.width, (float)tex.height },
+                   (Rectangle){ px, py, tile_size, tile_size }, (Vector2){ 0, 0 }, 0.0f, (Color){ v, v, v, 255 });
+}
+
 void assets_draw_item(ItemId id, Rectangle r)
 {
     if (id <= ITEM_NONE || id >= content.item_count) return;

@@ -29,6 +29,8 @@ void mob_poison_add(Mob *m, int points, int every);
  * nothing to take. And whether it is shorn now. */
 bool mob_shear(Game *g, int mob);
 bool mob_shorn(const Mob *m);
+/* Milks a creature that gives milk and has some: that is left lying by it. False if it had none to give. */
+bool mob_milk(Game *g, int mob);
 /* Kills a creature, leaving what a grown one leaves. */
 void mob_kill(Game *g, int mob);
 /* How many creatures of the land are within spawning range of the player. */

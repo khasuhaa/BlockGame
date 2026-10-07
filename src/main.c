@@ -501,7 +501,18 @@ static void draw_block(const Game *g, int layer, TileType t, int x, int y, float
 {
     const TileDef *def = tile_def(t);
     int wx = world_wrap_x(&g->world, x);
-    if (def->join_count > 0)
+    if (def->steps) {
+        /* Steps rise toward the next flight up or away from the next one
+         * down; failing either, toward a block beside them. As drawn they rise to the right. */
+        const World *w = &g->world;
+        bool right = world_is_step(w, x + 1, y - 1) || world_is_step(w, x - 1, y + 1);
+        bool left = world_is_step(w, x - 1, y - 1) || world_is_step(w, x + 1, y + 1);
+        if (right == left) {
+            right = world_is_solid(w, x + 1, y) || !world_is_solid(w, x - 1, y);
+            left = !right;
+        }
+        assets_draw_tile_facing(t, wx, y, px, py, TILE_SIZE, dim, left && !right);
+    } else if (def->join_count > 0)
         assets_draw_tile_joined(t, wx, y, px, py, TILE_SIZE, dim, tile_joined(&g->world, layer, x, y));
     else
         /* Something with a fire in it shows the fire while it has fuel. */

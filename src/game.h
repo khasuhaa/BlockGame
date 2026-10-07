@@ -70,6 +70,13 @@ typedef enum {
     WORK_CONVERT  /* arg: the coin given; amount: the coin wanted */
 } Work;
 
+/* What a hand does to a creature it is laid on (an ACTION_ATTACK's `arg`). */
+enum {
+    HAND_HIT = 0,
+    HAND_SHEAR,
+    HAND_MILK
+};
+
 typedef struct {
     ActionType type;
     TilePos target;
@@ -180,7 +187,7 @@ typedef struct {
     int age;       /* ticks since it was born */
     uint32_t id;
     /* For a creature that lives in trees. */
-    int32_t state;  /* a MobState */
+    int32_t state;  /* a MobState; for a creature that is milked and not one of the trees, ticks before it can be again */
     int32_t home_x; /* the column of its tree */
     int32_t timer;  /* ticks left of the chase, or before it will come down again; for a creature that
                        stings, before it will sting again; for one that is shorn, before it has grown back */

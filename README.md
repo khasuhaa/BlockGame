@@ -100,7 +100,7 @@ The land is plains broken up by mountains and valleys, always with a stretch of 
 **Biomes.** Two smooth maps run round the world, one of heat and one of dryness, and what kind of country a column is follows from them and from the sea:
 
 - **Plains** are the ordinary country: grass over dirt, with oaks, and carrots and flax growing wild.
-- Each kind of tree keeps to its own country, so like grows with like: a **cherry grove** where it is cold, an **orchard** of apple trees where it is mild and damp, and the **tropics** - coffee and orange trees - where it is hot and damp. All three are grass over dirt like the plains. Which biome a column is is recorded with the world; a world saved before that has it worked out from its climate and the lie of the land, so there the name may not match the trees that were generated.
+- Each kind of tree keeps to its own country, so like grows with like: a **cherry grove** where it is cold, an **orchard** of apple trees where it is mild and damp, and the **tropics** - coffee, orange and mango trees - where it is hot and damp. All three are grass over dirt like the plains. Which biome a column is is recorded with the world; a world saved before that has it worked out from its climate and the lie of the land, so there the name may not match the trees that were generated.
 - A **pine forest** stands where it is cold and dry, thick with tall pines, and a **maple forest** where it is mild and dry. Coconut palms grow on the sand of **beaches**.
 - **Desert** is where it is both hot and dry: sand instead of grass and dirt, and cacti instead of trees. The spawn is always on plains. Where a desert or a beach meets other country its sand does not stop at a line or break into stripes: it thins to a skin one block deep over the ordinary dirt at the edge, and deepens inward.
 - **Ocean** is everything below Y 0. Its bed is sand, kelp and coral grow on it, and it is filled with water up to Y 0. Valleys reach below Y 0, so every valley is a sea.
@@ -159,7 +159,9 @@ Veins of the same material never touch, so each stays within its size. Mining fl
 
 **Sandstone** lies under deserts and beaches in place of stone: up to 10 blocks of it under the sand, solid for the top half and broken up more and more by stone below that, and thinner toward the edge of the sand. It is a biome's `"under": { "tile", "depth" }`.
 
-Columns are grass over dirt over stone. The dirt is 4 or 5 blocks deep on the plains and thins out gradually up a mountain or down a valley, so peaks and valley floors are bare stone. Stone takes twice as long to mine as dirt. Grass drops dirt.
+Columns are grass over dirt over stone. The dirt is 4 or 5 blocks deep on the plains and thins out gradually up a mountain or down a valley, so peaks and valley floors are bare stone. Stone takes twice as long to mine as dirt. Grass drops dirt. One time in ten, digging **dirt** turns up **worms** as well (a drop can have a `"chance"` of its own in a block's `"drops"`).
+
+**Vines** hang in caves: from the roof, straight down, 1 to 5 blocks long, anywhere from just under the surface to 120 blocks down. They can be climbed. Cutting one takes everything below the cut with it, each block giving a vine. A cave decoration with `"hang": [shortest, longest]` hangs like this.
 
 ## Time
 
@@ -196,7 +198,7 @@ The world has four layers from back to front: the backwall; the background layer
 
 **Scorpions** live in the desert, on sand, up to four near the player. One that sees a player within 6 blocks makes for them, and stings when it is beside them: 40 ticks of **poison**, each taking half a percent of the health bar (a fifth of it in all), while the health bar shows purple. A second sting while the first is at work does not add to it, only starts the 40 ticks again; a sting wakes a sleeper. Having stung, a scorpion leaves off for 80 ticks. It has 6 health, and killed leaves 1 to 3 poison. Stinging is a creature's `"sting"` in `mobs.json`; what poison does to a player is `"poison_damage"` in `rules.json`.
 
-**Yaks** graze on grass in the forests - plains, cherry grove, orchard, pine forest and maple forest, not the tropics - up to three near the player. They do nothing to anyone. Killed (15 health), a yak leaves one yak horn. With a **razor** in hand, a click on a yak shears it instead of hitting it: 1 to 3 yak shavings drop beside it, it is none the worse, and it goes about pale and shorn for 3000 ticks until it has grown back and can be shorn again. Shearing is a creature's `"shear"` and a tool's `"shears"`. Where two kinds of creature live on the same ground, as yaks and dodos do, each has its own chance to be the one that turns up.
+**Yaks** graze on grass in the forests - plains, cherry grove, orchard, pine forest and maple forest, not the tropics - up to three near the player. They do nothing to anyone. Killed (15 health), a yak leaves one yak horn, 1 or 2 leather, and half the time a fur. A click on a yak with an **empty bucket** in hand milks it: one milk drops beside it, the bucket is kept, and the yak has no more for 600 ticks (a bucket with water in it will not do). Milking is a creature's `"milk"` and an item's `"milks"`, and has nothing to do with whether the yak is shorn. With a **razor** in hand, a click on a yak shears it instead of hitting it: 1 to 3 yak shavings drop beside it, it is none the worse, and it goes about pale and shorn for 3000 ticks until it has grown back and can be shorn again. Shearing is a creature's `"shear"` and a tool's `"shears"`. Where two kinds of creature live on the same ground, as yaks and dodos do, each has its own chance to be the one that turns up.
 
 **Dodos** are the first creature. They walk about at random, along the level and up or down a step of one block; they will not cross a gap, drop further than one block, or go into water.
 
@@ -257,7 +259,7 @@ A **shark head** is a trophy the size of the shark it came from. It can be hung 
 
 - **Ambush.** When the player comes within two columns of its tree, below it, it lets go and drops on them - the whole height of the tree in one fall, gathering speed, landing beside them - and bites - 15% of the health bar, and enough to wake a sleeper - then runs back to the tree and up it in one unbroken climb. It then leaves the player alone for 150 ticks. If the player gets away for long enough it gives up and goes home.
 - **Homeless.** If its tree is cut down it drops to the ground and runs for the nearest tree within 24 columns, and goes up that. With none in sight it runs about until one is.
-- Hunted like a dodo, it leaves 1 or 2 fur. Health never goes below nothing, and nothing more happens when it is at nothing.
+- Hunted like a dodo, it leaves 1 or 2 leather, and half the time a fur as well. Health never goes below nothing, and nothing more happens when it is at nothing.
 
 ## Plants
 
@@ -519,6 +521,16 @@ Every block that can be mined belongs to one kind of tool, and a tool of that ki
 | 7 | Titanium pickaxe | 1 stick, 5 titanium ingot | 3m | pickaxe, 8× |
 
 Without the right tool a block takes its ordinary time. Tools stack; none of them wears out. (A spade is a shovel.)
+
+### Columns and stairs
+
+Every **column** and every flight of **stairs** from the builder's bench is put down in the background layer, in the 27 materials they are made in. Neither is solid: both are walked straight past.
+
+- **Stairs can be walked up.** Steps hold up whoever is on top of them, so from beside a flight a step takes the player up onto it, and from there onto the next one a block higher, and so on; coming down is the same in reverse. Clicking somewhere up a staircase walks the player up it. With the keys, walking into stairs goes up them, and holding down as well walks through them along the ground instead. Something that falls onto stairs lands on them. They are drawn rising toward the next flight up, or failing that toward a block beside them.
+- **Putting them up.** Like anything in the background they can go beside a block or against a backwall; besides that, a column can be put on or beside another column or stairs, and stairs can be put a step up or down (on the slant) from other stairs, so a staircase or a colonnade can be built out into the open air.
+- Taken down, with a pickaxe for speed, each gives itself back.
+
+Stairs are a block with `"steps": true`; a building piece that others can hold on to has `"attaches": true`.
 
 Benches are placed in the background layer, like trees: the player walks in front of them, and an ordinary block can be placed in front of one. Chests are still solid blocks.
 

@@ -236,7 +236,7 @@ static void raise_walls(World *w)
     size_t cells = (size_t)w->width * w->height;
     for (size_t i = 0; i < cells; i++) {
         TileType t = w->layers[LAYER_FOREGROUND][i];
-        if (tile_def(t)->wall) w->layers[LAYER_WALL][i] = (uint8_t)t;
+        if (tile_def(t)->wall) w->layers[LAYER_WALL][i] = (uint16_t)t;
     }
 }
 
@@ -311,6 +311,18 @@ static bool place_decor(World *w, const int *level, uint32_t *rng)
                 if (depth < d->min_depth || depth > d->max_depth) continue;
                 if (world_get_at(w, LAYER_BACKGROUND, x, y) != TILE_AIR) continue;
                 bool held = false;
+                if (d->hang_max > 0) {
+                    /* Something that hangs: from the roof, down as far as it goes or there is room. */
+                    if (!tile_def(world_get(w, x, y - 1))->solid) continue;
+                    int layer = tile_def(d->tile)->layer;
+                    for (int n = rng_range(rng, d->hang_min > 0 ? d->hang_min : 1, d->hang_max), k = 0; k < n; k++) {
+                        if (!world_in_bounds(w, x, y + k) || world_get(w, x, y + k) != TILE_AIR ||
+                            world_get_at(w, layer, x, y + k) != TILE_AIR)
+                            break;
+                        world_set_at(w, layer, x, y + k, d->tile);
+                    }
+                    break;
+                }
                 for (int n = 0; n < (d->on_floor ? 1 : 4); n++)
                     held = held || tile_def(world_get(w, x + dirs[n][0], y + dirs[n][1]))->solid;
                 if (!held) continue;
@@ -601,8 +613,7 @@ static void generate_flat(World *w)
     w->y_top = w->spawn_y;
 
     for (int y = w->surface_y; y < w->height; y++)
-        memset(w->layers[LAYER_FOREGROUND] + (size_t)y * w->width, content.worldgen.soil,
-               (size_t)w->width);
+        for (int x = 0; x < w->width; x++) w->layers[LAYER_FOREGROUND][(size_t)y * w->width + x] = (uint16_t)content.worldgen.soil;
 }
 
 bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind)
@@ -610,7 +621,7 @@ bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind)
     memset(w, 0, sizeof *w);
     if (width < 4 || height < 8) return false;
     for (int i = 0; i < LAYER_COUNT; i++) {
-        w->layers[i] = calloc((size_t)width, (size_t)height);
+        w->layers[i] = calloc((size_t)width * (size_t)height, sizeof(uint16_t));
         if (!w->layers[i]) {
             world_free(w);
             return false;
@@ -729,7 +740,7 @@ void world_set_at(World *w, int layer, int x, int y, TileType t)
     size_t cell = (size_t)y * w->width + world_wrap_x(w, x);
     /* What was kept with the block that was there goes with it. */
     if (w->meta && w->meta[cell] != 0 && tile_def((TileType)w->layers[layer][cell])->two_tone) w->meta[cell] = 0;
-    w->layers[layer][cell] = (uint8_t)t;
+    w->layers[layer][cell] = (uint16_t)t;
     if (layer != LAYER_FOREGROUND || !w->water) return;
     /* A block where there was water pushes it out; one taken away lets it in. */
     if (tile_def(t)->solid) water_displace(w, x, y);
@@ -788,6 +799,14 @@ int world_structure(const World *w, int layer, int x, int y, int *bottom)
     int count = 0;
     while (count < height && world_get_at(w, layer, x, *bottom - count) == t) count++;
     return count;
+}
+
+bool world_is_step(const World *w, int x, int y)
+{
+    if (!world_in_bounds(w, x, y)) return false;
+    for (int layer = 0; layer < BLOCK_LAYERS; layer++)
+        if (tile_def(world_get_at(w, layer, x, y))->steps) return true;
+    return false;
 }
 
 bool world_is_solid(const World *w, int x, int y)

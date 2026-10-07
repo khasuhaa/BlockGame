@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 17u
+#define SAVE_VERSION 18u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -201,6 +201,34 @@ static bool read_names(FILE *f, uint8_t map[256], int (*lookup)(const char *))
     return true;
 }
 
+/* The same for blocks, whose ids take two bytes from version 18 and whose
+ * table can be as long as there are kinds of block. */
+static bool read_tile_names(FILE *f, uint16_t map[MAX_TILES])
+{
+    uint32_t n;
+    if (fread(&n, sizeof n, 1, f) != 1 || n > MAX_TILES) return false;
+    memset(map, 0, sizeof(uint16_t) * MAX_TILES);
+    for (uint32_t i = 0; i < n; i++) {
+        char name[CONTENT_NAME_LEN];
+        if (fread(name, sizeof name, 1, f) != 1) return false;
+        name[sizeof name - 1] = '\0';
+        int id = tile_id_or_alias(name);
+        map[i] = (uint16_t)(id > 0 ? id : 0);
+    }
+    return true;
+}
+
+/* Reads one layer of blocks: a byte to a block before version 18, two since. */
+static bool read_layer(FILE *f, uint16_t *out, size_t cells, uint32_t version)
+{
+    if (version >= 18) return fread(out, sizeof(uint16_t), cells, f) == cells;
+    uint8_t *narrow = malloc(cells);
+    bool ok = narrow && fread(narrow, 1, cells, f) == cells;
+    for (size_t i = 0; ok && i < cells; i++) out[i] = narrow[i];
+    free(narrow);
+    return ok;
+}
+
 /* A character other than the first, as saved from version 14. (The first is
  * in the header and the inventory, where the only character always was.) */
 typedef struct {
@@ -286,13 +314,13 @@ static int mob_id_or_zero(const char *name)
     return id > 0 ? id : 0;
 }
 
-static void legacy_names(uint8_t map[256], const char *const *names, int count,
+static void legacy_names(uint16_t map[MAX_TILES], const char *const *names, int count,
                          int (*lookup)(const char *))
 {
-    memset(map, 0, 256);
+    memset(map, 0, sizeof(uint16_t) * MAX_TILES);
     for (int i = 0; i < count; i++) {
         int id = lookup(names[i]);
-        map[i] = (uint8_t)(id > 0 ? id : 0);
+        map[i] = (uint16_t)(id > 0 ? id : 0);
     }
 }
 
@@ -335,7 +363,7 @@ bool save_game(const Game *g, const char *path)
               write_names(f, content.tile_count, content.tiles[0].name, sizeof content.tiles[0]) &&
               write_names(f, content.item_count, content.items[0].name, sizeof content.items[0]);
     for (int layer = 0; layer < LAYER_COUNT && ok; layer++)
-        ok = fwrite(w->layers[layer], 1, cells, f) == cells;
+        ok = fwrite(w->layers[layer], sizeof(uint16_t), cells, f) == cells;
     ok = ok && fwrite(&g->inventory, sizeof g->inventory, 1, f) == 1 &&
          fwrite(g->drops, sizeof g->drops, 1, f) == 1 &&
          fwrite(g->storages, sizeof g->storages, 1, f) == 1 &&
@@ -395,7 +423,7 @@ bool load_game(Game *g, const char *path)
     if (!f) return false;
 
     SaveHeader h;
-    uint8_t tiles[256];
+    static uint16_t tiles[MAX_TILES];
     static uint16_t items[MAX_ITEMS];
     bool ok = fread(&h, sizeof h, 1, f) == 1 && h.magic == SAVE_MAGIC &&
               h.version >= 1 && h.version <= SAVE_VERSION &&
@@ -417,7 +445,7 @@ bool load_game(Game *g, const char *path)
             items[i] = (uint16_t)(id > 0 ? id : 0);
         }
     } else if (ok) {
-        ok = read_names(f, tiles, tile_id_or_alias) && read_item_names(f, items);
+        ok = read_tile_names(f, tiles) && read_item_names(f, items);
     }
     ok = ok && game_init(g, h.width, h.height, h.seed, WORLD_BLANK);
 
@@ -427,7 +455,7 @@ bool load_game(Game *g, const char *path)
         /* Saves from before version 5 have no backwall layer. */
         int saved_layers = h.version < 5 ? BLOCK_LAYERS : LAYER_COUNT;
         for (int layer = 0; layer < saved_layers && ok; layer++)
-            ok = fread(w->layers[layer], 1, cells, f) == cells;
+            ok = read_layer(f, w->layers[layer], cells, h.version);
         if (ok && h.version < 3) {
             ok = read_old_state(f, g);
         } else {
@@ -553,7 +581,7 @@ bool load_game(Game *g, const char *path)
 
         /* Turn the save's ids into this run's. */
         for (int layer = 0; layer < LAYER_COUNT && ok; layer++)
-            for (size_t i = 0; i < cells; i++) w->layers[layer][i] = tiles[w->layers[layer][i]];
+            for (size_t i = 0; i < cells; i++) w->layers[layer][i] = w->layers[layer][i] < MAX_TILES ? tiles[w->layers[layer][i]] : 0;
         if (ok) {
             Inventory *inv = &g->inventory;
             for (int i = 0; i < INVENTORY_SLOTS; i++) remap_stack(&inv->slots[i], items);
@@ -634,7 +662,7 @@ bool save_read_preview(const char *path, WorldPreview *out)
     if (!f) return false;
 
     SaveHeader h;
-    uint8_t tiles[256];
+    static uint16_t tiles[MAX_TILES];
     static uint16_t items[MAX_ITEMS];
     bool ok = fread(&h, sizeof h, 1, f) == 1 && h.magic == SAVE_MAGIC && h.version >= 1 &&
               h.version <= SAVE_VERSION && h.width > 0 && h.height > 0 && h.width <= 1 << 16 &&
@@ -645,22 +673,25 @@ bool save_read_preview(const char *path, WorldPreview *out)
         legacy_names(tiles, legacy_tiles, (int)(sizeof legacy_tiles / sizeof legacy_tiles[0]),
                      tile_id_or_alias);
     else if (ok)
-        ok = read_names(f, tiles, tile_id_or_alias) && read_item_names(f, items);
+        ok = read_tile_names(f, tiles) && read_item_names(f, items);
 
     /* The layers follow, one after another, each a row at a time. */
     long layers_at = ok ? ftell(f) : -1;
     int saved_layers = h.version < 5 ? BLOCK_LAYERS : LAYER_COUNT;
-    uint8_t *row = ok ? malloc((size_t)h.width) : NULL;
+    /* (A byte to a block before version 18, two since.) */
+    size_t wide = h.version >= 18 ? 2 : 1;
+    uint8_t *row = ok ? malloc((size_t)h.width * wide) : NULL;
     ok = ok && row && layers_at >= 0;
     for (int layer = 0; layer < saved_layers && ok; layer++) {
         for (int dy = 0; dy < PREVIEW_SIZE && ok; dy++) {
             int y = h.spawn_y - 1 - PREVIEW_RADIUS + dy;
             if (y < 0 || y >= h.height) continue;
-            long at = layers_at + ((long)layer * h.height + y) * h.width;
-            ok = fseek(f, at, SEEK_SET) == 0 && fread(row, 1, (size_t)h.width, f) == (size_t)h.width;
+            long at = layers_at + ((long)layer * h.height + y) * h.width * (long)wide;
+            ok = fseek(f, at, SEEK_SET) == 0 && fread(row, wide, (size_t)h.width, f) == (size_t)h.width;
             for (int dx = 0; dx < PREVIEW_SIZE && ok; dx++) {
                 int x = ((h.spawn_x - PREVIEW_RADIUS + dx) % h.width + h.width) % h.width;
-                out->tiles[layer][dy * PREVIEW_SIZE + dx] = tiles[row[x]];
+                unsigned saved = wide == 2 ? (unsigned)row[x * 2] | (unsigned)row[x * 2 + 1] << 8 : row[x];
+                out->tiles[layer][dy * PREVIEW_SIZE + dx] = saved < MAX_TILES ? tiles[saved] : 0;
             }
         }
     }
@@ -670,10 +701,10 @@ bool save_read_preview(const char *path, WorldPreview *out)
         const TileDef *def = tile_def(front);
         int kind = def->log_of >= 0 ? def->log_of : def->leaves_of;
         if (h.version == 1 && kind >= 0 && content.trees[kind].layer != LAYER_FOREGROUND) {
-            out->tiles[content.trees[kind].layer][i] = (uint8_t)front;
+            out->tiles[content.trees[kind].layer][i] = (uint16_t)front;
             out->tiles[LAYER_FOREGROUND][i] = TILE_AIR;
         } else if (h.version < 5 && def->wall) {
-            out->tiles[LAYER_WALL][i] = (uint8_t)front;
+            out->tiles[LAYER_WALL][i] = (uint16_t)front;
         }
     }
     out->tick = h.tick;

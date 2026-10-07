@@ -1475,7 +1475,7 @@ static void test_save(void)
     run(&g, 2.0f);
     inventory_add(&g.inventory, ITEM_STONE, 7);
     tree_plant(&g.world, start.x - 5, s - 1, TREE_CHERRY);
-    g.world.layers[BG][5] = (uint8_t)TILE_STONE;
+    g.world.layers[BG][5] = (uint16_t)TILE_STONE;
     g.tick = 12345;
     g.tick_rate = 25;
     CHECK(save_game(&g, path));
@@ -1484,8 +1484,8 @@ static void test_save(void)
     CHECK(load_game(&loaded, path));
     size_t cells = (size_t)g.world.width * g.world.height;
     CHECK(loaded.world.width == 64 && loaded.world.height == 48 && loaded.world.seed == 16);
-    CHECK(memcmp(loaded.world.layers[0], g.world.layers[0], cells) == 0);
-    CHECK(memcmp(loaded.world.layers[BG], g.world.layers[BG], cells) == 0);
+    CHECK(memcmp(loaded.world.layers[0], g.world.layers[0], cells * sizeof(uint16_t)) == 0);
+    CHECK(memcmp(loaded.world.layers[BG], g.world.layers[BG], cells * sizeof(uint16_t)) == 0);
     CHECK(memcmp(&loaded.inventory, &g.inventory, sizeof g.inventory) == 0);
     CHECK(memcmp(loaded.drops, g.drops, sizeof g.drops) == 0);
     CHECK(loaded.player.feet.x == g.player.feet.x && loaded.player.feet.y == g.player.feet.y);
@@ -2187,7 +2187,7 @@ static void test_backwall(void)
     Game loaded;
     CHECK(load_game(&loaded, "build/test_wall.world"));
     size_t cells = (size_t)w->width * w->height;
-    CHECK(memcmp(loaded.world.layers[WALL], w->layers[WALL], cells) == 0);
+    CHECK(memcmp(loaded.world.layers[WALL], w->layers[WALL], cells * sizeof(uint16_t)) == 0);
     game_free(&loaded);
     remove("build/test_wall.world");
     game_free(&g);
@@ -2703,6 +2703,7 @@ static void test_biomes(void)
     CHECK(shore_all > 10 && shore_sand * 10 >= shore_all * 7);
 }
 
+static TileDef *tile_def_mut(TileType t) { return &content.tiles[t]; }
 static int count_mobs(const Game *g);
 static void clear_mobs(Game *g);
 static bool is_idle(const Game *g);
@@ -3172,7 +3173,7 @@ static void test_scorpions_and_yaks(void)
 
     /* A yak: on grass in the forest biomes, not in the tropics. */
     CHECK(yak >= 0 && yk->shear_item == item_id("yak_shavings") && yk->shear_min == 1 && yk->shear_max == 3);
-    CHECK(yk->drop_count == 1 && yk->drops[0].item == item_id("yak_horn") && yk->drops[0].min == 1 && yk->drops[0].max == 1);
+    CHECK(yk->drop_count == 3 && yk->drops[0].item == item_id("yak_horn") && yk->drops[0].min == 1 && yk->drops[0].max == 1);
     CHECK(yk->spawn_biome_count >= 4 && item_def(item_id("razor"))->shears && yk->sting_ticks == 0);
     bool in_plains = false, in_tropics = false, in_desert = false;
     for (int i = 0; i < yk->spawn_biome_count; i++) {
@@ -3210,7 +3211,7 @@ static void test_scorpions_and_yaks(void)
     m = mob_spawn(&g, yak, px + 2, ground, true, false);
     int hp = g.mobs[m].hp;
     CHECK(hp == yk->health && !mob_shorn(&g.mobs[m]));
-    CHECK(game_click_mob(&g, m) && g.queue[0].type == ACTION_ATTACK && g.queue[0].arg == 1);
+    CHECK(game_click_mob(&g, m) && g.queue[0].type == ACTION_ATTACK && g.queue[0].arg == HAND_SHEAR);
     run(&g, 3.0f);
     int shavings = count_item(&g, item_id("yak_shavings")) + drops_of(&g, item_id("yak_shavings"));
     CHECK(g.mobs[m].active && g.mobs[m].hp == hp && shavings >= 1 && shavings <= 3 && mob_shorn(&g.mobs[m]) && is_idle(&g));
@@ -3263,6 +3264,232 @@ static void test_scorpions_and_yaks(void)
         }
         CHECK(!whole && part && item_id(shard) > 0);
     }
+}
+
+/* Columns and stairs in the background, and stairs to walk up; vines; worms; milk; leather; the mango tree. */
+static void test_stairs_and_more(void)
+{
+    Game g;
+    game_init(&g, 96, 48, 41, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    clear_mobs(&g);
+    g.tick_rate = 0;
+    int s = w->surface_y, ground = s - 1, px = g.player.feet.x;
+    TileType stairs = tile_id("stone_stairs"), column = tile_id("marble_column");
+
+    /* Every column and every flight of stairs is a block of the background, walked through. */
+    int columns = 0, flights = 0;
+    for (ItemId i = 1; i < content.item_count; i++) {
+        const char *name = content.items[i].name;
+        size_t len = strlen(name);
+        bool is_column = len > 7 && strcmp(name + len - 7, "_column") == 0, is_stairs = len > 7 && strcmp(name + len - 7, "_stairs") == 0;
+        if (!is_column && !is_stairs) continue;
+        const TileDef *def = tile_def(content.items[i].places);
+        CHECK(content.items[i].places == tile_id(name) && !def->solid && def->layer == LAYER_BACKGROUND && def->removable);
+        CHECK(def->drop == i && def->steps == is_stairs && def->attaches && !def->wall);
+        columns += is_column;
+        flights += is_stairs;
+    }
+    CHECK(columns == 27 && flights == 27 && content.tile_count > 256);
+
+    /* A flight of three: steps are not solid, but they hold up whoever is on top of them. */
+    for (int k = 0; k < 3; k++) world_set_at(w, BG, px + 2 + k, ground - k, stairs);
+    CHECK(!world_is_solid(w, px + 2, ground) && world_is_step(w, px + 2, ground) && !world_is_step(w, px + 1, ground));
+    /* Up them, a step at a time, to the top. */
+    CHECK(game_click_tile(&g, px + 4, ground - 3));
+    Trace up = run_traced(&g, 10.0f);
+    CHECK(g.player.feet.x == px + 4 && g.player.feet.y == ground - 3 && is_idle(&g) && !g.player.climbing);
+    CHECK(!up.climbed && !up.fell); /* walked, not climbed */
+    run(&g, 2.0f);
+    CHECK(g.player.feet.x == px + 4 && g.player.feet.y == ground - 3); /* and there they stand */
+    /* Down again the same way. */
+    CHECK(game_click_tile(&g, px, ground));
+    run(&g, 10.0f);
+    CHECK(g.player.feet.x == px && g.player.feet.y == ground && is_idle(&g));
+    /* Or straight through them, along the ground. */
+    CHECK(game_click_tile(&g, px + 7, ground));
+    Trace through = run_traced(&g, 10.0f);
+    CHECK(g.player.feet.x == px + 7 && g.player.feet.y == ground && !through.climbed);
+    /* With the keys: walking into steps goes up them; with down held as well, through them. */
+    g.player.feet = g.player.step_to = (TilePos){ px + 1, ground };
+    game_set_move_input(&g, 1, 0);
+    run(&g, content.rules.walk_time * 1.5f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 1.0f);
+    CHECK(g.player.feet.y < ground && g.player.feet.x >= px + 2);
+    g.player.feet = g.player.step_to = (TilePos){ px + 1, ground };
+    game_set_move_input(&g, 1, 1);
+    run(&g, content.rules.walk_time * 2.5f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 1.0f);
+    CHECK(g.player.feet.y == ground && g.player.feet.x >= px + 2);
+    /* Something that falls onto steps lands on them. */
+    g.player.feet = g.player.step_to = (TilePos){ px + 3, ground - 8 };
+    run(&g, 3.0f);
+    CHECK(g.player.feet.x == px + 3 && g.player.feet.y == ground - 2);
+    for (int k = 0; k < 3; k++) world_set_at(w, BG, px + 2 + k, ground - k, TILE_AIR);
+    run(&g, 2.0f);
+    CHECK(g.player.feet.y == ground);
+
+    /* Putting them up: steps hold on to the steps a step below them, and columns to the column under them;
+     * other things in the background still need a block or a backwall. */
+    g.player.feet = g.player.step_to = (TilePos){ px, ground };
+    clear_inventory(&g);
+    inventory_add(inv, item_id("stone_stairs"), 3);
+    inventory_add(inv, item_id("marble_column"), 3);
+    inventory_add(inv, item_id("workbench"), 1);
+    inventory_select(inv, 0, -1);
+    CHECK(!game_queue_action(&g, ACTION_PLACE, px + 3, ground - 1)); /* in mid air */
+    CHECK(game_queue_action(&g, ACTION_PLACE, px + 2, ground));
+    run(&g, 3.0f);
+    CHECK(world_get_at(w, BG, px + 2, ground) == stairs);
+    CHECK(game_queue_action(&g, ACTION_PLACE, px + 3, ground - 1));
+    run(&g, 3.0f);
+    CHECK(world_get_at(w, BG, px + 3, ground - 1) == stairs && count_item(&g, item_id("stone_stairs")) == 1);
+    inventory_select(inv, 1, -1);
+    CHECK(game_queue_action(&g, ACTION_PLACE, px - 2, ground));
+    run(&g, 3.0f);
+    CHECK(game_queue_action(&g, ACTION_PLACE, px - 2, ground - 1));
+    run(&g, 3.0f);
+    CHECK(world_get_at(w, BG, px - 2, ground) == column && world_get_at(w, BG, px - 2, ground - 1) == column);
+    inventory_select(inv, 2, -1);
+    CHECK(inv->slots[2].id == item_id("workbench") && !game_queue_action(&g, ACTION_PLACE, px - 2, ground - 2));
+    /* Taken down, each gives itself back. */
+    clear_inventory(&g);
+    CHECK(game_click_tile(&g, px - 2, ground - 1) && g.queue[0].type == ACTION_MINE);
+    run(&g, 5.0f);
+    CHECK(world_get_at(w, BG, px - 2, ground - 1) == TILE_AIR && count_item(&g, item_id("marble_column")) == 1);
+    /* Saved with the world (and the ids of these are past what a byte holds). */
+    CHECK(save_game(&g, "build/test_stairs.world"));
+    Game loaded;
+    CHECK(load_game(&loaded, "build/test_stairs.world"));
+    CHECK(world_get_at(&loaded.world, BG, px + 3, ground - 1) == stairs && world_get_at(&loaded.world, BG, px - 2, ground) == column);
+    CHECK(world_get(&loaded.world, px, s) == world_get(w, px, s));
+    WorldPreview preview;
+    CHECK(save_read_preview("build/test_stairs.world", &preview));
+    game_free(&loaded);
+
+    /* Worms: one time in ten, digging dirt. */
+    TileDef *dirt = tile_def_mut(TILE_DIRT);
+    CHECK(dirt->drop == item_id("dirt") && dirt->extra_drop_count == 1 && dirt->extra_drops[0].id == item_id("worms"));
+    dirt->extra_chance[0] = 0.1f;
+    int worms = 0, earth = 0;
+    for (int k = 0; k < 300; k++) {
+        clear_inventory(&g);
+        clear_drops(&g);
+        world_set(w, px + 1, ground, TILE_DIRT);
+        if (!game_click_tile(&g, px + 1, ground)) continue;
+        run(&g, 1.2f);
+        worms += count_item(&g, item_id("worms")) + drops_of(&g, item_id("worms"));
+        earth += count_item(&g, item_id("dirt")) + drops_of(&g, item_id("dirt"));
+    }
+    CHECK(earth == 300 && worms >= 12 && worms <= 55);
+    dirt->extra_chance[0] = 0.0f;
+    CHECK(tile_def(TILE_GRASS)->extra_drop_count == 0);
+
+    /* Milk: an empty bucket on a yak. */
+    int yak = mob_id("yak"), bear = mob_id("dropbear");
+    MobDef *yk = &content.mobs[yak];
+    float saved_move = yk->move_chance;
+    yk->move_chance = 0.0f;
+    ItemId bucket = item_id("bucket"), milk = item_id("milk");
+    content.items[bucket].milks = true; /* (the bucket these tests run with is the one from before it could) */
+    CHECK(yk->milk_item == milk && yk->milk_ticks > 0 && !item_def(item_id("razor"))->milks);
+    clear_inventory(&g);
+    clear_drops(&g);
+    inventory_add(inv, bucket, 1);
+    inventory_select(inv, 0, -1);
+    int m = mob_spawn(&g, yak, px + 2, ground, true, false);
+    int hp = g.mobs[m].hp;
+    CHECK(game_click_mob(&g, m) && g.queue[0].type == ACTION_ATTACK && g.queue[0].arg == HAND_MILK);
+    run(&g, 3.0f);
+    CHECK(count_item(&g, milk) + drops_of(&g, milk) == 1 && count_item(&g, bucket) == 1 && g.mobs[m].hp == hp && is_idle(&g));
+    /* It has no more for a while. */
+    CHECK(game_click_mob(&g, m));
+    run(&g, 3.0f);
+    CHECK(count_item(&g, milk) + drops_of(&g, milk) == 1 && !mob_milk(&g, m));
+    for (int t = 0; t < yk->milk_ticks; t++) mobs_tick(&g);
+    /* A bucket with water in it will not do. */
+    inventory_set_meter(inv, inventory_find(inv, bucket), 3);
+    inventory_select_slot(inv, 0);
+    CHECK(inventory_selected(inv)->id == bucket && game_click_mob(&g, m));
+    run(&g, 3.0f);
+    CHECK(count_item(&g, milk) + drops_of(&g, milk) == 1);
+    inventory_set_meter(inv, inventory_find(inv, bucket), 0);
+    CHECK(game_click_mob(&g, m));
+    run(&g, 3.0f);
+    CHECK(count_item(&g, milk) + drops_of(&g, milk) == 2 && g.mobs[m].hp == hp);
+    /* Being shorn and being milked are separate matters. */
+    CHECK(!mob_shorn(&g.mobs[m]) && mob_shear(&g, m) && mob_shorn(&g.mobs[m]));
+    clear_mobs(&g);
+    yk->move_chance = saved_move;
+
+    /* Leather: 1 or 2 from a yak or a dropbear, and a fur half the time. */
+    for (int kind = 0; kind < 2; kind++) {
+        int which = kind == 0 ? yak : bear, least = 99, most = 0, furs = 0, horns = 0;
+        for (int k = 0; k < 100; k++) {
+            clear_drops(&g);
+            mob_kill(&g, mob_spawn(&g, which, px + 5, ground, true, false));
+            int n = drops_of(&g, item_id("leather"));
+            if (n < least) least = n;
+            if (n > most) most = n;
+            CHECK(drops_of(&g, item_id("fur")) <= 1);
+            furs += drops_of(&g, item_id("fur"));
+            horns += drops_of(&g, item_id("yak_horn"));
+        }
+        CHECK(least == 1 && most == 2 && furs > 30 && furs < 70 && horns == (kind == 0 ? 100 : 0));
+    }
+    clear_drops(&g);
+
+    /* A vine that is cut comes away from the cut downward. */
+    TileType vine = tile_id("vine");
+    CHECK(vine > 0 && !tile_def(vine)->solid && tile_def(vine)->climbable && tile_def(vine)->breaks_below && tile_def(vine)->drop == item_id("vine"));
+    world_set(w, px + 6, ground - 6, TILE_STONE);
+    for (int k = 1; k <= 5; k++) world_set_at(w, BG, px + 6, ground - 6 + k, vine);
+    clear_inventory(&g);
+    CHECK(game_click_tile(&g, px + 6, ground - 3) && g.queue[0].type == ACTION_MINE);
+    run(&g, 6.0f);
+    CHECK(world_get_at(w, BG, px + 6, ground - 5) == vine && world_get_at(w, BG, px + 6, ground - 4) == vine);
+    for (int k = 3; k <= 5; k++) CHECK(world_get_at(w, BG, px + 6, ground - 6 + k) == TILE_AIR);
+    run(&g, 3.0f);
+    CHECK(count_item(&g, item_id("vine")) + drops_of(&g, item_id("vine")) == 3);
+    game_free(&g);
+
+    /* The mango tree, and vines, in worlds as they are generated. */
+    int mango = tree_id("mango"), tropics = -1;
+    for (int b = 0; b < content.biome_count; b++)
+        if (strcmp(content.biomes[b].name, "tropics") == 0) tropics = b;
+    CHECK(mango >= 0 && content.trees[mango].fruit == item_id("mango") && item_def(item_id("mango"))->plants == mango);
+    CHECK(content.trees[mango].log == tile_id("mango_log") && tile_def(tile_id("mango_leaves"))->decays_into == tile_id("mango_leaves_decayed"));
+    bool grows = false;
+    for (int i = 0; tropics >= 0 && i < content.biomes[tropics].tree_count; i++) grows = grows || content.biomes[tropics].trees[i].tree == mango;
+    CHECK(grows);
+    int mangoes = 0, hanging = 0, loose = 0, long_ones = 0, longest = 0, outside = 0;
+    for (uint32_t seed = 1; seed <= 4; seed++) {
+        World world;
+        CHECK(world_init(&world, 2048, 401, seed, WORLD_TERRAIN));
+        for (int x = 0; x < world.width; x++) {
+            for (int y = 1; y < world.height - 1; y++) {
+                TileType t = world_get_at(&world, BG, x, y);
+                if (t == tile_id("mango_log")) mangoes++;
+                if (t != vine || world_get_at(&world, BG, x, y - 1) == vine) continue;
+                /* The top of one: it hangs from a block, in a cave, and is no longer than 5. */
+                hanging++;
+                if (!world_is_solid(&world, x, y - 1)) loose++;
+                if (world_get_at(&world, LAYER_WALL, x, y) == TILE_AIR) outside++;
+                int len = 0;
+                while (world_get_at(&world, BG, x, y + len) == vine) {
+                    if (world_get(&world, x, y + len) != TILE_AIR) loose++;
+                    len++;
+                }
+                if (len > 5) long_ones++;
+                if (len > longest) longest = len;
+            }
+        }
+        world_free(&world);
+    }
+    CHECK(mangoes > 20 && hanging > 100 && loose == 0 && outside == 0 && long_ones == 0 && longest >= 4);
 }
 
 static void test_plants(void)
@@ -4204,7 +4431,7 @@ static void test_coffee_and_dropbears(void)
     remove("build/test_bear.world");
     for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
     mob_kill(&g, bear);
-    CHECK(count_drops(&g, item_id("fur")) >= 1);
+    CHECK(count_drops(&g, item_id("leather")) >= 1);
     game_free(&g);
 
     /* A world remembers which biome each column is. */
@@ -6414,6 +6641,19 @@ static void test_guide(void)
     CHECK(n == 2 && s[0].max == 1 && s[1].max == 3 && strstr(s[1].where, "Grows wild"));
     n = guide_sources(item_id("tulip_seed"), s, 64);
     CHECK(source_of(s, n, SOURCE_BLOCK, "Tulip") && strstr(source_of(s, n, SOURCE_BLOCK, "Tulip")->where, "Grows wild"));
+    /* A drop that only sometimes comes; milk; what hangs in caves. */
+    CHECK(item_def(item_id("bucket"))->milks);
+    n = guide_sources(item_id("worms"), s, 64);
+    CHECK(n == 1 && source_of(s, n, SOURCE_BLOCK, "Dirt") && s[0].chance > 0.09f && s[0].chance < 0.11f);
+    n = guide_sources(item_id("milk"), s, 64);
+    CHECK(n == 1 && source_of(s, n, SOURCE_MILK, "Yak") && s[0].placed_by == item_id("bucket"));
+    n = guide_sources(item_id("vine"), s, 64);
+    CHECK(n == 1 && strstr(s[0].where, "Hanging from the roofs of caves"));
+    n = guide_sources(item_id("leather"), s, 64);
+    CHECK(source_of(s, n, SOURCE_CREATURE, "Yak") && source_of(s, n, SOURCE_CREATURE, "Dropbear"));
+    n = guide_sources(item_id("mango"), s, 64);
+    CHECK(source_of(s, n, SOURCE_FRUIT, "Mango tree") && strstr(s[0].where, "Tropics"));
+    CHECK(guide_sources(item_id("marble_column"), s, 64) == 0); /* (only ever there because it was put there) */
     CHECK(guide_sources(ITEM_NONE, s, 64) == 0);
 
     /* Every recipe is found again under what it makes and under each thing it takes. */
@@ -6593,8 +6833,8 @@ static void test_shipped_recipes(void)
         TileType t = tile_id(blocks[i]);
         CHECK(t > 0 && tile_def(t)->solid && item_def(item_id(blocks[i]))->places == t && tile_def(t)->drop == item_id(blocks[i]));
     }
-    /* Nothing else that is new is: a column, say, is a thing to carry. */
-    CHECK(item_def(item_id("marble_column"))->places == TILE_AIR && item_def(item_id("wooden_door"))->places == TILE_AIR);
+    /* Columns and stairs go in the background; a door, say, is still only a thing to carry. */
+    CHECK(item_def(item_id("marble_column"))->places == tile_id("marble_column") && item_def(item_id("wooden_door"))->places == TILE_AIR);
     CHECK(item_def(item_id("iron_helmet"))->equip == EQUIP_HEAD && item_def(item_id("fur_boots"))->equip == EQUIP_BOOTS);
 }
 
@@ -6625,6 +6865,7 @@ int main(void)
     /* Likewise the creatures that came later keep out of the tests written
      * before them: each is let in by the test that is about it. */
     content.mobs[mob_id("yak")].spawn_chance = 0.0f;
+    tile_def_mut(tile_id("dirt"))->extra_chance[0] = 0.0f; /* (no worms in the dirt, but where they are looked for) */
     content.mobs[mob_id("scorpion")].spawn_chance = 0.0f;
 
     test_world();
@@ -6669,6 +6910,7 @@ int main(void)
     test_tall_plants();
     test_tulips();
     test_scorpions_and_yaks();
+    test_stairs_and_more();
     test_new_trees();
     test_caves();
     test_backwall();

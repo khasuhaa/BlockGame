@@ -12,7 +12,7 @@
 
 #define CONTENT_NAME_LEN 32
 #define CONTENT_PATH_LEN 64
-#define MAX_TILES 256 /* ids are stored in a byte */
+#define MAX_TILES 1024 /* ids are stored in two bytes */
 #define MAX_ITEMS 1024 /* ids are stored in two bytes */
 #define MAX_RECIPES 1024
 #define MAX_TINTS 250
@@ -129,6 +129,7 @@ typedef struct {
     bool ore;        /* what it drops is multiplied by an ore-multiplying tool */
     int drop_count;  /* how many of its drop it leaves */
     RecipeItem extra_drops[MAX_EXTRA_DROPS]; /* other things it leaves as well */
+    float extra_chance[MAX_EXTRA_DROPS];     /* the chance of each of those; usually 1 */
     int extra_drop_count;
 
     /* Plants. One that grows is a chain of blocks, each turning into the
@@ -138,6 +139,13 @@ typedef struct {
     int soil_count;
     bool needs_water;  /* only lives and grows under water */
     bool breaks_above; /* removing one removes every one of it stacked on top */
+    bool breaks_below; /* and the same downward, for something that hangs */
+    /* Steps: not solid - it is walked through like anything in the
+     * background - but it can be stood on top of, and walked up onto from beside it. */
+    bool steps;
+    /* Building pieces of the background hold on to each other: one that
+     * attaches can be put up beside another that does, with no block or backwall to hold it. */
+    bool attaches;
     /* A plant that ends up two blocks tall. Its last low stage grows into
      * its foot and puts `grows_top` on that; the foot is `topped_by` the
      * same, which goes when the foot does; and taking the top alone leaves
@@ -236,6 +244,7 @@ typedef struct {
      * into `crosses_into`, with colours bred from the two of them. */
     TileType crosses_with, crosses_into;
     bool shears;       /* used on a creature that can be shorn, it shears it and does it no harm */
+    bool milks;        /* used on a creature that gives milk, it milks it */
     TileType places_sized[MAX_ITEM_SIZES]; /* for a sized item, the block each size is put down as */
     int damage;        /* what a blow with it in hand takes off a creature; 0 for no better than a bare hand */
     int range;         /* how many blocks off it can hit from: a bow; 0 for at arm's length */
@@ -347,6 +356,8 @@ typedef struct {
     float per_100_columns;
     int min_depth, max_depth;
     bool on_floor; /* only where there is a block directly beneath */
+    /* Something that hangs: it starts under a block and reaches down this many of itself. */
+    int hang_min, hang_max;
 } DecorDef;
 
 /* A kind of country. Which one a column is comes from how hot and how dry it
@@ -537,6 +548,9 @@ typedef struct {
     ItemId shear_item;
     int shear_min, shear_max, shear_ticks;
     char texture_shorn[CONTENT_PATH_LEN]; /* how it looks until then; empty for no different */
+    /* A creature that can be milked: what that gives, and how long before it can be again. */
+    ItemId milk_item;
+    int milk_ticks;
     int sight;          /* how far off it notices a swimmer */
     /* A creature that lives in trees. It turns up at the top of one and sits
      * there. When the player comes by underneath it runs down, bites them

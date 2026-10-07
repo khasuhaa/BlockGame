@@ -49,7 +49,7 @@
       "trees": [ { "tree": "apple", "weight": 1 } ], "plants": [ { "tile": "carrot_0", "one_in": 30 }, { "tile": "tomato_0", "one_in": 40 } ] },
     { "name": "tropics", "label": "Tropics", "heat": [0.1, 1], "dryness": [-1, 0.05],
       "surface": "grass", "soil": "dirt", "tree_one_in": 7,
-      "trees": [ { "tree": "coffee", "weight": 3 }, { "tree": "orange", "weight": 2 } ],
+      "trees": [ { "tree": "coffee", "weight": 3 }, { "tree": "orange", "weight": 2 }, { "tree": "mango", "weight": 2 } ],
       "plants": [ { "tile": "chilli_0", "one_in": 30 }, { "tile": "tomato_0", "one_in": 45 } ] },
     { "name": "pine_forest", "label": "Pine forest", "heat": [-1, -0.4], "dryness": [0.1, 1],
       "surface": "grass", "soil": "dirt", "tree_one_in": 5, "tree_spacing": 4,
@@ -75,7 +75,8 @@
     { "name": "emerald", "tile": "emerald", "per_100_columns": 2, "depth": [45, 190] },
     { "name": "ruby", "tile": "ruby", "per_100_columns": 1.2, "depth": [75, 190] },
     { "name": "diamond", "tile": "diamond", "per_100_columns": 0.7, "depth": [110, 190] },
-    { "name": "time_crystal", "tile": "time_crystal", "per_100_columns": 2.5, "depth": [4, 190], "on_floor": true }
+    { "name": "time_crystal", "tile": "time_crystal", "per_100_columns": 2.5, "depth": [4, 190], "on_floor": true },
+    { "name": "vine", "tile": "vine", "per_100_columns": 9, "depth": [2, 120], "hang": [1, 5] }
   ],
 
   "veins": [

@@ -17,7 +17,7 @@ bool load_game(Game *g, const char *path);
 
 /* The blocks around a saved world's spawn point, every layer, row by row. */
 typedef struct {
-    uint8_t tiles[LAYER_COUNT][PREVIEW_SIZE * PREVIEW_SIZE];
+    uint16_t tiles[LAYER_COUNT][PREVIEW_SIZE * PREVIEW_SIZE];
     uint64_t tick;
 } WorldPreview;
 

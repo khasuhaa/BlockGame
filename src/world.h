@@ -25,7 +25,7 @@ typedef struct {
     int spawn_y;
     int surface_y;    /* WORLD_FLAT only: row of the ground's top layer */
     int sea_row;      /* row of sea level: open sky below it is water; -1 for a world with no sea */
-    uint8_t *layers[LAYER_COUNT];
+    uint16_t *layers[LAYER_COUNT];
     uint8_t *biome;   /* which of content.biomes each column is */
     /* Water: eighths of it in every square (see water.h), and which columns
      * have water that may still be on the move. */
@@ -80,6 +80,8 @@ bool world_grow_plant(World *w, int layer, int x, int y);
  * row; its tiles are that row and the ones above it. 1 for an ordinary block. */
 int world_structure(const World *w, int layer, int x, int y, int *bottom);
 
+/* Whether a square has steps in it: something not solid that can still be stood on. */
+bool world_is_step(const World *w, int x, int y);
 /* Above and below the world counts as solid. */
 bool world_is_solid(const World *w, int x, int y);
 

@@ -199,6 +199,17 @@ bool mob_shear(Game *g, int mob)
     return true;
 }
 
+bool mob_milk(Game *g, int mob)
+{
+    if (mob < 0 || mob >= MAX_MOBS || !g->mobs[mob].active) return false;
+    Mob *m = &g->mobs[mob];
+    const MobDef *def = &content.mobs[m->kind];
+    if (def->milk_item == ITEM_NONE || def->perches || m->baby || m->state > 0) return false;
+    game_drop_item(g, def->milk_item, m->x, m->y);
+    m->state = def->milk_ticks > 0 ? def->milk_ticks : 1;
+    return true;
+}
+
 /* Whether a kind of creature turns up in a column's biome. */
 static bool spawns_in(const World *w, const MobDef *def, int x)
 {
@@ -494,6 +505,7 @@ void mobs_tick(Game *g)
         }
         /* What was shorn off it grows back; one that has stung is a while about stinging again. */
         if ((def->shear_item != ITEM_NONE || def->sting_ticks > 0) && m->timer > 0) m->timer--;
+        if (def->milk_item != ITEM_NONE && !def->perches && m->state > 0) m->state--;
         if (m->step_left > 0) {
             if (--m->step_left > 0) continue;
             /* There. It goes straight on into whatever it does next, with

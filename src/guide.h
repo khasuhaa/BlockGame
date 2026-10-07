@@ -12,6 +12,7 @@ typedef enum {
     SOURCE_BLOCK,      /* left by a block when it is mined */
     SOURCE_CREATURE,   /* left by a creature when it is killed */
     SOURCE_SHEAR,      /* taken off a creature with the tool for it, leaving it alive */
+    SOURCE_MILK,       /* milked from a creature */
     SOURCE_FRUIT,      /* borne by a tree */
     SOURCE_CHEST,      /* found inside a block the world was generated with */
     SOURCE_MEDITATION, /* brought by meditating */

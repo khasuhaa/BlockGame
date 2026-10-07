@@ -286,6 +286,10 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->drop_count = (int)num(e, "drop_count", 1);
         t->needs_water = flag(e, "needs_water", false);
         t->breaks_above = flag(e, "breaks_above", false);
+        t->breaks_below = flag(e, "breaks_below", false);
+        t->steps = flag(e, "steps", false);
+        t->attaches = flag(e, "attaches", t->steps);
+        if (t->steps && t->solid) return fail(r, "tile \"%s\": steps are walked through, so they cannot be solid", t->name);
         t->drop_meter = (int)num(e, "drop_meter", 0);
         t->decays_into = TILE_AIR;
         if (!tile_ref(r, e, "decays_into", &t->decays_into)) return false;
@@ -364,6 +368,8 @@ static bool read_tiles(Reader *r, const cJSON *root)
                 t->drop = one.id;
                 t->drop_count = one.count;
             } else if (t->extra_drop_count < MAX_EXTRA_DROPS) {
+                /* (Anything after the first may be left only some of the time.) */
+                t->extra_chance[t->extra_drop_count] = (float)num(each, "chance", 1.0);
                 t->extra_drops[t->extra_drop_count++] = one;
             } else {
                 return fail(r, "tile \"%s\" drops too many kinds of thing", t->name);
@@ -497,6 +503,7 @@ static bool read_items(Reader *r, const cJSON *root)
         if ((it->crosses_with == TILE_AIR) != (it->crosses_into == TILE_AIR))
             return fail(r, "item \"%s\": \"crosses\" needs both \"with\" and \"into\"", it->name);
         it->shears = flag(e, "shears", false);
+        it->milks = flag(e, "milks", false);
         it->places = TILE_AIR;
         it->sized = false;
         /* "places" is one block, or a list of them: the block for each size of a sized thing. */
@@ -791,6 +798,8 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         d->max_depth = 1000;
         pair(e, "depth", &d->min_depth, &d->max_depth);
         d->on_floor = flag(e, "on_floor", false);
+        pair(e, "hang", &d->hang_min, &d->hang_max);
+        if (d->hang_min < 0 || d->hang_max < d->hang_min) return fail(r, "cave decoration \"%s\": \"hang\" is a range of lengths", name);
     }
 
     cJSON_ArrayForEach(e, field(root, "veins")) {
@@ -1080,6 +1089,11 @@ static bool read_mobs(Reader *r, const cJSON *root)
         m->shear_max = (int)num(shear, "max", m->shear_min);
         m->shear_ticks = (int)num(shear, "regrow_ticks", 3000);
         copy_name(m->texture_shorn, sizeof m->texture_shorn, str(shear, "texture"));
+        /* "milk": what the right thing in hand gets from it. */
+        const cJSON *milk = field(e, "milk");
+        if (milk && (!str(milk, "item") || !item_ref(r, milk, "item", &m->milk_item)))
+            return fail(r, "mob \"%s\": \"milk\" needs an \"item\"", name);
+        m->milk_ticks = (int)num(milk, "ticks", 600);
         /* "perch": it lives in trees and comes down at the player. */
         const cJSON *perch = field(e, "perch");
         m->perches = cJSON_IsObject(perch);

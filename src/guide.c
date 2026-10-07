@@ -133,7 +133,8 @@ static bool natural(TileType t, char *out, size_t size, int depth)
     for (int i = 0; i < content.decor_count; i++) {
         const DecorDef *d = &content.decor[i];
         if (d->tile != t) continue;
-        say(out, size, "On the %s of caves, %d to %d blocks down.", d->on_floor ? "floors" : "walls", d->min_depth, d->max_depth);
+        if (d->hang_max > 0) say(out, size, "Hanging from the roofs of caves, %d to %d blocks down.", d->min_depth, d->max_depth);
+        else say(out, size, "On the %s of caves, %d to %d blocks down.", d->on_floor ? "floors" : "walls", d->min_depth, d->max_depth);
         return true;
     }
     if (t == wg->rock) return say(out, size, "The rock under everything."), true;
@@ -303,12 +304,17 @@ int guide_sources(ItemId item, ItemSource *out, int max)
     for (TileType t = 1; t < content.tile_count; t++) {
         const TileDef *def = &content.tiles[t];
         int many = 0;
+        float sometimes = 1.0f;
         if (def->drop == item) many = def->drop_count > 0 ? def->drop_count : 1;
-        for (int i = 0; i < def->extra_drop_count; i++)
-            if (def->extra_drops[i].id == item) many = def->extra_drops[i].count;
+        for (int i = 0; i < def->extra_drop_count; i++) {
+            if (def->extra_drops[i].id != item) continue;
+            many = def->extra_drops[i].count;
+            sometimes = def->extra_chance[i];
+        }
         if (many > 0 && (def->removable || def->vanishes)) {
             int before = count;
-            ItemSource *s = add(out, &count, max, SOURCE_BLOCK, t, many, many, def->drop_chance > 0.0f ? def->drop_chance : 1.0f);
+            ItemSource *s = add(out, &count, max, SOURCE_BLOCK, t, many, many,
+                                (def->drop_chance > 0.0f ? def->drop_chance : 1.0f) * sometimes);
             bool keep = place(s, t, item);
             /* The stages of a plant, or the pictures of one block, are one line. */
             for (int i = 0; keep && i < before; i++)
@@ -352,6 +358,18 @@ int guide_sources(ItemId item, ItemSource *out, int max)
         if (s->placed_by != ITEM_NONE)
             say(s->where, sizeof s->where, "With %s %s in hand. ", a(item_def(s->placed_by)->label), item_def(s->placed_by)->label);
         say(s->where, sizeof s->where, "It grows back in %d ticks. ", def->shear_ticks);
+        mob_where(m, s->where, sizeof s->where);
+    }
+    for (int m = 0; m < content.mob_count; m++) {
+        const MobDef *def = &content.mobs[m];
+        if (def->milk_item != item || !mob_natural(m, 0)) continue;
+        ItemSource *s = add(out, &count, max, SOURCE_MILK, m, 1, 1, 1.0f);
+        snprintf(s->label, sizeof s->label, "%s", mob_label(m));
+        for (ItemId tool = 1; tool < content.item_count && s->placed_by == ITEM_NONE; tool++)
+            if (content.items[tool].milks) s->placed_by = tool;
+        if (s->placed_by != ITEM_NONE)
+            say(s->where, sizeof s->where, "With an empty %s in hand. ", item_def(s->placed_by)->label);
+        say(s->where, sizeof s->where, "It has more in %d ticks. ", def->milk_ticks);
         mob_where(m, s->where, sizeof s->where);
     }
     for (int i = 0; i < content.tree_count; i++) {
