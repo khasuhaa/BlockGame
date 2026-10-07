@@ -23,6 +23,12 @@ bool trade_barred(ItemId item);
  * somebody in this world has had in their hands; at one that gives
  * everything away, anything that can be held at all. */
 bool game_trade_deals(const Game *g, ItemId item);
+/* The items of a category that the open block deals in or will, in the order
+ * they are defined: each keeps its place whether or not it has been found in
+ * this world yet, and `found`, if wanted, says which have (only those can be
+ * bought and sold). Where everything is given away, things with no category
+ * of their own - the coins - are in the last one. Returns how many, at most `max`. */
+int game_trade_listing(const Game *g, int category, ItemId *out, bool *found, int max);
 /* Everything the player's coins are worth, in the smallest currency. */
 long trade_wallet(const Inventory *inv);
 

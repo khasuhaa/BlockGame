@@ -14,7 +14,7 @@
 #define GRID_COLUMNS 7
 #define GRID_ROWS 4
 #define ROW_HEIGHT 40.0f
-#define MAX_LISTED 256
+#define MAX_LISTED 1024
 
 static const Color panel_color = { 28, 30, 38, 240 };
 static const Color edge_color = { 120, 122, 134, 255 };
@@ -22,6 +22,7 @@ static const Color button_color = { 70, 130, 80, 255 };
 static const Color button_hot = { 90, 160, 100, 255 };
 static const Color button_off = { 54, 57, 70, 255 };
 static const Color cell_color = { 44, 47, 58, 255 };
+static const Color unknown_color = { 34, 36, 45, 255 };
 
 /* ---- layout ------------------------------------------------------------ */
 
@@ -37,16 +38,15 @@ static int tab_count(void)
     return content.trade.category_count + 1;
 }
 
-static int listed_items(const Game *g, int category, ItemId *out, int *locked);
+static int listed_items(const Game *g, int category, ItemId *out, bool *found);
 
 /* Whether a tab has anything to it at the block that is open: a category
  * nothing of which is dealt in there - benches, at an ordinary trade portal - is left out. */
 static bool tab_shown(const Game *g, int tab)
 {
-    static ItemId scratch[256];
-    int locked = 0;
+    static ItemId scratch[MAX_LISTED];
     if (tab >= content.trade.category_count) return !game_trade_free(g);
-    return listed_items(g, tab, scratch, &locked) > 0 || locked > 0;
+    return listed_items(g, tab, scratch, NULL) > 0;
 }
 
 /* Which place down the list a tab has, counting only the ones shown; -1 if it is not. */
@@ -115,22 +115,9 @@ static Rectangle exchange_rect(Rectangle panel, int i)
                         panel.x + panel.width - PAD - left_edge(panel), ROW_HEIGHT };
 }
 
-/* The items of a category that the open block deals in, in the order they
- * are defined. (Where everything is given away, things with no category of
- * their own - the coins - are in the last one.) `locked`, if wanted, gets how
- * many more there would be once they have been found in this world. */
-static int listed_items(const Game *g, int category, ItemId *out, int *locked)
+static int listed_items(const Game *g, int category, ItemId *out, bool *found)
 {
-    int n = 0, last = content.trade.category_count - 1;
-    if (locked) *locked = 0;
-    for (int i = 1; i < content.item_count && n < MAX_LISTED; i++) {
-        int in = content.items[i].category;
-        if (in < 0 && game_trade_free(g)) in = last;
-        if (in != category) continue;
-        if (game_trade_deals(g, i)) out[n++] = i;
-        else if (locked && trade_price(i) > 0 && !trade_barred(i)) (*locked)++;
-    }
-    return n;
+    return game_trade_listing(g, category, out, found, MAX_LISTED);
 }
 
 static float max_scroll(int count)
@@ -172,7 +159,8 @@ bool tradeui_handle_input(TradeUi *ui, Game *g, const View *v)
         if (tab_shown(g, i)) ui->tab = i;
     bool on_items = ui->tab < content.trade.category_count;
     ItemId items[MAX_LISTED];
-    int count = on_items ? listed_items(g, ui->tab, items, NULL) : 0;
+    bool found[MAX_LISTED];
+    int count = on_items ? listed_items(g, ui->tab, items, found) : 0;
 
     if (inside) ui->scroll -= GetMouseWheelMove() * (CELL + CELL_GAP);
     if (ui->scroll > max_scroll(count)) ui->scroll = max_scroll(count);
@@ -199,7 +187,7 @@ bool tradeui_handle_input(TradeUi *ui, Game *g, const View *v)
     }
     if (CheckCollisionPointRec(m, grid)) {
         for (int i = 0; i < count; i++)
-            if (CheckCollisionPointRec(m, cell_rect(grid, i, ui->scroll))) ui->selected = items[i];
+            if (found[i] && CheckCollisionPointRec(m, cell_rect(grid, i, ui->scroll))) ui->selected = items[i];
         return true;
     }
     if (ui->selected != ITEM_NONE) {
@@ -242,7 +230,8 @@ static void draw_button(Rectangle r, const char *text, bool enabled)
 static void draw_items(const TradeUi *ui, const Game *g, Rectangle panel)
 {
     ItemId items[MAX_LISTED];
-    int locked, count = listed_items(g, ui->tab, items, &locked);
+    bool found[MAX_LISTED];
+    int count = listed_items(g, ui->tab, items, found);
     Rectangle grid = grid_rect(panel);
 
     BeginScissorMode((int)grid.x, (int)grid.y, (int)grid.width + 1, (int)grid.height);
@@ -250,6 +239,13 @@ static void draw_items(const TradeUi *ui, const Game *g, Rectangle panel)
         Rectangle cell = cell_rect(grid, i, ui->scroll);
         if (cell.y + cell.height < grid.y || cell.y > grid.y + grid.height) continue;
         bool chosen = items[i] == ui->selected;
+        if (!found[i]) {
+            /* Not found in this world yet: its place is kept, and says no more than that. */
+            DrawRectangleRec(cell, unknown_color);
+            DrawRectangleLinesEx(cell, 2.0f, button_off);
+            draw_centered("?", cell, 30, (Color){ 96, 100, 116, 255 });
+            continue;
+        }
         DrawRectangleRec(cell, cell_color);
         DrawRectangleLinesEx(cell, chosen ? 3.0f : 2.0f, chosen ? RAYWHITE : edge_color);
         assets_draw_item_tones(items[i], cell, 0);
@@ -266,11 +262,7 @@ static void draw_items(const TradeUi *ui, const Game *g, Rectangle panel)
     bool free = game_trade_free(g);
     if (ui->selected == ITEM_NONE || !game_trade_deals(g, ui->selected)) {
         Rectangle note = { left, y, right - left, panel.y + panel.height - y };
-        draw_centered(count == 0 && locked > 0 ? "Nothing here has been found in this world yet" : "Pick an item to buy or sell",
-                      (Rectangle){ note.x, note.y, note.width, note.height - (locked > 0 && count > 0 ? 18 : 0) }, 16, LIGHTGRAY);
-        if (locked > 0 && count > 0)
-            draw_centered(TextFormat("%d more here still to be found", locked), (Rectangle){ note.x, note.y + 22, note.width, note.height - 22 },
-                          12, GRAY);
+        draw_centered("Pick an item to buy or sell", note, 16, LIGHTGRAY);
         return;
     }
     const TradeDef *t = &content.trade;

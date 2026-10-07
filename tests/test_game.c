@@ -4832,6 +4832,18 @@ static void test_trade_rules(void)
     game_tick(&g);
     CHECK(g.discovered[ITEM_DIRT] && g.discovered[copper] && !g.discovered[ITEM_STONE]);
     CHECK(game_trade_deals(&g, ITEM_DIRT) && !game_trade_deals(&g, ITEM_STONE));
+    /* The list keeps a place for what has not been found, in the order things are defined, and says which is which. */
+    static ItemId before[1024], after[1024];
+    static bool had[1024], has[1024];
+    int listed = game_trade_listing(&g, item_def(ITEM_DIRT)->category, before, had, 1024), dirt_at = -1, stone_at = -1;
+    for (int i = 0; i < listed; i++) {
+        if (before[i] == ITEM_DIRT) dirt_at = i;
+        if (before[i] == ITEM_STONE) stone_at = i;
+        CHECK(had[i] == game_trade_deals(&g, before[i]) && !trade_barred(before[i]));
+        CHECK(i == 0 || before[i] > before[i - 1]);
+    }
+    CHECK(item_def(ITEM_STONE)->category == item_def(ITEM_DIRT)->category);
+    CHECK(dirt_at >= 0 && stone_at >= 0 && had[dirt_at] && !had[stone_at]);
     /* Bought for its price, sold for nine tenths of it. */
     CHECK(game_trade_buy(&g, ITEM_DIRT, 2) && coins(&g, "copper_coin") == 79 && count_item(&g, ITEM_DIRT) == 3);
     CHECK(game_trade_sell(&g, ITEM_DIRT, 3) && coins(&g, "copper_coin") == 79 + 27 && count_item(&g, ITEM_DIRT) == 0);
@@ -4842,6 +4854,10 @@ static void test_trade_rules(void)
     inv->slots[5] = basket;
     game_note_found(&g);
     CHECK(g.discovered[ITEM_STONE] && game_trade_deals(&g, ITEM_STONE));
+    /* Found, it turns up where its place was kept: nothing else moves. */
+    CHECK(game_trade_listing(&g, item_def(ITEM_DIRT)->category, after, has, 1024) == listed && has[stone_at] && has[dirt_at]);
+    CHECK(memcmp(before, after, sizeof before[0] * (size_t)listed) == 0);
+    for (int i = 0; i < listed; i++) CHECK(has[i] == (had[i] || i == stone_at));
     /* A bench is not dealt in, found or not: neither bought nor sold. */
     inventory_add(inv, item_id("workbench"), 1);
     game_note_found(&g);

@@ -58,6 +58,7 @@ Rendering and menus have no tests. To look at them, write a small C file that do
 - `prices.py` - reprices items from their recipes. It overwrites prices in `data/items.json`: run it on purpose, not as routine.
 - `mod_magic_mayhem.py`, `mod_industry.py`, `mod_digital_storage.py`, `mod_culinary_delights.py`, `mod_explorers_delight.py` - each wrote one mod's data files and textures. Either edit the script and rerun it, or edit the mod's files by hand and stop using the script: not both, or the script will undo the hand edits.
 - `bench_art.py` - drew the bench textures in `data/textures/tiles/`.
+- `portal_art.py` - draws every portal's blocks and icons (the arch, its spiral, the tier's stone in the keystone). A new kind of portal is a new line at the bottom of it.
 - `worn_art.py` - draws the character's skin (`data/textures/player/base.png`) and, for every item with an `"equip"` slot in the game and in each mod, what it looks like worn (`textures/worn/<name>.png`), and sets the item's `"worn"`. **Run it after adding anything that can be worn**; `test_worn` fails for an item without a picture. Give a new kind of clothing its look there, by a word in its name.
 
 ## Core directive: keep everything data driven
@@ -88,6 +89,7 @@ Every item in the game except the coins belongs to a trade category and has a bu
 - **Removing an item:** take it out of `data/items.json` and out of anything that names it - recipes, upgrade costs, drops, starting items, currencies.
 - Only currencies listed in `data/trade.json`, and items that are never held - ones that turn into crystals when picked up (`"crystals"`), or into a character when made (`"becomes_player"`) - may be left without a category.
 - Trade portals do not deal in benches or other things to trade at, nor in anything a recipe takes crystals to make. That is worked out from the data (`trade_barred` in `src/trade.c`), not listed anywhere: do not add a flag for it.
+- The trade menu keeps a place for every item a portal could deal in, in the order `items.json` defines them, and shows a `?` until the item is found (`game_trade_listing` in `src/trade.c`). Do not filter or sort that list in the menu: found things must not move.
 - Selling gives `"sell_share"` of the price. Do not add a recipe that turns coins into something worth more than the coins.
 
 The loader enforces the category: an item with none that is neither a currency nor never held stops the game at startup, naming the item. Do not weaken that check to get a new item in; give the item a category.

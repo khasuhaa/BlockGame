@@ -60,6 +60,23 @@ long trade_wallet(const Inventory *inv)
     return total;
 }
 
+int game_trade_listing(const Game *g, int category, ItemId *out, bool *found, int max)
+{
+    int n = 0, last = content.trade.category_count - 1;
+    bool free = game_trade_free(g);
+    for (int i = 1; i < content.item_count && n < max; i++) {
+        int in = content.items[i].category;
+        if (in < 0 && free) in = last;
+        if (in != category) continue;
+        bool deals = game_trade_deals(g, (ItemId)i);
+        /* (What it will never deal in has no place kept for it.) */
+        if (!deals && (trade_price((ItemId)i) <= 0 || trade_barred((ItemId)i))) continue;
+        if (found) found[n] = deals;
+        out[n++] = (ItemId)i;
+    }
+    return n;
+}
+
 /* Works out which coins change hands to pay `price`: `delta` gets, for each
  * currency, how many are gained (change) or lost. Small coins go first; if
  * they run out, the smallest coin that covers the rest is broken. */
