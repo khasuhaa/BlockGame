@@ -819,6 +819,122 @@ static void generate_flat(World *w)
         for (int x = 0; x < w->width; x++) w->layers[LAYER_FOREGROUND][(size_t)y * w->width + x] = (uint16_t)content.worldgen.soil;
 }
 
+/* ---- the debug world --------------------------------------------------- */
+
+#define DEBUG_FIRST 14 /* the column the first exhibit stands in: clear of the portal */
+#define DEBUG_GAP 2    /* empty columns between one exhibit and the next */
+
+static void debug_put(World *w, int layer, int x, int y, TileType t)
+{
+    if (w) world_set_at(w, layer, x, y, t);
+}
+
+/* One block, whole: every tile of its height from `row` up, and its other half beside it if it has one. */
+static void debug_block(World *w, TileType t, int x, int row)
+{
+    const TileDef *def = tile_def(t);
+    for (int i = 0; i < def->height; i++) debug_put(w, def->layer, x, row - i, t);
+    if (def->pair != TILE_AIR) debug_put(w, tile_def(def->pair)->layer, x + 1, row, def->pair);
+    for (int i = 0; w && def->mimics != MIMIC_NONE && i < def->height; i++) world_fix_look(w, x, row - i);
+}
+
+/* Sets out one of every block along the ground from column `x`, each in every
+ * way it can be put up, and returns the column after the last. `ground` is
+ * the row a block standing on the ground is in. Anything that goes on, under
+ * or beside another block is shown against a block of the soil. With no
+ * world, nothing is put anywhere: only the room it would take is worked out. */
+static int debug_exhibits(World *w, int ground, int x)
+{
+    TileType holder = content.worldgen.soil;
+    for (TileType t = 1; t < content.tile_count; t++) {
+        const TileDef *def = tile_def(t);
+        if (def->pair_of != TILE_AIR) continue; /* (the other half of something: shown with it) */
+        int wide = def->pair != TILE_AIR ? 2 : 1, tall = def->height, air = ground - 2;
+        bool mounted = def->hangs || def->texture_mount[0][0] || def->texture_mount[1][0] || def->texture_mount[2][0];
+        if (!mounted) {
+            /* As it is, standing on the ground. */
+            debug_block(w, t, x, ground);
+            x += wide + DEBUG_GAP;
+        } else {
+            /* On a backwall; */
+            if (!def->hangs && def->layer != LAYER_FOREGROUND) {
+                for (int i = 0; i < wide; i++)
+                    for (int k = 0; k < tall; k++) debug_put(w, LAYER_WALL, x + i, air - k, holder);
+                debug_block(w, t, x, air);
+                x += wide + DEBUG_GAP;
+            }
+            /* on top of a block; */
+            if (!def->hangs) {
+                for (int i = 0; i < wide; i++) debug_put(w, LAYER_FOREGROUND, x + i, ground, holder);
+                debug_block(w, t, x, ground - 1);
+                x += wide + DEBUG_GAP;
+            }
+            /* under one; */
+            for (int i = 0; i < wide; i++) debug_put(w, LAYER_FOREGROUND, x + i, air - tall, holder);
+            debug_block(w, t, x, air);
+            x += wide + DEBUG_GAP;
+            /* and to the right and the left of one. */
+            if (!def->hangs) {
+                for (int k = 0; k < tall; k++) debug_put(w, LAYER_FOREGROUND, x, air - k, holder);
+                debug_block(w, t, x + 1, air);
+                x += wide + 1 + DEBUG_GAP;
+                debug_block(w, t, x, air);
+                for (int k = 0; k < tall; k++) debug_put(w, LAYER_FOREGROUND, x + wide, air - k, holder);
+                x += wide + 1 + DEBUG_GAP;
+            }
+        }
+        if (def->steps) {
+            /* Steps: a flight rising to the right, and one to the left. */
+            for (int k = 0; k < 3; k++) debug_put(w, def->layer, x + k, ground - k, t);
+            x += 3 + DEBUG_GAP;
+            for (int k = 0; k < 3; k++) debug_put(w, def->layer, x + 2 - k, ground - k, t);
+            x += 3 + DEBUG_GAP;
+        }
+        if (def->mimics == MIMIC_UPRIGHT) {
+            /* A door between two blocks, taking their look. */
+            debug_put(w, LAYER_FOREGROUND, x, ground - tall, holder);
+            debug_block(w, t, x, ground);
+            x += 1 + DEBUG_GAP;
+        } else if (def->mimics == MIMIC_FLAT) {
+            debug_put(w, LAYER_FOREGROUND, x, air, holder);
+            debug_put(w, LAYER_FOREGROUND, x + 2, air, holder);
+            debug_block(w, t, x + 1, air);
+            x += 3 + DEBUG_GAP;
+        }
+        if (def->join_count > 0 || def->wire) {
+            /* Something that joins to its like: nine of it together, and a cross of it. */
+            for (int i = 0; i < 3; i++)
+                for (int k = 0; k < 3; k++) debug_put(w, def->layer, x + i, ground - k, t);
+            x += 3 + DEBUG_GAP;
+            for (int k = 0; k < 3; k++) {
+                debug_put(w, def->layer, x + k, ground - 1, t);
+                debug_put(w, def->layer, x + 1, ground - k, t);
+            }
+            x += 3 + DEBUG_GAP;
+        }
+    }
+    return x;
+}
+
+int world_debug_width(void)
+{
+    int wide = debug_exhibits(NULL, 0, DEBUG_FIRST) + DEBUG_FIRST;
+    return (wide + 63) / 64 * 64;
+}
+
+/* Level soil, the portal near its left end, and everything set out to the right of it. */
+static void generate_debug(World *w)
+{
+    w->surface_y = w->height / 2;
+    w->spawn_x = DEBUG_FIRST / 2;
+    w->spawn_y = w->surface_y - 1;
+    w->y_top = w->spawn_y;
+    for (int y = w->surface_y; y < w->height; y++)
+        for (int x = 0; x < w->width; x++) w->layers[LAYER_FOREGROUND][(size_t)y * w->width + x] = (uint16_t)content.worldgen.soil;
+    raise_walls(w);
+    debug_exhibits(w, w->surface_y - 1, DEBUG_FIRST);
+}
+
 bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind)
 {
     return world_init_with(w, width, height, seed, kind, NULL);
@@ -856,7 +972,9 @@ bool world_init_with(World *w, int width, int height, uint32_t seed, WorldKind k
     w->sea_row = -1;
 
     if (kind == WORLD_BLANK) return true;
-    if (kind == WORLD_FLAT) {
+    if (kind == WORLD_DEBUG) {
+        generate_debug(w);
+    } else if (kind == WORLD_FLAT) {
         generate_flat(w);
         raise_walls(w);
     } else if (!generate_terrain(w)) {

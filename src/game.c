@@ -3343,6 +3343,8 @@ bool game_init_with(Game *g, int width, int height, uint32_t seed, WorldKind kin
     g->flows = calloc(MAX_POWER_FLOWS, sizeof(PowerFlow));
     g->signs = calloc(MAX_SIGN_TEXTS, sizeof(SignText));
     g->random_events = content.rules.random_events_per_chunk;
+    /* (Nothing grows, rots, freezes or falls in a world that is there to be looked at.) */
+    if (kind == WORLD_DEBUG) g->random_events = 0;
     if (!g->explored || !g->snow || !g->flows || !g->signs) {
         game_free(g);
         return false;

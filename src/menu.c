@@ -125,6 +125,7 @@ static void begin_creating(MainMenu *m)
     m->error[0] = '\0';
     /* The smallest size, and everything else as usual. */
     m->size = 0;
+    m->tab = m->debug = 0;
     m->mountains = m->valleys = m->veins = 0;
     for (int i = 0; i < content.worldgen.scale_count; i++)
         if (content.worldgen.scales[i].scale == 1.0f) m->mountains = m->valleys = m->veins = i;
@@ -136,9 +137,15 @@ static void begin_creating(MainMenu *m)
     }
 }
 
+bool main_menu_world_debug(const MainMenu *m)
+{
+    return m->debug != 0;
+}
+
 int main_menu_world_width(const MainMenu *m)
 {
     const WorldGenDef *gen = &content.worldgen;
+    if (m->debug) return world_debug_width();
     return m->size >= 0 && m->size < gen->size_count ? gen->sizes[m->size].width : gen->width;
 }
 
@@ -190,15 +197,28 @@ static MainMenuResult create_screen(MainMenu *m)
     bool blink = (int)(GetTime() * 2.0) % 2 == 0;
     DrawText(TextFormat("%s%s", m->name, blink ? "_" : ""), (int)box.x + 10, (int)box.y + 10, 20,
              RAYWHITE);
+    /* Two tabs under the name: what the world is like, and the things few will want. */
     float row_y = top + 60.0f;
-    if (gen->size_count > 0)
-        choice_row((Rectangle){ x, row_y, wide, 36 }, "World size", gen->sizes[m->size].label, &m->size, gen->size_count), row_y += 46.0f;
-    if (gen->scale_count > 0) {
+    static const char *tabs[2] = { "World", "Advanced" };
+    for (int i = 0; i < 2; i++) {
+        Rectangle tab = { x + (float)i * (wide / 2.0f + 4.0f), row_y, wide / 2.0f - 4.0f, 34 };
+        if (button(tab, tabs[i], true)) m->tab = i;
+        if (m->tab == i) DrawRectangleRec((Rectangle){ tab.x, tab.y + tab.height - 3, tab.width, 3 }, RAYWHITE);
+    }
+    row_y += 48.0f;
+    if (m->tab == 1) {
+        static const char *kinds[2] = { "Normal", "Debug" };
+        choice_row((Rectangle){ x, row_y, wide, 36 }, "World type", kinds[m->debug ? 1 : 0], &m->debug, 2);
+    }
+    if (m->tab == 0 && gen->size_count > 0)
+        choice_row((Rectangle){ x, row_y, wide, 36 }, "World size", gen->sizes[m->size].label, &m->size, gen->size_count);
+    if (gen->size_count > 0) row_y += 46.0f;
+    if (m->tab == 0 && gen->scale_count > 0) {
         choice_row((Rectangle){ x, row_y, wide, 36 }, "Mountains", gen->scales[m->mountains].label, &m->mountains, gen->scale_count);
         choice_row((Rectangle){ x, row_y + 46, wide, 36 }, "Valleys and seas", gen->scales[m->valleys].label, &m->valleys, gen->scale_count);
         choice_row((Rectangle){ x, row_y + 92, wide, 36 }, "Ore veins", gen->scales[m->veins].label, &m->veins, gen->scale_count);
-        row_y += 138.0f;
     }
+    if (gen->scale_count > 0) row_y += 138.0f;
     top = row_y - 80.0f;
 
     while (len > 0 && m->name[len - 1] == ' ') len--;

@@ -1740,7 +1740,7 @@ int main(void)
                 uint32_t seed = (uint32_t)time(NULL) ^ (uint32_t)(GetTime() * 1000000.0);
                 WorldOptions options = main_menu_world_options(&menu);
                 ok = game_init_with(&session.game, main_menu_world_width(&menu), content.worldgen.height, seed,
-                                    WORLD_TERRAIN, &options);
+                                    main_menu_world_debug(&menu) ? WORLD_DEBUG : WORLD_TERRAIN, &options);
                 /* A new world has nobody in it: its first character is made by the player. */
                 if (ok) game_clear_characters(&session.game);
             }

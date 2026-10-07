@@ -6,7 +6,8 @@
 typedef enum {
     WORLD_FLAT,    /* level soil, for tests */
     WORLD_TERRAIN, /* plains broken up by the features in the data, with trees */
-    WORLD_BLANK    /* nothing at all: filled in from a save file */
+    WORLD_BLANK,   /* nothing at all: filled in from a save file */
+    WORLD_DEBUG    /* level soil with one of every block set out along it, each every way it can be put up */
 } WorldKind;
 
 /* What a world is made as, over and above what the data says: how many times
@@ -47,6 +48,8 @@ typedef struct {
     uint8_t *paint[2];
 } World;
 
+/* How wide a WORLD_DEBUG world has to be to hold everything that is set out in it. */
+int world_debug_width(void);
 /* Allocates the grid and generates terrain from the seed. */
 bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind);
 /* The same, with options: NULL for everything as usual. */

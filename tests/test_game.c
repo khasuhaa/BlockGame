@@ -2364,6 +2364,75 @@ static void test_queue_waits(void)
     game_free(&g);
 }
 
+/* The debug world: one of every block, each every way it can be put up. */
+static void test_debug_world(void)
+{
+    int width = world_debug_width();
+    CHECK(width >= 64 && width % 64 == 0 && width <= 65536);
+    Game g;
+    CHECK(game_init(&g, width, 128, 3, WORLD_DEBUG));
+    World *w = &g.world;
+    int ground = w->surface_y - 1;
+    TileType holder = content.worldgen.soil;
+    CHECK(g.random_events == 0 && w->spawn_y == ground && world_is_solid(w, w->spawn_x, ground + 1));
+    /* Every block there is, is somewhere in it (the other halves of two-block things with their first halves). */
+    static int count[MAX_TILES];
+    static uint8_t mounts[MAX_TILES];
+    memset(count, 0, sizeof count);
+    memset(mounts, 0, sizeof mounts);
+    for (int y = 0; y < ground + 1; y++) {
+        for (int x = 0; x < w->width; x++) {
+            for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
+                TileType t = world_get_at(w, layer, x, y);
+                if (t == TILE_AIR) continue;
+                count[t]++;
+                const TileDef *def = tile_def(t);
+                if (def->pair_of != TILE_AIR) continue;
+                int m = layer == LAYER_BACKGROUND ? world_mount(w, x, y) : world_mount_block(w, x, y);
+                if (m == MOUNT_NONE && def->pair != TILE_AIR) m = world_mount_block(w, x + 1, y);
+                mounts[t] |= (uint8_t)(1 << m);
+            }
+        }
+    }
+    int missing = 0, unshown = 0, bad_holder = 0;
+    for (TileType t = 1; t < content.tile_count; t++) {
+        const TileDef *def = tile_def(t);
+        if (count[t] == 0) missing++;
+        if (def->pair_of != TILE_AIR) continue;
+        bool mounted = def->hangs || def->texture_mount[0][0] || def->texture_mount[1][0] || def->texture_mount[2][0];
+        if (!mounted) continue;
+        /* Something that goes up against a block is shown under one; and, unless it only hangs, on one and on each side of one. */
+        int want = 1 << MOUNT_CEILING;
+        if (!def->hangs) want |= 1 << MOUNT_FLOOR | 1 << MOUNT_LEFT | 1 << MOUNT_RIGHT;
+        if (!def->hangs && def->layer == LAYER_BACKGROUND) want |= 1 << MOUNT_WALL;
+        if ((mounts[t] & want) != want) unshown++;
+    }
+    CHECK(missing == 0 && unshown == 0);
+    /* What holds them is the soil, and nothing else is put there for the purpose. */
+    for (int y = 0; y < ground; y++)
+        for (int x = 0; x < w->width; x++)
+            if (world_get_at(w, LAYER_WALL, x, y) != TILE_AIR && world_get_at(w, LAYER_WALL, x, y) != holder) bad_holder++;
+    CHECK(bad_holder == 0);
+    /* A door is shown as itself and between two blocks, with their look; steps in a flight each way. */
+    TileType door = tile_id("wooden_door");
+    int doors = 0, looked = 0;
+    for (int x = 0; x < w->width; x++) {
+        if (world_get(w, x, ground) != door) continue;
+        doors++;
+        if (world_looks_like(w, x, ground) == holder) looked++;
+    }
+    CHECK(doors == 2 && looked == 1);
+    /* It is saved and loaded like any other. */
+    CHECK(save_game(&g, "build/test_debug.world"));
+    Game loaded;
+    CHECK(load_game(&loaded, "build/test_debug.world"));
+    CHECK(loaded.world.width == width && memcmp(loaded.world.layers[0], w->layers[0], sizeof(uint16_t) * (size_t)width * 128) == 0);
+    game_free(&loaded);
+    remove("build/test_debug.world");
+    for (int t = 0; t < 50; t++) game_tick(&g);
+    game_free(&g);
+}
+
 static int light_at(const Game *g, int x, int y)
 {
     uint8_t v;
@@ -8889,6 +8958,7 @@ int main(void)
     test_monkey_bars();
     test_crawl();
     test_crawl_into_gaps();
+    test_debug_world();
     test_queue_waits();
     test_blocked_corner();
     test_hop_gap();

@@ -50,6 +50,8 @@ typedef struct {
     bool creating; /* on the "new world" screen */
     /* What the new world is to be made as: which of the sizes the data offers, and which of its scales for each of three things. */
     int size, mountains, valleys, veins;
+    /* Which tab of that screen is up (0 the world, 1 advanced), and whether a debug world was asked for. */
+    int tab, debug;
     bool deleting; /* asking whether the chosen world is really to be deleted */
     char name[WORLD_NAME_MAX + 1];
     char error[96];
@@ -67,6 +69,8 @@ typedef struct {
 /* What the "new world" screen was set to, as the generator wants it. */
 int main_menu_world_width(const MainMenu *m);
 WorldOptions main_menu_world_options(const MainMenu *m);
+/* Whether it is to be a debug world: one of every block, set out to be looked at. */
+bool main_menu_world_debug(const MainMenu *m);
 
 /* Runs and draws one frame of the main menu. Call between BeginDrawing and
  * EndDrawing. */
