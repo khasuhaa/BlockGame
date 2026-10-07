@@ -136,7 +136,7 @@
     {"name": "leather", "label": "Leather", "texture": "items/leather.png", "category": "materials", "price": 60},
     {"name": "steam_engine", "label": "Steam engine", "texture": "items/steam_engine.png", "category": "materials", "price": 3150},
     {"name": "electric_motor", "label": "Electric motor", "texture": "items/electric_motor.png", "category": "materials", "price": 2100},
-    {"name": "copper_wire", "label": "Copper wire", "texture": "items/copper_wire.png", "category": "materials", "places": "copper_wire", "places_on_block": "copper_wire_floor", "price": 30},
+    {"name": "copper_wire", "label": "Copper wire", "texture": "items/copper_wire.png", "category": "materials", "places": "copper_wire", "price": 30},
     {"name": "iron_pot", "label": "Iron pot", "texture": "items/iron_pot.png", "category": "materials", "price": 580},
     {"name": "red_brick", "label": "Red brick", "texture": "items/red_brick.png", "category": "materials", "price": 25},
     {"name": "silicon_wafer", "label": "Silicon wafer", "texture": "items/silicon_wafer.png", "category": "materials", "price": 55},

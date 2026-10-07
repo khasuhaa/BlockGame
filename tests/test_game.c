@@ -4218,7 +4218,7 @@ static void test_power(void)
     CHECK(steam->fuel_capacity > 0 && wheel->battery == 10000 && wheel->gen_power == 0);
     CHECK(wire > 0 && tile_def(wire)->wire && tile_def(wire)->layer == LAYER_BACKGROUND && tile_def(wire)->floats && !tile_def(wire)->solid);
     CHECK(tile_def(floor_wire)->wire && tile_def(floor_wire)->layer == LAYER_FOREGROUND && !tile_def(floor_wire)->solid);
-    CHECK(item_def(item_id("copper_wire"))->places == wire && item_def(item_id("copper_wire"))->places_on_block == floor_wire);
+    CHECK(item_def(item_id("copper_wire"))->places == wire && item_def(item_id("copper_wire"))->places_on_block == TILE_AIR);
     CHECK(tile_def(tile_id("electric_furnace"))->electric == 100 && strcmp(tile_def(tile_id("electric_furnace"))->bench_kind, "electric_furnace") == 0);
     /* (It has recipes of its own in the game. For these tests it is lent the furnace's, which the tests' own content has.) */
     TileDef *lent = tile_def_mut(tile_id("electric_furnace"));
@@ -4227,26 +4227,45 @@ static void test_power(void)
     CHECK(tile_def(tile_id("electric_furnace"))->fuel_capacity == 0 && tile_def(tile_id("furnace"))->electric == 0);
     CHECK(tile_def(tile_id("electric_elevator_motor"))->motor_power == 10 && tile_def(tile_id("elevator_shaft"))->shaft);
 
-    /* Wire: on top of a block it lies in front; anywhere else - in thin air too - it runs behind. */
+    /* Wire goes on a block - in the very square the block is in, over the face of it - and anywhere else, in thin air too. */
     clear_inventory(&g);
     inventory_add(inv, item_id("copper_wire"), 4);
     inventory_select(inv, 0, -1);
-    CHECK(game_queue_action(&g, ACTION_PLACE, px + 2, ground));
+    TileType under = world_get(w, px + 2, s);
+    CHECK(under != TILE_AIR && world_is_solid(w, px + 2, s));
+    CHECK(game_queue_action(&g, ACTION_PLACE, px + 2, s));
     run(&g, 5.0f);
-    CHECK(world_get(w, px + 2, ground) == floor_wire && world_get_at(w, BG, px + 2, ground) == TILE_AIR && world_is_wired(w, px + 2, ground));
+    CHECK(world_get(w, px + 2, s) == under && world_get_at(w, BG, px + 2, s) == wire && world_is_wired(w, px + 2, s));
+    CHECK(world_is_solid(w, px + 2, s) && !world_is_wired(w, px + 2, ground));
+    CHECK(!game_queue_action(&g, ACTION_PLACE, px + 2, s)); /* one wire to a square */
     world_set_at(w, LAYER_WALL, px + 2, ground - 2, TILE_AIR);
     CHECK(game_queue_action(&g, ACTION_PLACE, px + 2, ground - 2));
     run(&g, 5.0f);
     CHECK(world_get_at(w, BG, px + 2, ground - 2) == wire && world_get(w, px + 2, ground - 2) == TILE_AIR && world_is_wired(w, px + 2, ground - 2));
     CHECK(!world_is_wired(w, px + 2, ground - 1) && count_item(&g, item_id("copper_wire")) == 2);
-    /* It is walked through, and comes up again as the same wire. */
-    CHECK(!world_is_solid(w, px + 2, ground));
+    /* Off a block it comes first, before the block, and as the same wire; the block is still there. */
     clear_inventory(&g);
-    CHECK(game_click_tile(&g, px + 2, ground) && g.queue[0].type == ACTION_MINE);
+    CHECK(game_click_tile(&g, px + 2, s) && g.queue[0].type == ACTION_MINE);
     run(&g, 5.0f);
-    CHECK(world_get(w, px + 2, ground) == TILE_AIR && count_item(&g, item_id("copper_wire")) + drops_of(&g, item_id("copper_wire")) == 1);
+    CHECK(world_get_at(w, BG, px + 2, s) == TILE_AIR && world_get(w, px + 2, s) == under);
+    CHECK(count_item(&g, item_id("copper_wire")) + drops_of(&g, item_id("copper_wire")) == 1);
+    /* A block can be put where wire already is, and the wire stays. */
+    world_set_at(w, BG, px + 3, ground, wire);
+    inventory_add(inv, ITEM_DIRT, 1);
+    for (int i = 0; i < INVENTORY_SLOTS; i++)
+        if (inv->slots[i].count > 0 && inv->slots[i].id == ITEM_DIRT) inventory_select(inv, i, -1);
+    CHECK(game_queue_action(&g, ACTION_PLACE, px + 3, ground));
+    run(&g, 5.0f);
+    CHECK(world_is_solid(w, px + 3, ground) && world_get_at(w, BG, px + 3, ground) == wire && world_is_wired(w, px + 3, ground));
+    world_set(w, px + 3, ground, TILE_AIR);
+    world_set_at(w, BG, px + 3, ground, TILE_AIR);
     world_set_at(w, BG, px + 2, ground - 2, TILE_AIR);
+    clear_inventory(&g);
     clear_drops(&g);
+    /* (Wire of the kind that used to lie on top of a block, in worlds that have it, still carries.) */
+    world_set(w, px + 2, ground, floor_wire);
+    CHECK(world_is_wired(w, px + 2, ground));
+    world_set(w, px + 2, ground, TILE_AIR);
 
     /* A steam generator with fuel in it, five squares of wire, and a flywheel. */
     int gx = px + 10, row = ground - 10;
@@ -4290,6 +4309,31 @@ static void test_power(void)
     for (int t = 0; t < 20; t++) game_tick(&g);
     CHECK(fly->power == before && in_the_wires(&g) == 0);
     world_set_at(w, BG, gx + 3, row, wire);
+    /* It is the generator that looks for somewhere to put what it makes: the nearest flywheel with room,
+     * and when that is full, the next. A second generator on the same wire sends its own as well. */
+    {
+        int ex = px + 40, er = ground - 20;
+        Storage *one = put_device(&g, "steam_generator", ex, er), *two = put_device(&g, "steam_generator", ex + 4, er - 2);
+        for (int k = 1; k <= 9; k++) world_set_at(w, BG, ex + k, er, wire);
+        world_set_at(w, BG, ex + 4, er - 1, wire);
+        Storage *nearer = put_device(&g, "flywheel", ex + 3, er + 1), *further = put_device(&g, "flywheel", ex + 10, er);
+        one->fuel = two->fuel = 100000;
+        nearer->power = 9900;
+        for (int t = 0; t < 40; t++) game_tick(&g);
+        CHECK(nearer->power == 10000 && further->power > 0); /* the near one filled, and the rest going on to the far one */
+        int had = further->power;
+        for (int t = 0; t < 100; t++) game_tick(&g);
+        CHECK(further->power == had + 2000); /* both generators' ten a tick */
+        further->power = 10000;
+        for (int t = 0; t < 30; t++) game_tick(&g);
+        CHECK(nearer->power == 10000 && further->power == 10000 && game_power_made(&g, ex, er) == 10);
+        /* Room made in one, it is filled again. */
+        nearer->power = 5000;
+        for (int t = 0; t < 30; t++) game_tick(&g);
+        CHECK(nearer->power > 5000);
+        one->fuel = two->fuel = 0;
+        for (int t = 0; t < 30; t++) game_tick(&g);
+    }
     /* Kept with the world. */
     CHECK(save_game(&g, "build/test_power.world"));
     Game loaded;
@@ -8489,7 +8533,7 @@ static void test_shipped_recipes(void)
     } benches[] = { { "workbench", 30 }, { "campfire", 6 }, { "tool_bench", 25 }, { "craft_bench", 18 }, { "woodwork_bench", 12 },
                     { "tailor_bench", 12 }, { "kiln", 8 }, { "furnace", 11 }, { "press", 29 }, { "compost_bin", 24 },
                     { "builder_bench", 55 }, { "armor_bench", 16 }, { "metalwork_bench", 27 }, { "pizza_oven", 2 },
-                    { "mixing_bench", 93 }, { "portal", 11 }, { "dye_bench", 0 }, { "easel", 0 }, { "refinery", 5 },
+                    { "mixing_bench", 93 }, { "portal", 9 }, { "dye_bench", 0 }, { "easel", 0 }, { "refinery", 5 },
                     /* The electric benches have lists of their own: the kiln's and the metalwork bench's are the
                      * fuelled ones' over again, quicker; an egg extractor has one for every kind of dodo that leaves something. */
                     { "electric_furnace", 19 }, { "electric_stove", 8 }, { "electric_sluice", 2 }, { "egg_extractor", 20 },

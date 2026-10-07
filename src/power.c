@@ -107,9 +107,20 @@ static bool can_give(Game *g, int x, int y, bool batteries)
     return def->gen_power > 0 && st->made - st->given > 0;
 }
 
+/* Whether a thing is a battery that could take more than it has and has coming. */
+static bool has_room(Game *g, int x, int y)
+{
+    const TileDef *def = device_def(&g->world, x, y);
+    Storage *st = device_at(g, x, y);
+    return def && st && def->battery > 0 && st->power + incoming(g, st, NULL) < def->battery;
+}
+
 /* Looks along the wires from a thing for the nearest thing to draw on, and
- * fills in the way there, from that thing's end. False if there is none in reach. */
-static bool find_source(Game *g, const Storage *to, bool batteries, PowerFlow *out)
+ * fills in the way there, from that thing's end. False if there is none in reach.
+ * With `store`, it is the other way about: `to` is something with electricity
+ * to spare, what is looked for is the nearest battery with room for it, and
+ * the way filled in runs from the one to the other. */
+static bool find_source(Game *g, const Storage *to, bool batteries, bool store, PowerFlow *out)
 {
     static const int dirs[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
     const World *w = &g->world;
@@ -125,7 +136,7 @@ static bool find_source(Game *g, const Storage *to, bool batteries, PowerFlow *o
             if (!world_in_bounds(w, nx, ny)) continue;
             int next = ny * w->width + nx;
             if (g->bfs_seen[(size_t)next * 2] == gen) continue;
-            bool source = next != start && can_give(g, nx, ny, batteries);
+            bool source = next != start && (store ? has_room(g, nx, ny) : can_give(g, nx, ny, batteries));
             if (!source && !world_is_wired(w, nx, ny)) continue;
             g->bfs_seen[(size_t)next * 2] = gen;
             g->bfs_parent[(size_t)next * 2] = at;
@@ -146,6 +157,18 @@ static bool find_source(Game *g, const Storage *to, bool batteries, PowerFlow *o
             out->length = length;
             int k = 0;
             for (int c = at; c != start; c = g->bfs_parent[(size_t)c * 2]) out->cells[k++] = c;
+            if (store) {
+                /* (The way was found from the giving end: turn it about.) */
+                out->from_x = to->x;
+                out->from_y = to->y;
+                out->to_x = nx;
+                out->to_y = ny;
+                for (int i = 0; i < length / 2; i++) {
+                    int32_t c = out->cells[i];
+                    out->cells[i] = out->cells[length - 1 - i];
+                    out->cells[length - 1 - i] = c;
+                }
+            }
             return true;
         }
     }
@@ -211,7 +234,7 @@ static void run_flow(Game *g, PowerFlow *f)
 static bool ask(Game *g, Storage *to, int amount, int rate, bool batteries)
 {
     PowerFlow found, *slot = free_flow(g);
-    if (!slot || !find_source(g, to, batteries, &found)) return false;
+    if (!slot || !find_source(g, to, batteries, false, &found)) return false;
     const TileDef *source = device_def(&g->world, found.from_x, found.from_y);
     Storage *from = device_at(g, found.from_x, found.from_y);
     if (amount >= 0 && source->battery > 0) {
@@ -224,6 +247,23 @@ static bool ask(Game *g, Storage *to, int amount, int rate, bool batteries)
     }
     *slot = found;
     return true;
+}
+
+/* A generator with something left over sends it to the nearest battery with
+ * room for it, for as long as it has any and the battery has room. */
+static void store(Game *g, Storage *from, const TileDef *def)
+{
+    for (int i = 0; i < MAX_POWER_FLOWS; i++) {
+        const PowerFlow *f = &g->flows[i];
+        if (!f->active || f->from_x != from->x || f->from_y != from->y) continue;
+        const TileDef *sink = device_def(&g->world, f->to_x, f->to_y);
+        if (sink && sink->battery > 0) return; /* already sending to one */
+    }
+    PowerFlow found, *slot = free_flow(g);
+    if (!slot || !find_source(g, from, false, true, &found)) return;
+    found.remaining = -1;
+    found.rate = def->gen_power;
+    *slot = found;
 }
 
 void power_tick(Game *g)
@@ -278,9 +318,9 @@ void power_tick(Game *g)
             bool runs = st->power >= def->motor_power;
             if (runs) st->power -= def->motor_power;
             world_set_meta(w, st->x, st->y, runs ? 1 : 0);
-        } else if (def->battery > 0 && !fed && st->power < def->battery) {
-            /* A battery fills itself from whatever generator has anything to spare. */
-            ask(g, st, -1, 0, false);
+        } else if (def->gen_power > 0 && st->made - st->given > 0) {
+            /* What a generator makes and nothing has asked for, it looks for a battery to put in. */
+            store(g, st, def);
         }
     }
 }

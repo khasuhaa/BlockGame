@@ -638,6 +638,8 @@ static void draw_world(const Game *g, Vector2 origin)
                 if (!tile_def(behind)->front) draw_block(g, LAYER_BACKGROUND, behind, x, y, px, py, shining ? 0.0f : BACKGROUND_DIM);
             }
             if (!tile_def(t)->front) draw_block(g, LAYER_FOREGROUND, t, x, y, px, py, 0.0f);
+            /* (Wire on a block lies over the face of it.) */
+            if (tile_def(behind)->wire && tile_def(t)->solid && !tile_def(t)->see_through) draw_block(g, LAYER_BACKGROUND, behind, x, y, px, py, 0.0f);
             if (block_paint > 0 && block_paint <= content.tint_count && tile_def(t)->solid) {
                 const unsigned char *c = content.tints[block_paint - 1];
                 DrawRectangleRec((Rectangle){ px, py, TILE_SIZE, TILE_SIZE }, (Color){ c[0], c[1], c[2], 170 });

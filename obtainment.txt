@@ -12,7 +12,7 @@ Everything is treated as an item unless it can actually be put down in the world
 (the "X block" things, benches, and the blocks the game already had). Beds, doors,
 columns, stairs, ladders and the like are items for now.
 
-Totals: 411 items, 499 recipes, 30 kinds of bench.
+Totals: 411 items, 497 recipes, 30 kinds of bench.
 
 ==============================================================================
 1. UNOBTAINABLE ITEMS  (5 of 411)

@@ -397,6 +397,8 @@ static bool in_attack_range(const World *w, TilePos feet, TilePos target, int ra
 static int mine_layer(const World *w, TilePos t)
 {
     TileType front = world_get(w, t.x, t.y);
+    /* (Wire lies over the block it is put on: it comes off first.) */
+    if (front != TILE_AIR && tile_def(world_get_at(w, LAYER_BACKGROUND, t.x, t.y))->wire) return LAYER_BACKGROUND;
     if (front != TILE_AIR) return tile_def(front)->removable ? LAYER_FOREGROUND : -1;
     return tile_def(world_get_at(w, LAYER_BACKGROUND, t.x, t.y))->removable ? LAYER_BACKGROUND : -1;
 }
@@ -1445,6 +1447,9 @@ static void replace_block(World *w, int layer, TilePos t, TileType with)
  * own layer, for every tile of its height. */
 static bool room_for(const World *w, TilePos t, TileType tile)
 {
+    /* Wire goes on a block as well as anywhere else: in the same square, over the face of it. */
+    if (tile_def(tile)->wire && tile_def(tile)->layer != LAYER_FOREGROUND)
+        return world_in_bounds(w, t.x, t.y) && world_get_at(w, tile_def(tile)->layer, t.x, t.y) == TILE_AIR;
     for (int i = 0; i < tile_def(tile)->height; i++) {
         if (!world_in_bounds(w, t.x, t.y - i) || world_get(w, t.x, t.y - i) != TILE_AIR || world_is_solid(w, t.x, t.y - i) ||
             world_get_at(w, tile_def(tile)->layer, t.x, t.y - i) != TILE_AIR)

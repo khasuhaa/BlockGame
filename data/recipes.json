@@ -370,8 +370,6 @@
     {"bench": "mixing_bench", "output": {"item": "paint_stripper", "count": 1}, "inputs": [{"item": "bucket", "count": 1}, {"item": "oil", "count": 5}], "time": 80},
     {"bench": "portal", "output": {"item": "workbench", "count": 1}, "inputs": [{"item": "dirt", "count": 1}]},
     {"bench": "portal", "output": {"item": "trade_portal", "count": 1}, "inputs": [{"item": "portal", "count": 1}, {"item": "gold_coin", "count": 1}]},
-    {"bench": "portal", "output": {"item": "trade_portal", "count": 1}, "inputs": [{"item": "dirt", "count": 1}]},
-    {"bench": "portal", "output": {"item": "gold_coin", "count": 1}, "inputs": [{"item": "dirt", "count": 1}]},
     {"bench": "portal", "level": 2, "output": {"item": "amethyst_pickaxe", "count": 1}, "inputs": [{"item": "amethyst", "count": 3}, {"item": "stick", "count": 1}]},
     {"bench": "portal", "level": 3, "output": {"item": "sapphire_pickaxe", "count": 1}, "inputs": [{"item": "sapphire", "count": 3}, {"item": "stick", "count": 1}]},
     {"bench": "portal", "level": 4, "output": {"item": "emerald_pickaxe", "count": 1}, "inputs": [{"item": "emerald", "count": 3}, {"item": "stick", "count": 1}]},
