@@ -1,0 +1,359 @@
+{
+ "biomes": [
+  {
+   "name": "berry_meadow",
+   "label": "Berry meadow",
+   "heat": [
+    -0.4,
+    0.1
+   ],
+   "dryness": [
+    -0.1,
+    0.12
+   ],
+   "surface": "grass",
+   "soil": "dirt",
+   "tree_one_in": 9,
+   "trees": [
+    {
+     "tree": "plum_tree",
+     "weight": 2
+    },
+    {
+     "tree": "pear_tree",
+     "weight": 2
+    },
+    {
+     "tree": "peach_tree",
+     "weight": 1
+    }
+   ],
+   "plants": [
+    {
+     "tile": "strawberry_0",
+     "one_in": 14
+    },
+    {
+     "tile": "blueberry_0",
+     "one_in": 16
+    },
+    {
+     "tile": "raspberry_0",
+     "one_in": 16
+    },
+    {
+     "tile": "mint_0",
+     "one_in": 30
+    },
+    {
+     "tile": "lettuce_0",
+     "one_in": 35
+    }
+   ]
+  },
+  {
+   "name": "citrus_grove",
+   "label": "Citrus grove",
+   "heat": [
+    0.1,
+    0.55
+   ],
+   "dryness": [
+    -0.45,
+    0.05
+   ],
+   "surface": "grass",
+   "soil": "dirt",
+   "tree_one_in": 6,
+   "trees": [
+    {
+     "tree": "lemon_tree",
+     "weight": 3
+    },
+    {
+     "tree": "lime_tree",
+     "weight": 3
+    },
+    {
+     "tree": "avocado_tree",
+     "weight": 1
+    },
+    {
+     "tree": "orange",
+     "weight": 1
+    }
+   ],
+   "plants": [
+    {
+     "tile": "basil_0",
+     "one_in": 22
+    },
+    {
+     "tile": "mint_0",
+     "one_in": 28
+    },
+    {
+     "tile": "bell_pepper_0",
+     "one_in": 28
+    },
+    {
+     "tile": "melon_0",
+     "one_in": 35
+    },
+    {
+     "tile": "cucumber_0",
+     "one_in": 35
+    }
+   ]
+  },
+  {
+   "name": "spice_jungle",
+   "label": "Spice jungle",
+   "heat": [
+    0.55,
+    1
+   ],
+   "dryness": [
+    -1,
+    -0.45
+   ],
+   "surface": "grass",
+   "soil": "dirt",
+   "tree_one_in": 4,
+   "tree_spacing": 3,
+   "trees": [
+    {
+     "tree": "banana_tree",
+     "weight": 3
+    },
+    {
+     "tree": "cocoa_pod_tree",
+     "weight": 3
+    },
+    {
+     "tree": "cinnamon_tree",
+     "weight": 2
+    },
+    {
+     "tree": "avocado_tree",
+     "weight": 1
+    }
+   ],
+   "plants": [
+    {
+     "tile": "ginger_0",
+     "one_in": 20
+    },
+    {
+     "tile": "sesame_0",
+     "one_in": 26
+    },
+    {
+     "tile": "peanut_0",
+     "one_in": 26
+    },
+    {
+     "tile": "eggplant_0",
+     "one_in": 32
+    },
+    {
+     "tile": "chilli_0",
+     "one_in": 32
+    }
+   ]
+  },
+  {
+   "name": "vineyard_hills",
+   "label": "Vineyard hills",
+   "heat": [
+    0.1,
+    0.5
+   ],
+   "dryness": [
+    0.05,
+    0.5
+   ],
+   "surface": "grass",
+   "soil": "dirt",
+   "tree_one_in": 10,
+   "trees": [
+    {
+     "tree": "olive_tree",
+     "weight": 3
+    },
+    {
+     "tree": "fig_tree",
+     "weight": 2
+    },
+    {
+     "tree": "walnut_tree",
+     "weight": 1
+    }
+   ],
+   "plants": [
+    {
+     "tile": "grape_0",
+     "one_in": 9
+    },
+    {
+     "tile": "barley_0",
+     "one_in": 22
+    },
+    {
+     "tile": "hops_0",
+     "one_in": 24
+    },
+    {
+     "tile": "garlic_0",
+     "one_in": 30
+    },
+    {
+     "tile": "onion_0",
+     "one_in": 30
+    }
+   ]
+  },
+  {
+   "name": "rice_terraces",
+   "label": "Rice terraces",
+   "heat": [
+    -0.4,
+    0.1
+   ],
+   "dryness": [
+    -1,
+    -0.6
+   ],
+   "surface": "grass",
+   "soil": "dirt",
+   "tree_one_in": 14,
+   "trees": [
+    {
+     "tree": "peach_tree",
+     "weight": 2
+    },
+    {
+     "tree": "plum_tree",
+     "weight": 1
+    }
+   ],
+   "plants": [
+    {
+     "tile": "rice_0",
+     "one_in": 7
+    },
+    {
+     "tile": "soybean_0",
+     "one_in": 18
+    },
+    {
+     "tile": "tea_leaf_0",
+     "one_in": 18
+    },
+    {
+     "tile": "cabbage_0",
+     "one_in": 26
+    },
+    {
+     "tile": "spinach_0",
+     "one_in": 30
+    },
+    {
+     "tile": "mushroom_0",
+     "one_in": 40
+    }
+   ]
+  },
+  {
+   "name": "harvest_fields",
+   "label": "Harvest fields",
+   "heat": [
+    -1,
+    -0.4
+   ],
+   "dryness": [
+    -0.2,
+    0.1
+   ],
+   "surface": "grass",
+   "soil": "dirt",
+   "tree_one_in": 16,
+   "trees": [
+    {
+     "tree": "walnut_tree",
+     "weight": 2
+    },
+    {
+     "tree": "pear_tree",
+     "weight": 1
+    }
+   ],
+   "plants": [
+    {
+     "tile": "pumpkin_0",
+     "one_in": 16
+    },
+    {
+     "tile": "potato_0",
+     "one_in": 14
+    },
+    {
+     "tile": "sugar_beet_0",
+     "one_in": 18
+    },
+    {
+     "tile": "beetroot_0",
+     "one_in": 22
+    },
+    {
+     "tile": "green_bean_0",
+     "one_in": 22
+    },
+    {
+     "tile": "pea_0",
+     "one_in": 22
+    },
+    {
+     "tile": "onion_0",
+     "one_in": 28
+    },
+    {
+     "tile": "mushroom_0",
+     "one_in": 36
+    }
+   ]
+  }
+ ],
+ "biome_plants": [
+  {
+   "biome": "plains",
+   "tile": "potato_0",
+   "one_in": 60
+  },
+  {
+   "biome": "plains",
+   "tile": "lettuce_0",
+   "one_in": 70
+  },
+  {
+   "biome": "orchard",
+   "tile": "strawberry_0",
+   "one_in": 45
+  },
+  {
+   "biome": "tropics",
+   "tile": "ginger_0",
+   "one_in": 50
+  },
+  {
+   "biome": "pine_forest",
+   "tile": "mushroom_0",
+   "one_in": 25
+  },
+  {
+   "biome": "maple_forest",
+   "tile": "mushroom_0",
+   "one_in": 30
+  }
+ ]
+}

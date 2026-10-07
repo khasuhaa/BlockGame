@@ -54,7 +54,7 @@ Rendering and menus have no tests. To look at them, write a small C file that do
 
 - `obtain.py` - writes `obtainment.txt` from the data.
 - `prices.py` - reprices items from their recipes. It overwrites prices in `data/items.json`: run it on purpose, not as routine.
-- `mod_magic_mayhem.py`, `mod_industry.py`, `mod_digital_storage.py` - each wrote one mod's data files and textures from its plan. Either edit the script and rerun it, or edit the mod's files by hand and stop using the script: not both, or the script will undo the hand edits.
+- `mod_magic_mayhem.py`, `mod_industry.py`, `mod_digital_storage.py`, `mod_culinary_delights.py` - each wrote one mod's data files and textures. Either edit the script and rerun it, or edit the mod's files by hand and stop using the script: not both, or the script will undo the hand edits.
 - `bench_art.py` - drew the bench textures in `data/textures/tiles/`.
 
 ## Core directive: keep everything data driven
@@ -91,11 +91,11 @@ The loader enforces the category: an item with none that is neither a currency n
 
 ### Mods
 
-- A mod is a directory under `mods/` loaded on top of `data/` by `content_load` (see `src/mods.c`); the ones the game comes with are `mods/magic_mayhem` and `mods/industry`, each written out from its plan in `ModDescriptions/`, and `mods/digital_storage` (storage networks: `src/digital.c`, with the terminal's screen in `src/termui.c`). Everything a mod does it does through the data: if a mod needs the engine to do something new, that is a new field the base game could use as well, never a check for the mod.
+- A mod is a directory under `mods/` loaded on top of `data/` by `content_load` (see `src/mods.c`); the ones the game comes with are `mods/magic_mayhem` and `mods/industry`, each written out from its plan in `ModDescriptions/`, and `mods/digital_storage` (storage networks: `src/digital.c`, with the terminal's screen in `src/termui.c`), and `mods/culinary_delights` (crops, trees, biomes and a kitchen: data only, no engine code). Everything a mod does it does through the data: if a mod needs the engine to do something new, that is a new field the base game could use as well, never a check for the mod.
 - A mod's items follow the same rules as the game's: every one has a category and a price.
 - A mod adds to lists the game already has by naming things (tiles, items, trees, mobs, veins, cave decorations) or through the lists made for adding (`"biome_plants"`, `"island_trees"`, recipes). Do not make a mod restate a whole biome to add a plant to it.
 - Worlds, crystals and the portal chest belong to the playset the enabled mods make (`mods_saves`). Anything new that is kept between worlds goes in that directory too, not in `saves/` itself.
-- `tests/test_game.c` loads each mod on top of the shipped data (`test_magic_mod`, `test_industry_mod`, `test_digital_mod`) and checks its counts: change them there when a mod's content changes.
+- `tests/test_game.c` loads each mod on top of the shipped data (`test_magic_mod`, `test_industry_mod`, `test_digital_mod`, `test_culinary_mod`) and checks its counts: change them there when a mod's content changes.
 - Two mods that define the same name cannot be on together (`mods_conflict`): asked for together, none is loaded. Do not make a mod depend on another being on.
 
 ### Still in code, to be moved when touched
@@ -117,5 +117,6 @@ The loader enforces the category: an item with none that is neither a currency n
 - `tests/test_game.c` is headless and covers the rules. It looks content up by name, and its last test loads a small mod on top of the shipped data. Add a test with each rule change.
 - Rendering code (`main.c`, `hud.c`, `benchui.c`, `menu.c`, `assets.c`) needs a window and is not covered by tests.
 - `third_party/cjson` is vendored; do not edit it.
+- There is room for 16 biomes and 32 trees (`MAX_BIOMES`, `MAX_TREES` in `src/content.h`). With Culinary Delights on, 15 biomes and 28 trees are in use (29 with Magic and Mayhem as well): a mod that adds more of either needs those limits raised first.
 - The save format is at version 28 (`SAVE_VERSION` in `src/save.c`). Every earlier version still loads; keep it so.
 - The plans the owner writes for mods are in `ModDescriptions/`. Where a plan leaves something open, choose, and say what was chosen in the report and in `README.md`.

@@ -9898,6 +9898,141 @@ static void test_digital_mod(void)
     CHECK(content_load("data", err, sizeof err) && content.tile_count == tiles);
 }
 
+/* Culinary Delights, on top of the game. */
+static void test_culinary_mod(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count, trees = content.tree_count, biomes = content.biome_count;
+    if (!content_load("mods/culinary_delights", err, sizeof err)) {
+        printf("FAIL culinary_delights does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    CHECK(content.tile_count == tiles + 160 && content.item_count == items + 147 && content.recipe_count == recipes + 106);
+    CHECK(content.tree_count == trees + 12 && content.biome_count == biomes + 6);
+    /* Everything it adds can be got: grown, picked, or made of things that can be. */
+    static uint8_t got[MAX_ITEMS];
+    memset(got, 0, sizeof got);
+    for (ItemId i = 1; i < items; i++) got[i] = 1; /* (the game's own things are taken as read) */
+    for (TileType t = 1; t < content.tile_count; t++) {
+        const TileDef *def = tile_def(t);
+        if (def->drop != ITEM_NONE) got[def->drop] = 1;
+        for (int k = 0; k < def->extra_drop_count; k++) got[def->extra_drops[k].id] = 1;
+    }
+    for (int t = 0; t < content.tree_count; t++)
+        if (content.trees[t].fruit != ITEM_NONE) got[content.trees[t].fruit] = 1;
+    for (int pass = 0; pass < 12; pass++) {
+        for (int k = 0; k < content.recipe_count; k++) {
+            const Recipe *r = &content.recipes[k];
+            bool can = true;
+            for (int i = 0; i < r->input_count; i++) can = can && got[r->inputs[i].id];
+            if (can) got[r->output.id] = 1;
+        }
+    }
+    int missing = 0;
+    for (ItemId i = items; i < content.item_count; i++) {
+        if (got[i]) continue;
+        printf("  cannot be got: %s\n", item_def(i)->name);
+        missing++;
+    }
+    CHECK(missing == 0);
+    /* The kitchen: six benches, the chef's table in three tiers, each bought with a meal of the tier before. */
+    TileType chef = tile_id("chefs_table");
+    CHECK(tile_def(chef)->upgrade_to == tile_id("chefs_table_2") && tile_def(chef)->upgrade_cost[0].id == item_id("picnic_basket") &&
+          tile_def(tile_id("chefs_table_2"))->upgrade_cost[0].id == item_id("harvest_feast") && tile_def(tile_id("chefs_table_3"))->bench_level == 3);
+    CHECK(find_recipe(TILE_WORKBENCH, "prep_table") && find_recipe(TILE_WORKBENCH, "cooking_pot") && find_recipe(TILE_WORKBENCH, "baking_oven") &&
+          find_recipe(TILE_WORKBENCH, "mortar") && find_recipe(TILE_WORKBENCH, "fermenting_barrel") && find_recipe(TILE_WORKBENCH, "chefs_table"));
+    /* The long way round: the last dish is five dishes, and the first of those is five feasts, each of five dishes more. */
+    const Recipe *last = find_recipe(tile_id("chefs_table_3"), "ambrosia"), *banquet = find_recipe(tile_id("chefs_table_3"), "royal_banquet");
+    CHECK(last && last->level == 3 && last->input_count == 5 && last->inputs[0].id == item_id("royal_banquet"));
+    CHECK(banquet && banquet->level == 3 && banquet->input_count == 5);
+    const Recipe *feast = find_recipe(tile_id("chefs_table_2"), "italian_feast");
+    CHECK(feast && feast->level == 2 && feast->input_count == 5 && find_recipe_from(tile_id("cooking_pot"), "tomato_sauce", "tomato") && find_recipe_from(tile_id("baking_oven"), "lasagna", "pasta_dough"));
+    /* (How deep it goes: the number of makings, one inside another, under the last dish.) */
+    static int depth[MAX_ITEMS];
+    memset(depth, 0, sizeof depth);
+    for (int pass = 0; pass < 12; pass++) {
+        for (int k = 0; k < content.recipe_count; k++) {
+            const Recipe *r = &content.recipes[k];
+            int deep = 0;
+            for (int i = 0; i < r->input_count; i++)
+                if (depth[r->inputs[i].id] > deep) deep = depth[r->inputs[i].id];
+            if (r->output.id >= items && deep + 1 > depth[r->output.id]) depth[r->output.id] = deep + 1;
+        }
+    }
+    CHECK(depth[item_id("ambrosia")] >= 6);
+    /* What it is to eat it. */
+    const ItemDef *ambrosia = item_def(item_id("ambrosia"));
+    CHECK(ambrosia->food == 1.0f && ambrosia->food_health == 1.0f && ambrosia->food_energy == 1.0f && item_def(item_id("strawberry"))->food > 0.0f);
+    Game g;
+    game_init(&g, 96, 64, 5, WORLD_FLAT);
+    World *w = &g.world;
+    g.tick_rate = 0;
+    clear_inventory(&g);
+    inventory_add(&g.inventory, item_id("ambrosia"), 1);
+    inventory_select(&g.inventory, 0, -1);
+    g.vitals.hunger = 0.1f;
+    g.vitals.health = 0.3f;
+    g.vitals.energy = 0.2f;
+    CHECK(game_eat(&g) && g.vitals.hunger > 0.99f && g.vitals.health > 0.99f && g.vitals.energy > 0.99f && count_item(&g, item_id("ambrosia")) == 0);
+    /* A crop is sown from what it bears and grows up by stages; a tall one gets its top, and is cut back to grow again. */
+    int s = w->surface_y, ground = s - 1, px = g.player.feet.x;
+    CHECK(item_def(item_id("rice"))->sows == tile_id("rice_0") && item_def(item_id("strawberry"))->sows == tile_id("strawberry_0"));
+    world_set_at(w, BG, px + 4, ground, tile_id("rice_0"));
+    for (int k = 0; k < 6; k++) world_grow_plant(w, BG, px + 4, ground);
+    CHECK(world_get_at(w, BG, px + 4, ground) == tile_id("rice_3") && world_get_at(w, BG, px + 4, ground - 1) == tile_id("rice_top"));
+    world_set_at(w, BG, px + 6, ground, tile_id("pumpkin_0"));
+    for (int k = 0; k < 6; k++) world_grow_plant(w, BG, px + 6, ground);
+    CHECK(world_get_at(w, BG, px + 6, ground) == tile_id("pumpkin_3") && world_get_at(w, BG, px + 6, ground - 1) == TILE_AIR);
+    CHECK(item_def(item_id("lemon"))->plants == tree_id("lemon_tree") && content.trees[tree_id("cocoa_pod_tree")].fruit == item_id("cocoa_pod"));
+    game_free(&g);
+
+    /* The world: each of the six new kinds of country is somewhere in it, with its own crops and trees growing there. */
+    static const char *const lands[6] = { "berry_meadow", "citrus_grove", "spice_jungle", "vineyard_hills", "rice_terraces", "harvest_fields" };
+    static const char *const grows[6] = { "strawberry", "basil", "ginger", "grape", "rice", "pumpkin" };
+    static const char *const stands[6] = { "plum_tree_log", "lemon_tree_log", "banana_tree_log", "olive_tree_log", "peach_tree_log", "walnut_tree_log" };
+    int columns[6] = { 0 }, crops[6] = { 0 }, trunks[6] = { 0 };
+    for (uint32_t seed = 1; seed <= 4; seed++) {
+        World world;
+        CHECK(world_init(&world, 4096, 401, seed, WORLD_TERRAIN));
+        for (int x = 0; x < world.width; x++) {
+            const char *land = content.biomes[world_biome(&world, x)].name;
+            for (int k = 0; k < 6; k++) {
+                if (strcmp(land, lands[k]) != 0) continue;
+                columns[k]++;
+                for (int y = 0; y < world.height; y++) {
+                    const char *name = tile_def(world_get_at(&world, BG, x, y))->name;
+                    if (strncmp(name, grows[k], strlen(grows[k])) == 0) crops[k]++;
+                    if (strcmp(name, stands[k]) == 0) trunks[k]++;
+                }
+            }
+        }
+        world_free(&world);
+    }
+    for (int k = 0; k < 6; k++) {
+        if (columns[k] < 100 || crops[k] < 3 || trunks[k] < 1) printf("  %s: %d columns, %d %s, %d %s\n", lands[k], columns[k], crops[k], grows[k], trunks[k], stands[k]);
+        CHECK(columns[k] >= 100 && crops[k] >= 3 && trunks[k] >= 1);
+    }
+
+    /* It goes with every other mod. */
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/modtest/none");
+    int found = 0;
+    for (int a = 0; a < mods.count; a++) {
+        if (strcmp(mods.mods[a].id, "culinary_delights") != 0) continue;
+        found++;
+        for (int b = 0; b < mods.count; b++) {
+            char what[64];
+            if (a != b) CHECK(!mods_conflict(&mods.mods[a], &mods.mods[b], what, sizeof what));
+        }
+    }
+    CHECK(found == 1);
+    content_reset();
+    CHECK(content_load("data", err, sizeof err) && content.tile_count == tiles);
+}
+
 int main(void)
 {
     char err[256];
@@ -10021,6 +10156,7 @@ int main(void)
     test_magic_mod();
     test_industry_mod();
     test_digital_mod();
+    test_culinary_mod();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;
