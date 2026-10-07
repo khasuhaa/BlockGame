@@ -48,7 +48,9 @@ void light_compute(const Game *g, int x0, int y0, int width, int height, uint8_t
             int v = 0;
             if (y < 0 || y < stop) v = sky;
             else if (y < w->height && !world_is_solid(w, x, y) &&
-                     world_get_at(w, LAYER_WALL, x, y) == TILE_AIR)
+                     (world_get_at(w, LAYER_WALL, x, y) == TILE_AIR ||
+                      /* (or a window in what is behind it, if its glass is clear) */
+                      (tile_def(world_get_at(w, LAYER_BACKGROUND, x, y))->window && !tile_def(world_get_at(w, LAYER_BACKGROUND, x, y))->window_dark)))
                 v = sky; /* open air with nothing behind it */
             /* Under water the sky is dimmer the deeper it is. */
             if (v == sky && u->light_water_depth > 0 && world_is_water(w, x, y)) {

@@ -4958,6 +4958,117 @@ static void test_islands_and_options(void)
     world_free(&same);
 }
 
+/* Corn, basalt, windows, and the reinforced platform. */
+static void test_corn_basalt_windows(void)
+{
+    /* Corn is one of the crops that end up two blocks tall. */
+    TileType corn[4], ear = tile_id("corn_top");
+    for (int i = 0; i < 4; i++) {
+        char name[32];
+        snprintf(name, sizeof name, "corn_%d", i);
+        corn[i] = tile_id(name);
+        CHECK(corn[i] > 0 && tile_def(corn[i])->drop == item_id("corn"));
+    }
+    CHECK(item_def(item_id("corn"))->sows == corn[0] && tile_def(corn[0])->grows_into == corn[1] && tile_def(corn[1])->grows_into == corn[2]);
+    CHECK(tile_def(corn[2])->grows_into == corn[3] && tile_def(corn[2])->grows_top == ear && tile_def(corn[3])->topped_by == ear);
+    CHECK(tile_def(ear)->cut_to == corn[2] && tile_def(ear)->drop_count == 3);
+    Game g;
+    game_init(&g, 64, 48, 51, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    g.tick_rate = 0;
+    int s = w->surface_y, ground = s - 1, px = g.player.feet.x;
+    world_set_at(w, BG, px + 2, ground, corn[0]);
+    for (int k = 0; k < 3; k++) game_random_event(&g, px + 2, ground);
+    CHECK(world_get_at(w, BG, px + 2, ground) == corn[3] && world_get_at(w, BG, px + 2, ground - 1) == ear);
+    clear_inventory(&g);
+    CHECK(game_click_tile(&g, px + 2, ground - 1));
+    run(&g, 3.0f);
+    CHECK(world_get_at(w, BG, px + 2, ground) == corn[2] && count_item(&g, item_id("corn")) + drops_of(&g, item_id("corn")) == 3);
+    clear_drops(&g);
+
+    /* A window goes on a backwall, and is a hole in it: clear glass lets the daylight through, dark glass does not. */
+    TileType pane = tile_id("window"), dark = tile_id("black_window");
+    CHECK(tile_def(pane)->window && !tile_def(pane)->window_dark && tile_def(dark)->window && tile_def(dark)->window_dark);
+    CHECK(tile_def(pane)->layer == LAYER_BACKGROUND && item_def(item_id("window"))->places == pane && item_def(item_id("black_window"))->places == dark);
+    clear_inventory(&g);
+    inventory_add(inv, item_id("window"), 2);
+    inventory_select(inv, 0, -1);
+    world_set_at(w, LAYER_WALL, px + 3, ground - 1, TILE_AIR);
+    CHECK(!game_queue_action(&g, ACTION_PLACE, px + 3, ground - 1)); /* no wall there to put it in: not even beside a block */
+    CHECK(!game_queue_action(&g, ACTION_PLACE, px + 3, ground - 4));
+    world_set_at(w, LAYER_WALL, px + 3, ground - 1, TILE_STONE);
+    CHECK(game_queue_action(&g, ACTION_PLACE, px + 3, ground - 1));
+    run(&g, 5.0f);
+    CHECK(world_get_at(w, BG, px + 3, ground - 1) == pane && world_get_at(w, LAYER_WALL, px + 3, ground - 1) == TILE_STONE);
+    /* (A room walled in behind and roofed over, at midday: dark, but for what a window lets in.) */
+    Game d;
+    game_init(&d, 64, 64, 52, WORLD_FLAT);
+    d.tick = (uint64_t)content.rules.day_ticks / 2;
+    int ds = d.world.surface_y, cx = 30;
+    for (int x = cx - 12; x <= cx + 12; x++) {
+        for (int y = ds - 8; y < ds; y++) {
+            bool shell = y == ds - 8 || x == cx - 12 || x == cx + 12;
+            world_set(&d.world, x, y, shell ? TILE_STONE : TILE_AIR);
+            world_set_at(&d.world, LAYER_WALL, x, y, TILE_STONE);
+        }
+    }
+    static uint8_t lit[40 * 20];
+    light_compute(&d, cx - 20, ds - 12, 40, 20, lit);
+#define LIT(X, Y) lit[((Y) - (ds - 12)) * 40 + ((X) - (cx - 20))]
+    int before = LIT(cx, ds - 4);
+    world_set_at(&d.world, BG, cx, ds - 4, dark);
+    light_compute(&d, cx - 20, ds - 12, 40, 20, lit);
+    CHECK(LIT(cx, ds - 4) == before && before < light_sky(&d) - 3);
+    world_set_at(&d.world, BG, cx, ds - 4, pane);
+    light_compute(&d, cx - 20, ds - 12, 40, 20, lit);
+    CHECK(LIT(cx, ds - 4) == light_sky(&d) && LIT(cx + 2, ds - 4) > before && LIT(cx + 2, ds - 4) < light_sky(&d));
+#undef LIT
+    game_free(&d);
+
+    /* A reinforced platform is a block to build with that brings no backwall: not behind itself, and not under itself. */
+    TileType deck = tile_id("reinforced_platform");
+    CHECK(deck > 0 && tile_def(deck)->solid && !tile_def(deck)->wall && item_def(item_id("reinforced_platform"))->places == deck);
+    for (int k = 0; k < 8; k++) world_set(w, px - 4, ground - k, TILE_STONE);
+    for (int k = 0; k < 8; k++) world_set_at(w, LAYER_WALL, px - 3, ground - k, TILE_AIR);
+    clear_inventory(&g);
+    inventory_add(inv, item_id("reinforced_platform"), 1);
+    inventory_add(inv, ITEM_STONE, 1);
+    inventory_select(inv, 0, -1);
+    CHECK(game_queue_action(&g, ACTION_PLACE, px - 3, ground - 5));
+    run(&g, 10.0f);
+    CHECK(world_get(w, px - 3, ground - 5) == deck);
+    for (int k = 0; k < 8; k++) CHECK(world_get_at(w, LAYER_WALL, px - 3, ground - k) == TILE_AIR);
+    /* (Where a block of stone put up in the same place would have run a wall down to the ground.) */
+    world_set(w, px - 3, ground - 5, TILE_AIR);
+    inventory_select(inv, 1, -1);
+    CHECK(game_queue_action(&g, ACTION_PLACE, px - 3, ground - 5));
+    run(&g, 10.0f);
+    CHECK(world_get_at(w, LAYER_WALL, px - 3, ground - 2) == TILE_STONE);
+    game_free(&g);
+
+    /* Basalt lies in patches deep down, and nowhere near the surface; corn grows wild. */
+    TileType basalt = tile_id("basalt");
+    CHECK(basalt > 0 && tile_def(basalt)->drop == item_id("basalt") && tile_def(basalt)->tool_class == tool_class_id("pickaxe"));
+    int total = 0, shallow = 0, wild = 0;
+    for (uint32_t seed = 1; seed <= 3; seed++) {
+        World world;
+        CHECK(world_init(&world, 2048, 401, seed, WORLD_TERRAIN));
+        VeinStats st = vein_stats(&world, basalt, 40);
+        CHECK(st.groups > 10 && st.smallest >= 14 && st.over == 0);
+        total += st.blocks;
+        for (int x = 0; x < world.width; x++) {
+            int top = world_y_to_row(&world, column_level(&world, x) - 1);
+            for (int y = 0; y < world.height; y++) {
+                if (world_get(&world, x, y) == basalt && y - top < 60) shallow++; /* (a patch under a hillside is nearer the valley floor than the hilltop) */
+                wild += strncmp(tile_def(world_get_at(&world, BG, x, y))->name, "corn_", 5) == 0;
+            }
+        }
+        world_free(&world);
+    }
+    CHECK(total > 1000 && shallow == 0 && wild > 5);
+}
+
 static void test_plants(void)
 {
     Game g;
@@ -8324,8 +8435,8 @@ static void test_shipped_recipes(void)
         TileType t = tile_id(blocks[i]);
         CHECK(t > 0 && tile_def(t)->solid && item_def(item_id(blocks[i]))->places == t && tile_def(t)->drop == item_id(blocks[i]));
     }
-    /* Columns and stairs go in the background; a window, say, is still only a thing to carry. */
-    CHECK(item_def(item_id("marble_column"))->places == tile_id("marble_column") && item_def(item_id("window"))->places == TILE_AIR);
+    /* Columns and stairs go in the background; a mirror, say, is still only a thing to carry. */
+    CHECK(item_def(item_id("marble_column"))->places == tile_id("marble_column") && item_def(item_id("mirror"))->places == TILE_AIR);
     CHECK(item_def(item_id("iron_helmet"))->equip == EQUIP_HEAD && item_def(item_id("fur_boots"))->equip == EQUIP_BOOTS);
 }
 
@@ -8422,6 +8533,7 @@ int main(void)
     test_furniture_cages_paint();
     test_gate_compost_ember_boat_sign();
     test_islands_and_options();
+    test_corn_basalt_windows();
     test_new_trees();
     test_caves();
     test_backwall();

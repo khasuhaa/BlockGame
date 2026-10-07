@@ -174,6 +174,9 @@ typedef struct {
     bool floats;    /* it can be put up with nothing at all to hold it */
     bool shows_contents; /* what is kept in it is drawn on it, small: a shelf */
     float fertile;     /* a plant growing on top of it grows this many times as fast; 0 for no faster */
+    /* A window: put up on a backwall, it is a hole in it - what is behind the
+     * wall shows through - and, unless its glass is dark, lets the daylight in as an open square would. */
+    bool window, window_dark;
     bool see_through;  /* though it is solid, the backwall behind it is drawn: it is not quite opaque */
     bool burns;        /* something that sets fire to things takes it down in a moment */
     bool afloat;       /* it can only be put down on water: on the top of it */

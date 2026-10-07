@@ -305,6 +305,10 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->shows_contents = flag(e, "shows_contents", false);
         t->fertile = (float)num(e, "fertile", 0.0);
         t->see_through = flag(e, "see_through", false);
+        t->window = cJSON_IsObject(field(e, "window")) || flag(e, "window", false);
+        t->window_dark = flag(field(e, "window"), "dark", false);
+        if (t->window && (t->solid || t->layer != LAYER_BACKGROUND))
+            return fail(r, "tile \"%s\": a window goes in the background, on a backwall", t->name);
         t->burns = flag(e, "burns", false);
         t->afloat = flag(e, "afloat", false);
         t->written = flag(e, "written", false);

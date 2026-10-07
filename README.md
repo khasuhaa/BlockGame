@@ -152,6 +152,8 @@ Veins of the same material never touch, so each stays within its size. Mining fl
 
 **Islands in the sky.** High over the land hang islands, none any lower than Y 80: each 15 to 30 blocks long and 10 to 15 deep, flat on top and narrowing to a point underneath - an upside-down pyramid - of marble under two or three blocks of dirt and a grass top. They have no backwall: there is only sky behind them. About half carry a **gem tree**, which is cut for ordinary wood and sticks but bears shards of its gem among its leaves in place of fruit, and cannot be planted. An amethyst tree may be on any island; sapphire only above Y 105, emerald above 125, ruby above 145 and diamond above 165, each rarer than the last - so the rarer gems are found further up as they are further down. (`"islands"` in `worldgen.json`.)
 
+**Basalt** lies in patches deep in the rock - 14 to 40 blocks to a patch, from 110 blocks down - dark and slow to mine.
+
 **Scars.** Four other kinds of stone run through the rock in great gashes, tens of blocks long and several thick, on a wandering slant and tapering to nothing at their ends. They are laid down in order - **limestone**, then **marble**, then **lapis lazuli**, then **red marble** - and each cuts through whatever of the earlier ones it crosses, so a broad seam of limestone may have marble running through it, lapis through that, and red marble through all three. Limestone is the commonest and shallowest, red marble the scarcest and deepest. A scar is a vein with `"shape": "scar"`: its `"size"` is its length, its `"thickness"` how thick it is at the middle, and `"in"` the blocks it may replace; veins are placed in the order the file lists them.
 
 | Stone | Replaces | Long | Thick | Down |
@@ -282,13 +284,14 @@ Carrots, flax, chilli and coral are single blocks that grow through four stages,
 | Chilli | Tropics | A chilli | Dirt or grass | 1, 1, 2, 4 chillies |
 | Coral | Ocean | Coral | Sand, under water | 1, 1, 2, 3 coral |
 
-**Tall plants** - sunflowers, tomatoes and wheat - grow through three stages one block high and then a last one two blocks high: a foot with a top on it. The last step needs the block above free, and waits until it is. Taking the **top** gives three of what the plant bears and puts the foot back to the third stage, to grow its top again; taking the **foot** takes the whole plant, top and all. They are sown like any plant, and grow wild at every stage.
+**Tall plants** - sunflowers, tomatoes, wheat and corn - grow through three stages one block high and then a last one two blocks high: a foot with a top on it. The last step needs the block above free, and waits until it is. Taking the **top** gives three of what the plant bears and puts the foot back to the third stage, to grow its top again; taking the **foot** takes the whole plant, top and all. They are sown like any plant, and grow wild at every stage.
 
 | Plant | Grows | Planted with | A stage or the foot gives | The top gives |
 | --- | --- | --- | --- | --- |
 | Sunflower | Plains, maple forest | A sunflower seed | 1 seed | 3 seeds |
 | Tomato | Orchard, tropics | A tomato | 1 tomato | 3 tomatoes |
 | Wheat | Plains, maple forest | Wheat | 1 wheat | 3 wheat |
+| Corn | Plains, tropics | Corn | 1 corn | 3 corn |
 
 In data such a plant is three fields: the third stage's `"grows_top"` (the block put on top when it grows), the foot's `"topped_by"`, and the top's `"cut_to"` (what the block under it becomes when the top alone is taken).
 
@@ -588,6 +591,8 @@ How a thing looks fixed each way is its `"texture_mount": { "floor", "ceiling", 
 - A **sign** goes up against a block - standing on one, hanging under one, or fixed to the side of one, and looks the part - but not on a backwall alone. A click on a sign opens it to be written on: three lines, typed, with the arrow keys or Tab to move between them; Done keeps them, Cancel does not, and Take down takes the sign down. The writing is always the same size, a third of the sign's height to a line, so a long line runs out past the sign's edges. A sign taken down keeps what it says, says it again when it is put back up, and stacks with signs that say other things. Writing on one sign never changes another.
 - **Compost** is ground. A plant growing on compost grows three times as fast: of the random events that land on it, it gets three times its usual share. (`"fertile"` on the block.)
 - **Luminous plaster** is a white block that glows faintly and is not quite opaque: the backwall behind it shows through a little.
+- A **window** or a **black window** goes on a backwall and is a hole in it: the wall is not drawn there, so the sky or whatever is behind shows through the glass. A clear window lets the daylight in as an open square would; a black one shows the view and keeps the light out. Neither can be put up where there is no backwall. (`"window": {}`, or `{ "dark": true }`.)
+- A **reinforced platform** is a block to build with like any other, except that it brings no backwall: none behind itself, and none run down from it to the block below.
 - An **ember** in hand, a click on anything made of wood - a wood block, a trunk, a chest, a bed, a door, a bench - burns it down in a moment and drops it, and uses the ember up. (`"burns"` on the block, `"ignites"` on the item.)
 - A **boat** is put down on the top of water. A character in the boat's square who goes left or right across the surface takes the boat along, at twice the speed of swimming. (`"afloat"` on the block; `"boat_speed"` in `rules.json`.)
 

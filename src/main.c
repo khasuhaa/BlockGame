@@ -562,9 +562,12 @@ static void draw_world(const Game *g, Vector2 origin)
             /* (Paint is a wash of its colour over the backwall or the block it is on, as bright as that is lit.) */
             int wall_paint = world_paint(w, true, x, y), block_paint = world_paint(w, false, x, y);
             if (!tile_def(t)->solid || tile_def(t)->see_through) {
-                assets_draw_tile(world_get_at(w, LAYER_WALL, x, y), wx, y, px, py, TILE_SIZE, WALL_DIM,
-                                 TILE_PART_BODY);
-                if (wall_paint > 0 && wall_paint <= content.tint_count && world_get_at(w, LAYER_WALL, x, y) != TILE_AIR) {
+                /* (A window is a hole in the backwall: there, what is behind the wall shows, and the wall does not.) */
+                bool hole = tile_def(behind)->window;
+                if (!hole)
+                    assets_draw_tile(world_get_at(w, LAYER_WALL, x, y), wx, y, px, py, TILE_SIZE, WALL_DIM,
+                                     TILE_PART_BODY);
+                if (!hole && wall_paint > 0 && wall_paint <= content.tint_count && world_get_at(w, LAYER_WALL, x, y) != TILE_AIR) {
                     const unsigned char *c = content.tints[wall_paint - 1];
                     float lit = 1.0f - WALL_DIM;
                     DrawRectangleRec((Rectangle){ px, py, TILE_SIZE, TILE_SIZE },

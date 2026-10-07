@@ -592,6 +592,8 @@ static bool target_valid(const World *w, Action a)
         /* A boat goes on the top of water and nowhere else. */
         if (tile_def(placed)->afloat)
             return world_is_water(w, a.target.x, a.target.y) && !world_is_water(w, a.target.x, a.target.y - 1);
+        /* A window goes on a backwall: it is a hole in one, and there has to be one to make a hole in. */
+        if (tile_def(placed)->window) return bare_wall(w, a.target) != TILE_AIR;
         /* And something that floats, anywhere there is room for it. */
         if (tile_def(placed)->floats) return true;
         if (tile_def(placed)->layer == LAYER_BACKGROUND &&

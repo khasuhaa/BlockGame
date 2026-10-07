@@ -37,7 +37,7 @@
     { "name": "plains", "label": "Plains", "surface": "grass", "soil": "dirt", "tree_one_in": 10,
       "trees": [ { "tree": "oak", "weight": 1 } ],
       "plants": [ { "tile": "carrot_0", "one_in": 45 }, { "tile": "flax_0", "one_in": 35 }, { "tile": "wheat_0", "one_in": 40 },
-                  { "tile": "tulip", "one_in": 45 }, { "tile": "sunflower_0", "one_in": 55 } ] },
+                  { "tile": "tulip", "one_in": 45 }, { "tile": "sunflower_0", "one_in": 55 }, { "tile": "corn_0", "one_in": 55 } ] },
     { "name": "desert", "label": "Desert", "heat": [0.1, 1], "dryness": [0.05, 1], "surface": "sand", "soil": "sand",
       "under": { "tile": "sandstone", "depth": 10, "seam": "black_sand", "seam_share": 0.5 },
       "tree_one_in": 12, "trees": [ { "tree": "cactus", "weight": 1 } ] },
@@ -50,7 +50,7 @@
     { "name": "tropics", "label": "Tropics", "heat": [0.1, 1], "dryness": [-1, 0.05],
       "surface": "grass", "soil": "dirt", "tree_one_in": 7,
       "trees": [ { "tree": "coffee", "weight": 3 }, { "tree": "orange", "weight": 2 }, { "tree": "mango", "weight": 2 } ],
-      "plants": [ { "tile": "chilli_0", "one_in": 30 }, { "tile": "tomato_0", "one_in": 45 } ] },
+      "plants": [ { "tile": "chilli_0", "one_in": 30 }, { "tile": "tomato_0", "one_in": 45 }, { "tile": "corn_0", "one_in": 40 } ] },
     { "name": "pine_forest", "label": "Pine forest", "heat": [-1, -0.4], "dryness": [0.1, 1],
       "surface": "grass", "soil": "dirt", "tree_one_in": 5, "tree_spacing": 4,
       "trees": [ { "tree": "pine", "weight": 1 } ], "plants": [ { "tile": "flax_0", "one_in": 40 } ] },
@@ -110,6 +110,9 @@
       "per_100_columns": 3, "depth": [50, 195] },
     { "name": "titanium", "tile": "titanium_ore", "in": ["stone"], "size": [2, 3],
       "per_100_columns": 3, "depth": [60, 195] },
+
+    { "name": "basalt", "tile": "basalt", "in": ["stone"], "size": [14, 40],
+      "per_100_columns": 4, "depth": [110, 195] },
 
     { "name": "limestone", "tile": "limestone", "in": ["stone"], "shape": "scar", "size": [50, 140], "thickness": [4, 8],
       "per_100_columns": 1.0, "depth": [8, 170] },

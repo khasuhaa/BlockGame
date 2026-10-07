@@ -15,7 +15,7 @@ columns, stairs, ladders and the like are items for now.
 Totals: 411 items, 499 recipes, 30 kinds of bench.
 
 ==============================================================================
-1. UNOBTAINABLE ITEMS  (10 of 411)
+1. UNOBTAINABLE ITEMS  (5 of 411)
 ==============================================================================
 The Workbench is made at any portal (1 dirt), so the benches can all be started.
 The list is split in two: what has no source at all (1a), and what has a recipe that
@@ -24,71 +24,66 @@ cannot be completed because of something in 1a (1b).
 Clay is now dug from veins in the dirt, which opens the kiln, and with it charcoal, the
 furnace, bronze and the press.
 
-401 of the 411 items can be got as things stand.
+406 of the 411 items can be got as things stand.
 
-1a. NOTHING MAKES OR GIVES THESE  (7) - the roots: settle these and most of 1b follows
+1a. NOTHING MAKES OR GIVES THESE  (5) - the roots: settle these and most of 1b follows
     (after each: what it is wanted for)
 
-  - Basalt                 -> Basalt column, Basalt stairs
   - Carbon                 -> Compost
-  - Corn                   -> Dodo stew
 
     Left over from before, wanted for nothing, and now with no recipe:
       Bronze axe, Titanium axe, Wooden pickaxe, Wooden spade
 
-1b. HAVE A RECIPE, BUT IT CANNOT BE COMPLETED  (3)
+1b. HAVE A RECIPE, BUT IT CANNOT BE COMPLETED  (0)
     (after each: the bench, and what is missing)
 
-  - Basalt column                  Builder's bench          needs: Basalt
-  - Basalt stairs                  Builder's bench          needs: Basalt
-  - Dodo stew                      Electric stove           needs: Corn
 
-For reference, what CAN be got as things stand (401): 
+For reference, what CAN be got as things stand (406): 
     Acorn, Amethyst, Amethyst block, Amethyst chandelier, Amethyst column
     Amethyst dodo egg, Amethyst pickaxe, Amethyst shard, Amethyst stairs, Apple
-    Armor bench, Armor bench II, Armor bench III, Basic torch, Basket, Black glass
-    Black glass column, Black glass stairs, Black sand, Black window, Boat, Bread
-    Brick column, Brick stairs, Bronze block, Bronze column, Bronze ingot
-    Bronze machete, Bronze pickaxe, Bronze stairs, Bronze sword, Builder's bench
-    Cactus, Cage, Caged amethyst dodo, Caged copper dodo, Caged diamond dodo
-    Caged dirt dodo, Caged dodo, Caged dropbear, Caged emerald dodo
-    Caged flint dodo, Caged gold dodo, Caged iron dodo, Caged lapis dodo
-    Caged limestone dodo, Caged marble dodo, Caged platinum dodo
-    Caged red marble dodo, Caged ruby dodo, Caged sandstone dodo
-    Caged sapphire dodo, Caged scorpion, Caged stone dodo, Caged tin dodo
-    Caged titanium dodo, Caged wood dodo, Caged yak, Camera, Campfire, Carbon black
-    Carbon fiber armor leggings, Carbon fiber block, Carbon fiber boots
-    Carbon fiber chestplate, Carbon fiber column, Carbon fiber helmet
-    Carbon fiber sheet, Carbon fiber stairs, Carbon fiber wing, Carbon fibers
-    Carrot, Carrot on a stick, Charcoal, Cherry, Chest, Chilli, Clay, Coal, Coconut
-    Coffee, Coffee cherry, Compost, Compost bin, Cooked dodo meat, Cooked fish
-    Copper block, Copper blue, Copper boiler, Copper bow & arrows, Copper coin
-    Copper column, Copper dodo egg, Copper ingot, Copper ore, Copper stairs
-    Copper wire, Coral, Craft bench, Craft bench II, Craft bench III, Craft bench IV
-    Crowbar, Crushed limestone, Cup, Dev portal, Diamond, Diamond block
-    Diamond chandelier, Diamond column, Diamond dodo egg, Diamond pickaxe
-    Diamond shard, Diamond stairs, Dirt, Dirt dodo egg, Display cabinet, Dodo egg
-    Dodo feather, Dough, Dye bench, Easel, Egg extractor, Electric elevator motor
-    Electric furnace, Electric kiln, Electric metalwork bench, Electric motor
-    Electric press, Electric sluice, Electric stove, Elevator shaft, Ember, Emerald
-    Emerald block, Emerald chandelier, Emerald column, Emerald dodo egg
-    Emerald green, Emerald pickaxe, Emerald shard, Emerald stairs, Epoxy
-    Feeder chest, Fish curry, Fishing rod, Flatbread, Flax, Flax seeds, Flint
-    Flint axe, Flint dodo egg, Flint machete, Flint pickaxe, Flint spade
-    Flint spear, Flour, Flywheel, Fuel, Fur, Fur boots, Fur coat, Furnace
-    Furnace II, Furnace III, Glass, Glass column, Glass stairs, Gold block
-    Gold bow & poison arrows, Gold coin, Gold column, Gold dodo egg, Gold ingot
-    Gold nugget, Gold pickaxe, Gold spade, Gold stairs, Golden chest, Gravel
-    Green coffee bean, Ice, Ice column, Ice stairs, Indian yellow
-    Iron armor leggings, Iron axe, Iron block, Iron boots, Iron chestplate
-    Iron column, Iron dodo egg, Iron door, Iron helmet, Iron ingot, Iron machete
-    Iron ore, Iron pickaxe, Iron pot, Iron stairs, Iron sword, Iron trapdoor
-    Jet engine, Jetpack, Jetpack chassis, Kelp, Kiln, Ladder, Lapis dodo egg
-    Lapis lazuli, Lapis lazuli column, Lapis lazuli stairs, Leather, Leather boots
-    Leather jacket, Leather pants, Limestone, Limestone column, Limestone dodo egg
-    Limestone stairs, Linen, Linen brimmed hat, Linen cap, Linen pants, Linen shirt
-    Luminous plaster, Magnet, Mango, Maple seed, Marble, Marble column
-    Marble dodo egg, Marble stairs, Marble white, Metalwork bench
+    Armor bench, Armor bench II, Armor bench III, Basalt, Basalt column
+    Basalt stairs, Basic torch, Basket, Black glass, Black glass column
+    Black glass stairs, Black sand, Black window, Boat, Bread, Brick column
+    Brick stairs, Bronze block, Bronze column, Bronze ingot, Bronze machete
+    Bronze pickaxe, Bronze stairs, Bronze sword, Builder's bench, Cactus, Cage
+    Caged amethyst dodo, Caged copper dodo, Caged diamond dodo, Caged dirt dodo
+    Caged dodo, Caged dropbear, Caged emerald dodo, Caged flint dodo
+    Caged gold dodo, Caged iron dodo, Caged lapis dodo, Caged limestone dodo
+    Caged marble dodo, Caged platinum dodo, Caged red marble dodo, Caged ruby dodo
+    Caged sandstone dodo, Caged sapphire dodo, Caged scorpion, Caged stone dodo
+    Caged tin dodo, Caged titanium dodo, Caged wood dodo, Caged yak, Camera
+    Campfire, Carbon black, Carbon fiber armor leggings, Carbon fiber block
+    Carbon fiber boots, Carbon fiber chestplate, Carbon fiber column
+    Carbon fiber helmet, Carbon fiber sheet, Carbon fiber stairs, Carbon fiber wing
+    Carbon fibers, Carrot, Carrot on a stick, Charcoal, Cherry, Chest, Chilli, Clay
+    Coal, Coconut, Coffee, Coffee cherry, Compost, Compost bin, Cooked dodo meat
+    Cooked fish, Copper block, Copper blue, Copper boiler, Copper bow & arrows
+    Copper coin, Copper column, Copper dodo egg, Copper ingot, Copper ore
+    Copper stairs, Copper wire, Coral, Corn, Craft bench, Craft bench II
+    Craft bench III, Craft bench IV, Crowbar, Crushed limestone, Cup, Dev portal
+    Diamond, Diamond block, Diamond chandelier, Diamond column, Diamond dodo egg
+    Diamond pickaxe, Diamond shard, Diamond stairs, Dirt, Dirt dodo egg
+    Display cabinet, Dodo egg, Dodo feather, Dodo stew, Dough, Dye bench, Easel
+    Egg extractor, Electric elevator motor, Electric furnace, Electric kiln
+    Electric metalwork bench, Electric motor, Electric press, Electric sluice
+    Electric stove, Elevator shaft, Ember, Emerald, Emerald block
+    Emerald chandelier, Emerald column, Emerald dodo egg, Emerald green
+    Emerald pickaxe, Emerald shard, Emerald stairs, Epoxy, Feeder chest, Fish curry
+    Fishing rod, Flatbread, Flax, Flax seeds, Flint, Flint axe, Flint dodo egg
+    Flint machete, Flint pickaxe, Flint spade, Flint spear, Flour, Flywheel, Fuel
+    Fur, Fur boots, Fur coat, Furnace, Furnace II, Furnace III, Glass, Glass column
+    Glass stairs, Gold block, Gold bow & poison arrows, Gold coin, Gold column
+    Gold dodo egg, Gold ingot, Gold nugget, Gold pickaxe, Gold spade, Gold stairs
+    Golden chest, Gravel, Green coffee bean, Ice, Ice column, Ice stairs
+    Indian yellow, Iron armor leggings, Iron axe, Iron block, Iron boots
+    Iron chestplate, Iron column, Iron dodo egg, Iron door, Iron helmet, Iron ingot
+    Iron machete, Iron ore, Iron pickaxe, Iron pot, Iron stairs, Iron sword
+    Iron trapdoor, Jet engine, Jetpack, Jetpack chassis, Kelp, Kiln, Ladder
+    Lapis dodo egg, Lapis lazuli, Lapis lazuli column, Lapis lazuli stairs, Leather
+    Leather boots, Leather jacket, Leather pants, Limestone, Limestone column
+    Limestone dodo egg, Limestone stairs, Linen, Linen brimmed hat, Linen cap
+    Linen pants, Linen shirt, Luminous plaster, Magnet, Mango, Maple seed, Marble
+    Marble column, Marble dodo egg, Marble stairs, Marble white, Metalwork bench
     Metalwork bench II, Milk, Mirror, Mixing bench, Mozzarella, New player, Oil
     Oil lantern, Orange, Paint, Paint stripper, Pig iron, Pine cone, Pizza
     Pizza oven, Plaster, Plaster column, Plaster stairs, Platinum block
@@ -139,10 +134,10 @@ teleports; a trade portal trades; a campfire, kiln and furnace also burn fuel).
 An item has a purpose if it is an ingredient, pays for an upgrade, is food, fuel, a
 working tool, a weapon, money, can be planted, or carries something.
 
-3a. DO NOTHING AT ALL  (10)
+3a. DO NOTHING AT ALL  (7)
 
-  Building (5):
-    Black window, Feeder chest, Mirror, Reinforced platform, Window
+  Building (2):
+    Feeder chest, Mirror
 
   Clothing (1):
     Jetpack
@@ -172,11 +167,12 @@ has in it: they only exist once a player makes and places them.
   - Amethyst chandelier          obtainable
   - Amethyst column              obtainable
   - Amethyst stairs              obtainable
-  - Basalt column                NOT obtainable (see 1)
-  - Basalt stairs                NOT obtainable (see 1)
+  - Basalt column                obtainable
+  - Basalt stairs                obtainable
   - Basic torch                  obtainable
   - Black glass column           obtainable
   - Black glass stairs           obtainable
+  - Black window                 obtainable
   - Boat                         obtainable
   - Brick column                 obtainable
   - Brick stairs                 obtainable
@@ -231,6 +227,7 @@ has in it: they only exist once a player makes and places them.
   - Portal chest                 obtainable
   - Red marble column            obtainable
   - Red marble stairs            obtainable
+  - Reinforced platform          obtainable
   - Ruby block                   obtainable
   - Ruby chandelier              obtainable
   - Ruby column                  obtainable
@@ -261,6 +258,7 @@ has in it: they only exist once a player makes and places them.
   - Titanium column              obtainable
   - Titanium stairs              obtainable
   - Trapdoor                     obtainable
+  - Window                       obtainable
   - Wood                         obtainable
   - Wood column                  obtainable
   - Wood stairs                  obtainable
@@ -270,10 +268,10 @@ has in it: they only exist once a player makes and places them.
 
   Blocks that ARE generated, for reference:
     Amethyst, Amethyst dodo egg, Amethyst tree leaves, Amethyst tree trunk
-    Apple leaves, Apple trunk, Black sand, Cactus, Carrot, Cherry leaves
+    Apple leaves, Apple trunk, Basalt, Black sand, Cactus, Carrot, Cherry leaves
     Cherry trunk, Chilli plant, Clay, Coal, Coconut palm leaves, Coconut palm trunk
     Coffee leaves, Coffee trunk, Copper dodo egg, Copper ore, Copper-bearing dirt
-    Coral, Decayed apple leaves, Decayed apple trunk, Decayed cactus
+    Coral, Corn, Decayed apple leaves, Decayed apple trunk, Decayed cactus
     Decayed cherry leaves, Decayed cherry trunk, Decayed coconut palm leaves
     Decayed coconut palm trunk, Decayed coffee leaves, Decayed coffee trunk
     Decayed mango leaves, Decayed mango trunk, Decayed maple leaves
@@ -299,7 +297,7 @@ has in it: they only exist once a player makes and places them.
 The raw materials the recipes assume exist somewhere. None of these is dug, grown,
 dropped or found yet; this is the short list to decide on first.
 
-    Basalt, Carbon, Corn
+    Carbon
 
 ==============================================================================
 6. NOTES ON HOW recipes.txt WAS READ
