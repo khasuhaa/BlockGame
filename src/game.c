@@ -1709,6 +1709,8 @@ static void use_paint(Game *g, ItemId item, TilePos at)
     }
 }
 
+static bool working(const Game *g);
+
 static bool start_next_activity(Game *g)
 {
     Player *p = &g->player;
@@ -1816,6 +1818,8 @@ static bool start_next_activity(Game *g)
                     game_close_bench(g);
                     g->bench_open = true;
                     g->bench_pos = g->current.target;
+                    /* Come only to open it, it is the player's to close: what is queued after waits for that. */
+                    g->menu_hold = g->current.work == WORK_NONE;
                     storage_ensure(g, g->bench_pos, tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y)));
                     /* What the player came to do there, if they came to do anything. */
                     if (g->current.work != WORK_NONE)
@@ -1833,6 +1837,8 @@ static bool start_next_activity(Game *g)
         }
 
         if (g->queue_count == 0) break;
+        /* Work at a bench is seen through, and a menu that was come to is closed, before anything else is started. */
+        if (game_queue_held(g)) return false;
         Action a = g->queue[0];
         g->queue_count--;
         memmove(g->queue, g->queue + 1, sizeof(Action) * (size_t)g->queue_count);
@@ -1845,6 +1851,8 @@ static bool start_next_activity(Game *g)
         }
     }
 
+    /* (The keys do not take someone away from work they have in hand.) */
+    if (working(g)) return false;
     Step s = key_step(w, pose, g->move_dx, g->move_dy);
     if (s.dx != 0 || s.dy != 0) {
         begin_step(g, s);
@@ -2020,6 +2028,8 @@ bool game_open_bench(Game *g, int x, int y)
     const TileDef *def = tile_def(game_bench_at(g, x, y));
     if (!game_alive(g) || (!def->bench && !def->trade)) return false;
     if (g->bench_open && g->bench_pos.x == x && g->bench_pos.y == y) return true;
+    /* (Not while there is work in hand at another: that one stays open.) */
+    if (game_bench_busy(g)) return false;
     game_close_bench(g);
     g->bench_open = true;
     g->bench_pos = (TilePos){ x, y };
@@ -2088,6 +2098,39 @@ bool game_teleport(Game *g)
 void game_close_bench(Game *g)
 {
     g->bench_open = false;
+    g->craft_remaining = 0;
+    g->upgrading = false;
+    g->menu_hold = false;
+}
+
+/* Work going on at the open bench this moment. */
+static bool working(const Game *g)
+{
+    return g->bench_open && (g->craft_remaining > 0 || g->upgrading);
+}
+
+bool game_queue_held(const Game *g)
+{
+    return working(g) || (g->bench_open && g->menu_hold);
+}
+
+bool game_bench_busy(const Game *g)
+{
+    if (!g->bench_open) return false;
+    if (working(g)) return true;
+    /* On the way to it with something to do there. */
+    if (g->has_current && g->current.type == ACTION_USE && g->current.work != WORK_NONE &&
+        g->current.target.x == g->bench_pos.x && g->current.target.y == g->bench_pos.y)
+        return true;
+    for (int i = 0; i < g->queue_count; i++)
+        if (g->queue[i].type == ACTION_USE && g->queue[i].work != WORK_NONE &&
+            g->queue[i].target.x == g->bench_pos.x && g->queue[i].target.y == g->bench_pos.y)
+            return true;
+    return false;
+}
+
+void game_craft_stop(Game *g)
+{
     g->craft_remaining = 0;
     g->upgrading = false;
 }
@@ -2268,6 +2311,7 @@ static void character_stash(Game *g, Character *c)
     c->craft_remaining = g->craft_remaining;
     c->craft_timer = g->craft_timer;
     c->craft_power = g->craft_power;
+    c->menu_hold = g->menu_hold;
     c->upgrading = g->upgrading;
     c->upgrade_timer = g->upgrade_timer;
 }
@@ -2298,6 +2342,7 @@ static void character_fetch(Game *g, const Character *c)
     g->craft_remaining = c->craft_remaining;
     g->craft_timer = c->craft_timer;
     g->craft_power = c->craft_power;
+    g->menu_hold = c->menu_hold;
     g->upgrading = c->upgrading;
     g->upgrade_timer = c->upgrade_timer;
 }

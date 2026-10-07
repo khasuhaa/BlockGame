@@ -945,7 +945,8 @@ static void test_bench(void)
     CHECK(g.craft_remaining == 0);
 
     /* Walking away leaves its menu up - it can be read from anywhere - but
-     * the player is no longer at it. */
+     * the player is no longer at it. (One that was walked to and opened is theirs to close first.) */
+    g.menu_hold = false;
     CHECK(game_click_tile(&g, px + 5, s - 1));
     run(&g, 2.0f);
     CHECK(g.bench_open && !game_at_bench(&g));
@@ -1050,6 +1051,7 @@ static void test_work_benches(void)
     inventory_add(inv, ITEM_DIRT, 1);
     inventory_select(inv, 0, -1);
     CHECK(inventory_selected(inv)->id == item_id("craft_bench"));
+    game_close_bench(&g); /* (as a click away from it does) */
     g.player.feet = g.player.step_to = (TilePos){ x - 1, s - 1 };
     CHECK(!game_queue_action(&g, ACTION_PLACE, x, s - 1));
     inventory_select(inv, 1, -1);
@@ -1191,6 +1193,7 @@ static void test_work_benches(void)
     remove("build/test_fuel.world");
 
     /* Taken down, the furnace comes back at its tier. */
+    game_close_bench(&g); /* (as a click away from it does) */
     CHECK(game_queue_action(&g, ACTION_MINE, x + 8, s - 1));
     run(&g, 2.0f);
     CHECK(count_item(&g, item_id("furnace_3")) == 1);
@@ -2272,6 +2275,95 @@ static void test_backwall(void)
     content.rules.wall_span = span;
 }
 
+/* Work at a bench is seen through, and a menu that was walked to is closed, before what is queued after starts. */
+static void test_queue_waits(void)
+{
+    Game g;
+    game_init(&g, 128, 64, 71, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    g.tick_rate = 0;
+    int s = w->surface_y, ground = s - 1, px = g.player.feet.x;
+    TileType bench = tile_id("workbench"), chest = tile_id("chest");
+    /* (Something that takes time to make, at a bench of the first tier, for nothing but items.) */
+    const Recipe *r = NULL;
+    for (int i = 0; i < content.recipe_count && !r; i++) {
+        const Recipe *c = &content.recipes[i];
+        if (c->level > 1 || c->crystals != 0 || item_def(c->output.id)->becomes_player || item_def(c->output.id)->crystals) continue;
+        for (TileType t = 1; t < content.tile_count && !r; t++) {
+            const TileDef *def = tile_def(t);
+            if (!def->bench || def->bench_level != 1 || def->fuel_capacity != 0 || def->electric != 0 || def->height != 1 ||
+                strcmp(def->bench_kind, c->bench) != 0)
+                continue;
+            r = c;
+            bench = t;
+        }
+    }
+    CHECK(r != NULL);
+    if (!r) return;
+    /* (Made to take two seconds apiece, for the length of this test.) */
+    float took = r->time;
+    ((Recipe *)r)->time = 2.0f;
+    world_set_at(w, tile_def(bench)->layer, px + 3, ground, bench);
+    world_set_at(w, tile_def(chest)->layer, px - 3, ground, chest);
+    clear_inventory(&g);
+    for (int k = 0; k < r->input_count; k++) inventory_add(inv, r->inputs[k].id, r->inputs[k].count * 3);
+    g.crystals = 1000;
+
+    /* Three to make, started from where they stand; then somewhere to walk to, queued behind it. */
+    CHECK(game_open_bench(&g, px + 3, ground) && game_craft(&g, r, 3));
+    CHECK(game_bench_busy(&g)); /* on the way there to do it */
+    CHECK(game_queue_action(&g, ACTION_MOVE, px + 12, ground));
+    run(&g, r->time * 1.5f + 1.0f);
+    CHECK(g.bench_open && g.craft_remaining > 0 && g.craft_remaining < 3 && game_queue_held(&g) && game_bench_busy(&g));
+    CHECK(world_dx(w, px + 3, g.player.feet.x) >= -1 && world_dx(w, px + 3, g.player.feet.x) <= 1 && g.queue_count == 1);
+    /* The keys do not take them from it either. */
+    game_set_move_input(&g, 1, 0);
+    run(&g, 0.5f);
+    game_set_move_input(&g, 0, 0);
+    CHECK(g.craft_remaining > 0 && world_dx(w, px + 3, g.player.feet.x) <= 1);
+    /* Nor does another bench opened meanwhile take its place. */
+    world_set_at(w, tile_def(bench)->layer, px + 20, ground, bench);
+    CHECK(!game_open_bench(&g, px + 20, ground) && g.bench_pos.x == px + 3);
+    /* All three made, they go on to what was queued; the menu is still up. */
+    run(&g, r->time * 3.0f + 4.0f);
+    CHECK(g.craft_remaining == 0 && count_item(&g, r->output.id) >= 3 * r->output.count);
+    CHECK(g.player.feet.x == px + 12 && is_idle(&g) && g.bench_open && !game_queue_held(&g));
+    game_close_bench(&g);
+
+    /* Stopped, the work is given up and what waited goes ahead; the bench stays open. */
+    for (int k = 0; k < r->input_count; k++) inventory_add(inv, r->inputs[k].id, r->inputs[k].count * 3);
+    CHECK(game_open_bench(&g, px + 3, ground) && game_craft(&g, r, 3));
+    CHECK(game_queue_action(&g, ACTION_MOVE, px + 12, ground));
+    run(&g, r->time * 0.5f + 3.0f);
+    CHECK(g.craft_remaining > 0 && game_queue_held(&g));
+    game_craft_stop(&g);
+    CHECK(g.bench_open && !game_queue_held(&g) && !game_bench_busy(&g));
+    run(&g, 4.0f);
+    CHECK(g.player.feet.x == px + 12 && is_idle(&g));
+    game_close_bench(&g);
+
+    /* A chest gone to and opened: what is queued after it waits until the chest is closed. */
+    CHECK(game_queue_action(&g, ACTION_USE, px - 3, ground));
+    CHECK(game_queue_action(&g, ACTION_MOVE, px + 6, ground));
+    run(&g, 8.0f);
+    CHECK(g.bench_open && g.bench_pos.x == world_wrap_x(w, px - 3) && game_queue_held(&g) && !game_bench_busy(&g));
+    CHECK(g.queue_count == 1 && world_dx(w, px - 3, g.player.feet.x) >= -1 && world_dx(w, px - 3, g.player.feet.x) <= 1);
+    run(&g, 5.0f);
+    CHECK(g.bench_open && g.queue_count == 1);
+    game_close_bench(&g);
+    CHECK(!game_queue_held(&g));
+    run(&g, 8.0f);
+    CHECK(g.player.feet.x == px + 6 && is_idle(&g) && !g.bench_open);
+    /* A bench looked at from where they stand holds nothing up. */
+    CHECK(game_open_bench(&g, px + 3, ground) && !game_queue_held(&g));
+    CHECK(game_queue_action(&g, ACTION_MOVE, px + 9, ground));
+    run(&g, 4.0f);
+    CHECK(g.player.feet.x == px + 9 && g.bench_open);
+    ((Recipe *)r)->time = took;
+    game_free(&g);
+}
+
 static int light_at(const Game *g, int x, int y)
 {
     uint8_t v;
@@ -2526,6 +2618,7 @@ static void test_tall_portals(void)
     CHECK(!game_queue_action(&g, ACTION_PLACE, x + 2, s - 1)); /* a block where its top would be */
     CHECK(!game_queue_action(&g, ACTION_PLACE, x, s - 4));     /* nor floating on top of another */
     world_set(w, x + 2, s - 3, TILE_AIR);
+    game_close_bench(&g); /* (as a click away from it does) */
     CHECK(game_queue_action(&g, ACTION_PLACE, x + 2, s - 1));
     run(&g, 2.0f);
     for (int i = 0; i < 3; i++) CHECK(world_get_at(w, BG, x + 2, s - 1 - i) == trade);
@@ -2638,6 +2731,7 @@ static void test_portal_chest(void)
     CHECK(!inventory_move(inv, (SlotRef){ SLOT_BAR, 0, 0 }, (SlotRef){ SLOT_CONTAINER, shared, 0 }, 1));
 
     /* Taking the chest down does not take its contents with it. */
+    game_close_bench(&g); /* (as a click away from it does) */
     CHECK(game_queue_action(&g, ACTION_MINE, x + 3, g.world.surface_y - 1));
     run(&g, 3.0f);
     CHECK(count_item(&g, item_id("portal_chest")) == 1 && count_item(&g, ITEM_WOOD) == 0);
@@ -8215,6 +8309,7 @@ static void test_chests(void)
     CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 7, 0 }, (SlotRef){ SLOT_BAR, 1, 0 }, MAX_STACK));
 
     /* Removing the chest gives a chest item carrying what was inside. */
+    game_close_bench(&g); /* (as a click away from it does) */
     CHECK(game_queue_action(&g, ACTION_MINE, cx, s - 1));
     run(&g, 3.0f);
     CHECK(world_get(&g.world, cx, s - 1) == TILE_AIR && !g.bench_open && game_open_storage(&g) == 0);
@@ -8258,6 +8353,7 @@ static void test_chests(void)
      * emptied out it is a plain chest again. */
     CHECK(inventory_move(inv, (SlotRef){ SLOT_CONTAINER, game_open_storage(&g), 0 }, bar2, MAX_STACK));
     CHECK(inv->slots[2].count == 20);
+    game_close_bench(&g); /* (as a click away from it does) */
     CHECK(game_queue_action(&g, ACTION_MINE, cx, s - 1));
     run(&g, 3.0f);
     int empties = 0;
@@ -8747,6 +8843,7 @@ int main(void)
     test_monkey_bars();
     test_crawl();
     test_crawl_into_gaps();
+    test_queue_waits();
     test_blocked_corner();
     test_hop_gap();
     test_climb_drop();

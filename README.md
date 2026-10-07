@@ -71,6 +71,8 @@ The movement keys and `Space` can be changed in the pause menu.
 
 Clicks queue up and run in order. Clicking a square that already has an action queued takes that action back, even if it has already started; the same goes for clicking an item again. A click that cannot be carried out is refused with a red cross on the tile. Pressing a movement key cancels the queue.
 
+**The queue waits for work and for menus.** Something being made at a bench, or an upgrade under way, is seen through before anything queued after it is started: the character stays at the bench, its menu stays up showing how the work is coming along, and neither a click elsewhere nor the movement keys take them from it - the click is queued for afterwards. The **Stop** button on the bar gives the work up. And a chest - or any menu the character was sent to open - holds the queue until it is closed: what was queued after it starts when the menu is shut, which a click elsewhere does. A bench looked at from where the character stands holds nothing up.
+
 ## Movement
 
 Holding a direction, or a queued click, takes the player:

@@ -313,9 +313,12 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
     const int *k = keys->keys;
     if (IsKeyPressed(k[BIND_UP]) || IsKeyPressed(k[BIND_LEFT]) || IsKeyPressed(k[BIND_DOWN]) ||
         IsKeyPressed(k[BIND_RIGHT])) {
-        game_cancel_actions(g);
-        hud_close_all(hud);
-        benchui_close(bench, g);
+        /* (Work in hand at a bench is not dropped for a key: it has a button to stop it.) */
+        if (!game_bench_busy(g)) {
+            game_cancel_actions(g);
+            hud_close_all(hud);
+            benchui_close(bench, g);
+        }
     }
     for (int i = 0; i < INVENTORY_SLOTS; i++)
         if (IsKeyPressed(KEY_ONE + i)) inventory_select_slot(&g->inventory, i);
@@ -382,7 +385,7 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
         /* On the world map there is nothing to have open. */
         if (zoom_step(cam->zoom_level) < MAP_FADE_FROM) {
             hud_close_all(hud);
-            benchui_close(bench, g);
+            if (!game_bench_busy(g)) benchui_close(bench, g);
         }
     }
     bool on_map = zoom_step(cam->zoom_level) < MAP_FADE_FROM;
@@ -390,7 +393,8 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
     Vector2 mouse = GetMousePosition();
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         hud_close_all(hud);
-        benchui_close(bench, g);
+        /* A click elsewhere closes what is open - but not a bench with work in hand: that stays up till it is done. */
+        if (!game_bench_busy(g)) benchui_close(bench, g);
         player->open = false;
         cam->pressed = true;
         cam->dragging = false;

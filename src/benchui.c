@@ -88,6 +88,13 @@ static Rectangle rush_rect(Rectangle menu)
     return (Rectangle){ b.x + b.width - 92, b.y, 92, b.height };
 }
 
+/* And the left-hand end is the button that gives the work up. */
+static Rectangle stop_rect(Rectangle menu)
+{
+    Rectangle b = craft_rect(menu);
+    return (Rectangle){ b.x, b.y, 58, b.height };
+}
+
 /* The fuel gauge on the side of a bench that burns fuel, and the list of
  * things to burn that it opens. */
 static Rectangle fuel_tab_rect(Rectangle menu)
@@ -225,6 +232,7 @@ static BenchPress press_target(const BenchUi *ui, const Game *g, const View *v, 
     slider.width += 16;
     if (CheckCollisionPointRec(m, slider)) return BENCH_PRESS_SLIDER;
     if (game_craft_rush_cost(g) >= 0 && CheckCollisionPointRec(m, rush_rect(menu))) return BENCH_PRESS_RUSH;
+    if (g->craft_remaining > 0 && CheckCollisionPointRec(m, stop_rect(menu))) return BENCH_PRESS_STOP;
     if (CheckCollisionPointRec(m, craft_rect(menu))) return BENCH_PRESS_CRAFT;
     return BENCH_PRESS_PANEL;
 }
@@ -257,6 +265,9 @@ bool benchui_handle_input(BenchUi *ui, Game *g, const View *v)
     Rectangle menu = menu_rect(g, v);
     Rectangle list = list_rect(menu);
     if (ui->selected >= count) ui->selected = -1;
+    /* What is being made is what is shown, so that how it is coming along can be seen. */
+    for (int i = 0; g->bench_open && g->craft_remaining > 0 && i < count; i++)
+        if (recipes[i] == g->craft_recipe) ui->selected = i;
 
     /* The amount never goes past what there are materials for. */
     int cap = ui->selected >= 0 ? recipe_max_crafts(&g->inventory, recipes[ui->selected], g->crystals) : 0;
@@ -316,6 +327,8 @@ bool benchui_handle_input(BenchUi *ui, Game *g, const View *v)
         game_upgrade_bench(g);
     } else if (ui->press == BENCH_PRESS_RUSH && released == BENCH_PRESS_RUSH) {
         game_craft_rush(g);
+    } else if (ui->press == BENCH_PRESS_STOP && released == BENCH_PRESS_STOP) {
+        game_craft_stop(g);
     } else if (ui->press == BENCH_PRESS_CRAFT && released == BENCH_PRESS_CRAFT) {
         game_craft(g, recipes[ui->selected], ui->amount);
     } else if (ui->press == BENCH_PRESS_OPEN && released == BENCH_PRESS_OPEN) {
@@ -543,7 +556,10 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
         int arrived, needs = game_craft_power(g, &arrived);
         DrawRectangleRec(b, (Color){ 44, 47, 58, 255 });
         DrawRectangleRec((Rectangle){ b.x, b.y, b.width * (float)arrived / (float)needs, b.height }, (Color){ 150, 120, 30, 255 });
-        draw_centered("Waiting for power", b, 18, (Color){ 250, 224, 110, 255 });
+        Rectangle stop = stop_rect(menu);
+        draw_centered("Waiting for power", (Rectangle){ b.x + stop.width, b.y, b.width - stop.width, b.height }, 18, (Color){ 250, 224, 110, 255 });
+        DrawRectangleRec(stop, CheckCollisionPointRec(GetMousePosition(), stop) ? (Color){ 190, 80, 80, 255 } : (Color){ 150, 60, 60, 255 });
+        draw_centered("Stop", stop, 14, RAYWHITE);
     } else if (g->craft_remaining > 0) {
         int done = g->craft_total - g->craft_remaining;
         float part = game_craft_progress(g);
@@ -553,8 +569,11 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
                          button_color);
         int rush = game_craft_rush_cost(g);
         Rectangle hurry = rush_rect(menu);
-        Rectangle words = rush >= 0 ? (Rectangle){ b.x, b.y, b.width - hurry.width, b.height } : b;
+        Rectangle stop = stop_rect(menu);
+        Rectangle words = { b.x + stop.width, b.y, b.width - stop.width - (rush >= 0 ? hurry.width : 0), b.height };
         draw_centered(TextFormat("Crafting %d/%d", done, g->craft_total), words, 18, RAYWHITE);
+        DrawRectangleRec(stop, CheckCollisionPointRec(GetMousePosition(), stop) ? (Color){ 190, 80, 80, 255 } : (Color){ 150, 60, 60, 255 });
+        draw_centered("Stop", stop, 14, RAYWHITE);
         if (rush >= 0) {
             /* Finish it now, for a crystal for every ten seconds it still has to go. */
             bool can = g->crystals >= rush, hot = can && CheckCollisionPointRec(GetMousePosition(), hurry);

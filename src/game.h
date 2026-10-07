@@ -272,6 +272,7 @@ typedef struct {
     int craft_power;
     bool upgrading;
     float upgrade_timer;
+    bool menu_hold;
 } Character;
 
 typedef struct {
@@ -351,6 +352,9 @@ typedef struct {
     /* An upgrade of that bench under way, if it is one that takes time. */
     bool upgrading;
     float upgrade_timer;
+    /* What is open was opened by something queued, and is for the player to
+     * close: nothing queued after it starts until they have. */
+    bool menu_hold;
 
     /* The last shot loosed, for drawing: where from, where to, and how long ago. Not kept. */
     struct {
@@ -491,6 +495,15 @@ float game_craft_seconds(const Game *g, const Recipe *r);
 /* Hurrying what is being made, for crystals: what finishing all of it now
  * would cost (one for every so many seconds still to go), or -1 if there is
  * nothing to hurry; and doing it. */
+/* Whether the character has work in hand at the open bench - something being
+ * made or an upgrade under way, or on their way there to start one. It is
+ * seen through: what is queued after it waits, and its menu stays up. */
+bool game_bench_busy(const Game *g);
+/* Whether what is queued is waiting: on work at a bench, or on a menu that a
+ * queued action opened being closed. */
+bool game_queue_held(const Game *g);
+/* Gives up what is being made at the open bench, and any upgrade under way. The bench stays open. */
+void game_craft_stop(Game *g);
 int game_craft_rush_cost(const Game *g);
 bool game_craft_rush(Game *g);
 /* Notes everything the character is carrying as found in this world. */
