@@ -185,7 +185,7 @@ typedef struct {
     int32_t timer;  /* ticks left of the chase, or before it will come down again */
     int32_t hp;     /* what it can still take; 0 in a record from before creatures had any: full */
     int32_t size;   /* blocks long; 0 or 1 for the ordinary size */
-    int32_t reserved[1];
+    int32_t poison; /* poison in it still to do its work: see mob_poison */
 } Mob;
 
 typedef enum {
@@ -299,6 +299,12 @@ typedef struct {
     /* An upgrade of that bench under way, if it is one that takes time. */
     bool upgrading;
     float upgrade_timer;
+
+    /* The last shot loosed, for drawing: where from, where to, and how long ago. Not kept. */
+    struct {
+        float from_x, from_y, to_x, to_y, age;
+        bool live;
+    } shot;
 
     /* Scratch space for planning. */
     World sim;
@@ -480,6 +486,9 @@ void game_random_event(Game *g, int x, int y);
  * the trunk above and the leaves that hung on it decay. */
 void game_decay_tree(Game *g, int x, int y);
 
+/* How far off the player can hit from with what is in their hand: a bow's
+ * range, or 0 for only what is in reach. */
+int game_attack_range(const Game *g);
 /* What a blow from the player takes off a creature: what is in their hand
  * if that is a weapon, a bare hand's worth otherwise. */
 int game_attack_damage(const Game *g);

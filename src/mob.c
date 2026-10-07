@@ -164,6 +164,20 @@ bool mobs_try_hatch(Game *g, int x, int y)
     return false;
 }
 
+int mob_poison(const Mob *m)
+{
+    return m->poison & 0xFF;
+}
+
+void mob_poison_add(Mob *m, int points, int every)
+{
+    int left = mob_poison(m) + points;
+    if (left > 255) left = 255;
+    if (every < 1) every = 1;
+    if (every > 255) every = 255;
+    m->poison = left | (every << 8) | (m->poison & ~0xFFFF);
+}
+
 bool mob_hurt(Game *g, int mob, int damage)
 {
     if (mob < 0 || mob >= MAX_MOBS || !g->mobs[mob].active) return false;
@@ -445,6 +459,16 @@ void mobs_tick(Game *g)
             m->y = m->to_y;
         }
         if (m->hp <= 0) m->hp = def->health > 0 ? def->health : 1; /* (from before creatures had any) */
+        /* Poison in it does its work a point at a time. */
+        if (mob_poison(m) > 0) {
+            int left = m->poison & 0xFF, every = (m->poison >> 8) & 0xFF, waited = (m->poison >> 16) + 1;
+            if (waited >= every) {
+                waited = 0;
+                left--;
+            }
+            m->poison = left > 0 ? left | (every << 8) | (waited << 16) : 0;
+            if (waited == 0 && mob_hurt(g, i, 1)) continue;
+        }
         if (def->swims) {
             swim_tick(g, m, def);
             continue;

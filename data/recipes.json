@@ -367,6 +367,17 @@
     {"bench": "mixing_bench", "output": {"item": "paint", "count": 1}, "inputs": [{"item": "bucket", "count": 1}, {"item": "oil", "count": 5}, {"item": "ultramarine_blue", "count": 1}, {"item": "tyrian_purple", "count": 1}, {"item": "emerald_green", "count": 1}], "time": 80, "tint": [69, 94, 138]},
     {"bench": "mixing_bench", "output": {"item": "paint", "count": 1}, "inputs": [{"item": "bucket", "count": 1}, {"item": "oil", "count": 5}, {"item": "ultramarine_blue", "count": 1}, {"item": "copper_blue", "count": 1}, {"item": "emerald_green", "count": 1}], "time": 80, "tint": [44, 130, 158]},
     {"bench": "mixing_bench", "output": {"item": "paint", "count": 1}, "inputs": [{"item": "bucket", "count": 1}, {"item": "oil", "count": 5}, {"item": "tyrian_purple", "count": 1}, {"item": "copper_blue", "count": 1}, {"item": "emerald_green", "count": 1}], "time": 80, "tint": [71, 119, 139]},
-    {"bench": "mixing_bench", "output": {"item": "paint_stripper", "count": 1}, "inputs": [{"item": "bucket", "count": 1}, {"item": "oil", "count": 5}], "time": 80}
+    {"bench": "mixing_bench", "output": {"item": "paint_stripper", "count": 1}, "inputs": [{"item": "bucket", "count": 1}, {"item": "oil", "count": 5}], "time": 80},
+    {"bench": "portal", "output": {"item": "workbench", "count": 1}, "inputs": [{"item": "dirt", "count": 1}]},
+    {"bench": "portal", "output": {"item": "trade_portal", "count": 1}, "inputs": [{"item": "portal", "count": 1}, {"item": "gold_coin", "count": 1}]},
+    {"bench": "portal", "output": {"item": "trade_portal", "count": 1}, "inputs": [{"item": "dirt", "count": 1}]},
+    {"bench": "portal", "output": {"item": "gold_coin", "count": 1}, "inputs": [{"item": "dirt", "count": 1}]},
+    {"bench": "portal", "level": 2, "output": {"item": "amethyst_pickaxe", "count": 1}, "inputs": [{"item": "amethyst", "count": 3}, {"item": "stick", "count": 1}]},
+    {"bench": "portal", "level": 3, "output": {"item": "sapphire_pickaxe", "count": 1}, "inputs": [{"item": "sapphire", "count": 3}, {"item": "stick", "count": 1}]},
+    {"bench": "portal", "level": 4, "output": {"item": "emerald_pickaxe", "count": 1}, "inputs": [{"item": "emerald", "count": 3}, {"item": "stick", "count": 1}]},
+    {"bench": "portal", "level": 5, "output": {"item": "ruby_pickaxe", "count": 1}, "inputs": [{"item": "ruby", "count": 3}, {"item": "stick", "count": 1}]},
+    {"bench": "portal", "level": 6, "output": {"item": "diamond_pickaxe", "count": 1}, "inputs": [{"item": "diamond", "count": 3}, {"item": "stick", "count": 1}]},
+    {"bench": "portal", "level": 6, "output": {"item": "portal_chest", "count": 1}, "inputs": [{"item": "golden_chest", "count": 1}], "crystals": 100},
+    {"bench": "portal", "output": {"item": "new_player", "count": 1}, "random_inputs": {"of": ["apple", "orange", "cherry"], "count": 5}, "crystals": 100}
   ]
 }

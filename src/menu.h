@@ -2,6 +2,7 @@
 #define MENU_H
 
 #include "game.h"
+#include "recipeui.h"
 #include "save.h"
 
 #define SAVE_DIR "saves"
@@ -75,7 +76,8 @@ typedef enum {
 typedef enum {
     PAUSE_PAGE_MAIN,
     PAUSE_PAGE_WORLD,
-    PAUSE_PAGE_KEYS
+    PAUSE_PAGE_KEYS,
+    PAUSE_PAGE_RECIPES
 } PausePage;
 
 typedef struct {
@@ -83,6 +85,7 @@ typedef struct {
     int rebinding; /* BindId waiting for a key press, or -1 */
     bool slider_held;
     bool just_opened; /* the key press that opened it is still down this frame */
+    RecipeUi recipes; /* the recipe book; it keeps its place while the world is open */
 } PauseMenu;
 
 void pause_menu_open(PauseMenu *p);

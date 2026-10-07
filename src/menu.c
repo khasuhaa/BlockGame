@@ -434,6 +434,13 @@ PauseResult pause_menu_frame(PauseMenu *p, Game *g, Keybinds *k, const char *wor
 {
     PauseResult result = PAUSE_STAY;
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.55f));
+    /* The recipe book has the whole screen to itself. */
+    if (p->page == PAUSE_PAGE_RECIPES) {
+        bool leave = IsKeyPressed(KEY_ESCAPE) && !p->just_opened;
+        p->just_opened = false;
+        if (!recipeui_frame(&p->recipes, leave)) p->page = PAUSE_PAGE_MAIN;
+        return PAUSE_STAY;
+    }
     Rectangle panel = { (GetScreenWidth() - BUTTON_WIDTH) / 2 - 40, 70, BUTTON_WIDTH + 80,
                         GetScreenHeight() - 140.0f };
     DrawRectangleRec(panel, panel_color);
@@ -456,9 +463,13 @@ PauseResult pause_menu_frame(PauseMenu *p, Game *g, Keybinds *k, const char *wor
         title("Paused", top - 70, 32);
         title(world_name, top - 30, 18);
         if (button(column_button(top, 0), "Resume", true) || escape) result = PAUSE_RESUME;
-        if (button(column_button(top, 1), "World settings", true)) p->page = PAUSE_PAGE_WORLD;
-        if (button(column_button(top, 2), "Keybinds", true)) p->page = PAUSE_PAGE_KEYS;
-        if (button(column_button(top, 3), "Save and quit to menu", true)) result = PAUSE_QUIT;
+        if (button(column_button(top, 1), "Recipes", true)) {
+            p->page = PAUSE_PAGE_RECIPES;
+            recipeui_open(&p->recipes);
+        }
+        if (button(column_button(top, 2), "World settings", true)) p->page = PAUSE_PAGE_WORLD;
+        if (button(column_button(top, 3), "Keybinds", true)) p->page = PAUSE_PAGE_KEYS;
+        if (button(column_button(top, 4), "Save and quit to menu", true)) result = PAUSE_QUIT;
     }
     return result;
 }

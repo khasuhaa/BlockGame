@@ -301,6 +301,22 @@ static bool in_use_range(const World *w, TilePos feet, TilePos bench)
     return on_body(feet, bench) || in_reach(w, feet, bench);
 }
 
+/* Whether something at `target` can be hit from `feet`: within reach, or -
+ * with something that shoots - within its range with nothing solid in the way. */
+static bool in_attack_range(const World *w, TilePos feet, TilePos target, int range)
+{
+    if (in_use_range(w, feet, target)) return true;
+    if (range <= 0) return false;
+    int dx = world_dx(w, feet.x, target.x), dy = target.y - (feet.y - 1); /* from the head */
+    if (dx * dx + dy * dy > range * range) return false;
+    int steps = abs(dx) > abs(dy) ? abs(dx) : abs(dy);
+    for (int k = 1; k < steps; k++) {
+        int x = feet.x + (int)lroundf((float)(k * dx) / (float)steps), y = feet.y - 1 + (int)lroundf((float)(k * dy) / (float)steps);
+        if (world_is_solid(w, x, y)) return false;
+    }
+    return true;
+}
+
 /* Which layer a mine action on a tile takes its block from: the foreground
  * if there is a block there, otherwise the background; -1 if neither has
  * anything that can be mined. */
@@ -355,9 +371,9 @@ static bool is_goal(const World *w, Pose p, Action a)
     case ACTION_PLACE:
     case ACTION_BUCKET:
     case ACTION_PLANT: return in_reach(w, p.feet, a.target);
+    case ACTION_ATTACK: return in_attack_range(w, p.feet, a.target, a.amount);
     case ACTION_USE:
-    case ACTION_COLLECT:
-    case ACTION_ATTACK: return in_use_range(w, p.feet, a.target);
+    case ACTION_COLLECT: return in_use_range(w, p.feet, a.target);
     default: return on_body(p.feet, a.target);
     }
 }
@@ -760,7 +776,9 @@ bool game_click_mob(Game *g, int mob)
     if (mob < 0 || mob >= MAX_MOBS || !g->mobs[mob].active) return false;
     if (unqueue(g, match_mob, (TilePos){ 0, 0 }, mob)) return true;
     const Mob *m = &g->mobs[mob];
-    Action a = { .type = ACTION_ATTACK, .target = { m->x, m->y }, .drop = mob, .drop_id = m->id };
+    /* (With a bow in hand, from as far off as it shoots.) */
+    Action a = { .type = ACTION_ATTACK, .target = { m->x, m->y }, .drop = mob, .drop_id = m->id,
+                 .amount = game_attack_range(g) };
     return queue_checked(g, sim_pending(g), a);
 }
 
@@ -881,6 +899,12 @@ void game_reveal(Game *g, int x, int y)
             if (level > *cell) *cell = (uint8_t)level;
         }
     }
+}
+
+int game_attack_range(const Game *g)
+{
+    const ItemStack *held = inventory_selected(&g->inventory);
+    return held->count > 0 ? item_def(held->id)->range : 0;
 }
 
 int game_attack_damage(const Game *g)
@@ -1254,9 +1278,23 @@ static void finish_activity(Game *g)
     } else if (p->activity == ACTIVITY_ATTACKING) {
         /* The blow lands if the creature is still there to be hit. */
         Mob *m = &g->mobs[g->current.drop];
+        int range = game_attack_range(g);
         if (g->has_current && g->current.type == ACTION_ATTACK && m->active && m->id == g->current.drop_id &&
-            in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y })) {
-            mob_hurt(g, g->current.drop, game_attack_damage(g));
+            in_attack_range(&g->world, p->feet, (TilePos){ m->x, m->y }, range)) {
+            const ItemStack *held = inventory_selected(&g->inventory);
+            const ItemDef *with = item_def(held->count > 0 ? held->id : ITEM_NONE);
+            if (range > 0 && !in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y })) {
+                /* A shot: something to draw. */
+                g->shot.from_x = (float)p->feet.x + 0.5f;
+                g->shot.from_y = (float)p->feet.y - 0.5f;
+                g->shot.to_x = (float)p->feet.x + (float)world_dx(&g->world, p->feet.x, m->x) + 0.5f;
+                g->shot.to_y = (float)m->y + 0.5f;
+                g->shot.age = 0.0f;
+                g->shot.live = true;
+            }
+            /* What it does at once, and what it leaves working in the creature. */
+            if (!mob_hurt(g, g->current.drop, game_attack_damage(g)) && with->poison > 0)
+                mob_poison_add(m, with->poison, with->poison_every);
         }
         /* One blow to a click: hitting it again is asked for again. */
         if (g->has_current && g->current.type == ACTION_ATTACK) g->has_current = false;
@@ -1351,7 +1389,7 @@ static bool start_next_activity(Game *g)
                     continue;
                 }
                 TilePos at = { m->x, m->y };
-                if (in_use_range(w, p->feet, at)) {
+                if (in_attack_range(w, p->feet, at, g->current.amount)) {
                     /* Within reach: one blow. */
                     begin_work(g, ACTIVITY_ATTACKING, content.rules.attack_time > 0.0f ? content.rules.attack_time : 0.3f);
                     return true;
@@ -2408,6 +2446,7 @@ void game_update(Game *g, float dt)
     }
 
     update_drops(g, frame);
+    if (g->shot.live && (g->shot.age += frame) > 0.2f) g->shot.live = false;
     /* Every character gets on with what they are doing, each in turn. */
     for (int c = 0; c < g->character_count; c++) {
         game_use_character(g, c);

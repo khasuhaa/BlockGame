@@ -20,6 +20,10 @@ bool mobs_try_spawn(Game *g, int x, int y);
 bool mobs_try_hatch(Game *g, int x, int y);
 /* Takes so much off a creature. Returns true if that was the end of it. */
 bool mob_hurt(Game *g, int mob, int damage);
+/* Poison: how many points of it a creature still has to suffer, and giving it
+ * more, to take a point off every `every` ticks. */
+int mob_poison(const Mob *m);
+void mob_poison_add(Mob *m, int points, int every);
 /* Kills a creature, leaving what a grown one leaves. */
 void mob_kill(Game *g, int mob);
 /* How many creatures of the land are within spawning range of the player. */

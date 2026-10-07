@@ -1,5 +1,6 @@
 /* Headless tests for the game rules: no window, just the simulation. */
 #include "../src/game.h"
+#include "../src/guide.h"
 #include "../src/light.h"
 #include "../src/mob.h"
 #include "../src/save.h"
@@ -1718,6 +1719,10 @@ static void test_veins(void)
             }
         }
         CHECK(exposed == 0);
+        /* Clay lies in the dirt by the same rules. */
+        VeinStats cs = vein_stats(&w, tile_id("clay"), 10);
+        CHECK(cs.groups > 20 && cs.smallest >= 4 && cs.largest <= 10 && cs.over == 0);
+        CHECK(tile_def(tile_id("clay"))->drop == item_id("clay") && tile_def(tile_id("clay"))->tool_class == tool_class_id("shovel"));
 
         /* Ores: every kind is somewhere in every world, in veins of its size. */
         for (int i = 0; i < 6; i++) {
@@ -4653,6 +4658,70 @@ static void test_sea_and_combat(void)
     CHECK(game_click_mob(&g, m));
     run(&g, blow + 0.1f);
     CHECK(!g.mobs[m].active);
+
+    /* Bows hit from up to 10 blocks off, without a step taken: a copper bow for 2. */
+    ItemId bow = item_id("copper_bow"), poison_bow = item_id("gold_bow");
+    CHECK(item_def(bow)->range == 10 && item_def(bow)->damage == 2 && item_def(bow)->poison == 0);
+    CHECK(item_def(poison_bow)->range == 10 && item_def(poison_bow)->damage == 5);
+    CHECK(item_def(poison_bow)->poison == 5 && item_def(poison_bow)->poison_every == 2);
+    CHECK(game_attack_range(&g) == 0);
+    clear_inventory(&g);
+    inventory_add(inv, bow, 1);
+    inventory_select(inv, 0, -1);
+    CHECK(game_attack_range(&g) == 10 && game_attack_damage(&g) == 2);
+    TilePos stood = g.player.feet;
+    m = mob_spawn(&g, dodo, px + 9, ground, true, false);
+    CHECK(game_click_mob(&g, m));
+    run(&g, blow + 0.1f);
+    CHECK(g.mobs[m].hp == 3 && g.mobs[m].poison == 0 && is_idle(&g) && g.player.feet.x == stood.x && g.shot.live);
+    /* Further off than that, the player walks up until it is in range, and no nearer. */
+    mob_kill(&g, m);
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    m = mob_spawn(&g, dodo, px + 16, ground, true, false);
+    CHECK(game_click_mob(&g, m));
+    run(&g, 20.0f);
+    CHECK(g.mobs[m].hp == 3 && is_idle(&g) && g.player.feet.x > stood.x && g.mobs[m].x - g.player.feet.x >= 9);
+    mob_kill(&g, m);
+    /* A wall in the way stops an arrow: the player has to come round to within reach. */
+    g.player.feet = g.player.step_to = stood;
+    for (int y = ground - 3; y <= ground; y++) world_set(w, px + 4, y, TILE_STONE);
+    m = mob_spawn(&g, dodo, px + 6, ground, true, false);
+    CHECK(game_click_mob(&g, m));
+    run(&g, blow + 0.1f);
+    CHECK(g.mobs[m].hp == 5);
+    for (int y = ground - 3; y <= ground; y++) world_set(w, px + 4, y, TILE_AIR);
+    mob_kill(&g, m);
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    g.queue_count = 0;
+    g.has_current = false;
+    g.player.feet = g.player.step_to = stood;
+
+    /* A gold bow does 5, and leaves poison that does 5 more: 1 every 2 ticks, over 10. */
+    clear_inventory(&g);
+    inventory_add(inv, poison_bow, 1);
+    inventory_select(inv, 0, -1);
+    content.mobs[dodo].health = 25;
+    m = mob_spawn(&g, dodo, px + 8, ground, true, false);
+    CHECK(game_click_mob(&g, m));
+    run(&g, blow + 0.1f);
+    CHECK(g.mobs[m].hp == 20 && mob_poison(&g.mobs[m]) == 5);
+    for (int t = 1; t <= 10; t++) {
+        mobs_tick(&g);
+        CHECK(g.mobs[m].hp == 20 - t / 2);
+    }
+    CHECK(g.mobs[m].hp == 15 && g.mobs[m].poison == 0);
+    for (int t = 0; t < 10; t++) mobs_tick(&g);
+    CHECK(g.mobs[m].hp == 15);
+    /* Poison finishes what the arrow did not. */
+    g.mobs[m].hp = 7;
+    CHECK(game_click_mob(&g, m));
+    run(&g, blow + 0.1f);
+    CHECK(g.mobs[m].active && g.mobs[m].hp == 2);
+    for (int t = 0; t < 4; t++) mobs_tick(&g);
+    CHECK(!g.mobs[m].active);
+    content.mobs[dodo].health = 5;
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    clear_inventory(&g);
     content.mobs[dodo].move_chance = 0.2f;
     clear_mobs(&g);
 
@@ -5358,15 +5427,22 @@ static void test_tools(void)
     float stone = tile_def(TILE_STONE)->mine_time, dirt = tile_def(TILE_DIRT)->mine_time;
     float log = tile_def(TILE_OAK_LOG)->mine_time;
 
-    /* Three kinds of tool, and every block that can be mined belongs to one. */
-    CHECK(shovel >= 0 && pickaxe >= 0 && axe >= 0 && content.tool_class_count == 3);
+    /* Four kinds of tool, and every block that can be mined belongs to one. */
+    int machete = tool_class_id("machete");
+    CHECK(shovel >= 0 && pickaxe >= 0 && axe >= 0 && machete >= 0 && content.tool_class_count == 4);
     for (int t = 1; t < content.tile_count; t++)
         CHECK(!content.tiles[t].removable || content.tiles[t].tool_class >= 0);
     CHECK(tile_def(TILE_DIRT)->tool_class == shovel && tile_def(TILE_GRASS)->tool_class == shovel);
     CHECK(tile_def(tile_id("flint"))->tool_class == shovel && tile_def(tile_id("copper_dirt"))->tool_class == shovel);
     CHECK(tile_def(TILE_STONE)->tool_class == pickaxe && tile_def(tile_id("gold_ore"))->tool_class == pickaxe);
     CHECK(tile_def(tile_id("coal_ore"))->tool_class == pickaxe && tile_def(tile_id("furnace"))->tool_class == pickaxe);
-    CHECK(tile_def(TILE_OAK_LOG)->tool_class == axe && tile_def(TILE_CHERRY_LEAVES)->tool_class == axe);
+    CHECK(tile_def(TILE_OAK_LOG)->tool_class == axe && tile_def(TILE_CHERRY_LEAVES)->tool_class == machete);
+    /* Leaves and plants are a machete's work, and a better one makes shorter work of them. */
+    CHECK(tile_def(tile_id("flax_0"))->tool_class == machete && tile_def(tile_id("oak_leaves_decayed"))->tool_class == machete);
+    CHECK(item_def(item_id("flint_machete"))->tool_class == machete && item_def(item_id("iron_machete"))->tool_class == machete);
+    CHECK(item_def(item_id("flint_machete"))->tool_speed > 1.0f);
+    CHECK(item_def(item_id("bronze_machete"))->tool_speed > item_def(item_id("flint_machete"))->tool_speed);
+    CHECK(item_def(item_id("iron_machete"))->tool_speed > item_def(item_id("bronze_machete"))->tool_speed);
     CHECK(tile_def(TILE_WOOD)->tool_class == axe && tile_def(tile_id("chest"))->tool_class == axe);
     CHECK(tile_def(TILE_PORTAL_BASE)->tool_class == -1);
     CHECK(item_def(item_id("wooden_pickaxe"))->tool_class == pickaxe && item_def(item_id("stone_shovel"))->tool_class == shovel);
@@ -5691,6 +5767,91 @@ static int shipped_count(const char *bench)
     return n;
 }
 
+static const ItemSource *source_of(const ItemSource *list, int count, SourceKind kind, const char *label)
+{
+    for (int i = 0; i < count; i++)
+        if (list[i].kind == kind && strcmp(list[i].label, label) == 0) return &list[i];
+    return NULL;
+}
+
+/* The recipe book: what the content says about where things come from. */
+static void test_guide(void)
+{
+    static ItemSource s[64];
+    static int r[MAX_RECIPES];
+    int n;
+
+    /* Searching is by label, in any case, anywhere in it. */
+    CHECK(guide_matches(item_id("bronze_sword"), "") && guide_matches(item_id("bronze_sword"), "SWO"));
+    CHECK(guide_matches(item_id("bronze_sword"), "bronze s") && !guide_matches(item_id("bronze_sword"), "iron"));
+
+    /* What makes a thing, and what it goes into. */
+    n = guide_recipes(item_id("bronze_ingot"), r, MAX_RECIPES);
+    CHECK(n >= 1 && content.recipes[r[0]].output.id == item_id("bronze_ingot") && strcmp(content.recipes[r[0]].bench, "furnace") == 0);
+    n = guide_uses(item_id("bronze_ingot"), r, MAX_RECIPES);
+    bool sword = false;
+    for (int i = 0; i < n; i++) sword = sword || content.recipes[r[i]].output.id == item_id("bronze_sword");
+    CHECK(sword);
+    CHECK(guide_recipes(ITEM_NONE, r, MAX_RECIPES) == 0 && guide_uses(ITEM_NONE, r, MAX_RECIPES) == 0);
+    /* The portal's recipes are among them, the one with ingredients that differ by world too. */
+    CHECK(guide_recipes(item_id("workbench"), r, MAX_RECIPES) == 1 && strcmp(content.recipes[r[0]].bench, "portal") == 0);
+    n = guide_uses(item_id("cherry"), r, MAX_RECIPES);
+    bool player = false;
+    for (int i = 0; i < n; i++) player = player || content.recipes[r[i]].output.id == item_id("new_player");
+    CHECK(player);
+    /* A bench is known by its block, and that by the item that puts it down. */
+    CHECK(guide_bench_tile("furnace", 1) == tile_id("furnace") && guide_bench_tile("furnace", 2) == tile_id("furnace_2"));
+    CHECK(guide_placer(tile_id("furnace")) == item_id("furnace") && guide_bench_tile("no_such_bench", 1) == TILE_AIR);
+
+    /* The base of it all: things dug out of the world, with where. */
+    char where[200];
+    CHECK(guide_tile_natural(tile_id("clay"), where, sizeof where) && strstr(where, "veins") && strstr(where, "Dirt"));
+    CHECK(guide_tile_natural(tile_id("oak_leaves"), where, sizeof where) && strstr(where, "Plains"));
+    CHECK(guide_tile_natural(tile_id("golden_chest"), where, sizeof where) && strstr(where, "Beach"));
+    CHECK(!guide_tile_natural(tile_id("furnace"), NULL, 0) && !guide_tile_natural(TILE_AIR, NULL, 0));
+    n = guide_sources(item_id("clay"), s, 64);
+    const ItemSource *clay = source_of(s, n, SOURCE_BLOCK, "Clay");
+    CHECK(n == 1 && clay && clay->from == tile_id("clay") && clay->tool_class == tool_class_id("shovel") && clay->chance == 1.0f);
+    /* Copper: two kinds of block, a creature bred for it, and meditating. */
+    n = guide_sources(item_id("copper_ore"), s, 64);
+    CHECK(source_of(s, n, SOURCE_BLOCK, "Copper ore") && source_of(s, n, SOURCE_BLOCK, "Copper-bearing dirt"));
+    const ItemSource *dodo = source_of(s, n, SOURCE_CREATURE, "Copper dodo"), *calm = source_of(s, n, SOURCE_MEDITATION, "Meditating");
+    CHECK(dodo && dodo->chance == 0.5f && strstr(dodo->where, "Stone dodo") && calm && calm->chance > 0.0f && calm->chance < 1.0f);
+    /* Fruit, a creature of the sea, a buried chest, and what a character starts with. */
+    n = guide_sources(item_id("apple"), s, 64);
+    CHECK(source_of(s, n, SOURCE_FRUIT, "Apple tree") && strstr(source_of(s, n, SOURCE_FRUIT, "Apple tree")->where, "Orchard"));
+    n = guide_sources(item_id("shark_head"), s, 64);
+    CHECK(n == 1 && source_of(s, n, SOURCE_CREATURE, "Shark")); /* (not from putting one down and taking it up) */
+    n = guide_sources(item_id("titanium_ingot"), s, 64);
+    CHECK(source_of(s, n, SOURCE_CHEST, "Golden chest") && source_of(s, n, SOURCE_CHEST, "Golden chest")->max == 1);
+    n = guide_sources(item_id("basket"), s, 64);
+    CHECK(source_of(s, n, SOURCE_START, "A new character"));
+    /* A plant's stages that give the same are one line; ones that give more are their own. */
+    n = guide_sources(item_id("carrot"), s, 64);
+    CHECK(n == 3 && s[0].max == 1 && s[2].max == 4 && strstr(s[0].where, "Grows wild"));
+    /* A block that is only ever there because it was put there gives nothing new... */
+    CHECK(guide_sources(item_id("furnace"), s, 64) == 0 && guide_sources(item_id("bronze_ingot"), s, 64) == 0);
+    /* ...but a bench raised a tier is a different thing from the one put down. */
+    n = guide_sources(item_id("workbench_2"), s, 64);
+    CHECK(n == 1 && s[0].placed_by == item_id("workbench") && strstr(s[0].where, "raised a tier"));
+    CHECK(guide_sources(ITEM_NONE, s, 64) == 0);
+
+    /* Every recipe is found again under what it makes and under each thing it takes. */
+    for (int i = 0; i < content.recipe_count; i++) {
+        const Recipe *p = &content.recipes[i];
+        bool listed = false;
+        n = guide_recipes(p->output.id, r, MAX_RECIPES);
+        for (int k = 0; k < n; k++) listed = listed || r[k] == i;
+        CHECK(listed);
+        for (int k = 0; k < p->input_count; k++) {
+            listed = false;
+            n = guide_uses(p->inputs[k].id, r, MAX_RECIPES);
+            for (int j = 0; j < n; j++) listed = listed || r[j] == i;
+            CHECK(listed);
+        }
+    }
+}
+
 /* The recipes the game ships with, against the list they were written from. */
 static void test_shipped_recipes(void)
 {
@@ -5701,7 +5862,7 @@ static void test_shipped_recipes(void)
     } benches[] = { { "workbench", 30 }, { "campfire", 6 }, { "tool_bench", 25 }, { "craft_bench", 18 }, { "woodwork_bench", 12 },
                     { "tailor_bench", 12 }, { "kiln", 8 }, { "furnace", 11 }, { "press", 29 }, { "compost_bin", 24 },
                     { "builder_bench", 55 }, { "armor_bench", 16 }, { "metalwork_bench", 27 }, { "pizza_oven", 2 },
-                    { "mixing_bench", 93 }, { "portal", 0 }, { "dye_bench", 0 }, { "easel", 0 }, { "refinery", 0 } };
+                    { "mixing_bench", 93 }, { "portal", 11 }, { "dye_bench", 0 }, { "easel", 0 }, { "refinery", 0 } };
     int total = 0;
     for (int i = 0; i < (int)(sizeof benches / sizeof benches[0]); i++) {
         CHECK(shipped_count(benches[i].bench) == benches[i].count);
@@ -5825,7 +5986,8 @@ static void test_shipped_recipes(void)
         for (TileType t = 1; t < content.tile_count; t++)
             if (content.tiles[t].bench && strcmp(content.tiles[t].bench_kind, p->bench) == 0 && content.tiles[t].bench_level > top)
                 top = content.tiles[t].bench_level;
-        CHECK(top >= p->level && p->time > 0.0f && p->output.count >= 1);
+        /* (What a portal makes, it makes at once.) */
+        CHECK(top >= p->level && (p->time > 0.0f || strcmp(p->bench, "portal") == 0) && p->output.count >= 1);
     }
     int missing = 0;
     for (ItemId i = 1; i < content.item_count; i++) {
@@ -5873,6 +6035,7 @@ int main(void)
      * of content of their own - the recipes and benches in tests/legacy -
      * so that changing what the game ships with does not change them. */
     test_shipped_recipes();
+    test_guide();
     content.recipe_count = 0;
     content.tint_count = 0;
     if (!content_load("tests/legacy", err, sizeof err)) {

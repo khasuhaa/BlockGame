@@ -69,6 +69,8 @@
   "veins": [
     { "name": "flint", "tile": "flint", "in": ["dirt"], "size": [4, 10],
       "per_100_columns": 14, "depth": [1, 6], "buried": true },
+    { "name": "clay", "tile": "clay", "in": ["dirt"], "size": [4, 10],
+      "per_100_columns": 14, "depth": [1, 6], "buried": true },
 
     { "name": "copper", "tile": "copper_ore", "in": ["stone"], "size": [2, 6],
       "per_100_columns": 30, "depth": [1, 90] },

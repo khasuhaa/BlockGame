@@ -41,6 +41,7 @@ Worlds are saved in `saves/<name>.world`, next to where the game is run from. A 
 
 `Esc` opens the pause menu, which stops the world and offers:
 
+- **Recipes** — the recipe book. On the left is every item in the game in a grid; type to narrow it down by name. Click an item to see every recipe that makes it: the bench and tier, what goes in and how many, how long it takes, and any crystals. Click anything in a recipe - an ingredient, or the bench - to look that up in turn, and so on down to the things that are not made at all, where the book says how they are got instead: which block to mine (and where it lies, and which tool is quicker), which creature leaves it and how often, which tree bears it and in which biome, which chest holds it, whether meditating brings it. Under that is everything the item is used to make. **Back** (or `Esc`) steps back the way you came, and the trail of items along the top jumps straight to one. The book is worked out from the data files as they are loaded (`src/guide.c`), so a mod's items and recipes are in it without anything being written for them.
 - **World settings** — the tick rate, from 1 to 300 ticks a second (10 by default), and whether the fog of war is on. Both are saved with the world.
 - **Keybinds** — the keys for moving left and right, climbing up and down, and making the camera follow the player. Click one, then press the new key; a key already in use swaps with the one it replaces. Bindings are shared by all worlds and kept in `saves/keybinds.txt`.
 
@@ -144,7 +145,7 @@ Veins of other blocks run through the ground:
 | Iron, gold | Stone, deeper | 2–8 | Rarer |
 | Platinum, titanium | Stone, deepest | 2–3 | Rarest |
 
-Veins of the same material never touch, so each stays within its size. Mining flint gives flint and mining any ore gives that ore; the harder ores take longer to mine.
+Veins of the same material never touch, so each stays within its size. Mining flint gives flint and mining any ore gives that ore; **clay** lies in the dirt in veins of its own, by exactly the rules flint does (4 to 10 blocks, 1 to 6 down, never touching the open air), and is dug the same way; the harder ores take longer to mine.
 
 Columns are grass over dirt over stone. The dirt is 4 or 5 blocks deep on the plains and thins out gradually up a mountain or down a valley, so peaks and valley floors are bare stone. Stone takes twice as long to mine as dirt. Grass drops dirt.
 
@@ -223,6 +224,8 @@ A kind at the end of its line only ever lays its own egg. All of this is in `mob
 | Bronze sword | 5 | 5 bronze ingots, 1 stick (tier 3) |
 | Iron sword | 10 | 5 iron ingots, 1 stick (tier 4) |
 | Titanium sword | 20 | 5 titanium ingots, 1 stick (tier 5) |
+
+**Bows** hit from a distance. With one in hand, a click on a creature up to 10 blocks away looses an arrow from where the player stands, as long as nothing solid is in the way; further off than that, or with a wall between, the player walks until the shot is clear and then takes it. The **copper bow** does 2. The **gold bow** does 5 and poisons what it hits: 5 more damage, 1 every 2 ticks over the next 10. Poison from a second arrow adds to what is still to come. A bow is an item with a `"range"`, and poison is its `"poison": { "damage", "every" }`.
 
 Dodos of every kind have 5 health, fish 5, dropbears 10 and sharks 25. A weapon is an item with a `"damage"`; a creature's `"health"` is in `mobs.json`.
 
@@ -400,7 +403,7 @@ A portal's menu - the spawn portal's or one the player made, from Tier 1 - has a
 
 The portal made at the workbench and the spawn portal are the same kind of bench: they offer the same recipes and climb the same tiers. Every portal is one base block with two portal blocks on it. The spawn portal's base is set into the ground, so two blocks of it stand above the surface; a made portal or a trade portal stands on the ground, base and all, three blocks tall. Each is one thing: placing it needs room for all three blocks, any of its blocks opens it, upgrading changes all of it, and removing any block takes the whole portal down and gives one item back. The spawn portal cannot be removed.
 
-Nothing is made at a portal any more (its old recipes - the workbench, the gem pickaxes, the portal chest, a new player - have no line in `recipes.txt`, and are listed in `obtainment.txt`). It still has six tiers, each bought with one gem; the table shows what each used to unlock:
+Every portal makes the same things, at once and with no waiting: a **workbench** from 1 dirt, a **Shop** (trade portal) from a portal and a gold coin, a **gold coin** from a golden chest, the gem pickaxes (3 of the gem and a stick, each at its tier), the portal chest and a new player. It has six tiers, each bought with one gem:
 
 | Portal tier | Costs | Unlocks | Ore multiplier |
 | --- | --- | --- | --- |
@@ -449,25 +452,26 @@ Every block that can be mined belongs to one kind of tool, and a tool of that ki
 | --- | --- |
 | Shovel | Dirt, grass, flint, copper- and tin-bearing dirt |
 | Pickaxe | Stone, coal, all ores, kiln, furnace |
-| Axe | Tree trunks and leaves, wood, chest, workbench, woodwork bench, tool bench, craft bench |
+| Axe | Tree trunks, wood, cactus, chest, workbench, woodwork bench, tool bench, craft bench |
+| Machete | Leaves of every tree, living or decayed; carrots, flax, coral and kelp |
 
 | Tool bench tier | Makes | From | Takes | It is a |
 | --- | --- | --- | --- | --- |
 | 1 | Flint spade | 1 stick, 2 flint | 40s | shovel, 2× |
-| 1 | Flint machete | 1 stick, 2 flint | 40s | nothing yet |
+| 1 | Flint machete | 1 stick, 2 flint | 40s | machete, 2× |
 | 1 | Flint axe | 1 stick, 3 flint | 40s | axe, 2× |
 | 1 | Flint pickaxe | 1 stick, 5 flint | 40s | pickaxe, 2× |
 | 1 | Flint spear | 1 stick, 1 flint | 40s | weapon, 3 a blow |
 | 2 | Stone axe | 1 stick, 3 stone | 1m | axe, 3× |
 | 2 | Stone pickaxe | 1 stick, 5 stone | 1m | pickaxe, 3× |
 | 2 | Stone spade | 1 stick, 2 stone | 1m | shovel, 3× |
-| 2 | Copper bow & arrows | 50 stick, 5 copper ingot, 5 dodo feather, 1 string | 1m | nothing yet |
+| 2 | Copper bow & arrows | 50 stick, 5 copper ingot, 5 dodo feather, 1 string | 1m | bow, 2 a shot from 10 blocks |
 | 3 | Bronze pickaxe | 1 stick, 5 bronze ingot | 1m 10s | pickaxe, 4× |
-| 3 | Bronze machete | 1 stick, 2 bronze ingot | 1m 10s | nothing yet |
+| 3 | Bronze machete | 1 stick, 2 bronze ingot | 1m 10s | machete, 4× |
 | 3 | Bronze sword | 1 stick, 3 bronze ingot | 1m 10s | weapon, 5 a blow |
 | 3 | Tin spade | 1 stick, 2 tin ingot | 1m 10s | shovel, 4× |
 | 4 | Iron pickaxe | 1 stick, 5 iron ingot | 1m 20s | pickaxe, 5.5× |
-| 4 | Iron machete | 1 stick, 2 iron ingot | 1m 20s | nothing yet |
+| 4 | Iron machete | 1 stick, 2 iron ingot | 1m 20s | machete, 5.5× |
 | 4 | Iron sword | 1 stick, 3 iron ingot | 1m 20s | weapon, 10 a blow |
 | 4 | Iron axe | 1 stick, 3 iron ingot | 1m 20s | axe, 5.5× |
 | 5 | Steel pickaxe | 1 stick, 5 steel ingot | 1m 40s | pickaxe, 6.75× |
@@ -475,7 +479,7 @@ Every block that can be mined belongs to one kind of tool, and a tool of that ki
 | 5 | Razor | 1 yak horn, 1 steel ingot | 1m 40s | nothing yet |
 | 6 | Gold spade | 1 stick, 2 gold ingot | 2m | shovel, 5.5× |
 | 6 | Gold pickaxe | 1 stick, 5 gold ingot | 2m | pickaxe, 5.5× |
-| 6 | Gold bow & poison arrows | 50 stick, 5 gold ingot, 5 dodo feather, 5 poison | 2m | nothing yet |
+| 6 | Gold bow & poison arrows | 50 stick, 5 gold ingot, 5 dodo feather, 5 poison | 2m | bow, 5 a shot from 10 blocks, and 5 more by poison |
 | 7 | Titanium sword | 1 stick, 3 titanium ingot | 3m | weapon, 20 a blow |
 | 7 | Titanium pickaxe | 1 stick, 5 titanium ingot | 3m | pickaxe, 8× |
 
@@ -512,6 +516,7 @@ Under a beach, quite often - about one column in six, a dozen or more to a world
 - `src/inventory.c` — stacks, baskets and the rules for moving them
 - `src/craft.c` — crafting from the recipes
 - `src/trade.c` — buying, selling and exchanging coins
+- `src/guide.c` — what the content says about where each item comes from, for the recipe book
 - `src/mob.c` — creatures: spawning, wandering, eggs and hunting
 - `src/light.c` — how well lit each tile is
 - `src/game.c` — player, movement rules, path planning, action queue, item drops, crafting
@@ -521,6 +526,7 @@ Under a beach, quite often - about one column in six, a dozen or more to a world
 - `src/benchui.c` — the bench popup and crafting menu
 - `src/tradeui.c` — the trade portal menu
 - `src/playerui.c` — the player's button, bars and the sleep and meditate panel
+- `src/recipeui.c` — the recipe book
 - `src/menu.c` — main menu, pause menu and key bindings
 - `src/view.h` — placing the wrapping world on screen
 - `src/main.c` — window, input, camera and rendering

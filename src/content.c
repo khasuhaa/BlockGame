@@ -413,6 +413,10 @@ static bool read_items(Reader *r, const cJSON *root)
         if (it->meter_max < 0 || it->meter_max > 250)
             return fail(r, "item \"%s\": a meter reads at most 250", it->name);
         it->damage = (int)num(e, "damage", 0);
+        it->range = (int)num(e, "range", 0);
+        it->poison = (int)num(field(e, "poison"), "damage", 0);
+        it->poison_every = (int)num(field(e, "poison"), "every", 2);
+        if (it->poison_every < 1) it->poison_every = 1;
         it->tinted = flag(e, "tinted", false);
         if (it->tinted) {
             it->holds_water = false;

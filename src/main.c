@@ -1253,6 +1253,15 @@ static void session_draw(Session *s)
             if (g->character_count > 1 && c == g->controlled && game_alive(g)) draw_played_marker(g, origin);
         }
         draw_drops(g, origin);
+        /* An arrow in the air: a quick streak from the bow to what it was loosed at. */
+        if (g->shot.live) {
+            float t = g->shot.age / 0.2f;
+            Vector2 a = { origin.x + view_near_x(&view, g->shot.from_x) * TILE_SIZE, origin.y + g->shot.from_y * TILE_SIZE };
+            Vector2 b = { a.x + (g->shot.to_x - g->shot.from_x) * TILE_SIZE, origin.y + g->shot.to_y * TILE_SIZE };
+            Vector2 head = { a.x + (b.x - a.x) * fminf(1.0f, t * 2.0f), a.y + (b.y - a.y) * fminf(1.0f, t * 2.0f) };
+            Vector2 tail = { a.x + (b.x - a.x) * fmaxf(0.0f, t * 2.0f - 0.35f), a.y + (b.y - a.y) * fmaxf(0.0f, t * 2.0f - 0.35f) };
+            if (t < 0.6f) DrawLineEx(tail, head, 2.0f, (Color){ 240, 232, 200, 255 });
+        }
         /* Darkness falls over the world, but not over the interface. */
         draw_light(g, origin);
         draw_fog(g, origin);

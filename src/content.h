@@ -206,6 +206,9 @@ typedef struct {
     bool tinted;       /* the meter is which colour it is: one of content.tints, plus one */
     TileType places_sized[MAX_ITEM_SIZES]; /* for a sized item, the block each size is put down as */
     int damage;        /* what a blow with it in hand takes off a creature; 0 for no better than a bare hand */
+    int range;         /* how many blocks off it can hit from: a bow; 0 for at arm's length */
+    int poison;        /* what it does over time besides: this much more, a point at a time */
+    int poison_every;  /* ticks between those points */
     int category;    /* where it is listed for trading, or -1 if it is not traded */
     char category_name[CONTENT_NAME_LEN];
     int price;       /* what one costs, in the smallest currency; 0 for the default */
