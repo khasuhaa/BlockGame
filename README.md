@@ -82,6 +82,7 @@ Holding a direction, or a queued click, takes the player:
 - from one wall to a facing wall up to two columns away with a hop, so a pit two or three blocks wide is crossed near the top without going to the bottom;
 - up any wall, pulling onto the top;
 - through a gap one block high, crawling; the player is one block tall while under the low ceiling and stands up again on the far side;
+- into a gap one block high wherever it is: one at head height is got into head first, with no need of room to rise in, and one further up a wall is climbed to and gone into from the wall - or straight in from beside it, off a tree or anything else being climbed;
 - along the underside of a row of blocks, hand over hand like monkey bars.
 
 To get onto a row of blocks overhead, press `W` under it: the player jumps and catches it if there is one clear block between their head and it. Holding a direction past the end of the row lets go. Pressing `W` at the end instead swings round onto the side of the last block, from where it is an ordinary climb onto the top; `S` on the side of a block swings back in under it rather than dropping off. A queued click uses all of these to find its way.

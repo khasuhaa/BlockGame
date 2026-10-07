@@ -455,6 +455,79 @@ static void test_crawl(void)
     game_free(&g);
 }
 
+/* A gap one block high is got into wherever it is: at head height, or up a wall. */
+static void test_crawl_into_gaps(void)
+{
+    Game g;
+    game_init(&g, 256, 48, 25, WORLD_FLAT);
+    World *w = &g.world;
+    TilePos start = g.player.feet;
+    int s = w->surface_y;
+
+    /* A gap at head height, in a passage with no room to rise in: it is got into all the same, by a click or by the keys. */
+    int ax = start.x + 20;
+    for (int x = ax - 2; x <= ax + 5; x++) world_set(w, x, s - 3, TILE_STONE);          /* the roof, over passage and gap alike */
+    for (int x = ax + 1; x <= ax + 5; x++) world_set(w, x, s - 1, TILE_STONE);          /* the floor of the gap */
+    g.player.feet = g.player.step_to = (TilePos){ ax, s - 1 };
+    CHECK(!game_player_crawling(&g) && world_is_solid(w, ax, s - 3));
+    CHECK(game_click_tile(&g, ax + 3, s - 2));
+    run(&g, 6.0f);
+    CHECK(is_idle(&g) && g.player.feet.x == ax + 3 && g.player.feet.y == s - 2 && game_player_crawling(&g));
+    g.player.feet = g.player.step_to = (TilePos){ ax, s - 1 };
+    game_set_move_input(&g, 1, 0);
+    run(&g, 0.5f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 1.0f);
+    CHECK(g.player.feet.y == s - 2 && g.player.feet.x > ax && game_player_crawling(&g));
+    /* (But not from one gap up into another: there is a block in the way overhead.) */
+    int cx = start.x + 30;
+    for (int x = cx - 1; x <= cx + 3; x++) world_set(w, x, s - 2, TILE_STONE);
+    world_set(w, cx, s - 2, TILE_STONE);
+    world_set(w, cx + 1, s - 1, TILE_STONE);
+    world_set(w, cx + 1, s - 2, TILE_AIR);
+    g.player.feet = g.player.step_to = (TilePos){ cx, s - 1 };
+    CHECK(game_player_crawling(&g));
+    game_set_move_input(&g, 1, 0);
+    run(&g, 1.5f);
+    game_set_move_input(&g, 0, 0);
+    CHECK(g.player.feet.x == cx && g.player.feet.y == s - 1);
+
+    /* A gap up a wall, in a shaft with a lid on it: climbed up to, and gone into from as high as the shaft lets them get. */
+    int bx = start.x + 40;
+    for (int y = s - 6; y <= s - 1; y++) {
+        world_set(w, bx - 1, y, TILE_STONE);
+        for (int x = bx + 1; x <= bx + 4; x++) world_set(w, x, y, TILE_STONE);
+    }
+    world_set(w, bx, s - 5, TILE_STONE);                                        /* the lid */
+    for (int x = bx + 1; x <= bx + 4; x++) world_set(w, x, s - 4, TILE_AIR);  /* the gap, level with the top of the shaft */
+    g.player.feet = g.player.step_to = (TilePos){ bx, s - 1 };
+    CHECK(game_click_tile(&g, bx + 3, s - 4));
+    Trace up = run_traced(&g, 10.0f);
+    CHECK(is_idle(&g) && g.player.feet.x == bx + 3 && g.player.feet.y == s - 4 && game_player_crawling(&g) && up.climbed);
+    /* And back out and down again. */
+    CHECK(game_click_tile(&g, bx, s - 1));
+    run(&g, 10.0f);
+    CHECK(is_idle(&g) && g.player.feet.x == bx && g.player.feet.y == s - 1);
+
+    /* Off a tree straight into a gap beside the feet. */
+    int lx = start.x - 20;
+    TileType ladder = tile_id("oak_log");
+    CHECK(ladder > 0 && tile_def(ladder)->climbable);
+    for (int y = s - 6; y <= s - 1; y++) world_set_at(w, tile_def(ladder)->layer, lx, y, ladder);
+    for (int x = lx + 1; x <= lx + 3; x++) {
+        world_set(w, x, s - 3, TILE_STONE);
+        world_set(w, x, s - 5, TILE_STONE);
+    }
+    g.player.feet = g.player.step_to = (TilePos){ lx, s - 4 };
+    g.player.climbing = true;
+    game_set_move_input(&g, 1, 0);
+    run(&g, 0.6f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 1.0f);
+    CHECK(g.player.feet.y == s - 4 && g.player.feet.x > lx && game_player_crawling(&g) && !g.player.climbing);
+    game_free(&g);
+}
+
 /* Nothing is reached diagonally past two blocks that meet at the corner. */
 static void test_blocked_corner(void)
 {
@@ -8629,6 +8702,7 @@ int main(void)
     test_unqueue();
     test_monkey_bars();
     test_crawl();
+    test_crawl_into_gaps();
     test_blocked_corner();
     test_hop_gap();
     test_climb_drop();

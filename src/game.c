@@ -120,11 +120,20 @@ static bool can_cling(const World *w, TilePos feet)
 
 /* Pull up onto the block beside the feet: a one-block ledge when standing,
  * the top of the wall when climbing. The top may be a gap only high enough
- * to crawl into. */
+ * to crawl into, and there need be no room to rise before going in: a gap at
+ * head height under a ceiling is got into head first. (Not from another gap:
+ * someone crawling has a block over them, and no way up round it.) */
 static bool can_mantle(const World *w, TilePos feet, int d)
 {
-    return world_is_solid(w, feet.x + d, feet.y) && body_fits(w, feet.x, feet.y - 1) &&
+    return world_is_solid(w, feet.x + d, feet.y) && !blocks_body(w, feet.x, feet.y - 1) &&
            low_fits(w, feet.x + d, feet.y - 1);
+}
+
+/* Off whatever is being climbed and straight in beside the feet, onto a
+ * floor there: a ledge, or a gap only high enough to crawl into. */
+static bool can_step_off(const World *w, TilePos feet, int d)
+{
+    return low_fits(w, feet.x + d, feet.y) && is_supported(w, (TilePos){ feet.x + d, feet.y });
 }
 
 static bool can_climb_up(const World *w, TilePos feet)
@@ -199,6 +208,7 @@ static int list_moves(const World *w, Pose p, Step *out)
         for (int d = -1; d <= 1; d += 2) {
             int k;
             if (can_mantle(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, -1, false };
+            else if (can_step_off(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, 0, false };
             else if (can_climb_across(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, 0, true };
             else if ((k = wall_hop_distance(w, p.feet, d)) > 0)
                 out[n++] = (Step){ (int8_t)(d * k), 0, true };
@@ -286,6 +296,7 @@ static Step key_step(const World *w, Pose p, int dx, int dy)
             return none;
         }
         if (can_mantle(w, p.feet, dx)) return (Step){ (int8_t)dx, -1, false };
+        if (can_step_off(w, p.feet, dx)) return (Step){ (int8_t)dx, 0, false };
         if (can_cling_side(w, p.feet, dx))
             return can_climb_up(w, p.feet) ? (Step){ 0, -1, true } : none;
         if (can_climb_across(w, p.feet, dx)) return (Step){ (int8_t)dx, 0, true };
