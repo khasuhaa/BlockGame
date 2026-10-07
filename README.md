@@ -717,6 +717,27 @@ For someone writing a mod: `"network"` on a block (`cable`, `controller`, `drive
 - **Where it leads.** A dish is made of prepared things, which are made of ground, fermented or cooked things, which are made of what was grown. At the chef's table four **platters** put dishes together (breakfast platter, picnic basket, cheese board, mezze). A picnic basket upgrades the table to tier II, where six **feasts** are each five dishes: Italian, Eastern, harvest, garden and spice feasts, and the dessert trolley. A harvest feast upgrades it to tier III, where the **royal banquet** is five feasts, and **ambrosia** - the banquet, the dessert trolley, a cheese board, a mezze and a rainbow cake - is the end of it: six makings deep, and it fills hunger, health and energy to the top and beyond.
 - 106 recipes in all. What a thing costs at the trade portal is worked out from what goes into it.
 
+### Explorer's Delight
+
+`mods/explorers_delight`: ten more kinds of country, each made of ground and rock of its own, and a great many things to build with out of what is found there. Data only; it goes with every other mod.
+
+- **Ten biomes**, placed among the others by heat and dryness (so only worlds made with the mod on have them):
+  - **Red mesa** - red sand over terracotta, with red sandstone at its heart; baobabs and dead bushes.
+  - **Salt flats** - a white crust over rock salt.
+  - **Volcanic wastes** - ash over dark red scoria, with pumice at its heart.
+  - **Frozen tundra** - packed snow over glacial ice, with permafrost deep in.
+  - **Slate highlands** - coarse highland grass over slate; heather, and a birch here and there.
+  - **Misty marsh** - mud over peat; willows and reeds.
+  - **Savanna** - dry grass; acacias, and the odd baobab.
+  - **Birch woods** - thick with birch, over granite at its heart.
+  - **Mossy hollow** - moss underfoot, mossy stone below, and glowcaps: mushrooms the size of trees, whose caps give light.
+  - **Bamboo grove** - bamboo, close together.
+- A biome's own ground is a block deep at its edge and deepens toward its middle. Granite, mossy stone, pumice and red sandstone, which lie only under the heart of their country, are in pockets in the rock everywhere as well.
+- **Nine stones** - terracotta, red sandstone, rock salt, scoria, pumice, slate, granite, mossy stone and glacial ice - each a block to build with as it is, and each with **bricks**, a **polished** block, **tiles**, a **column** and **stairs**, made at the builder's bench: 54 blocks. **Mud bricks** (mud and dry grass), with their column and stairs, besides.
+- **Six woods** - acacia, baobab, birch, willow, bamboo and glowcap - each a block of its own colour with a column and stairs, and each good wherever wood is wanted (one of any makes one wood at a workbench). Each tree is grown again from what it bears: a seed, a catkin, a spore, a baobab fruit or a bamboo shoot, the last two of which can be eaten.
+- **Ground to build with too**: red sand, salt crust, ash, packed snow, permafrost, mud, peat, highland grass, dry grass and moss are all blocks that are dug up and put down.
+- Odds and ends: rock salt and salt crust give salt; four packed snow make glacial ice; four red sand make red sandstone; stone and moss make mossy stone; reeds make sticks.
+
 ### Golden chests
 
 Under a beach, quite often - about one column in six, a dozen or more to a world - a golden chest lies buried at the bottom of the sand: behind the sand, in the background, so it is not seen or opened until the sand in front of it is dug away. (Golden chests and portal chests are things of the background: they are walked past, not into.) A golden chest is what a portal chest is made from (with 100 crystals, at a tier 6 portal), and a tier 2 metalwork bench melts one down into a gold coin. It opens and is carried off like any chest. The first time it is opened or dug up it holds 1 to 5 gold coins, up to 3 gold ore, up to 3 iron ingots, perhaps a titanium ingot, and one gem shard: of amethyst most often, then sapphire, emerald, and ruby least. What a block is found holding is its `"loot"` in `tiles.json`, and where it is buried is `"buried"` on a biome in `worldgen.json`; a golden chest the player puts down, or buys, holds only what they put in it.

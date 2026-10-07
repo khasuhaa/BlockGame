@@ -1,0 +1,367 @@
+{
+ "biomes": [
+  {
+   "name": "red_mesa",
+   "label": "Red mesa",
+   "heat": [
+    0.5,
+    1
+   ],
+   "dryness": [
+    0.05,
+    0.5
+   ],
+   "surface": "red_sand",
+   "soil": "terracotta",
+   "soil_depth": 9,
+   "under": {
+    "tile": "red_sandstone",
+    "depth": 8
+   },
+   "tree_one_in": 30,
+   "trees": [
+    {
+     "tree": "baobab_tree",
+     "weight": 1
+    }
+   ],
+   "plants": [
+    {
+     "tile": "dead_bush",
+     "one_in": 14
+    }
+   ]
+  },
+  {
+   "name": "salt_flats",
+   "label": "Salt flats",
+   "heat": [
+    0.1,
+    1
+   ],
+   "dryness": [
+    0.78,
+    1
+   ],
+   "surface": "salt_crust",
+   "soil": "rock_salt",
+   "soil_depth": 7,
+   "plants": [
+    {
+     "tile": "dead_bush",
+     "one_in": 40
+    }
+   ]
+  },
+  {
+   "name": "volcanic_wastes",
+   "label": "Volcanic wastes",
+   "heat": [
+    0.3,
+    1
+   ],
+   "dryness": [
+    0.5,
+    0.78
+   ],
+   "surface": "ash",
+   "soil": "scoria",
+   "soil_depth": 9,
+   "under": {
+    "tile": "pumice",
+    "depth": 10
+   },
+   "plants": [
+    {
+     "tile": "dead_bush",
+     "one_in": 30
+    }
+   ]
+  },
+  {
+   "name": "frozen_tundra",
+   "label": "Frozen tundra",
+   "heat": [
+    -1,
+    -0.72
+   ],
+   "dryness": [
+    0.1,
+    1
+   ],
+   "surface": "packed_snow",
+   "soil": "glacial_ice",
+   "soil_depth": 7,
+   "under": {
+    "tile": "permafrost",
+    "depth": 8
+   }
+  },
+  {
+   "name": "slate_highlands",
+   "label": "Slate highlands",
+   "heat": [
+    -0.72,
+    -0.4
+   ],
+   "dryness": [
+    0.55,
+    1
+   ],
+   "surface": "highland_grass",
+   "soil": "slate",
+   "soil_depth": 9,
+   "tree_one_in": 18,
+   "trees": [
+    {
+     "tree": "birch_tree",
+     "weight": 1
+    }
+   ],
+   "plants": [
+    {
+     "tile": "heather",
+     "one_in": 6
+    },
+    {
+     "tile": "fern",
+     "one_in": 30
+    }
+   ]
+  },
+  {
+   "name": "misty_marsh",
+   "label": "Misty marsh",
+   "heat": [
+    -1,
+    -0.4
+   ],
+   "dryness": [
+    -1,
+    -0.62
+   ],
+   "surface": "mud",
+   "soil": "peat",
+   "soil_depth": 4,
+   "tree_one_in": 8,
+   "trees": [
+    {
+     "tree": "willow_tree",
+     "weight": 1
+    }
+   ],
+   "plants": [
+    {
+     "tile": "reed",
+     "one_in": 5
+    },
+    {
+     "tile": "fern",
+     "one_in": 20
+    }
+   ]
+  },
+  {
+   "name": "savanna",
+   "label": "Savanna",
+   "heat": [
+    0.55,
+    1
+   ],
+   "dryness": [
+    -0.45,
+    0.05
+   ],
+   "surface": "dry_grass",
+   "soil": "dirt",
+   "tree_one_in": 14,
+   "tree_spacing": 5,
+   "trees": [
+    {
+     "tree": "acacia_tree",
+     "weight": 4
+    },
+    {
+     "tree": "baobab_tree",
+     "weight": 1
+    }
+   ],
+   "plants": [
+    {
+     "tile": "dead_bush",
+     "one_in": 26
+    }
+   ]
+  },
+  {
+   "name": "birch_woods",
+   "label": "Birch woods",
+   "heat": [
+    -0.4,
+    0.1
+   ],
+   "dryness": [
+    0.55,
+    1
+   ],
+   "surface": "grass",
+   "soil": "dirt",
+   "under": {
+    "tile": "granite",
+    "depth": 12
+   },
+   "tree_one_in": 5,
+   "tree_spacing": 3,
+   "trees": [
+    {
+     "tree": "birch_tree",
+     "weight": 1
+    }
+   ],
+   "plants": [
+    {
+     "tile": "fern",
+     "one_in": 14
+    },
+    {
+     "tile": "heather",
+     "one_in": 30
+    }
+   ]
+  },
+  {
+   "name": "mossy_hollow",
+   "label": "Mossy hollow",
+   "heat": [
+    -0.4,
+    0.1
+   ],
+   "dryness": [
+    -0.6,
+    -0.35
+   ],
+   "surface": "moss",
+   "soil": "dirt",
+   "under": {
+    "tile": "mossy_stone",
+    "depth": 10
+   },
+   "tree_one_in": 6,
+   "tree_spacing": 3,
+   "trees": [
+    {
+     "tree": "glowcap_tree",
+     "weight": 3
+    },
+    {
+     "tree": "oak",
+     "weight": 1
+    }
+   ],
+   "plants": [
+    {
+     "tile": "fern",
+     "one_in": 5
+    }
+   ]
+  },
+  {
+   "name": "bamboo_grove",
+   "label": "Bamboo grove",
+   "heat": [
+    0.1,
+    0.55
+   ],
+   "dryness": [
+    -1,
+    -0.45
+   ],
+   "surface": "grass",
+   "soil": "dirt",
+   "tree_one_in": 3,
+   "tree_spacing": 2,
+   "trees": [
+    {
+     "tree": "bamboo_tree",
+     "weight": 1
+    }
+   ],
+   "plants": [
+    {
+     "tile": "fern",
+     "one_in": 16
+    },
+    {
+     "tile": "reed",
+     "one_in": 26
+    }
+   ]
+  }
+ ],
+ "veins": [
+  {
+   "name": "granite_pocket",
+   "tile": "granite",
+   "in": [
+    "stone"
+   ],
+   "size": [
+    20,
+    56
+   ],
+   "per_100_columns": 2.5,
+   "depth": [
+    6,
+    140
+   ]
+  },
+  {
+   "name": "mossy_pocket",
+   "tile": "mossy_stone",
+   "in": [
+    "stone"
+   ],
+   "size": [
+    10,
+    30
+   ],
+   "per_100_columns": 2.0,
+   "depth": [
+    2,
+    40
+   ]
+  },
+  {
+   "name": "pumice_pocket",
+   "tile": "pumice",
+   "in": [
+    "stone"
+   ],
+   "size": [
+    10,
+    30
+   ],
+   "per_100_columns": 1.5,
+   "depth": [
+    90,
+    190
+   ]
+  },
+  {
+   "name": "red_sandstone_pocket",
+   "tile": "red_sandstone",
+   "in": [
+    "sandstone"
+   ],
+   "size": [
+    8,
+    24
+   ],
+   "per_100_columns": 2.0,
+   "depth": [
+    2,
+    30
+   ]
+  }
+ ]
+}

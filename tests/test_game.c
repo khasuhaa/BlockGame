@@ -10060,6 +10060,143 @@ static void test_culinary_mod(void)
     CHECK(content_load("data", err, sizeof err) && content.tile_count == tiles);
 }
 
+/* Explorer's Delight, on top of the game. */
+static void test_explorers_mod(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count, trees = content.tree_count, biomes = content.biome_count;
+    if (!content_load("mods/explorers_delight", err, sizeof err)) {
+        printf("FAIL explorers_delight does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    CHECK(content.tile_count == tiles + 101 && content.item_count == items + 94 && content.recipe_count == recipes + 75);
+    CHECK(content.tree_count == trees + 6 && content.biome_count == biomes + 10);
+    /* Everything it adds can be got: dug, cut, picked, or made of things that can be. */
+    static uint8_t got[MAX_ITEMS];
+    memset(got, 0, sizeof got);
+    for (ItemId i = 1; i < items; i++) got[i] = 1;
+    for (TileType t = 1; t < content.tile_count; t++) {
+        const TileDef *def = tile_def(t);
+        if (def->drop != ITEM_NONE) got[def->drop] = 1;
+        for (int k = 0; k < def->extra_drop_count; k++) got[def->extra_drops[k].id] = 1;
+    }
+    for (int t = 0; t < content.tree_count; t++)
+        if (content.trees[t].fruit != ITEM_NONE) got[content.trees[t].fruit] = 1;
+    for (int pass = 0; pass < 6; pass++) {
+        for (int k = 0; k < content.recipe_count; k++) {
+            const Recipe *r = &content.recipes[k];
+            bool can = true;
+            for (int i = 0; i < r->input_count; i++) can = can && got[r->inputs[i].id];
+            if (can) got[r->output.id] = 1;
+        }
+    }
+    int missing = 0;
+    for (ItemId i = items; i < content.item_count; i++) {
+        if (got[i]) continue;
+        printf("  cannot be got: %s\n", item_def(i)->name);
+        missing++;
+    }
+    CHECK(missing == 0);
+    /* Each of the nine stones has its bricks, its polished block, its tiles, its column and its stairs, made at the builder's bench. */
+    static const char *const stones[9] = { "terracotta", "red_sandstone", "rock_salt", "scoria", "pumice", "slate", "granite", "mossy_stone", "glacial_ice" };
+    TileType builder = tile_id("builder_bench");
+    for (int k = 0; k < 9; k++) {
+        char name[64];
+        TileType rock = tile_id(stones[k]);
+        CHECK(rock != TILE_AIR && tile_def(rock)->solid && item_def(item_id(stones[k]))->places == rock);
+        snprintf(name, sizeof name, "%s_bricks", stones[k]);
+        const Recipe *r = find_recipe_from(builder, name, stones[k]);
+        CHECK(tile_def(tile_id(name))->solid && r && r->output.count == 4 && r->inputs[0].count == 4);
+        snprintf(name, sizeof name, "polished_%s", stones[k]);
+        CHECK(tile_def(tile_id(name))->solid && find_recipe(builder, name));
+        char polished[64];
+        snprintf(polished, sizeof polished, "%s", name);
+        snprintf(name, sizeof name, "%s_tiles", stones[k]);
+        CHECK(tile_def(tile_id(name))->solid && find_recipe_from(builder, name, polished));
+        snprintf(name, sizeof name, "%s_column", stones[k]);
+        CHECK(tile_def(tile_id(name))->supports && tile_def(tile_id(name))->layer == LAYER_BACKGROUND && find_recipe_from(builder, name, stones[k]));
+        snprintf(name, sizeof name, "%s_stairs", stones[k]);
+        CHECK(tile_def(tile_id(name))->steps && find_recipe_from(builder, name, stones[k]));
+    }
+    /* Each of the six woods is a block of its own, with its column and stairs; and any of them will do where wood is wanted. */
+    static const char *const woods[6] = { "acacia", "baobab", "birch", "willow", "bamboo", "glowcap" };
+    for (int k = 0; k < 6; k++) {
+        char name[64], wood[64];
+        snprintf(wood, sizeof wood, "%s_wood", woods[k]);
+        snprintf(name, sizeof name, "%s_log", woods[k]);
+        CHECK(tile_def(tile_id(name))->drop == item_id(wood) && tile_def(tile_id(wood))->solid && item_def(item_id(wood))->fuel > 0);
+        CHECK(find_recipe_from(TILE_WORKBENCH, "wood", wood) != NULL);
+        snprintf(name, sizeof name, "%s_stairs", woods[k]);
+        CHECK(tile_def(tile_id(name))->steps && find_recipe_from(builder, name, wood));
+        snprintf(name, sizeof name, "%s_tree", woods[k]);
+        CHECK(tree_id(name) >= 0 && content.trees[tree_id(name)].fruit != ITEM_NONE && item_def(content.trees[tree_id(name)].fruit)->plants == tree_id(name));
+    }
+    CHECK(tile_def(tile_id("glowcap_leaves"))->light > 0 && find_recipe_from(TILE_WORKBENCH, "salt", "rock_salt"));
+
+    /* The world: each of the ten new kinds of country is in it, with its own ground on top, its own rock under that, and what grows there. */
+    static const struct {
+        const char *land, *top, *rock, *grows;
+    } lands[10] = { { "red_mesa", "red_sand", "terracotta", "dead_bush" }, { "salt_flats", "salt_crust", "rock_salt", NULL },
+                    { "volcanic_wastes", "ash", "scoria", NULL }, { "frozen_tundra", "packed_snow", "glacial_ice", NULL },
+                    { "slate_highlands", "highland_grass", "slate", "heather" }, { "misty_marsh", "mud", NULL, "willow_log" },
+                    { "savanna", "dry_grass", NULL, "acacia_log" }, { "birch_woods", "grass", NULL, "birch_log" },
+                    { "mossy_hollow", "moss", NULL, "glowcap_log" }, { "bamboo_grove", "grass", NULL, "bamboo_log" } };
+    int columns[10] = { 0 }, topped[10] = { 0 }, rocks[10] = { 0 }, growing[10] = { 0 }, pockets[4] = { 0 };
+    for (uint32_t seed = 1; seed <= 4; seed++) {
+        World world;
+        CHECK(world_init(&world, 4096, 401, seed, WORLD_TERRAIN));
+        /* (The rocks that are only under the heart of a country are in pockets in the rock everywhere as well.) */
+        pockets[0] += count_tile(&world, 0, tile_id("granite"));
+        pockets[1] += count_tile(&world, 0, tile_id("mossy_stone"));
+        pockets[2] += count_tile(&world, 0, tile_id("pumice"));
+        pockets[3] += count_tile(&world, 0, tile_id("red_sandstone"));
+        for (int x = 0; x < world.width; x++) {
+            const char *land = content.biomes[world_biome(&world, x)].name;
+            for (int k = 0; k < 10; k++) {
+                if (strcmp(land, lands[k].land) != 0) continue;
+                columns[k]++;
+                TileType top = tile_id(lands[k].top), rock = lands[k].rock ? tile_id(lands[k].rock) : TILE_AIR, grows = lands[k].grows ? tile_id(lands[k].grows) : TILE_AIR;
+                bool has_top = false, has_rock = false;
+                for (int y = 0; y < world.height; y++) {
+                    has_top = has_top || world_get(&world, x, y) == top;
+                    has_rock = has_rock || (rock != TILE_AIR && world_get(&world, x, y) == rock);
+                    if (grows != TILE_AIR && world_get_at(&world, BG, x, y) == grows) growing[k]++;
+                }
+                topped[k] += has_top;
+                rocks[k] += has_rock;
+            }
+        }
+        world_free(&world);
+    }
+    for (int k = 0; k < 10; k++) {
+        bool ok = columns[k] >= 100 && topped[k] * 2 > columns[k] && (!lands[k].rock || rocks[k] * 2 > columns[k]) && (!lands[k].grows || growing[k] >= 3);
+        if (!ok) printf("  %s: %d columns, %d with %s, %d with %s, %d %s\n", lands[k].land, columns[k], topped[k], lands[k].top, rocks[k],
+                        lands[k].rock ? lands[k].rock : "-", growing[k], lands[k].grows ? lands[k].grows : "-");
+        CHECK(ok);
+    }
+
+    CHECK(pockets[0] > 500 && pockets[1] > 200 && pockets[2] > 200 && pockets[3] > 50);
+
+    /* It goes with every other mod. */
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/modtest/none");
+    int found = 0;
+    for (int a = 0; a < mods.count; a++) {
+        if (strcmp(mods.mods[a].id, "explorers_delight") != 0) continue;
+        found++;
+        for (int b = 0; b < mods.count; b++) {
+            char what[64];
+            if (a != b) CHECK(!mods_conflict(&mods.mods[a], &mods.mods[b], what, sizeof what));
+        }
+    }
+    CHECK(found == 1);
+    content_reset();
+    CHECK(content_load("data", err, sizeof err) && content.tile_count == tiles);
+}
+
 int main(void)
 {
     char err[256];
@@ -10184,6 +10321,7 @@ int main(void)
     test_industry_mod();
     test_digital_mod();
     test_culinary_mod();
+    test_explorers_mod();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;

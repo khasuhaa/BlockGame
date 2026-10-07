@@ -43,6 +43,7 @@ A checklist for a new session. The sections after it give the reasons.
 - **The tests' `clear_inventory` frees every container**, including those of chests and machines already set down in the test world. Set bar slots directly when the test has machines in it.
 - **World generation shares one random stream.** Drawing a number in a new place changes every world made afterwards from the same seed. Guard new draws so that with the feature off (a rate of 0, a list that is empty) none is made - the legacy tests rely on it.
 - **Background blocks behind a solid block are hidden**: not drawn, not opened (`usable_at`), not glowing. Wire is the exception: it is drawn over the block and comes off first.
+- **Biomes are placed by rectangles of heat and dryness**, and where two overlap the one loaded later wins - mods load in order of name. A new biome takes its rectangle out of whatever was there, so check it against every other mod's rectangles (they are in each mod's `worldgen.json`) and do not overlap them. A biome's `"soil"` is a block deep at the edge of its country and deepens inward; its `"under"` rock comes in only at the very heart, which a small rectangle seldom has - so a rock that is meant to be found goes in as the soil, or in veins as well.
 - **Two mods that define the same name cannot both be on**, and both turn off. Give a mod's things names of its own; only redefine a base thing (as both Magic and Mayhem and Industry redefine `workbench_4`) when you accept that it will clash with any other mod that does.
 - **Tools that do not survive the session**: scratch scripts and screenshot harnesses live outside the repository and are gone next time. Anything worth keeping goes in `tools/`.
 
@@ -54,7 +55,7 @@ Rendering and menus have no tests. To look at them, write a small C file that do
 
 - `obtain.py` - writes `obtainment.txt` from the data.
 - `prices.py` - reprices items from their recipes. It overwrites prices in `data/items.json`: run it on purpose, not as routine.
-- `mod_magic_mayhem.py`, `mod_industry.py`, `mod_digital_storage.py`, `mod_culinary_delights.py` - each wrote one mod's data files and textures. Either edit the script and rerun it, or edit the mod's files by hand and stop using the script: not both, or the script will undo the hand edits.
+- `mod_magic_mayhem.py`, `mod_industry.py`, `mod_digital_storage.py`, `mod_culinary_delights.py`, `mod_explorers_delight.py` - each wrote one mod's data files and textures. Either edit the script and rerun it, or edit the mod's files by hand and stop using the script: not both, or the script will undo the hand edits.
 - `bench_art.py` - drew the bench textures in `data/textures/tiles/`.
 
 ## Core directive: keep everything data driven
@@ -91,11 +92,11 @@ The loader enforces the category: an item with none that is neither a currency n
 
 ### Mods
 
-- A mod is a directory under `mods/` loaded on top of `data/` by `content_load` (see `src/mods.c`); the ones the game comes with are `mods/magic_mayhem` and `mods/industry`, each written out from its plan in `ModDescriptions/`, and `mods/digital_storage` (storage networks: `src/digital.c`, with the terminal's screen in `src/termui.c`), and `mods/culinary_delights` (crops, trees, biomes and a kitchen: data only, no engine code). Everything a mod does it does through the data: if a mod needs the engine to do something new, that is a new field the base game could use as well, never a check for the mod.
+- A mod is a directory under `mods/` loaded on top of `data/` by `content_load` (see `src/mods.c`); the ones the game comes with are `mods/magic_mayhem` and `mods/industry`, each written out from its plan in `ModDescriptions/`, and `mods/digital_storage` (storage networks: `src/digital.c`, with the terminal's screen in `src/termui.c`), `mods/culinary_delights` (crops, trees, biomes and a kitchen) and `mods/explorers_delight` (biomes and building blocks) - those two data only, with no engine code. Everything a mod does it does through the data: if a mod needs the engine to do something new, that is a new field the base game could use as well, never a check for the mod.
 - A mod's items follow the same rules as the game's: every one has a category and a price.
 - A mod adds to lists the game already has by naming things (tiles, items, trees, mobs, veins, cave decorations) or through the lists made for adding (`"biome_plants"`, `"island_trees"`, recipes). Do not make a mod restate a whole biome to add a plant to it.
 - Worlds, crystals and the portal chest belong to the playset the enabled mods make (`mods_saves`). Anything new that is kept between worlds goes in that directory too, not in `saves/` itself.
-- `tests/test_game.c` loads each mod on top of the shipped data (`test_magic_mod`, `test_industry_mod`, `test_digital_mod`, `test_culinary_mod`) and checks its counts: change them there when a mod's content changes.
+- `tests/test_game.c` loads each mod on top of the shipped data (`test_magic_mod`, `test_industry_mod`, `test_digital_mod`, `test_culinary_mod`, `test_explorers_mod`) and checks its counts: change them there when a mod's content changes.
 - Two mods that define the same name cannot be on together (`mods_conflict`): asked for together, none is loaded. Do not make a mod depend on another being on.
 
 ### Still in code, to be moved when touched
@@ -117,7 +118,7 @@ The loader enforces the category: an item with none that is neither a currency n
 - `tests/test_game.c` is headless and covers the rules. It looks content up by name, and its last test loads a small mod on top of the shipped data. Add a test with each rule change.
 - Rendering code (`main.c`, `hud.c`, `benchui.c`, `menu.c`, `assets.c`) needs a window and is not covered by tests.
 - `third_party/cjson` is vendored; do not edit it.
-- There is room for 64 biomes and 128 trees (`MAX_BIOMES`, `MAX_TREES` in `src/content.h`). With Culinary Delights on, 15 biomes and 28 trees are in use.
+- There is room for 64 biomes and 128 trees (`MAX_BIOMES`, `MAX_TREES` in `src/content.h`). With Culinary Delights and Explorer's Delight both on, 25 biomes and 34 trees are in use.
 - The save format is at version 29 (`SAVE_VERSION` in `src/save.c`). Every earlier version still loads; keep it so. `tests/fixtures/v28_industry.world` is a world saved at version 28, loaded by `test_industry_mod`: when the format changes again, keep that test passing and add a fixture of the version being left behind.
 - **The limits** are the `MAX_*` constants, mostly in `src/content.h` and `src/game.h`. All of them were multiplied by four at version 29. Four are also the sizes of arrays a save holds whole - `MAX_CONTAINERS`, `MAX_DROPS`, `MAX_STORAGES`, `MAX_MOBS` - so changing any of those is a change of save format: the sizes older saves were written with are kept as `V28_*` in `src/save.c`, and every reader of an older version uses those, never the live constant. The table of definitions is static and is about 66 MB now (`sizeof(Content)`); a `Game` is about 470 KB, and tests keep two or three on the stack at once.
 - Limits that were deliberately not raised, and why: `INVENTORY_SLOTS`, `BASKET_SLOTS`, `ARMOR_SLOTS`, `CONTAINER_MAX_SLOTS` and `HUD_MAX_EXTRA_SLOTS` (the bar and the menus are laid out for them); `MAX_CHARACTERS` (the buttons down the side, and the rules say how many a world may have); `MAX_TINTS` (a paint is one byte in the world, so 250 is all there can be); `MAX_SEASONS`, `LIGHT_MAX`, `WATER_FULL`, `CELL_TYPES`, `SIGN_TEXT_MAX`, `MAX_CRAFT_AMOUNT` and the tone and paint encodings (rules of the game, not room for things); the lengths of names (`CONTENT_NAME_LEN` is how names are written in saves); and `MAX_TICK_RATE` and `MAX_TICKS_PER_UPDATE` (there so a slow frame cannot snowball). Creature kinds are a byte in saves, so `MAX_MOB_KINDS` (192) cannot pass 255 without a change of format.
