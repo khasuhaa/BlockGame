@@ -4396,9 +4396,15 @@ static void test_power(void)
     inventory_select(inv, 0, -1);
     TileType under = world_get(w, px + 2, s);
     CHECK(under != TILE_AIR && world_is_solid(w, px + 2, s));
-    CHECK(game_queue_action(&g, ACTION_PLACE, px + 2, s));
+    /* (A click on a block with wire in hand is what puts it there: the block is not dug out.) */
+    CHECK(game_click_tile(&g, px + 2, s) && g.queue_count + (g.has_current ? 1 : 0) == 1);
+    CHECK((g.has_current ? g.current.type : g.queue[0].type) == ACTION_PLACE);
     run(&g, 5.0f);
     CHECK(world_get(w, px + 2, s) == under && world_get_at(w, BG, px + 2, s) == wire && world_is_wired(w, px + 2, s));
+    /* (Clicked again with wire still in hand, there is wire there already: it is the wire that comes off.) */
+    CHECK(game_click_tile(&g, px + 2, s));
+    CHECK((g.has_current ? g.current.type : g.queue[0].type) == ACTION_MINE);
+    game_cancel_actions(&g);
     CHECK(world_is_solid(w, px + 2, s) && !world_is_wired(w, px + 2, ground));
     CHECK(!game_queue_action(&g, ACTION_PLACE, px + 2, s)); /* one wire to a square */
     world_set_at(w, LAYER_WALL, px + 2, ground - 2, TILE_AIR);
@@ -8755,6 +8761,16 @@ static void test_shipped_recipes(void)
         total += benches[i].count;
     }
     CHECK(content.recipe_count == total);
+    /* The egg extractor turns the egg of every kind of dodo into what that dodo is made of: the five kinds of
+     * stone that came later among them. And those five are blocks: each is put down as itself. */
+    static const char *const stones[5][2] = { { "limestone", "limestone_dodo_egg" }, { "sandstone", "sandstone_dodo_egg" },
+                                              { "marble", "marble_dodo_egg" }, { "lapis_lazuli", "lapis_dodo_egg" },
+                                              { "red_marble", "red_marble_dodo_egg" } };
+    for (int i = 0; i < 5; i++) {
+        const Recipe *r = find_recipe(tile_id("egg_extractor"), stones[i][0]);
+        CHECK(r && costs(r, stones[i][1], 1, NULL, 0) && r->output.count == 1);
+        CHECK(item_def(item_id(stones[i][0]))->places == tile_id(stones[i][0]) && tile_id(stones[i][0]) != TILE_AIR);
+    }
 
     /* A sample of them: what goes in, how many come out, how long it takes, and at what tier. */
     const Recipe *r = shipped("workbench", "campfire", NULL);

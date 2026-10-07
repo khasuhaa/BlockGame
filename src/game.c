@@ -1028,6 +1028,12 @@ bool game_click_tile(Game *g, int tx, int ty)
     } else if (world_lift_runs(&g->sim, tx, ty) && !blocks_body(&g->sim, tx, ty)) {
         /* A floor of a lift that is running is somewhere to go, not something
          * to take down. (With its power off, the shaft is mined like anything.) */
+    } else if (held->count > 0 && tile_def(item_def((ItemId)held->id)->places)->wire && world_in_bounds(&g->world, tx, ty) &&
+               !world_is_wired(&g->sim, tx, ty) &&
+               target_valid(&g->sim, (Action){ .type = ACTION_PLACE, .target = a.target, .item = held->id })) {
+        /* Wire in hand: it goes on whatever is here - a block, a bench, a backwall - rather than that being dug out. */
+        a.type = ACTION_PLACE;
+        a.item = held->id;
     } else if (world_in_bounds(&g->world, tx, ty) && mine_layer(&g->sim, a.target) >= 0) {
         /* A block here, in front or behind, is mined - or, with fire in hand and the block one that burns, burnt down. */
         a.type = ACTION_MINE;
