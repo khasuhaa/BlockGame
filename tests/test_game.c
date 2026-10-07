@@ -4039,7 +4039,11 @@ static void test_power(void)
     CHECK(wire > 0 && tile_def(wire)->wire && tile_def(wire)->layer == LAYER_BACKGROUND && tile_def(wire)->floats && !tile_def(wire)->solid);
     CHECK(tile_def(floor_wire)->wire && tile_def(floor_wire)->layer == LAYER_FOREGROUND && !tile_def(floor_wire)->solid);
     CHECK(item_def(item_id("copper_wire"))->places == wire && item_def(item_id("copper_wire"))->places_on_block == floor_wire);
-    CHECK(tile_def(tile_id("electric_furnace"))->electric == 100 && strcmp(tile_def(tile_id("electric_furnace"))->bench_kind, "furnace") == 0);
+    CHECK(tile_def(tile_id("electric_furnace"))->electric == 100 && strcmp(tile_def(tile_id("electric_furnace"))->bench_kind, "electric_furnace") == 0);
+    /* (It has recipes of its own in the game. For these tests it is lent the furnace's, which the tests' own content has.) */
+    TileDef *lent = tile_def_mut(tile_id("electric_furnace"));
+    snprintf(lent->bench_kind, sizeof lent->bench_kind, "furnace");
+    lent->bench_level = 3;
     CHECK(tile_def(tile_id("electric_furnace"))->fuel_capacity == 0 && tile_def(tile_id("furnace"))->electric == 0);
     CHECK(tile_def(tile_id("electric_elevator_motor"))->motor_power == 10 && tile_def(tile_id("elevator_shaft"))->shaft);
 
@@ -4271,6 +4275,8 @@ static void test_power(void)
     game_cancel_actions(&g);
     CHECK(game_click_tile(&g, lx, ground - 1) && g.queue[0].type == ACTION_MINE);
     game_free(&g);
+    snprintf(lent->bench_kind, sizeof lent->bench_kind, "electric_furnace");
+    lent->bench_level = 1;
 }
 
 /* Trading as the game ships it: prices, what a sale gives, what is not dealt in, finding things first,
@@ -4507,7 +4513,7 @@ static void test_furniture_cages_paint(void)
 
     /* Coffee takes it past full as well; other food does not. */
     ItemId coffee = item_id("coffee_bean");
-    content.items[coffee].energy_over = true; /* (the coffee these tests run with is from before it did) */
+    content.items[coffee].energy_over = true; /* (the cup of coffee does this in the game; here the cherry is made to, to try it with) */
     CHECK(item_def(coffee)->food_energy > 0.0f && !item_def(item_id("apple"))->energy_over);
     clear_inventory(&g);
     inventory_add(inv, coffee, 20);
@@ -5824,7 +5830,14 @@ static void test_dodo_tree(void)
         CHECK(def->drop_count == 3 && def->drops[0].item == item_id("dodo_meat") && def->drops[0].chance == 1.0f);
         CHECK(def->drops[1].item == item_id("feather") && def->drops[2].item == item_id(tree[i].item));
         CHECK(def->drops[2].chance == tree[i].chance && def->drops[2].min == 1 && def->drops[2].max == 1);
-        CHECK(breeds_into(tree[i].kind, tree[i].next_a, tree[i].next_b));
+        if (strcmp(tree[i].kind, "stone_dodo") == 0) {
+            /* (Stone leads three ways: to amethyst and copper, and to limestone, the first of the building stones.) */
+            bool lime = false;
+            for (int k = 0; k < def->lay_next_count; k++) lime = lime || def->lay_next[k] == mob_id("limestone_dodo");
+            CHECK(def->lay_next_count == 3 && lime);
+        } else {
+            CHECK(breeds_into(tree[i].kind, tree[i].next_a, tree[i].next_b));
+        }
         /* It has an egg of its own, which hatches into it, wild or the player's, and can be traded. */
         snprintf(name, sizeof name, "%s_egg", tree[i].kind);
         TileType egg = tile_id(name);
@@ -5849,7 +5862,7 @@ static void test_dodo_tree(void)
     struct {
         const char *kind, *own, *next_a, *next_b;
     } lays[] = { { "dodo", "dodo_egg", "stone_dodo_egg", "dirt_dodo_egg" },
-                 { "stone_dodo", "stone_dodo_egg", "amethyst_dodo_egg", "copper_dodo_egg" },
+                 { "dirt_dodo", "dirt_dodo_egg", "wood_dodo_egg", "flint_dodo_egg" },
                  { "copper_dodo", "copper_dodo_egg", "tin_dodo_egg", NULL },
                  { "diamond_dodo", "diamond_dodo_egg", NULL, NULL } };
     for (int k = 0; k < 4; k++) {
@@ -7772,9 +7785,10 @@ static void test_guide(void)
     CHECK(n == 1 && s[0].placed_by == item_id("workbench") && strstr(s[0].where, "raised a tier"));
     /* Stone from the scars and from under the sand; what is shorn; the top of a tall plant. */
     n = guide_sources(item_id("marble"), s, 64);
-    CHECK(n == 1 && source_of(s, n, SOURCE_BLOCK, "Marble") && strstr(s[0].where, "scars"));
+    CHECK(source_of(s, n, SOURCE_BLOCK, "Marble") && strstr(source_of(s, n, SOURCE_BLOCK, "Marble")->where, "scars") &&
+          source_of(s, n, SOURCE_CREATURE, "Marble dodo"));
     n = guide_sources(item_id("sandstone"), s, 64);
-    CHECK(n == 1 && strstr(s[0].where, "The rock under") && strstr(s[0].where, "Desert") && strstr(s[0].where, "Ocean"));
+    CHECK(n == 2 && strstr(s[0].where, "The rock under") && strstr(s[0].where, "Desert") && strstr(s[0].where, "Ocean"));
     n = guide_sources(item_id("black_sand"), s, 64);
     CHECK(n == 1 && source_of(s, n, SOURCE_BLOCK, "Black sand") && strstr(s[0].where, "lowest layer") && strstr(s[0].where, "Sandstone"));
     n = guide_sources(item_id("yak_shavings"), s, 64);
@@ -7787,7 +7801,12 @@ static void test_guide(void)
     n = guide_sources(item_id("tulip_seed"), s, 64);
     CHECK(source_of(s, n, SOURCE_BLOCK, "Tulip") && strstr(source_of(s, n, SOURCE_BLOCK, "Tulip")->where, "Grows wild"));
     /* A drop that only sometimes comes; milk; what hangs in caves. */
-    CHECK(item_def(item_id("bucket"))->milks && item_def(item_id("coffee_bean"))->energy_over);
+    CHECK(item_def(item_id("bucket"))->milks && item_def(item_id("coffee"))->energy_over && !item_def(item_id("coffee_bean"))->energy_over);
+    /* What a sluice washes out is one of the ores, by chance: each of them is found under it. */
+    n = guide_recipes(item_id("titanium_ore"), r, MAX_RECIPES);
+    int sluiced = 0;
+    for (int i = 0; i < n; i++) sluiced += strcmp(content.recipes[r[i]].bench, "electric_sluice") == 0 && content.recipes[r[i]].one_of_count == 6;
+    CHECK(sluiced == 2);
     n = guide_sources(item_id("worms"), s, 64);
     CHECK(n == 1 && source_of(s, n, SOURCE_BLOCK, "Dirt") && s[0].chance > 0.09f && s[0].chance < 0.11f);
     n = guide_sources(item_id("milk"), s, 64);
@@ -7827,7 +7846,11 @@ static void test_shipped_recipes(void)
     } benches[] = { { "workbench", 30 }, { "campfire", 6 }, { "tool_bench", 25 }, { "craft_bench", 18 }, { "woodwork_bench", 12 },
                     { "tailor_bench", 12 }, { "kiln", 8 }, { "furnace", 11 }, { "press", 29 }, { "compost_bin", 24 },
                     { "builder_bench", 55 }, { "armor_bench", 16 }, { "metalwork_bench", 27 }, { "pizza_oven", 2 },
-                    { "mixing_bench", 93 }, { "portal", 11 }, { "dye_bench", 0 }, { "easel", 0 }, { "refinery", 0 } };
+                    { "mixing_bench", 93 }, { "portal", 11 }, { "dye_bench", 0 }, { "easel", 0 }, { "refinery", 5 },
+                    /* The electric benches have lists of their own: the kiln's and the metalwork bench's are the
+                     * fuelled ones' over again, quicker; an egg extractor has one for every kind of dodo that leaves something. */
+                    { "electric_furnace", 19 }, { "electric_stove", 8 }, { "electric_sluice", 2 }, { "egg_extractor", 20 },
+                    { "electric_press", 31 }, { "electric_metalwork_bench", 27 }, { "electric_kiln", 8 } };
     int total = 0;
     for (int i = 0; i < (int)(sizeof benches / sizeof benches[0]); i++) {
         CHECK(shipped_count(benches[i].bench) == benches[i].count);

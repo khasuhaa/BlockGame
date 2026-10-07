@@ -422,8 +422,12 @@ int guide_sources(ItemId item, ItemSource *out, int max)
 int guide_recipes(ItemId item, int *out, int max)
 {
     int count = 0;
-    for (int i = 0; i < content.recipe_count && count < max; i++)
-        if (content.recipes[i].output.id == item && item != ITEM_NONE) out[count++] = i;
+    for (int i = 0; i < content.recipe_count && count < max; i++) {
+        bool makes = content.recipes[i].output.id == item;
+        /* (One that makes it some of the time counts.) */
+        for (int k = 0; k < content.recipes[i].one_of_count; k++) makes = makes || content.recipes[i].one_of[k].item == item;
+        if (makes && item != ITEM_NONE) out[count++] = i;
+    }
     return count;
 }
 

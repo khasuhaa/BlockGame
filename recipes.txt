@@ -1,311 +1,63 @@
-Workbench I
-Campfire - 10 Sticks, 20 seconds
-Tool Bench - 1 dirt, 1 flint, 20 seconds
-Craft Bench - 1 dirt, 1 Sticks, 20s
-Woodwork Bench - 1 wood, 20s
-Workbench II - 5 stone
-Tailor's Bench - 1 stone, 5 flax, 1m 20s
-Kiln - 1 dirt, 1 clay, 10 sticks, 1m 20s
-Furnace - 1 stone, 10 charcoal, 1m 20s
-Press - 1 stone, 1 wood, 1m 20s
-Compost Bin - 1 wood, 1 dirt, 5 worms, 1m 20s
-Easel - 1 wood, 1m 20s
-Builder's Bench - 1 Stone, 1 Limestone, 1 Marble, 1m 20s
-Portal - 1 stone, 120 crystals, 1m 20s
-Shop - 1 wood, 1 gold coin, 2m
-Workbench III - 5 Bronze
-Armor Bench - 1 stone, 5 tin ingots, 2m
-Metalwork Bench - 5 bronze, 2 coal, 2m
-Pizza Oven - 5 clay, 1 sand, 1 red brick, 1 plaster, 2m
-Train Yard - 1 stone, 5 steel, 2m
-Mixing Bench - 1 stone, 1 tin bucket, 5 oil, 2m
-Dye Bench - 1 stone, 1 bucket of water, 1 linen, 2m
-Workbench IV - 5 steel ingots
-Steam Generator - 1 steel block, 1 steam engine, 1 electric motor, 3m
-Flywheel - 1 steel block, 1 copper block, 1 electric motor, 10 copper wire, 3m
-Electric Stove - 1 steel block, 1 iron pot, 10 copper wire, 3m
-Electric Kiln - 1 steel block, 1 red brick, 10 copper wire, 3m
-Electric Furnace - 1 steel block, 10 copper wire, 1 iron ingot, 3m
-Electric Press - 1 sb, 10 cw, 1 copper block, 3m
-Electric Metalwork Bench - 1 sb, 10 cw, 1 steel ingot, 3m
-Electric Sluice - 1 sb, 10 cw, 1 bucket of water, 1 electric motor, 3m
-Egg Extractor - 1 steel block, 1 electric motor, 1 dodo egg, 10 copper wire, 3m
-Solar Panel - 1 steel block, 3 silicon wafers, 10 copper wire, 3m
-Refinery - 1 electric furnace, 1 copper boiler, 10 copper wire, 10 oil, 3m
+Electric Furnace:
+Copper Ingot - 2 Copper Ore, 30s
+Tin Ingot - 2 Tin Ore, 30s
+3 Bronze Ingots - 2 Copper Ingots, 1 Tin Ingot, 30s
+Iron Ingot - 2 Iron Ore, 40s
+Pig Iron - 1 Iron Ore, 1 Crushed Limestone, 40s
+Iron Ingot - 1 Pig Iron, 40s
+10 Copper Coins - 1 Copper Ingot, 40s
+Copper Ingot - 10 Copper Coins, 40s
+Steel Ingot - 1 Iron Ingot, 1 Coal, 1m
+Gold Coin - 1 Gold Ingot, 1m
+Gold Ingot - 2 Gold Nuggets, OR 1 gold coin, OR 1 Golden Chest, 1m
+Silicon Ingot - 5 sand, 5 black sand, 1m
+Silicon Crystal - 5 Silicon ingots, 1m
+Titanium Ingot - 2 titanium ore, 1m
+Platinum Coin - 5 Platinum ingots, 1m20s
+Platinum Ingot - 2 platinum nuggets, 1m20s
+5 Platinum Ingots - 1 platinum coin, 1m20s
 
-Campfire
-Basic Torch - 1 stick, 5s
-Ember - 1 stick, 5s
-Cooked Dodo Meat - 1 raw dodo meat, 20s
-Cooked Fish - 1 raw fish, 1 tin foil, 20s
-10 salt - 1 bucket of water, 1m 20s
-5 flatbreads - 5 flour, 1 bucket of water, 1 salt, 1m 20s
+Electric Stove
+Cooked Dodo Meat - 1 Raw Dodo Meat, 15s
+Cooked Fish - 1 Raw Fish, 1 Tin Foil, 15s
+Roasted Coffee Bean - 1 Green Coffee Bean, 40s
+Coffee - 1 cup, 1 bucket of water, 1 roasted coffee bean, 40s
+20 salt - 1 iron pot, 1 bucket of water, 40s
+Fish Curry - 1 iron pot, 1 raw fish, 1 chilli 1 coconut, 1 salt, 40s
+Dodo Stew - 1 iron pot, 1 raw dodo meat, 1 carrot, 1 corn, 1 salt, 40s
+5 rainbow cakes - 1 rainbow essence, 1 flour, 1 milk, 1 dodo egg, 1 salt, 40s
 
-Tool Bench
-Flint Spade - 1 stick, 2 flint, 40s
-Flint Machete - 1 stick, 2 flint, 40s
-Flint Axe - 1 stick, 3 flint, 40s
-Flint Pickaxe - 1 stick, 5 flint, 40s
-Flint Spear - 1 stick, 1 flint, 40s
-Tool Bench II - 5 Stone
-Stone Axe - 1 stick, 3 Stone, 1m
-Stone Pickaxe - 1 stick, 5 stone, 1m
-Stone Spade - 1 stick, 2 stone, 1m
-Copper Bow & Arrows - 50 sticks, 5 copper ingots, 5 dodo feathers, 1 string, 1m
-Tool Bench III - 5 bronze ingots
-Bronze Pickaxe - 1 stick, 5 bronze ingots, 1m 10s
-Bronze Machete - 1 stick, 2 bronze ingots, 1m 10s
-Bronze Sword - 1 stick, 3 bronze ingots, 1m 10s
-Tin Spade - 1 stick, 2 tin ingots, 1m 10s
-Tool Bench IV - 5 iron ingots
-Iron Pickaxe - 1 stick, 5 iron, 1m20s
-Iron Machete - 1 stick, 2 iron, 1m20s
-Iron Sword - 1 stick, 3iron, 1m20s
-Iron Axe - 1 stick, 3 iron, 1m20s
-Tool Bench V - 5 steel ingots
-Steel Pickaxe - 1 stick, 5 steel, 1m40s
-Crowbar - 2 steel, 1m 40s
-Razor - 1 yak horn, 1 steel ingot, 1m 40s
-Tool Bench VI - 5 Gold ingots
-Gold spade - 1 stick, 2 gold, 2m
-Gold pickaxe - 1 stick, 5 gold, 2m
-Gold Bow & Poison Arrows - 50 sticks, 5 gold ingots, 5 dodo feathers, 5 poison, 2m
-Tool Bench VII - 5 titanium ingots
-Titanium Sword - 1 stick, 3 titanium, 3m
-Titanium Pickaxe - 1 stick, 5 titanium, 3m
+Electric Sluice
+Random Ore - 1 Gravel, 1m 20s
+Random Ore - 1 Sand, 1m 20s
 
-Craft Bench
-Basket - 5 sticks, 5s
-Craft Bench II - 1 limestone
-Camera - 1 wood, 1 glass, 1m 20s
-Carrot on a Stick - 1 carrot, 1 string, 1 stick, 1m 20s
-Fishing Rod - 5 worms, 5 string, 1 stick, 1m20s
-Tin Foil hat - 3 tin foil, 1m 20s
-Yeast - 1 flour, 1 bucket of water, 2m 40s
-10 Yeast - 1 yeast, 1 flour, 1 bucket of water, 1m 20s
-5 Dough - 5 flour, 1 bucket of water, 1 yeast, 1 salt, 1m 20s
-5 mozzarella - 1 milk, 1 salt, 1m 20s
-Craft Bench III - 1 marble, 1m 20s
-Amethyst Chandelier - 5 glass, 10 amethyst, 2m 40s
-Sapphire Chandelier - ^^, sapphires
-Emerald Chandelier
-Ruby Chandelier
-Diamond Chandelier
-Craft Bench IV - 5 carbon fiber sheets
-Carbon FIber Wing - 5 Carbon FIber sheets, 5m
-Jetpack Chassis - 5 carbon fiber sheets, 3 titanium ingots
-Carbon FIber Block - 5 carbon fiber sheets, 5m
-Jetpack - 2 carbon fiber wings, 1 jetpack chassis, 2 jet engines, 10 fuel, 5m
+Egg Extractor
+Block/Ore - 1 egg of the corresponding type. 
+Add several eggs to the egg tree. Now, from stone, you can branch to Limestone as well as Amethyst and Copper. Limestone -> Sandstone -> Marble -> Lapis -> Red Marble
 
-Woodwork Bench
-Wooden Bed - 1 wood, 20s
-Chest - 1 wood, 20s
-Boat - 2 wood, 2 linen, 20s
-10 ladders - 1 wood, 20s
-Wooden Door - 3 wood, 20s
-Sign - 1 wood, 20s
-Trapdoor - 1 wood, 1 ladder, 20s
-5 reinforced platforms - 1 wood, 1 iron ingot, 20s
-Shelf - 1 wood, 20s
-Wooden Gate - 1 wood, 20s
-Feeder Chest - 1 chest, 1 tin bucket, 20s
-Mirror - 1 glass, 1 wood, 1 tin foil, 20s
+Electric Press
+3 oil - 1 flax seed, 15s
+3 oil - 1 sunflower seed, 15s
+Gravel - 1 stone, 30s
+Sand - 1 stone, 30s
+Green Coffee Bean - 1 coffee cherry, 30s
+Carbon Black/ Marble White/ Red Ochre/ Indian Yellow/Ultramarine Blue/Tyrian Purple/Copper Blue/Emerald Green - Same recipe as normal press, 1m
+10 Clay - 1 dirt, 1 bucket of water, 1m 
+2 Tin Foil - 1 tin ingot, 1m
+5 crushed limestone - 1 limestone, 1m 
+Iron Ore - 2 black sand, 1m 
+Black sand - 1 sand, 2 pig iron, 1m 
+10 Flour - 10 wheat, 1 linen, 1m 
+Gems/Gem Blocks - same recipe as normal press, 1m 
+Rainbow essence - same recipe as normal press, 1m 
+Luminous plaster - same recipe as normal press, 1m 
 
-Tailor's Bench
-String - 1 flax, 20s
-Linen - 5 flax, 20s
-Linen Pants - 2 linen, 40s
-Linen Shirt - 3 linen, 40s
-Linen Cap - 1 linen, 40s
-Linen Brimmed Hat - 1 linen, 40s
-Tailor's Bench II - 1 Leather
-Leather Jacket - 5 leather, 1m 20s
-Leather Boots - 2 leather, 1m 20s
-Leather Pants - 3 leather, 1m 20s
-Fur Coat - 5 fur, 1m 20s
-Fur Boots - 2 fur, 1m 20s
-Soft Bed - 1 wooden bed, 3 linen, 5 dodo feathers, 1m 20s
+Electric metalwork bench - All the same recipes, reduce craft times in accordance with all the other electric benches.
+Electric Kiln - see above
 
-Kiln
-Charcoal - 1 stick, 5s
-2 Oil Lanterns - 1 clay, 1 oil, 5s
-Red Brick - 1 clay, 20s
-Glass - 1 sand, 20s
-5 windows - 1 glass, 1 wood, 20s
-Black Glass - 1 black sand
-5 black windows - 1 black glass, 3 iron ingots, 20s
-Cup - 1 clay, 20s
-
-Furnace
-Copper Ingot - 3 copper ore, 40s
-Tin Ingot - 3 tin ore, 40s
-3 Bronze Ingots - 2 copper ingots, 1 tin ingot, 40s
-Furnace II - 3 iron ore
-Iron ingot - 3 iron ore, 1m20s
-10 copper coins - 1 copper ingot, 1m20s
-Copper ingot - 10 copper coins, 1m20s
-Furnace III - 3 gold nuggets, 1m20s
-Steel Ingot - 1 iron ingot, 2 coal, 1m 20s
-1 Gold coin - 1 gold ingot, 1m 20s
-Gold Ingot - 3 gold nuggets, 1m 20s
-Gold Ingot - 10 gold coins, 1m 20s
-Gold Ingot - 1 golden chest, 1m 20s
-
-Press
-2 Oil - 1 flax seed, 20s
-2 oil, 1 sunflower seed, 20s
-Green coffee bean - 1 coffee cherry, 40s
-Carbon Black - 5 charcoal, 1m 20s
-Marble White - 1 marble, 1m 20s
-Red Ochre - 10 clay, 1m 20s
-Indian Yellow - 1 mango, 1m 20s
-Press II - 1 Bronze Ingot
-10 clay - 1 dirt, 1 bucket of water, 1m 20s
-Ultramarine Blue - 1 lapis lazuli, 1m 20s
-Tyrian Purple - 5 dodo feathers, 1m 20s
-Copper Blue - 10 copper ore, 1m 20s
-Emerald Green - 1 emerald, 1m 20s
-Tin Foil - 1 tin ingot, 1m 20s
-5 Crushed Limestone - 1 limestone, 1m 20s
-Iron Ore - 2 black sand, 1m 20s
-Black Sand - 1 sand, 3 pig iron, 1m 20s
-10 Flour - 10 wheat, 1 linen, 1m 20s
-Press III - 1 steel ingot, 1 diamond, 1m 20s
-Amethyst - 3 amethyst shards
-Amethyst Block - 5 Amethyst
-Sapphire - 3 sapphire shards
-Sapphire Block
-Emerald
-Emerald Block
-Ruby
-Ruby Block
-Diamond
-Diamond Block
-20 Rainbow Essence - 1 amethyst, 1 sapphire, 1 emerald, 1 ruby, 1 diamond, 1m 20s
-10 luminous plaster - 10 plaster, 1 rainbow essence, 1m 20s
-
-Compost Bin
-Compost Recipes:
-5 pine cones, 1m 20s
-5 apples
-5 mangos
-5 maple seeds
-5 prickly pears
-5 coconuts
-5 flax seeds
-5 flax
-5 oranges
-5 limestone
-5 sunflower seeds
-5 carbon
-5 carrots
-5 cherries
-5 chillies
-5 tomatoes
-5 wheat
-5 kelp
-5 vines
-5 tulip seeds
-5 tulip bulbs
-5 coffee cherries
-5 raw dodo meat
-5 raw fish
-
-Builder's Bench
-10 plaster - 1 crushed limestone, 1 sand, 1 yak shavings, 1 bucket of water, 1m 20s
-2 plaster columns - 1 plaster, 1m 20s
-2 plaster stairs - 1 plaster, 1m 20s
-2 wood columns - wood
-2 wood stairs
-2 stone columns - stone
-2 stone stairs
-2 limestone columns - limestone
-2 limestone stairs
-2 marble columns - marble
-2 marble stairs
-2 sandstone columns - sandstone
-2 sandstone stairs
-2 red marble columns - red marble
-2 red marble stairs
-2 lapis lazuli columns - lapis lazuli
-2 lapis lazuli stairs
-2 basalt columns - basalt
-2 bassalt stairs
-2 glass columns
-2 glass stairs
-2 black glass columns
-2 black glass stairs
-2 brick columns - red bricks
-2 brick stairs
-2 ice columns
-2 ice stairs
-2 copper columns - copper block
-2 copper stairs
-2 tin columns - tin block
-2 tin stairs
-2 bronze columns - bronze block
-2 bronze stairs
-2 iron columns - iron block
-2 iron stairs
-2 steel columns - steel block
-2 steel stairs
-2 gold columns - gold block 
-2 gold stairs
-2 carbon fiber columns - 2 carbon fiber sheets
-2 carbon fiber stairs
-2 titanium columns - titanium block
-2 titanium stairs
-2 platinum columns - platinum block
-2 platinum stairs - platinum stairs
-2 amethyst columns/stairs - amethyst block
-same for rest of gems
-
-Armor Bench
-Tin Helmet - 2 tin ingots, 1m
-Tin chestplate - 5 tin ingots, 1m
-Tin armor leggings - 3 tin ingots
-Tin boots - 2 tin ingots
-Armor Bench II - 5 iron ingots
-Iron helmet/chestplate/armor leggings/boots, same cost as tin, using iron ingots, 1m 20s
-Armor Bench III - 5 titanium ingots
-Titanium armor set, same cost as iron, using titanium ingots, 4m
-Carbon Fibeer Armor set, same cost as iron, but using carbon fiber sheets, 4m
-
-Metalwork Bench
-Tin bucket - 3 tin ingots, 1m 20s
-Magnet - 1 iron ingot, 1 black sand, 1m 20s
-Iron Pot - 3 iron ingots, 1m 20s
-Cage - 3 iron ingots, 1m 20s
-5 steel lanterns - 1 steel ingot, 1 glass, 1 oil, 10s
-5 steel downlights - 1 steel ingot, 1 glass, 1 oil, 10 seconds
-5 steel uplights - same as above
-Copper Block - 5 copper ingots, 1m 20s
-Tin Block - same with tin ingots
-Bronze Block
-Iron Block
-Metalwork Bench II - 1 iron block
-Steel Block
-Gold Block
-Titanium Block
-Platinum Block
-Safe - 5 iron ingots, 1m 20s
-Iron door - 2 iron blocks, 1m 20s
-Iron trapdoor - 1 iron block, 1 ladder, 1m 20s
-Display Cabinet - 2 iron ingots, 1 black glass, 20s
-Copper Boiler - 5 copper ingots, 1 bucket of water, 1m 20s
-5 copper wire - 1 copper ingot, 1m 20s
-Electric Motor - 5 steel ingots, 1 magnet, 10 copper wire, 1m 20s
-Steam ENgine - 5 steel ingots, 1 copper boiler, 10 coal, 1m 20s
-Electric Elevator Motor - 1 steel block, 1 electric motor, 10 copper wire, 1m 20s
-5 elevator shafts - 1 steel block, 5 copper wire, 1m 20s
-5 silicon wafers - 1 silicon crystal, 1m 40s
-Jet Engine - 3 titanium ingots, 5 carbon fiber sheets, 5m
-
-Pizza Oven
-Bread - 1 dough, 2m 40s
-Pizza - 1 mozzarella, 1 tomato, 2m 40s
-
-Mixing Bench
-Paint - 1 tin bucket, 5 oil, 1-3 pigment (This one is a little special. You can combine pigments to make cooler colors. The item is just called paint, but it has different metadata based on pigment colors used)
-Paint Stripper - 1 tin bucket, 5 oil, 1m 20s
-
+Refinery
+Fuel - 10 oil, 2m
+Raw Resin - 10 oil, 4m
+Carbon Fibers - 10 coal, 2 raw resin, 4m
+Epoxy - 1 raw resin, 4m
+Carbon Fiber Sheet - 1 epoxy, 1 carbon fibers, 5m

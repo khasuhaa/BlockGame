@@ -80,6 +80,7 @@ typedef enum {
 } EquipSlot;
 
 #define MAX_ZOOM_LEVELS 16
+#define MAX_RECIPE_CHOICES 8
 #define MAX_SEASONS 4
 #define MAX_MOB_BIOMES 8
 
@@ -336,6 +337,12 @@ typedef struct {
      * `inputs` when a world is opened. */
     ItemId random_items[RECIPE_MAX_INPUTS];
     int random_item_count, random_total;
+    /* What it makes, when that is one of several things by chance: each with its weight. (`output` is the first of them.) */
+    struct {
+        ItemId item;
+        int weight;
+    } one_of[MAX_RECIPE_CHOICES];
+    int one_of_count;
 } Recipe;
 
 /* One row of a full-grown tree's leaves. */

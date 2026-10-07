@@ -2091,12 +2091,26 @@ static void update_bench(Game *g, float dt)
             g->crystals -= r->crystals;
             break;
         }
-        int left = recipe_craft(&g->inventory, g->craft_recipe, &g->crystals);
+        /* (Something that comes out as one of several things by chance: which, this time.) */
+        Recipe rolled = *g->craft_recipe;
+        if (rolled.one_of_count > 0) {
+            int total = 0, pick;
+            for (int k = 0; k < rolled.one_of_count; k++) total += rolled.one_of[k].weight > 0 ? rolled.one_of[k].weight : 0;
+            pick = total > 0 ? (int)(game_random(g) % (uint32_t)total) : 0;
+            for (int k = 0; k < rolled.one_of_count; k++) {
+                pick -= rolled.one_of[k].weight > 0 ? rolled.one_of[k].weight : 0;
+                if (pick < 0) {
+                    rolled.output.id = rolled.one_of[k].item;
+                    break;
+                }
+            }
+        }
+        int left = recipe_craft(&g->inventory, &rolled, &g->crystals);
         if (left < 0) {
             g->craft_remaining = 0;
             break;
         }
-        for (int i = 0; i < left; i++) spawn_drop(g, g->craft_recipe->output.id, g->player.feet);
+        for (int i = 0; i < left; i++) spawn_drop(g, rolled.output.id, g->player.feet);
         g->craft_remaining--;
     }
 }

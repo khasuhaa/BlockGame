@@ -605,8 +605,19 @@ static bool read_recipes(Reader *r, const cJSON *root)
     const cJSON *e, *in;
     cJSON_ArrayForEach(e, field(root, "recipes")) {
         Recipe recipe = { 0 };
-        if (!cJSON_IsObject(field(e, "output")) || !stack_ref(r, field(e, "output"), &recipe.output))
+        /* "output" is so many of an item - or of one of several, by chance ("one_of", each with a "weight"). */
+        const cJSON *made = field(e, "output"), *choice;
+        cJSON_ArrayForEach(choice, field(made, "one_of")) {
+            if (recipe.one_of_count >= MAX_RECIPE_CHOICES || !str(choice, "item") ||
+                !item_ref(r, choice, "item", &recipe.one_of[recipe.one_of_count].item))
+                return fail(r, "a recipe's \"one_of\" lists at most %d items that exist", MAX_RECIPE_CHOICES);
+            recipe.one_of[recipe.one_of_count++].weight = (int)num(choice, "weight", 1);
+        }
+        if (recipe.one_of_count > 0) {
+            recipe.output = (RecipeItem){ recipe.one_of[0].item, (int)num(made, "count", 1), false };
+        } else if (!cJSON_IsObject(made) || !stack_ref(r, made, &recipe.output)) {
             return fail(r, "a recipe needs an \"output\"");
+        }
         cJSON_ArrayForEach(in, field(e, "inputs")) {
             if (recipe.input_count >= RECIPE_MAX_INPUTS)
                 return fail(r, "a recipe has more than %d inputs", RECIPE_MAX_INPUTS);

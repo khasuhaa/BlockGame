@@ -24,9 +24,10 @@ build/blockgame: src/main.c src/assets.c src/hud.c src/benchui.c src/tradeui.c s
 	@mkdir -p build
 	$(CC) $(CFLAGS) -I$(RAYLIB_DIR)/src src/main.c src/assets.c src/hud.c src/benchui.c src/tradeui.c src/playerui.c src/recipeui.c src/menu.c $(ENGINE_SRC) $(RAYLIB_LIB) $(LDLIBS) -o $@
 
+# (Not inlined: each test keeps whole worlds on the stack, and all of them in one frame is too much.)
 build/test_game: tests/test_game.c $(ENGINE_SRC) $(HEADERS)
 	@mkdir -p build/mod
-	$(CC) $(CFLAGS) tests/test_game.c $(ENGINE_SRC) -o $@
+	$(CC) $(CFLAGS) -fno-inline tests/test_game.c $(ENGINE_SRC) -o $@
 
 run: build/blockgame
 	./build/blockgame
