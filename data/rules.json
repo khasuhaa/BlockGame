@@ -40,7 +40,7 @@
   "teleport": { "bench": "portal", "level": 1, "cost": 10, "free_distance": 100, "per_blocks": 10 },
   "fog": { "enabled": true, "radius": 20, "fade": 8 },
   "view": { "zoom": [48, 40, 32, 24, 16, 6, 4, 2], "start": 32, "map_from": 12, "map_to": 8 },
-  "water": { "color": [38, 110, 190, 110], "flow": 4, "swim_time": 0.18,
+  "water": { "color": [38, 110, 190, 110], "flow": 4, "swim_time": 0.18, "boat_speed": 2.0,
              "oxygen_ticks": 300, "oxygen_refill_ticks": 40, "drown_ticks": 300 },
   "interface": { "denial_time": 0.6 },
   "weather": {
@@ -48,7 +48,7 @@
     "snow_layers": 4, "snow_line": 50, "snow_chance": 0.004, "melt_chance": 0.002,
     "ice": "ice", "freeze_chance": 0.5, "thaw_chance": 0.5
   },
-  "building": { "wall_span": 10 },
+  "building": { "wall_span": 10, "burn_time": 0.3 },
   "power": { "lift_time": 0.04 },
   "crafting": { "rush_seconds_per_crystal": 10 }
 }

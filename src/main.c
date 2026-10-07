@@ -18,6 +18,8 @@
 #include <string.h>
 #include <time.h>
 
+static void sign_open(const Game *g, TilePos at);
+
 #define DATA_DIR "data"
 #define PROFILE_PATH SAVE_DIR "/profile.txt"
 #define TILE_SIZE 32
@@ -422,6 +424,8 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
              * a chest has to be walked to. */
             else if (opens && game_open_bench(g, t.x, t.y)) {}
             else if (opens) game_queue_action(g, ACTION_USE, t.x, t.y);
+            /* A sign is read and written on, not dug at. */
+            else if (tile_def(world_get(&g->world, t.x, t.y))->written) sign_open(g, t);
             else game_click_tile(g, t.x, t.y);
         }
         cam->pressed = false;
@@ -514,9 +518,10 @@ static void draw_block(const Game *g, int layer, TileType t, int x, int y, float
             left = !right;
         }
         assets_draw_tile_facing(t, wx, y, px, py, TILE_SIZE, dim, left && !right);
-    } else if (layer == LAYER_BACKGROUND && (def->texture_mount[0][0] || def->texture_mount[1][0] || def->texture_mount[2][0])) {
-        /* Something put up with no backwall behind it shows what it is fixed to instead. */
-        assets_draw_tile_mounted(t, wx, y, px, py, TILE_SIZE, dim, world_mount(&g->world, x, y));
+    } else if (!def->solid && (def->texture_mount[0][0] || def->texture_mount[1][0] || def->texture_mount[2][0])) {
+        /* Something put up with no backwall behind it shows what it is fixed to instead. (In the foreground, a backwall holds nothing up.) */
+        assets_draw_tile_mounted(t, wx, y, px, py, TILE_SIZE, dim,
+                                 layer == LAYER_BACKGROUND ? world_mount(&g->world, x, y) : world_mount_block(&g->world, x, y));
     } else if (def->wire) {
         /* Wire runs to whatever beside it carries or takes electricity. */
         static const int beside[4][2] = { { 0, -1 }, { 1, 0 }, { 0, 1 }, { -1, 0 } };
@@ -557,7 +562,7 @@ static void draw_world(const Game *g, Vector2 origin)
             float px = origin.x + (float)(x * TILE_SIZE), py = origin.y + (float)(y * TILE_SIZE);
             /* (Paint is a wash of its colour over the backwall or the block it is on, as bright as that is lit.) */
             int wall_paint = world_paint(w, true, x, y), block_paint = world_paint(w, false, x, y);
-            if (!tile_def(t)->solid) {
+            if (!tile_def(t)->solid || tile_def(t)->see_through) {
                 assets_draw_tile(world_get_at(w, LAYER_WALL, x, y), wx, y, px, py, TILE_SIZE, WALL_DIM,
                                  TILE_PART_BODY);
                 if (wall_paint > 0 && wall_paint <= content.tint_count && world_get_at(w, LAYER_WALL, x, y) != TILE_AIR) {
@@ -584,6 +589,23 @@ static void draw_world(const Game *g, Vector2 origin)
                 float depth = top ? (float)TILE_SIZE * (float)wet / WATER_FULL : (float)TILE_SIZE;
                 DrawRectangleRec((Rectangle){ px, py + TILE_SIZE - depth, TILE_SIZE, depth }, water);
                 if (top) DrawRectangleRec((Rectangle){ px, py + TILE_SIZE - depth, TILE_SIZE, 3 }, Fade(WHITE, 0.35f));
+            }
+        }
+    }
+    /* Signs: what is written on each, a line to a third of its height, the size it is whatever its length. */
+    for (int y = y0; y <= y1; y++) {
+        for (int x = x0; x <= x1; x++) {
+            const SignText *text = tile_def(world_get(w, x, y))->written ? game_sign_at(g, x, y) : NULL;
+            if (!text) continue;
+            float px = origin.x + (float)(x * TILE_SIZE), py = origin.y + (float)(y * TILE_SIZE);
+            int size = TILE_SIZE / SIGN_LINES;
+            for (int k = 0; k < SIGN_LINES; k++) {
+                if (!text->lines[k][0]) continue;
+                int wide = MeasureText(text->lines[k], size);
+                float tx = px + (TILE_SIZE - (float)wide) / 2.0f, ty = py + (float)(k * size);
+                /* (Longer than the sign is wide, it runs out past the edges, on a strip of the sign's own colour.) */
+                if (wide > TILE_SIZE - 4) DrawRectangleRec((Rectangle){ tx - 2, ty, (float)wide + 4, (float)size }, (Color){ 154, 114, 68, 235 });
+                DrawText(text->lines[k], (int)tx, (int)ty, size, (Color){ 30, 22, 16, 255 });
             }
         }
     }
@@ -1251,6 +1273,95 @@ static void draw_readout_line(int row, const char *text)
 
 /* The readout in the top left corner: how the game is running, where the
  * player is and what is about. F3 hides it and brings it back. */
+/* A sign being written on: its lines as they are being typed, and which one the typing goes to. */
+static struct {
+    bool open;
+    TilePos at;
+    char lines[SIGN_LINES][SIGN_LINE_MAX + 1];
+    int line;
+} sign_edit;
+
+static void sign_open(const Game *g, TilePos at)
+{
+    const SignText *now = game_sign_at(g, at.x, at.y);
+    memset(&sign_edit, 0, sizeof sign_edit);
+    sign_edit.open = true;
+    sign_edit.at = at;
+    for (int k = 0; now && k < SIGN_LINES; k++) snprintf(sign_edit.lines[k], sizeof sign_edit.lines[k], "%s", now->lines[k]);
+    while (GetCharPressed() > 0) {
+    }
+}
+
+static Rectangle sign_panel(void)
+{
+    return (Rectangle){ (GetScreenWidth() - 380) / 2.0f, (GetScreenHeight() - 250) / 2.0f, 380, 250 };
+}
+
+static Rectangle sign_button(int i)
+{
+    Rectangle p = sign_panel();
+    float w = (p.width - 32 - 2 * 8) / 3.0f;
+    return (Rectangle){ p.x + 16 + (float)i * (w + 8), p.y + p.height - 50, w, 34 };
+}
+
+/* Typing goes to the line chosen; up, down, tab and enter move between lines. */
+static void sign_input(Game *g)
+{
+    char *line = sign_edit.lines[sign_edit.line];
+    size_t len = strlen(line);
+    for (int c = GetCharPressed(); c > 0; c = GetCharPressed()) {
+        if (c >= 32 && c < 127 && len < SIGN_LINE_MAX) {
+            line[len++] = (char)c;
+            line[len] = '\0';
+        }
+    }
+    if ((IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) && len > 0) line[len - 1] = '\0';
+    if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_TAB) || IsKeyPressed(KEY_ENTER)) sign_edit.line = (sign_edit.line + 1) % SIGN_LINES;
+    if (IsKeyPressed(KEY_UP)) sign_edit.line = (sign_edit.line + SIGN_LINES - 1) % SIGN_LINES;
+    Vector2 m = GetMousePosition();
+    bool click = IsMouseButtonReleased(MOUSE_BUTTON_LEFT);
+    Rectangle p = sign_panel();
+    for (int k = 0; click && k < SIGN_LINES; k++)
+        if (CheckCollisionPointRec(m, (Rectangle){ p.x + 16, p.y + 52 + (float)k * 42, p.width - 32, 36 })) sign_edit.line = k;
+    bool gone = !tile_def(world_get(&g->world, sign_edit.at.x, sign_edit.at.y))->written;
+    if (gone || IsKeyPressed(KEY_ESCAPE) || (click && CheckCollisionPointRec(m, sign_button(2)))) {
+        sign_edit.open = false; /* left as it was */
+    } else if (click && CheckCollisionPointRec(m, sign_button(0))) {
+        const char *lines[SIGN_LINES];
+        for (int k = 0; k < SIGN_LINES; k++) lines[k] = sign_edit.lines[k];
+        game_sign_write(g, sign_edit.at.x, sign_edit.at.y, lines);
+        sign_edit.open = false;
+    } else if (click && CheckCollisionPointRec(m, sign_button(1))) {
+        game_queue_action(g, ACTION_MINE, sign_edit.at.x, sign_edit.at.y);
+        sign_edit.open = false;
+    }
+}
+
+static void sign_draw(void)
+{
+    static const char *labels[3] = { "Done", "Take down", "Cancel" };
+    if (!sign_edit.open) return;
+    Rectangle p = sign_panel();
+    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.4f));
+    DrawRectangleRec(p, (Color){ 28, 30, 38, 245 });
+    DrawRectangleLinesEx(p, 2.0f, (Color){ 120, 122, 134, 255 });
+    DrawText("Sign", (int)p.x + 16, (int)p.y + 14, 24, RAYWHITE);
+    bool blink = (int)(GetTime() * 2.0) % 2 == 0;
+    for (int k = 0; k < SIGN_LINES; k++) {
+        Rectangle box = { p.x + 16, p.y + 52 + (float)k * 42, p.width - 32, 36 };
+        DrawRectangleRec(box, (Color){ 18, 19, 24, 255 });
+        DrawRectangleLinesEx(box, 2.0f, k == sign_edit.line ? RAYWHITE : (Color){ 80, 84, 100, 255 });
+        DrawText(TextFormat("%s%s", sign_edit.lines[k], k == sign_edit.line && blink ? "_" : ""), (int)box.x + 10, (int)box.y + 8, 20, RAYWHITE);
+    }
+    for (int i = 0; i < 3; i++) {
+        Rectangle b = sign_button(i);
+        bool hot = CheckCollisionPointRec(GetMousePosition(), b);
+        DrawRectangleRec(b, hot ? (Color){ 80, 84, 100, 255 } : (Color){ 54, 57, 70, 255 });
+        DrawRectangleLinesEx(b, 2.0f, (Color){ 120, 122, 134, 255 });
+        DrawText(labels[i], (int)(b.x + (b.width - (float)MeasureText(labels[i], 18)) / 2), (int)b.y + 8, 18, RAYWHITE);
+    }
+}
+
 static bool readout_shown = true;
 
 static void draw_hud(const Game *g, const MapCamera *cam)
@@ -1343,6 +1454,14 @@ static void session_save(Session *s)
 static void session_update(Session *s, const Keybinds *keys, float dt)
 {
     update_view(&s->cam, &s->game.world);
+    if (sign_edit.open) {
+        /* Writing on a sign: the keys are for that, and the world goes on meanwhile. */
+        game_set_move_input(&s->game, 0, 0);
+        sign_input(&s->game);
+        game_update(&s->game, dt);
+        update_camera(&s->game, &s->cam, dt);
+        return;
+    }
     if (IsKeyPressed(KEY_ESCAPE)) {
         s->paused = true;
         pause_menu_open(&s->pause);
@@ -1445,6 +1564,7 @@ static void session_draw(Session *s)
     draw_fast_forward(g);
     playerui_draw(&s->player_ui, g);
     hud_draw(&s->hud, &g->inventory);
+    sign_draw();
 }
 
 int main(void)

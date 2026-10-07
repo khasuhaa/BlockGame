@@ -4640,6 +4640,200 @@ static void test_furniture_cages_paint(void)
     game_free(&g);
 }
 
+/* A gate, compost, embers, a boat, and signs. */
+static void test_gate_compost_ember_boat_sign(void)
+{
+    Game g;
+    game_init(&g, 96, 48, 49, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    clear_mobs(&g);
+    g.tick_rate = 0;
+    g.random_events = 0;
+    int s = w->surface_y, ground = s - 1, px = g.player.feet.x;
+
+    /* A gate lets a character through and keeps creatures out. */
+    TileType gate = tile_id("wooden_gate");
+    CHECK(gate > 0 && tile_def(gate)->solid && tile_def(gate)->passable && tile_def(gate)->mimics == MIMIC_NONE && item_def(item_id("wooden_gate"))->places == gate);
+    world_set(w, px + 4, ground, gate);
+    world_set(w, px + 4, ground - 1, gate);
+    world_set(w, px + 4, ground - 2, TILE_STONE);
+    world_set(w, px + 4, ground - 3, TILE_STONE);
+    int dodo = mob_id("dodo");
+    float moves = content.mobs[dodo].move_chance, turns = content.mobs[dodo].turn_chance;
+    content.mobs[dodo].move_chance = 1.0f;
+    content.mobs[dodo].turn_chance = 0.0f;
+    int bird = mob_spawn(&g, dodo, px + 7, ground, true, false);
+    int nearest = 99;
+    for (int t = 0; t < 400; t++) {
+        g.mobs[bird].dir = -1; /* (always making for the gate) */
+        mobs_tick(&g);
+        if (g.mobs[bird].x < nearest) nearest = g.mobs[bird].x;
+    }
+    CHECK(nearest == px + 5);
+    content.mobs[dodo].move_chance = moves;
+    content.mobs[dodo].turn_chance = turns;
+    clear_mobs(&g);
+    CHECK(game_queue_action(&g, ACTION_MOVE, px + 7, ground));
+    Trace through = run_traced(&g, 10.0f);
+    CHECK(g.player.feet.x == px + 7 && g.player.feet.y == ground && !through.climbed);
+
+    /* Compost is ground that plants grow three times as fast on. */
+    TileType compost = tile_id("compost");
+    CHECK(compost > 0 && tile_def(compost)->solid && tile_def(compost)->fertile == 3.0f && item_def(item_id("compost"))->places == compost && tile_def(TILE_DIRT)->fertile == 0.0f);
+    bool sown = false;
+    for (int i = 0; i < tile_def(tile_id("carrot_0"))->soil_count; i++) sown = sown || tile_def(tile_id("carrot_0"))->soil[i] == compost;
+    CHECK(sown);
+    Game t;
+    game_init(&t, 64, 48, 50, WORLD_FLAT);
+    clear_mobs(&t);
+    t.character_count = 0;
+    t.random_events = 10;
+    int ts = t.world.surface_y, rich = 0, poor = 0;
+    for (int x = 0; x < 64; x++) {
+        world_set(&t.world, x, ts, x < 32 ? compost : TILE_DIRT);
+        world_set_at(&t.world, BG, x, ts - 1, tile_id("carrot_0"));
+    }
+    for (int k = 0; k < 300; k++) game_tick(&t);
+    for (int x = 0; x < 64; x++) {
+        TileType c = world_get_at(&t.world, BG, x, ts - 1);
+        int stage = c == tile_id("carrot_1") ? 1 : c == tile_id("carrot_2") ? 2 : c == tile_id("carrot_3") ? 3 : 0;
+        if (x < 32) rich += stage;
+        else poor += stage;
+    }
+    CHECK(poor > 3 && rich > poor * 2 && rich < poor * 5);
+    game_free(&t);
+
+    /* An ember burns down a thing of wood in a moment, and is used up; it does nothing to stone. */
+    ItemId ember = item_id("ember");
+    CHECK(item_def(ember)->ignites && tile_def(tile_id("wood"))->burns && tile_def(tile_id("chest"))->burns && !tile_def(TILE_STONE)->burns);
+    g.player.feet = g.player.step_to = (TilePos){ px + 10, ground };
+    world_set(w, px + 12, ground, tile_id("wood"));
+    world_set(w, px + 12, ground - 1, TILE_STONE);
+    clear_inventory(&g);
+    inventory_add(inv, ember, 3);
+    inventory_select(inv, 0, -1);
+    CHECK(game_click_tile(&g, px + 12, ground) && g.queue[0].type == ACTION_MINE && g.queue[0].item == ember);
+    float burnt = 0.0f;
+    while (world_get(w, px + 12, ground) != TILE_AIR && burnt < 10.0f) run(&g, 0.05f), burnt += 0.05f;
+    CHECK(burnt < 1.0f && burnt < tile_def(tile_id("wood"))->mine_time + content.rules.walk_time * 2.0f + 0.3f);
+    run(&g, 2.0f);
+    CHECK(count_item(&g, ember) == 2 && count_item(&g, item_id("wood")) + drops_of(&g, item_id("wood")) == 1);
+    CHECK(game_click_tile(&g, px + 12, ground - 1) && g.queue[0].item == ITEM_NONE);
+    run(&g, 5.0f);
+    CHECK(count_item(&g, ember) == 2);
+    clear_drops(&g);
+
+    /* A boat goes on water, and nowhere else. */
+    TileType boat = tile_id("boat");
+    CHECK(boat > 0 && tile_def(boat)->afloat && !tile_def(boat)->solid && content.rules.boat_speed == 2.0f);
+    int left = px + 20, right = px + 60;
+    for (int x = left - 1; x <= right + 1; x++) {
+        for (int y = s; y <= s + 3; y++) {
+            bool edge = x < left || x > right || y == s + 3;
+            world_set(w, x, y, edge ? TILE_STONE : TILE_AIR);
+            if (!edge) world_set_water(w, x, y, WATER_FULL);
+        }
+    }
+    g.player.feet = g.player.step_to = (TilePos){ left - 1, ground };
+    clear_inventory(&g);
+    inventory_add(inv, item_id("boat"), 2);
+    inventory_select(inv, 0, -1);
+    CHECK(!game_queue_action(&g, ACTION_PLACE, left - 3, ground)); /* dry land */
+    CHECK(!game_queue_action(&g, ACTION_PLACE, left + 1, s + 1));  /* under the water, not on it */
+    CHECK(game_queue_action(&g, ACTION_PLACE, left + 1, s));
+    run(&g, 5.0f);
+    CHECK(world_get(w, left + 1, s) == boat && count_item(&g, item_id("boat")) == 1);
+    /* Swimming across, for a while... */
+    game_cancel_actions(&g);
+    g.player.feet = g.player.step_to = (TilePos){ left + 3, s };
+    g.player.climbing = true;
+    run(&g, 0.2f);
+    int from = g.player.feet.x;
+    game_set_move_input(&g, 1, 0);
+    run(&g, 2.0f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 0.5f);
+    int swum = g.player.feet.x - from;
+    /* ...and for as long in the boat: twice as far, and the boat comes too. */
+    g.player.feet = g.player.step_to = (TilePos){ left + 1, s };
+    g.player.climbing = true;
+    run(&g, 0.2f);
+    CHECK(g.player.feet.x == left + 1 && g.player.feet.y == s);
+    game_set_move_input(&g, 1, 0);
+    run(&g, 2.0f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 0.5f);
+    int sailed = g.player.feet.x - (left + 1);
+    CHECK(swum >= 8 && sailed >= swum * 2 - 3 && sailed <= swum * 2 + 3);
+    CHECK(world_get(w, g.player.feet.x, g.player.feet.y) == boat && world_get(w, left + 1, s) == TILE_AIR && g.player.feet.y == s);
+    int boats = 0;
+    for (int x = left; x <= right; x++) boats += world_get(w, x, s) == boat;
+    CHECK(boats == 1);
+    world_set(w, g.player.feet.x, s, TILE_AIR);
+
+    /* Signs. One goes up against a block - on it, under it or beside it - and not on backwall alone. */
+    TileType sign = tile_id("sign");
+    ItemId board = item_id("sign");
+    CHECK(sign > 0 && tile_def(sign)->written && !tile_def(sign)->solid && tile_def(sign)->layer == LAYER_FOREGROUND && item_def(board)->written);
+    g.player.feet = g.player.step_to = (TilePos){ px - 4, ground };
+    g.player.climbing = false;
+    clear_inventory(&g);
+    inventory_add(inv, board, 3);
+    inventory_select(inv, 0, -1);
+    world_set_at(w, LAYER_WALL, px - 6, ground - 4, TILE_STONE);
+    CHECK(!game_queue_action(&g, ACTION_PLACE, px - 6, ground - 4)); /* backwall, and nothing else */
+    CHECK(game_queue_action(&g, ACTION_PLACE, px - 6, ground));       /* standing on the ground */
+    run(&g, 5.0f);
+    CHECK(world_get(w, px - 6, ground) == sign && world_mount_block(w, px - 6, ground) == MOUNT_FLOOR && game_sign_at(&g, px - 6, ground) == NULL);
+    world_set(w, px - 8, ground - 2, TILE_STONE);
+    CHECK(game_queue_action(&g, ACTION_PLACE, px - 8, ground - 1));   /* hanging under a block */
+    run(&g, 5.0f);
+    CHECK(world_get(w, px - 8, ground - 1) == sign && world_mount_block(w, px - 8, ground - 1) == MOUNT_CEILING);
+    /* Three lines can be written on it; each is cut to what a line holds. */
+    const char *words[SIGN_LINES] = { "Keep out", "", "This line is much too long to fit on a sign" };
+    CHECK(game_sign_write(&g, px - 6, ground, words) && !game_sign_write(&g, px - 5, ground, words));
+    const SignText *text = game_sign_at(&g, px - 6, ground);
+    CHECK(text && strcmp(text->lines[0], "Keep out") == 0 && text->lines[1][0] == '\0' && strlen(text->lines[2]) == SIGN_LINE_MAX);
+    const char *other[SIGN_LINES] = { "Mine", "", "" };
+    CHECK(game_sign_write(&g, px - 8, ground - 1, other));
+    /* Kept with the world. */
+    CHECK(save_game(&g, "build/test_sign.world"));
+    Game loaded;
+    CHECK(load_game(&loaded, "build/test_sign.world"));
+    CHECK(game_sign_at(&loaded, px - 6, ground) && strcmp(game_sign_at(&loaded, px - 6, ground)->lines[0], "Keep out") == 0);
+    CHECK(game_sign_at(&loaded, px - 8, ground - 1) && strcmp(game_sign_at(&loaded, px - 8, ground - 1)->lines[0], "Mine") == 0);
+    game_free(&loaded);
+    /* Taken down, each keeps what it says; and signs that say different things still stack. */
+    CHECK(game_queue_action(&g, ACTION_MINE, px - 6, ground));
+    run(&g, 5.0f);
+    CHECK(game_queue_action(&g, ACTION_MINE, px - 8, ground - 1));
+    run(&g, 5.0f);
+    CHECK(world_get(w, px - 6, ground) == TILE_AIR && count_item(&g, board) == 3 && inv->slots[0].count == 3 && inv->slots[1].count == 0);
+    const SignText *top = game_sign_text(&g, inventory_meter(inv, &inv->slots[0]));
+    CHECK(top && strcmp(top->lines[0], "Mine") == 0); /* the last one picked up is on top */
+    /* Put up again, it says what it said. */
+    CHECK(game_queue_action(&g, ACTION_PLACE, px - 6, ground));
+    run(&g, 5.0f);
+    CHECK(game_sign_at(&g, px - 6, ground) && strcmp(game_sign_at(&g, px - 6, ground)->lines[0], "Mine") == 0);
+    CHECK(game_queue_action(&g, ACTION_PLACE, px - 7, ground));
+    run(&g, 5.0f);
+    CHECK(game_sign_at(&g, px - 7, ground) && strcmp(game_sign_at(&g, px - 7, ground)->lines[0], "Keep out") == 0);
+    CHECK(game_queue_action(&g, ACTION_PLACE, px - 9, ground));
+    run(&g, 5.0f);
+    CHECK(world_get(w, px - 9, ground) == sign && game_sign_at(&g, px - 9, ground) == NULL); /* and the blank one is blank */
+    /* Writing on one copy of a sign leaves the others as they were. */
+    world_set(w, px - 10, ground, sign);
+    world_set_meta(w, px - 10, ground, world_meta(w, px - 6, ground));
+    const char *changed[SIGN_LINES] = { "Changed", "", "" };
+    CHECK(game_sign_write(&g, px - 10, ground, changed));
+    CHECK(strcmp(game_sign_at(&g, px - 6, ground)->lines[0], "Mine") == 0 && strcmp(game_sign_at(&g, px - 10, ground)->lines[0], "Changed") == 0);
+    /* Rubbed out, it is a blank sign again. */
+    const char *nothing[SIGN_LINES] = { "", "", "" };
+    CHECK(game_sign_write(&g, px - 10, ground, nothing) && game_sign_at(&g, px - 10, ground) == NULL);
+    game_free(&g);
+}
+
 static void test_plants(void)
 {
     Game g;
@@ -8094,6 +8288,7 @@ int main(void)
     test_power();
     test_trade_rules();
     test_furniture_cages_paint();
+    test_gate_compost_ember_boat_sign();
     test_new_trees();
     test_caves();
     test_backwall();

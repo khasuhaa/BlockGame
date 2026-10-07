@@ -9,7 +9,8 @@
    "layer": "background",
    "soil": [
     "dirt",
-    "grass"
+    "grass",
+    "compost"
    ],
    "max_height": 7,
    "weight": 1,
@@ -46,7 +47,8 @@
    "layer": "background",
    "soil": [
     "dirt",
-    "grass"
+    "grass",
+    "compost"
    ],
    "max_height": 8,
    "weight": 1,
@@ -93,7 +95,8 @@
    "layer": "background",
    "soil": [
     "dirt",
-    "grass"
+    "grass",
+    "compost"
    ],
    "max_height": 5,
    "rows": [
@@ -129,7 +132,8 @@
    "layer": "background",
    "soil": [
     "dirt",
-    "grass"
+    "grass",
+    "compost"
    ],
    "max_height": 4,
    "rows": [
@@ -160,7 +164,8 @@
    "layer": "background",
    "soil": [
     "dirt",
-    "grass"
+    "grass",
+    "compost"
    ],
    "max_height": 3,
    "rows": [
@@ -244,7 +249,8 @@
    "layer": "background",
    "soil": [
     "dirt",
-    "grass"
+    "grass",
+    "compost"
    ],
    "max_height": 9,
    "rows": [
@@ -341,7 +347,8 @@
    "layer": "background",
    "soil": [
     "dirt",
-    "grass"
+    "grass",
+    "compost"
    ],
    "max_height": 7,
    "rows": [
@@ -382,7 +389,8 @@
    "layer": "background",
    "soil": [
     "dirt",
-    "grass"
+    "grass",
+    "compost"
    ],
    "max_height": 6,
    "rows": [

@@ -81,6 +81,9 @@ typedef enum {
 
 #define MAX_ZOOM_LEVELS 16
 #define MAX_RECIPE_CHOICES 8
+#define MAX_SIGN_TEXTS 512 /* different texts a world's signs can carry */
+#define SIGN_LINES 3
+#define SIGN_LINE_MAX 20
 #define MAX_SEASONS 4
 #define MAX_MOB_BIOMES 8
 
@@ -168,6 +171,11 @@ typedef struct {
     bool attaches;
     bool floats;    /* it can be put up with nothing at all to hold it */
     bool shows_contents; /* what is kept in it is drawn on it, small: a shelf */
+    float fertile;     /* a plant growing on top of it grows this many times as fast; 0 for no faster */
+    bool see_through;  /* though it is solid, the backwall behind it is drawn: it is not quite opaque */
+    bool burns;        /* something that sets fire to things takes it down in a moment */
+    bool afloat;       /* it can only be put down on water: on the top of it */
+    bool written;      /* it has words on it: the number kept with it says which of the world's texts */
     /* Two blocks wide: this one is put down with `pair` to the right of it, on
      * level ground under both, and the two come up as one. (`pair_of` is worked out: the block this is the right half of.) */
     TileType pair, pair_of;
@@ -296,6 +304,8 @@ typedef struct {
     TileType crosses_with, crosses_into;
     bool shears;       /* used on a creature that can be shorn, it shears it and does it no harm */
     bool milks;        /* used on a creature that gives milk, it milks it */
+    bool ignites;      /* used on something that burns, it takes it down at once, and is used up */
+    bool written;      /* the meter is which of the world's texts is written on it; 0 for a blank one */
     bool cages;        /* used on a creature of the land, it takes it up: the item that creature is when caged */
     int releases;      /* the kind of creature that is in it, to be let out where it is put down; -1 for none */
     /* Paint and what takes it off. A thing that paints colours the block or
@@ -532,6 +542,8 @@ typedef struct {
     TileType ice;                     /* what water freezes into; TILE_AIR for nothing */
     float freeze_chance, thaw_chance; /* chance a random event on open water freezes it, or on ice thaws it */
     float lift_time; /* seconds a lift takes over each block it goes */
+    float burn_time; /* seconds something set fire to takes to come down */
+    float boat_speed; /* times as fast as swimming that a boat goes */
     float energy_over;  /* how far past full the energy bar can be taken, by a soft bed or by coffee */
     float rush_seconds; /* seconds of crafting that one crystal buys off; 0 for no hurrying */
     int wall_span;   /* a block put up within this many blocks above another has backwall put in between */

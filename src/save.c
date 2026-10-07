@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 21u
+#define SAVE_VERSION 22u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -412,6 +412,12 @@ bool save_game(const Game *g, const char *path)
     }
     /* The snow lying on each column. */
     ok = ok && fwrite(g->snow, 1, (size_t)w->width, f) == (size_t)w->width;
+    /* What is written on the signs: each text that is in use, with its number. */
+    uint32_t texts = 0;
+    for (int id = 1; id < MAX_SIGN_TEXTS; id++) texts += g->signs[id].used;
+    ok = ok && fwrite(&texts, sizeof texts, 1, f) == 1;
+    for (uint32_t id = 1; id < MAX_SIGN_TEXTS && ok; id++)
+        if (g->signs[id].used) ok = fwrite(&id, sizeof id, 1, f) == 1 && fwrite(g->signs[id].lines, sizeof g->signs[id].lines, 1, f) == 1;
     /* Paint: few squares have any, so only those, each with where it is. */
     uint32_t painted = 0;
     for (size_t i = 0; i < cells; i++) painted += w->paint[0][i] != 0 || w->paint[1][i] != 0;
@@ -595,6 +601,17 @@ bool load_game(Game *g, const char *path)
         if (ok && h.version >= 19) ok = fread(g->snow, 1, (size_t)w->width, f) == (size_t)w->width;
         if (extra.random_events > 0) g->random_events = extra.random_events - 1;
         g->quick_craft = extra.quick_craft == 1;
+        if (ok && h.version >= 22) {
+            uint32_t texts = 0, id = 0;
+            ok = fread(&texts, sizeof texts, 1, f) == 1 && texts < MAX_SIGN_TEXTS;
+            for (uint32_t i = 0; ok && i < texts; i++) {
+                ok = fread(&id, sizeof id, 1, f) == 1 && id >= 1 && id < MAX_SIGN_TEXTS &&
+                     fread(g->signs[id].lines, sizeof g->signs[id].lines, 1, f) == 1;
+                if (!ok) break;
+                g->signs[id].used = true;
+                for (int k = 0; k < SIGN_LINES; k++) g->signs[id].lines[k][SIGN_LINE_MAX] = '\0';
+            }
+        }
         if (ok && h.version >= 21) {
             uint32_t painted = 0, record[2];
             ok = fread(&painted, sizeof painted, 1, f) == 1 && painted <= cells;

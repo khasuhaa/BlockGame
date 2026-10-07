@@ -93,6 +93,8 @@ TileType world_looks_like(const World *w, int x, int y);
  * column) under it, then the block over it, then the one to its left, then
  * its right. MOUNT_NONE if there is nothing. */
 int world_mount(const World *w, int x, int y);
+/* The same going only by blocks, for something that a backwall does not hold up: a sign. */
+int world_mount_block(const World *w, int x, int y);
 /* Paint on the block (`wall` false) or the backwall of a square: a tint, plus one; 0 for none. */
 int world_paint(const World *w, bool wall, int x, int y);
 void world_set_paint(World *w, bool wall, int x, int y, int tint);

@@ -130,6 +130,7 @@ typedef struct {
     Step step;       /* the step in progress while ACTIVITY_STEPPING */
     bool step_hop;   /* that step is a hop, drawn as an arc */
     bool step_swim;  /* that step is through water: straight there, even on the slant */
+    bool step_boat;  /* that step is in a boat, which goes along with it */
     TilePos step_to; /* and its destination */
     float timer, duration;
 } Player;
@@ -222,6 +223,12 @@ typedef struct {
     int power;
     int16_t made, given;
 } Storage;
+
+/* One text for a sign: its lines, top to bottom. */
+typedef struct SignText {
+    bool used;
+    char lines[SIGN_LINES][SIGN_LINE_MAX + 1];
+} SignText;
 
 /* Electricity on its way along a wire from one thing to another. It moves a
  * block a tick: `moving` is how much is in each square of the way. */
@@ -324,6 +331,10 @@ typedef struct {
     bool quick_craft;  /* a setting of the world: everything made takes one tick */
     /* Which items somebody in this world has had in their hands: the trade portal deals only in those. */
     uint8_t discovered[MAX_ITEMS];
+    /* What is written on the world's signs: each text has a number, which a
+     * sign that is up keeps with its square and one that is carried has as
+     * its meter. Number 0 is no text. */
+    struct SignText *signs;
     PowerFlow *flows;  /* electricity on its way along the wires (see power.h); not kept in a save */
     /* What the bench still has to be sent before it starts on what was asked for: an electric one waits for it. */
     int craft_power;
@@ -554,6 +565,12 @@ int game_sky_floor(const Game *g, int x, bool water);
 float game_protection(const Game *g);
 /* An attack on the player: as game_hurt, less what their armor stops. */
 void game_attacked(Game *g, float amount);
+/* What is written on the sign in a square: its text, or NULL for a blank one or no sign. */
+const SignText *game_sign_at(const Game *g, int x, int y);
+/* The text with a number (what a carried sign's meter reads), or NULL. */
+const SignText *game_sign_text(const Game *g, int id);
+/* Writes on the sign in a square: three lines, each cut to what a line holds. False if there is no sign there. */
+bool game_sign_write(Game *g, int x, int y, const char *const lines[SIGN_LINES]);
 /* How quick sleep is where the character is: more than 1 in a bed; and whether it can go on past a full bar there. */
 float game_sleep_speed(const Game *g, bool *over);
 /* Poisons the player for so many ticks: each takes a little health. A

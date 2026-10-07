@@ -303,6 +303,11 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->supports = flag(e, "supports", false);
         t->floats = flag(e, "floats", false);
         t->shows_contents = flag(e, "shows_contents", false);
+        t->fertile = (float)num(e, "fertile", 0.0);
+        t->see_through = flag(e, "see_through", false);
+        t->burns = flag(e, "burns", false);
+        t->afloat = flag(e, "afloat", false);
+        t->written = flag(e, "written", false);
         t->pair = t->pair_of = TILE_AIR;
         if (!tile_ref(r, e, "pair", &t->pair)) return false;
         t->sleep_speed = (float)num(field(e, "bed"), "speed", 0.0);
@@ -553,6 +558,12 @@ static bool read_items(Reader *r, const cJSON *root)
             return fail(r, "item \"%s\": \"crosses\" needs both \"with\" and \"into\"", it->name);
         it->shears = flag(e, "shears", false);
         it->milks = flag(e, "milks", false);
+        it->ignites = flag(e, "ignites", false);
+        it->written = flag(e, "written", false);
+        if (it->written) {
+            it->meter_max = MAX_SIGN_TEXTS - 1;
+            it->meter_start = 0;
+        }
         it->cages = flag(e, "cages", false);
         it->releases = -1;
         it->paints = flag(e, "paints", false);
@@ -999,6 +1010,8 @@ static bool read_rules(Reader *r, const cJSON *root)
     }
     if (field(root, "building")) u->wall_span = (int)num(field(root, "building"), "wall_span", u->wall_span);
     if (field(root, "power")) u->lift_time = (float)num(field(root, "power"), "lift_time", u->lift_time);
+    if (field(root, "building")) u->burn_time = (float)num(field(root, "building"), "burn_time", u->burn_time);
+    if (field(root, "water")) u->boat_speed = (float)num(field(root, "water"), "boat_speed", u->boat_speed);
     if (field(root, "vitals")) u->energy_over = (float)num(field(root, "vitals"), "energy_over", u->energy_over);
     if (field(root, "crafting")) u->rush_seconds = (float)num(field(root, "crafting"), "rush_seconds_per_crystal", u->rush_seconds);
     if (player) {

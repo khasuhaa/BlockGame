@@ -790,7 +790,7 @@ void world_set_at(World *w, int layer, int x, int y, TileType t)
     /* What was kept with the block that was there goes with it. */
     if (w->meta && w->meta[cell] != 0) {
         const TileDef *was = tile_def((TileType)w->layers[layer][cell]);
-        if (was->two_tone || was->motor_power > 0 || (TileType)w->layers[layer][cell] == content.rules.ice) w->meta[cell] = 0;
+        if (was->two_tone || was->written || was->motor_power > 0 || (TileType)w->layers[layer][cell] == content.rules.ice) w->meta[cell] = 0;
     }
     /* Paint goes with the block, or the backwall, it was on. */
     if (w->paint[0] && (TileType)w->layers[layer][cell] != t) {
@@ -916,6 +916,11 @@ bool world_lift_runs(const World *w, int x, int y)
 int world_mount(const World *w, int x, int y)
 {
     if (world_get_at(w, LAYER_WALL, x, y) != TILE_AIR) return MOUNT_WALL;
+    return world_mount_block(w, x, y);
+}
+
+int world_mount_block(const World *w, int x, int y)
+{
     if (!world_in_bounds(w, x, y)) return MOUNT_NONE;
     if (world_is_solid(w, x, y + 1) || tile_def(world_get_at(w, LAYER_BACKGROUND, x, y + 1))->supports) return MOUNT_FLOOR;
     if (world_is_solid(w, x, y - 1)) return MOUNT_CEILING;

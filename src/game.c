@@ -589,6 +589,9 @@ static bool target_valid(const World *w, Action a)
         if (placed == TILE_AIR || !room_for(w, a.target, placed)) return false;
         /* Something that hangs goes under a block and nowhere else, backwall or no. */
         if (tile_def(placed)->hangs) return world_is_solid(w, a.target.x, a.target.y - 1);
+        /* A boat goes on the top of water and nowhere else. */
+        if (tile_def(placed)->afloat)
+            return world_is_water(w, a.target.x, a.target.y) && !world_is_water(w, a.target.x, a.target.y - 1);
         /* And something that floats, anywhere there is room for it. */
         if (tile_def(placed)->floats) return true;
         if (tile_def(placed)->layer == LAYER_BACKGROUND &&
@@ -841,6 +844,14 @@ bool game_queue_action(Game *g, ActionType type, int tx, int ty)
     return queue_checked(g, sim_pending(g), a);
 }
 
+/* Whether what is in hand would set fire to the block an action is at. */
+static bool sets_fire(const Game *g, const World *w, TilePos t)
+{
+    const ItemStack *held = inventory_selected(&g->inventory);
+    int layer = mine_layer(w, t);
+    return held->count > 0 && item_def((ItemId)held->id)->ignites && layer >= 0 && tile_def(world_get_at(w, layer, t.x, t.y))->burns;
+}
+
 float game_mine_time(const Game *g, TileType t)
 {
     const TileDef *def = tile_def(t);
@@ -1001,8 +1012,9 @@ bool game_click_tile(Game *g, int tx, int ty)
         /* A floor of a lift that is running is somewhere to go, not something
          * to take down. (With its power off, the shaft is mined like anything.) */
     } else if (world_in_bounds(&g->world, tx, ty) && mine_layer(&g->sim, a.target) >= 0) {
-        /* A block here, in front or behind, is mined. */
+        /* A block here, in front or behind, is mined - or, with fire in hand and the block one that burns, burnt down. */
         a.type = ACTION_MINE;
+        if (sets_fire(g, &g->sim, a.target)) a.item = held->id;
     } else if (held->count > 0 && bare_wall(&g->sim, a.target) != TILE_AIR &&
                item_def((ItemId)held->id)->tool_class >= 0 &&
                item_def((ItemId)held->id)->tool_class == tile_def(bare_wall(&g->sim, a.target))->tool_class) {
@@ -1368,7 +1380,12 @@ static void begin_step(Game *g, Step s)
     p->step_swim = swim;
     /* (A ride in a lift: quick, and so much a block.) */
     bool ride = s.dx == 0 && !s.climb && !p->climbing && (s.dy < -1 || s.dy > 1 || (s.dy != 0 && world_is_shaft(&g->world, to.x, to.y)));
-    if (ride) p->duration = (content.rules.lift_time > 0.0f ? content.rules.lift_time : 0.04f) * (float)abs(s.dy);
+    /* In a boat, across the top of the water: quicker than swimming, and the boat comes too. */
+    bool boat = s.dy == 0 && (s.dx == 1 || s.dx == -1) && tile_def(world_get(&g->world, p->feet.x, p->feet.y))->afloat &&
+                world_get(&g->world, to.x, to.y) == TILE_AIR && world_is_water(&g->world, to.x, to.y) && !world_is_water(&g->world, to.x, to.y - 1);
+    p->step_boat = boat;
+    if (boat) p->duration = content.rules.swim_time / (content.rules.boat_speed > 0.0f ? content.rules.boat_speed : 2.0f);
+    else if (ride) p->duration = (content.rules.lift_time > 0.0f ? content.rules.lift_time : 0.04f) * (float)abs(s.dy);
     else if (hop) p->duration = HOP_TIME;
     else if (swim) p->duration = content.rules.swim_time * (s.dx != 0 && s.dy != 0 ? 1.4142f : 1.0f);
     else if (s.climb || p->climbing) p->duration = CLIMB_TIME;
@@ -1444,7 +1461,7 @@ static void drop_block_items_toned(Game *g, const TileDef *def, TilePos at, uint
         if (!kept) continue;
         /* (A block that is one size of a thing leaves that thing at that size.) */
         if (def->drop_meter > 0 && inside == 0) game_drop_item_sized(g, def->drop, at.x, at.y, def->drop_meter);
-        else if (tones > 0 && item_def(def->drop)->two_tone) game_drop_item_sized(g, def->drop, at.x, at.y, tones);
+        else if (tones > 0 && (item_def(def->drop)->two_tone || item_def(def->drop)->written)) game_drop_item_sized(g, def->drop, at.x, at.y, tones);
         else spawn_drop_stack(g, (ItemStack){ (uint16_t)def->drop, 1, i == 0 ? inside : 0 }, at);
     }
     for (int k = 0; k < def->extra_drop_count; k++) {
@@ -1469,7 +1486,15 @@ static void finish_activity(Game *g)
     Player *p = &g->player;
     if (p->activity == ACTIVITY_STEPPING) {
         /* A step across the seam lands on the far side of the world. */
+        TilePos from = p->feet;
         p->feet = (TilePos){ world_wrap_x(&g->world, p->step_to.x), p->step_to.y };
+        /* The boat they were in has come with them, if where they have got to is still open water. */
+        if (p->step_boat && tile_def(world_get(&g->world, from.x, from.y))->afloat && world_get(&g->world, p->feet.x, p->feet.y) == TILE_AIR) {
+            TileType boat = world_get(&g->world, from.x, from.y);
+            world_set(&g->world, from.x, from.y, TILE_AIR);
+            world_set(&g->world, p->feet.x, p->feet.y, boat);
+        }
+        p->step_boat = false;
         game_reveal(g, p->feet.x, p->feet.y - 1);
         p->step_to = p->feet;
         p->climbing = p->step.climb;
@@ -1517,7 +1542,7 @@ static void finish_activity(Game *g)
             bool cut = def->cut_to != TILE_AIR && tile_def(world_get_at(&g->world, layer, t.x, t.y + 1))->topped_by == tile;
             /* A tree cut through dies from the cut upward. */
             decay_tree(&g->world, layer, t);
-            int tones = def->two_tone ? tile_tones(&g->world, layer, t.x, t.y) : 0;
+            int tones = def->two_tone ? tile_tones(&g->world, layer, t.x, t.y) : def->written ? world_meta(&g->world, t.x, t.y) : 0;
             drop_block_items_toned(g, def, (TilePos){ t.x, bottom }, inside, count, tones);
             replace_block(&g->world, layer, t, TILE_AIR);
             if (def->pair != TILE_AIR && world_get_at(&g->world, tile_def(def->pair)->layer, t.x + 1, t.y) == def->pair)
@@ -1593,10 +1618,13 @@ static void finish_activity(Game *g)
         } else if (!needs_storage(tile_def(tile))) {
             /* Something that comes in sizes goes down as the block of its size. */
             int size = item_def(item)->sized ? inventory_meter(&g->inventory, &one) : 0;
+            int text = item_def(item)->written ? inventory_meter(&g->inventory, &one) : 0;
             if (size >= 1 && size <= MAX_ITEM_SIZES && item_def(item)->places_sized[size - 1] != TILE_AIR)
                 tile = item_def(item)->places_sized[size - 1];
             container_free(&g->inventory, one.container);
             place_tile(&g->world, t, tile);
+            /* (A sign goes up with what was written on it.) */
+            if (text > 0 && tile_def(tile)->written) world_set_meta(&g->world, t.x, t.y, text);
         } else if (!storage_at(g, t) && storage_create(g, t, tile_def(tile), one)) {
             /* What was inside the item is now inside the block. (One tile
              * keeps one record, so not where a block behind already has one.) */
@@ -1710,6 +1738,14 @@ static bool start_next_activity(Game *g)
             } else if (target_valid(w, g->current) && is_goal(w, pose, g->current)) {
                 switch (g->current.type) {
                 case ACTION_MINE:
+                    /* (Set fire to, it is down in a moment, whatever it is.) */
+                    if (g->current.item != ITEM_NONE && item_def((ItemId)g->current.item)->ignites &&
+                        inventory_count(&g->inventory, (ItemId)g->current.item) > 0 && !g->current.wall &&
+                        tile_def(world_get_at(w, action_layer(w, g->current), g->current.target.x, g->current.target.y))->burns) {
+                        inventory_remove(&g->inventory, (ItemId)g->current.item, 1);
+                        begin_work(g, ACTIVITY_MINING, content.rules.burn_time > 0.0f ? content.rules.burn_time : 0.3f);
+                        return true;
+                    }
                     begin_work(g, ACTIVITY_MINING,
                                game_mine_time(g, world_get_at(w, action_layer(w, g->current),
                                                               g->current.target.x,
@@ -2641,6 +2677,69 @@ void game_wake(Game *g)
     g->vitals.meditation = 0.0f;
 }
 
+const SignText *game_sign_text(const Game *g, int id)
+{
+    if (!g->signs || id <= 0 || id >= MAX_SIGN_TEXTS || !g->signs[id].used) return NULL;
+    return &g->signs[id];
+}
+
+static bool sign_in(const World *w, int x, int y)
+{
+    return tile_def(world_get(w, x, y))->written || tile_def(world_get_at(w, LAYER_BACKGROUND, x, y))->written;
+}
+
+const SignText *game_sign_at(const Game *g, int x, int y)
+{
+    return sign_in(&g->world, x, y) ? game_sign_text(g, world_meta(&g->world, x, y)) : NULL;
+}
+
+/* A number for a new text. When they have all been given out, the ones no
+ * sign has any more - none standing, none carried - are taken back first. */
+static int sign_alloc(Game *g)
+{
+    for (int pass = 0; pass < 2; pass++) {
+        for (int id = 1; id < MAX_SIGN_TEXTS; id++)
+            if (!g->signs[id].used) return id;
+        if (pass == 1) break;
+        static bool kept[MAX_SIGN_TEXTS];
+        memset(kept, 0, sizeof kept);
+        const World *w = &g->world;
+        for (int y = 0; y < w->height; y++)
+            for (int x = 0; x < w->width; x++)
+                if (w->meta[(size_t)y * w->width + x] != 0 && w->meta[(size_t)y * w->width + x] < MAX_SIGN_TEXTS && sign_in(w, x, y))
+                    kept[w->meta[(size_t)y * w->width + x]] = true;
+        /* (What a carried thing's meter reads is kept in a container of readings: any of those might be a sign's.) */
+        for (int c = 1; c < MAX_CONTAINERS; c++) {
+            const Container *box = &g->inventory.containers[c];
+            if (box->used != CONTAINER_METERS) continue;
+            for (int k = 0; k < CONTAINER_MAX_SLOTS; k++)
+                if (box->slots[k].count > 0 && box->slots[k].id >= 1 && box->slots[k].id - 1 < MAX_SIGN_TEXTS) kept[box->slots[k].id - 1] = true;
+        }
+        for (int id = 1; id < MAX_SIGN_TEXTS; id++)
+            if (!kept[id]) g->signs[id].used = false;
+    }
+    return 0;
+}
+
+bool game_sign_write(Game *g, int x, int y, const char *const lines[SIGN_LINES])
+{
+    if (!g->signs || !sign_in(&g->world, x, y)) return false;
+    bool blank = true;
+    for (int k = 0; k < SIGN_LINES; k++) blank = blank && (!lines[k] || !lines[k][0]);
+    if (blank) {
+        world_set_meta(&g->world, x, y, 0);
+        return true;
+    }
+    /* A text of its own, always: other signs that were copies of this one keep what they said. */
+    int id = sign_alloc(g);
+    if (id == 0) return false;
+    memset(&g->signs[id], 0, sizeof g->signs[id]);
+    g->signs[id].used = true;
+    for (int k = 0; k < SIGN_LINES; k++) snprintf(g->signs[id].lines[k], sizeof g->signs[id].lines[k], "%s", lines[k] ? lines[k] : "");
+    world_set_meta(&g->world, x, y, id);
+    return true;
+}
+
 float game_sleep_speed(const Game *g, bool *over)
 {
     /* A bed is where the character is standing: either of their two squares, either layer. */
@@ -2823,8 +2922,16 @@ void game_tick(Game *g)
             int x = chunk * CHUNK_WIDTH + (int)(r % (uint32_t)CHUNK_WIDTH), y = (int)((r >> 8) % (uint32_t)w->height);
             if (x >= w->width) continue;
             game_weather_event(g, x, y);
-            if (g->random_events <= base || (int)(game_random(g) % (uint32_t)g->random_events) < base)
+            /* A plant on rich ground gets more than its share of them: that many times over. */
+            int share = base;
+            float rich = tile_def(world_get(w, x, y + 1))->fertile;
+            if (rich > 1.0f && (tile_def(world_get(w, x, y))->grows_into != TILE_AIR || tile_def(world_get_at(w, LAYER_BACKGROUND, x, y))->grows_into != TILE_AIR))
+                share = (int)((float)base * rich + 0.5f);
+            if (g->random_events <= share || (int)(game_random(g) % (uint32_t)g->random_events) < share)
                 game_random_event(g, x, y);
+            else if (rich > 1.0f && g->random_events <= base && share > base)
+                /* (With no more events than the usual share there is nothing extra to give: so it is given again.) */
+                for (int extra = base; extra < share; extra++) game_random_event(g, x, y);
         }
     }
 
@@ -3153,8 +3260,9 @@ bool game_init(Game *g, int width, int height, uint32_t seed, WorldKind kind)
     g->explored = calloc(cells, 1);
     g->snow = calloc((size_t)width, 1);
     g->flows = calloc(MAX_POWER_FLOWS, sizeof(PowerFlow));
+    g->signs = calloc(MAX_SIGN_TEXTS, sizeof(SignText));
     g->random_events = content.rules.random_events_per_chunk;
-    if (!g->explored || !g->snow || !g->flows) {
+    if (!g->explored || !g->snow || !g->flows || !g->signs) {
         game_free(g);
         return false;
     }
@@ -3185,5 +3293,6 @@ void game_free(Game *g)
     free(g->explored);
     free(g->snow);
     free(g->flows);
+    free(g->signs);
     memset(g, 0, sizeof *g);
 }
