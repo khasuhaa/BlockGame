@@ -194,9 +194,11 @@ void playerui_draw_bar(Rectangle r, float value, BarColor color)
     value = value < 0.0f ? 0.0f : value > 1.0f ? 1.0f : value;
     DrawRectangleRec(r, (Color){ 96, 22, 28, 255 });
     Color fill = color == BAR_GOLD ? (Color){ 244, 196, 48, 255 } : color == BAR_BLUE ? (Color){ 70, 160, 236, 255 }
-                 : color == BAR_RED ? (Color){ 232, 52, 52, 255 } : (Color){ 76, 190, 84, 255 };
+                 : color == BAR_RED ? (Color){ 232, 52, 52, 255 } : color == BAR_POISON ? (Color){ 150, 96, 200, 255 }
+                 : (Color){ 76, 190, 84, 255 };
     Color shine = color == BAR_GOLD ? (Color){ 255, 232, 130, 255 } : color == BAR_BLUE ? (Color){ 160, 214, 255, 255 }
-                  : color == BAR_RED ? (Color){ 255, 130, 120, 255 } : (Color){ 140, 226, 140, 255 };
+                  : color == BAR_RED ? (Color){ 255, 130, 120, 255 } : color == BAR_POISON ? (Color){ 204, 160, 240, 255 }
+                  : (Color){ 140, 226, 140, 255 };
     /* (The death bar is red on black: there is nothing under it.) */
     if (color == BAR_RED) DrawRectangleRec(r, (Color){ 16, 6, 8, 255 });
     Rectangle full = { r.x, r.y, r.width * value, r.height };
@@ -299,7 +301,7 @@ void playerui_draw(const PlayerUi *ui, const Game *g)
             DrawText(v->rest == REST_SLEEP ? "zz" : "om", (int)(b.x + b.width) - 16, (int)b.y + 3, 10, (Color){ 170, 220, 255, 255 });
         /* With no health left, what shows in its place is the death bar. */
         if (v->health <= 0.0f || v->death < 1.0f) playerui_draw_bar(small_bar(c, 0), v->death, BAR_RED);
-        else playerui_draw_bar(small_bar(c, 0), v->health, BAR_GREEN);
+        else playerui_draw_bar(small_bar(c, 0), v->health, v->poison > 0 ? BAR_POISON : BAR_GREEN); /* (poisoned, it turns sickly) */
         playerui_draw_bar(small_bar(c, 1), v->hunger, v->saturation > 0.0f ? BAR_GOLD : BAR_GREEN);
         /* Breath only shows while it is short. */
         if (v->oxygen < 1.0f) playerui_draw_bar(small_bar(c, 2), v->oxygen, BAR_BLUE);
@@ -317,7 +319,7 @@ void playerui_draw(const PlayerUi *ui, const Game *g)
                  (Color){ 120, 122, 134, 255 });
     /* Health; or, once that is gone, what is left before dying. */
     if (v->health <= 0.0f || v->death < 1.0f) draw_row(p, 0, "Dying", v->death, BAR_RED);
-    else draw_row(p, 0, "Health", v->health, BAR_GREEN);
+    else draw_row(p, 0, v->poison > 0 ? "Poisoned" : "Health", v->health, v->poison > 0 ? BAR_POISON : BAR_GREEN);
     draw_row(p, 1, "Hunger", v->hunger, game_saturated(g) ? BAR_GOLD : BAR_GREEN);
     draw_row(p, 2, "Energy", v->energy, BAR_GREEN);
     draw_row(p, 3, "Oxygen", v->oxygen, BAR_BLUE);

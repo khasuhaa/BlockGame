@@ -1188,6 +1188,9 @@ static bool in_soil(TileType t)
 
 static bool in_rock(TileType t)
 {
+    /* (Stone, what runs through it in veins and scars, and the rock some biomes have under them.) */
+    for (int b = 0; b < content.biome_count; b++)
+        if (t != TILE_AIR && content.biomes[b].under == t) return true;
     return t == TILE_STONE || vein_in(t, TILE_STONE);
 }
 
@@ -1223,7 +1226,7 @@ static void test_terrain(void)
             for (; y < w.height; y++) {
                 TileType t = world_get(&w, x, y);
                 /* Rock, or a cave: open space carved out of rock and nothing else. */
-                if (t == TILE_AIR ? world_get_at(&w, LAYER_WALL, x, y) != TILE_STONE : !in_rock(t)) bad++;
+                if (t == TILE_AIR ? !in_rock(world_get_at(&w, LAYER_WALL, x, y)) : !in_rock(t)) bad++;
                 if (t == TILE_AIR) carved++;
             }
             /* Every block has a backwall of itself behind it; the open sky has none. */
@@ -2564,8 +2567,8 @@ static void test_biomes(void)
     int shore_sand = 0, shore_all = 0, inland_sand_runs = 0, stripes = 0, thin_edges = 0, loose_arms = 0, arms = 0;
     TileType arm = tile_id("cactus_arm");
 
-    CHECK(content.biome_count == 7 && content.worldgen.has_sea && content.worldgen.sea_level == 0);
-    CHECK(!content.biomes[0].has_climate && content.biomes[1].has_climate && content.biomes[6].below_sea);
+    CHECK(content.biome_count == 9 && content.worldgen.has_sea && content.worldgen.sea_level == 0);
+    CHECK(!content.biomes[0].has_climate && content.biomes[1].has_climate && content.biomes[8].below_sea);
     int seen[MAX_TREES] = { 0 }, strays = 0, biomes_seen[MAX_BIOMES] = { 0 };
 
     for (uint32_t seed = 1; seed <= 10; seed++) {
@@ -2698,6 +2701,568 @@ static void test_biomes(void)
     CHECK(grown == 6 && world_get_at(fw, BG, cx, ground - 5) == cactus && world_get_at(fw, BG, cx, ground - 6) != cactus);
     game_free(&g);
     CHECK(shore_all > 10 && shore_sand * 10 >= shore_all * 7);
+}
+
+static int count_mobs(const Game *g);
+static void clear_mobs(Game *g);
+static bool is_idle(const Game *g);
+
+/* How many of an item lie about as drops, and getting rid of them. */
+static int drops_of(const Game *g, ItemId id)
+{
+    int n = 0;
+    for (int i = 0; i < MAX_DROPS; i++) n += g->drops[i].active && g->drops[i].item == id;
+    return n;
+}
+
+static void clear_drops(Game *g)
+{
+    for (int i = 0; i < MAX_DROPS; i++) g->drops[i].active = false;
+}
+
+/* Scars of pale and coloured stone through the rock, and sandstone under the sand. */
+static void test_scars_and_sandstone(void)
+{
+    static const char *stones[] = { "limestone", "marble", "lapis_lazuli", "red_marble" };
+    TileType sandstone = tile_id("sandstone");
+    int order[4], crossings = 0, total[4] = { 0 }, thick = 0;
+
+    /* They are laid down in that order, each able to cut through the ones before it and never the ones after. */
+    for (int k = 0; k < 4; k++) {
+        order[k] = -1;
+        for (int i = 0; i < content.vein_count; i++)
+            if (content.veins[i].tile == tile_id(stones[k])) order[k] = i;
+        CHECK(order[k] >= 0 && content.veins[order[k]].shape == VEIN_SCAR && (k == 0 || order[k] > order[k - 1]));
+        const VeinDef *v = &content.veins[order[k]];
+        CHECK(v->host_count == k + 1 && v->hosts[0] == TILE_STONE && v->max_thick >= 2 && v->min_size >= 30);
+        for (int h = 1; h < v->host_count; h++) CHECK(v->hosts[h] == tile_id(stones[h - 1]));
+        const TileDef *def = tile_def(tile_id(stones[k]));
+        CHECK(def->solid && def->removable && def->drop == item_id(stones[k]) && def->tool_class == tool_class_id("pickaxe"));
+    }
+    BiomeDef *desert = NULL, *beach = NULL;
+    for (int b = 0; b < content.biome_count; b++) {
+        if (strcmp(content.biomes[b].name, "desert") == 0) desert = &content.biomes[b];
+        if (strcmp(content.biomes[b].name, "beach") == 0) beach = &content.biomes[b];
+    }
+    CHECK(desert && beach && desert->under == sandstone && beach->under == sandstone && desert->under_depth == 10 &&
+          beach->under_depth == 10);
+    CHECK(tile_def(sandstone)->drop == item_id("sandstone") && content.biomes[0].under == TILE_AIR);
+
+    int under_sand = 0, sand_columns = 0, stray = 0, too_deep = 0, broken = 0;
+    for (uint32_t seed = 1; seed <= 4; seed++) {
+        World w;
+        CHECK(world_init(&w, 2048, 401, seed, WORLD_TERRAIN));
+        for (int k = 0; k < 4; k++) {
+            int n = 0;
+            for (int y = 0; y < w.height; y++) {
+                for (int x = 0; x < w.width; x++) {
+                    if (world_get(&w, x, y) != tile_id(stones[k])) continue;
+                    n++;
+                    /* (A scar is more than one block through, somewhere.) */
+                    if (world_get(&w, x, y + 1) == tile_id(stones[k]) && world_get(&w, x, y + 2) == tile_id(stones[k])) thick++;
+                    /* One stone against an earlier one: where a later scar has cut an earlier one. */
+                    for (int e = 0; e < k; e++)
+                        if (world_get(&w, x + 1, y) == tile_id(stones[e]) || world_get(&w, x, y + 1) == tile_id(stones[e])) crossings++;
+                }
+            }
+            total[k] += n;
+        }
+        /* Sandstone: only under the ground of country that has it, starting
+         * right under the sand, no more than 10 blocks of it, and giving way to stone raggedly. */
+        for (int x = 0; x < w.width; x++) {
+            const BiomeDef *b = &content.biomes[world_biome(&w, x)];
+            int first = -1, last = -1, gaps = 0;
+            for (int y = 0; y < w.height; y++) {
+                if (world_get(&w, x, y) != sandstone && world_get_at(&w, LAYER_WALL, x, y) != sandstone) continue;
+                if (first < 0) first = y;
+                else if (y - last > 1) gaps++;
+                last = y;
+            }
+            if (first >= 0 && b->under != sandstone) stray++;
+            if (first >= 0 && last - first >= 10) too_deep++;
+            broken += gaps;
+            if (b != desert) continue;
+            sand_columns++;
+            /* (Right under the ground: sand, or at the desert's edge the dirt its sand lies thin over.) */
+            if (first >= 0 && world_get(&w, x, first - 1) != TILE_STONE) under_sand++;
+        }
+        world_free(&w);
+    }
+    for (int k = 0; k < 4; k++) CHECK(total[k] > 200);
+    CHECK(total[0] > total[1] && total[1] > total[2]);
+    CHECK(thick > 500 && crossings > 0);
+    CHECK(stray == 0 && too_deep == 0 && broken > 20);
+    CHECK(sand_columns > 100 && under_sand * 10 >= sand_columns * 9);
+}
+
+/* Plants that end up two blocks tall, and chilli, which does not. */
+static void test_tall_plants(void)
+{
+    static const char *kinds[] = { "sunflower", "tomato", "wheat" };
+    static const char *seeds[] = { "sunflower_seed", "tomato", "wheat" };
+    Game g;
+    game_init(&g, 64, 48, 37, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    int s = w->surface_y, x = g.player.feet.x + 2;
+    char name[48];
+    g.tick_rate = 0;
+
+    for (int k = 0; k < 3; k++) {
+        TileType stage[4], top;
+        for (int i = 0; i < 4; i++) {
+            snprintf(name, sizeof name, "%s_%d", kinds[k], i);
+            stage[i] = tile_id(name);
+            CHECK(stage[i] > 0 && !tile_def(stage[i])->solid && tile_def(stage[i])->tool_class == tool_class_id("machete"));
+        }
+        snprintf(name, sizeof name, "%s_top", kinds[k]);
+        top = tile_id(name);
+        ItemId seed = item_id(seeds[k]);
+        /* Three stages of one block, then a foot with a top on it. */
+        CHECK(top > 0 && item_def(seed)->sows == stage[0]);
+        CHECK(tile_def(stage[0])->grows_into == stage[1] && tile_def(stage[1])->grows_into == stage[2]);
+        CHECK(tile_def(stage[2])->grows_into == stage[3] && tile_def(stage[2])->grows_top == top);
+        CHECK(tile_def(stage[3])->grows_into == TILE_AIR && tile_def(stage[3])->topped_by == top && tile_def(top)->cut_to == stage[2]);
+        CHECK(tile_def(top)->drop == seed && tile_def(top)->drop_count == 3 && tile_def(stage[3])->drop == seed);
+
+        /* Sown by hand, it comes up by random events like any plant. */
+        clear_inventory(&g);
+        clear_drops(&g);
+        inventory_add(inv, seed, 1);
+        inventory_select(inv, 0, -1);
+        CHECK(game_click_tile(&g, x, s) && g.queue[0].type == ACTION_PLANT);
+        run(&g, 2.0f);
+        CHECK(world_get_at(w, BG, x, s - 1) == stage[0] && count_item(&g, seed) == 0);
+        game_random_event(&g, x, s - 1);
+        game_random_event(&g, x, s - 1);
+        CHECK(world_get_at(w, BG, x, s - 1) == stage[2] && world_get_at(w, BG, x, s - 2) == TILE_AIR);
+        /* With something in the way overhead it waits at the third stage. */
+        world_set(w, x, s - 2, TILE_STONE);
+        game_random_event(&g, x, s - 1);
+        CHECK(world_get_at(w, BG, x, s - 1) == stage[2] && !world_grow_plant(w, BG, x, s - 1));
+        world_set(w, x, s - 2, TILE_AIR);
+        game_random_event(&g, x, s - 1);
+        CHECK(world_get_at(w, BG, x, s - 1) == stage[3] && world_get_at(w, BG, x, s - 2) == top);
+        game_random_event(&g, x, s - 1);
+        game_random_event(&g, x, s - 2);
+        CHECK(world_get_at(w, BG, x, s - 1) == stage[3] && world_get_at(w, BG, x, s - 2) == top && world_get_at(w, BG, x, s - 3) == TILE_AIR);
+
+        /* The top taken: three of what it bears, and the plant is back a stage, to grow it again. */
+        CHECK(game_click_tile(&g, x, s - 2) && g.queue[0].type == ACTION_MINE);
+        run(&g, 3.0f);
+        CHECK(world_get_at(w, BG, x, s - 2) == TILE_AIR && world_get_at(w, BG, x, s - 1) == stage[2]);
+        CHECK(count_item(&g, seed) + drops_of(&g, seed) == 3);
+        game_random_event(&g, x, s - 1);
+        CHECK(world_get_at(w, BG, x, s - 1) == stage[3] && world_get_at(w, BG, x, s - 2) == top);
+        /* The foot taken: the whole plant goes, top and all. */
+        clear_inventory(&g);
+        clear_drops(&g);
+        CHECK(game_click_tile(&g, x, s - 1) && g.queue[0].type == ACTION_MINE);
+        run(&g, 3.0f);
+        CHECK(world_get_at(w, BG, x, s - 1) == TILE_AIR && world_get_at(w, BG, x, s - 2) == TILE_AIR);
+        CHECK(count_item(&g, seed) + drops_of(&g, seed) == 4);
+    }
+
+    /* Chilli: four stages, one block high throughout, more to pick at each. */
+    TileType chilli[4];
+    for (int i = 0; i < 4; i++) {
+        snprintf(name, sizeof name, "chilli_%d", i);
+        chilli[i] = tile_id(name);
+        CHECK(chilli[i] > 0 && tile_def(chilli[i])->grows_top == TILE_AIR && tile_def(chilli[i])->drop == item_id("chilli"));
+        CHECK(i == 0 || tile_def(chilli[i - 1])->grows_into == chilli[i]);
+    }
+    CHECK(item_def(item_id("chilli"))->sows == chilli[0] && tile_def(chilli[3])->grows_into == TILE_AIR && tile_def(chilli[3])->drop_count == 4);
+    world_set_at(w, BG, x, s - 1, chilli[0]);
+    for (int i = 0; i < 6; i++) game_random_event(&g, x, s - 1);
+    CHECK(world_get_at(w, BG, x, s - 1) == chilli[3] && world_get_at(w, BG, x, s - 2) == TILE_AIR);
+    game_free(&g);
+
+    /* They grow wild, at every stage, tops and all; and so do the three new trees. */
+    int wild[4] = { 0 }, tops = 0, loose = 0, trees[3] = { 0 }, palms_off_sand = 0;
+    static const char *logs[] = { "pine_log", "coconut_log", "maple_log" };
+    static const char *fruit[] = { "pine_cone", "coconut", "maple_seed" };
+    for (int k = 0; k < 3; k++) {
+        int kind = tree_id(k == 0 ? "pine" : k == 1 ? "coconut" : "maple");
+        CHECK(kind >= 0 && content.trees[kind].log == tile_id(logs[k]) && content.trees[kind].fruit == item_id(fruit[k]));
+        CHECK(item_def(item_id(fruit[k]))->plants == kind && tile_def(tile_id(logs[k]))->decays_into > 0);
+        CHECK(tile_def(content.trees[kind].leaves)->tool_class == tool_class_id("machete"));
+    }
+    for (uint32_t seed = 1; seed <= 6; seed++) {
+        World world;
+        CHECK(world_init(&world, 2048, 401, seed, WORLD_TERRAIN));
+        for (int y = 1; y < world.height - 1; y++) {
+            for (int cx = 0; cx < world.width; cx++) {
+                TileType t = world_get_at(&world, BG, cx, y);
+                if (t == TILE_AIR) continue;
+                const char *n = tile_def(t)->name;
+                for (int k = 0; k < 3; k++) {
+                    wild[k] += strncmp(n, kinds[k], strlen(kinds[k])) == 0;
+                    if (t == tile_id(logs[k])) {
+                        trees[k]++;
+                        if (k == 1 && world_get_at(&world, BG, cx, y + 1) != t && world_get(&world, cx, y + 1) != tile_id("sand"))
+                            palms_off_sand++;
+                    }
+                }
+                wild[3] += strncmp(n, "chilli_", 7) == 0;
+                if (tile_def(t)->cut_to != TILE_AIR) {
+                    tops++;
+                    if (tile_def(world_get_at(&world, BG, cx, y + 1))->topped_by != t) loose++;
+                }
+                if (tile_def(t)->topped_by != TILE_AIR && world_get_at(&world, BG, cx, y - 1) != tile_def(t)->topped_by) loose++;
+            }
+        }
+        world_free(&world);
+    }
+    CHECK(wild[0] > 3 && wild[1] > 3 && wild[2] > 3 && wild[3] > 3 && tops > 3 && loose == 0);
+    CHECK(trees[0] > 20 && trees[1] > 20 && trees[2] > 20 && palms_off_sand == 0);
+}
+
+/* Tulips: two colours each, kept by the flower, its bulb and its seed, and bred by planting one on the other. */
+static void test_tulips(void)
+{
+    Game g;
+    game_init(&g, 64, 48, 38, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    int s = w->surface_y, x = g.player.feet.x + 2;
+    TileType tulip = tile_id("tulip"), from_bulb = tile_id("tulip_bulb_0"), from_seed = tile_id("tulip_seed_0"),
+             crossed = tile_id("tulip_cross_0");
+    ItemId bulb = item_id("tulip_bulb"), seed = item_id("tulip_seed");
+    g.tick_rate = 0;
+
+    /* A pair of colours is one number, and comes back out of it. */
+    int body, tip;
+    tone_unpack(tone_pack(17, 200), &body, &tip);
+    CHECK(body == 17 && tip == 200 && tone_pack(0, 0) == 1 && tone_pack(TONE_COLORS - 1, TONE_COLORS - 1) == TONE_MAX);
+    unsigned char rgb[3];
+    tone_rgb(tone_nearest(204, 51, 51), rgb);
+    CHECK(rgb[0] == 204 && rgb[1] == 51 && rgb[2] == 51 && tone_nearest(255, 255, 255) == TONE_COLORS - 1 && tone_nearest(0, 0, 0) == 0);
+    int red = tone_nearest(204, 51, 51), blue = tone_nearest(51, 102, 204), yellow = tone_nearest(255, 204, 51),
+        green = tone_nearest(51, 153, 51);
+
+    /* The flower and its three kinds of shoot are two-tone blocks; bulb and seed are two-tone items. */
+    CHECK(tulip > 0 && tile_def(tulip)->two_tone && tile_def(tulip)->tone_color_count == 4 && tile_def(tulip)->tone_textures[1][0]);
+    CHECK(tile_def(from_bulb)->two_tone && tile_def(from_seed)->two_tone && tile_def(crossed)->two_tone);
+    CHECK(tile_def(from_bulb)->grows_into == tulip && tile_def(from_seed)->grows_into == tulip && tile_def(crossed)->grows_into == tulip);
+    CHECK(tile_def(tulip)->drop == bulb && tile_def(tulip)->extra_drops[0].id == seed && tile_def(tulip)->grows_top == TILE_AIR);
+    CHECK(item_def(bulb)->two_tone && item_def(seed)->two_tone && item_def(bulb)->meter_max == TONE_MAX);
+    CHECK(item_def(bulb)->meter_start == tone_pack(red, red) && item_def(bulb)->sows == from_bulb && item_def(seed)->sows == from_seed);
+    CHECK(item_def(bulb)->crosses_with == from_seed && item_def(bulb)->crosses_into == crossed);
+    CHECK(item_def(seed)->crosses_with == from_bulb && item_def(seed)->crosses_into == crossed);
+
+    /* A flower gives a bulb and a seed, each of its own two colours. */
+    clear_inventory(&g);
+    world_set_at(w, BG, x, s - 1, tulip);
+    world_set_meta(w, x, s - 1, tone_pack(blue, yellow));
+    CHECK(game_click_tile(&g, x, s - 1) && g.queue[0].type == ACTION_MINE);
+    run(&g, 3.0f);
+    CHECK(world_get_at(w, BG, x, s - 1) == TILE_AIR && world_meta(w, x, s - 1) == 0);
+    CHECK(count_item(&g, bulb) == 1 && count_item(&g, seed) == 1);
+    CHECK(inventory_meter(inv, inventory_find(inv, bulb)) == tone_pack(blue, yellow));
+    CHECK(inventory_meter(inv, inventory_find(inv, seed)) == tone_pack(blue, yellow));
+
+    /* Tulips stack only with ones of exactly the same colours. */
+    clear_inventory(&g);
+    ItemStack one = { (uint16_t)bulb, 1, 0 };
+    CHECK(inventory_set_meter(inv, &one, tone_pack(blue, blue)) && inventory_add_stack(inv, one) == 0);
+    one = (ItemStack){ (uint16_t)bulb, 1, 0 };
+    CHECK(inventory_set_meter(inv, &one, tone_pack(blue, blue)) && inventory_add_stack(inv, one) == 0);
+    CHECK(inv->slots[0].count == 2 && inv->slots[1].count == 0);
+    one = (ItemStack){ (uint16_t)bulb, 1, 0 };
+    CHECK(inventory_set_meter(inv, &one, tone_pack(blue, green)) && inventory_add_stack(inv, one) == 0);
+    CHECK(inv->slots[0].count == 2 && inv->slots[1].count == 1 && inv->slots[1].id == bulb);
+    CHECK(inventory_add(inv, bulb, 3) == 0); /* plain red ones: a stack of their own again */
+    CHECK(inv->slots[0].count == 2 && inv->slots[1].count == 1 && inv->slots[2].count == 3);
+    CHECK(inventory_meter(inv, &inv->slots[2]) == tone_pack(red, red) && inventory_count(inv, bulb) == 6);
+    /* Nor will one stack be put on top of another that differs; it changes places with it instead. */
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 1, 0 }, (SlotRef){ SLOT_BAR, 0, 0 }, 1));
+    CHECK(inv->slots[0].count == 1 && inv->slots[1].count == 2 && inventory_meter(inv, &inv->slots[0]) == tone_pack(blue, green));
+    CHECK(inventory_meter(inv, &inv->slots[1]) == tone_pack(blue, blue));
+
+    /* A bulb planted comes up in its colours. */
+    clear_inventory(&g);
+    one = (ItemStack){ (uint16_t)bulb, 1, 0 };
+    inventory_set_meter(inv, &one, tone_pack(red, red));
+    inventory_add_stack(inv, one);
+    one = (ItemStack){ (uint16_t)seed, 1, 0 };
+    inventory_set_meter(inv, &one, tone_pack(blue, blue));
+    inventory_add_stack(inv, one);
+    inventory_select(inv, 0, -1);
+    CHECK(game_click_tile(&g, x, s) && g.queue[0].type == ACTION_PLANT);
+    run(&g, 2.0f);
+    CHECK(world_get_at(w, BG, x, s - 1) == from_bulb && world_meta(w, x, s - 1) == tone_pack(red, red) && count_item(&g, bulb) == 0);
+    /* A second bulb will not go in on top of it... */
+    inventory_add(inv, bulb, 1);
+    inventory_select(inv, 0, -1);
+    CHECK(game_click_tile(&g, x, s) && g.queue[0].type == ACTION_MINE);
+    game_cancel_actions(&g);
+    CHECK(game_click_tile(&g, x, s - 1) && g.queue[0].type == ACTION_MINE);
+    game_cancel_actions(&g);
+    /* ...but a seed will, clicked on the shoot or on the soil under it, and the two are crossed. */
+    inventory_select(inv, 1, -1);
+    CHECK(inv->slots[1].id == seed && game_click_tile(&g, x, s - 1) && g.queue[0].type == ACTION_PLANT && g.queue[0].target.y == s);
+    run(&g, 2.0f);
+    CHECK(world_get_at(w, BG, x, s - 1) == crossed && count_item(&g, seed) == 0);
+    game_free(&g);
+
+    /* The cross, many times over: one feature is a mix of the parents' - red
+     * and blue make something between them - and the other is one parent's whole. */
+    int mixed_body = 0, mixed_tip = 0, from_red = 0, from_blue = 0, wrong = 0;
+    unsigned char r[3], b[3], m[3];
+    tone_rgb(red, r);
+    tone_rgb(blue, b);
+    for (uint32_t trial = 1; trial <= 200; trial++) {
+        Game t;
+        game_init(&t, 64, 48, trial, WORLD_FLAT);
+        t.tick_rate = 0;
+        t.rng = trial * 2654435761u;
+        int ts = t.world.surface_y, tx = t.player.feet.x + 2;
+        clear_inventory(&t);
+        world_set_at(&t.world, BG, tx, ts - 1, from_seed);
+        world_set_meta(&t.world, tx, ts - 1, tone_pack(red, red));
+        one = (ItemStack){ (uint16_t)bulb, 1, 0 };
+        inventory_set_meter(&t.inventory, &one, tone_pack(blue, blue));
+        inventory_add_stack(&t.inventory, one);
+        inventory_select(&t.inventory, 0, -1);
+        if (!game_click_tile(&t, tx, ts)) wrong++;
+        run(&t, 2.0f);
+        if (world_get_at(&t.world, BG, tx, ts - 1) != crossed) wrong++;
+        tone_unpack(world_meta(&t.world, tx, ts - 1), &body, &tip);
+        bool body_pure = body == red || body == blue, tip_pure = tip == red || tip == blue;
+        if (body_pure == tip_pure) wrong++; /* exactly one of the two is crossed */
+        int mix = body_pure ? tip : body, kept = body_pure ? body : tip;
+        mixed_body += !body_pure;
+        mixed_tip += !tip_pure;
+        from_red += kept == red;
+        from_blue += kept == blue;
+        tone_rgb(mix, m);
+        for (int k = 0; k < 3; k++) {
+            int lo = (r[k] + b[k]) / 2 - 26, hi = (r[k] + b[k]) / 2 + 26;
+            if (m[k] < lo || m[k] > hi) wrong++;
+        }
+        /* It grows into a flower of those colours, and that gives a bulb and a seed of them. */
+        if (trial == 1) {
+            int bred = world_meta(&t.world, tx, ts - 1);
+            game_random_event(&t, tx, ts - 1);
+            CHECK(world_get_at(&t.world, BG, tx, ts - 1) == tulip && world_meta(&t.world, tx, ts - 1) == bred);
+            /* Saved and loaded, it is still that flower. */
+            CHECK(save_game(&t, "build/test_tulip.world"));
+            Game loaded;
+            CHECK(load_game(&loaded, "build/test_tulip.world"));
+            CHECK(world_get_at(&loaded.world, BG, tx, ts - 1) == tulip && world_meta(&loaded.world, tx, ts - 1) == bred);
+            CHECK(world_meta(&loaded.world, tx + 1, ts - 1) == 0);
+            game_free(&loaded);
+            CHECK(game_click_tile(&t, tx, ts - 1));
+            run(&t, 3.0f);
+            CHECK(count_item(&t, bulb) == 1 && count_item(&t, seed) == 1);
+            CHECK(inventory_meter(&t.inventory, inventory_find(&t.inventory, bulb)) == bred);
+            CHECK(inventory_meter(&t.inventory, inventory_find(&t.inventory, seed)) == bred);
+        }
+        game_free(&t);
+    }
+    CHECK(wrong == 0 && mixed_body > 50 && mixed_tip > 50 && from_red > 50 && from_blue > 50);
+
+    /* Wild ones are all of a colour, one of the four. */
+    int wild = 0, odd = 0, seen[4] = { 0 };
+    for (uint32_t seed_ = 1; seed_ <= 6; seed_++) {
+        World world;
+        CHECK(world_init(&world, 2048, 401, seed_, WORLD_TERRAIN));
+        for (int y = 1; y < world.height; y++) {
+            for (int cx = 0; cx < world.width; cx++) {
+                if (world_get_at(&world, BG, cx, y) != tulip) {
+                    if (world_meta(&world, cx, y) != 0) odd++;
+                    continue;
+                }
+                wild++;
+                tone_unpack(world_meta(&world, cx, y), &body, &tip);
+                int which = body == red ? 0 : body == blue ? 1 : body == yellow ? 2 : body == green ? 3 : -1;
+                if (world_meta(&world, cx, y) == 0 || body != tip || which < 0) odd++;
+                else seen[which]++;
+            }
+        }
+        world_free(&world);
+    }
+    CHECK(wild > 20 && odd == 0 && seen[0] > 0 && seen[1] > 0 && seen[2] > 0 && seen[3] > 0);
+}
+
+/* Scorpions, which poison; yaks, which are shorn; and the shards that meditation and golden chests give. */
+static void test_scorpions_and_yaks(void)
+{
+    Game g;
+    game_init(&g, 96, 48, 39, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    clear_mobs(&g);
+    g.tick_rate = 0;
+    int s = w->surface_y, ground = s - 1, px = g.player.feet.x;
+    int scorpion = mob_id("scorpion"), yak = mob_id("yak"), dodo = mob_id("dodo");
+    MobDef *sc = &content.mobs[scorpion], *yk = &content.mobs[yak];
+    int desert = -1, tropics = -1;
+    for (int b = 0; b < content.biome_count; b++) {
+        if (strcmp(content.biomes[b].name, "desert") == 0) desert = b;
+        if (strcmp(content.biomes[b].name, "tropics") == 0) tropics = b;
+    }
+
+    /* A scorpion: 1 to 3 poison when killed, 40 ticks of poison when it stings. Only in the desert. */
+    CHECK(scorpion >= 0 && sc->sting_ticks == 40 && sc->drop_count == 1 && sc->drops[0].item == item_id("poison"));
+    CHECK(sc->drops[0].min == 1 && sc->drops[0].max == 3 && sc->spawn_biome_count == 1 && sc->spawn_biomes[0] == desert);
+    CHECK(content.rules.poison_damage > 0.0f);
+    sc->spawn_chance = 1.0f;
+    content.mobs[dodo].spawn_chance = 0.0f;
+    for (int x = px + 10; x < px + 20; x++) world_set(w, x, s, tile_id("sand"));
+    CHECK(!mobs_try_spawn(&g, px + 12, ground)); /* sand, but not desert */
+    for (int x = px + 10; x < px + 20; x++) w->biome[x] = (uint8_t)desert;
+    CHECK(mobs_try_spawn(&g, px + 12, ground) && count_mobs(&g) == 1);
+    CHECK(!mobs_try_spawn(&g, px + 5, ground)); /* desert it may be, but that is grass */
+    clear_mobs(&g);
+    sc->spawn_chance = 0.0f;
+
+    /* It makes for a player it can see, and stings when it gets there. */
+    float saved_move = sc->move_chance;
+    sc->move_chance = 0.0f;
+    int m = mob_spawn(&g, scorpion, px + 5, ground, true, false);
+    g.vitals.health = 1.0f;
+    CHECK(g.vitals.poison == 0);
+    for (int t = 0; t < 60 && g.vitals.poison == 0; t++) mobs_tick(&g);
+    CHECK(abs(g.mobs[m].x - px) <= 1 && g.vitals.poison == 40 && g.mobs[m].timer > 0);
+    /* Forty ticks of it, each taking its share of health, and then it is over. */
+    float before = g.vitals.health;
+    g.mobs[m].active = false;
+    for (int t = 0; t < 40; t++) game_tick(&g);
+    CHECK(g.vitals.poison == 0 && g.vitals.health < before - 40.0f * content.rules.poison_damage * 0.9f &&
+          g.vitals.health > before - 40.0f * content.rules.poison_damage * 1.1f);
+    before = g.vitals.health;
+    for (int t = 0; t < 10; t++) game_tick(&g);
+    CHECK(g.vitals.health >= before);
+    /* A second sting while the first is at work does not stack: it lasts 40 ticks from then. */
+    game_poison(&g, 40);
+    for (int t = 0; t < 10; t++) game_tick(&g);
+    game_poison(&g, 40);
+    CHECK(g.vitals.poison == 40);
+    /* It wakes a sleeper, and goes with whoever it kills. */
+    g.vitals.energy = 0.2f;
+    CHECK(game_rest(&g, REST_SLEEP) && g.vitals.rest == REST_SLEEP);
+    game_poison(&g, 5);
+    CHECK(g.vitals.rest == REST_NONE);
+    g.vitals.poison = 0;
+    /* Having stung, it leaves off for a while. */
+    m = mob_spawn(&g, scorpion, px + 1, ground, true, false);
+    mobs_tick(&g);
+    CHECK(g.vitals.poison == 40 && g.mobs[m].timer == sc->sting_rest);
+    g.vitals.poison = 0;
+    for (int t = 0; t < sc->sting_rest - 2; t++) mobs_tick(&g);
+    CHECK(g.vitals.poison == 0);
+    for (int t = 0; t < 4; t++) mobs_tick(&g);
+    CHECK(g.vitals.poison == 40);
+    g.vitals.poison = 0;
+    g.vitals.health = 1.0f;
+    /* Killed, it leaves poison. */
+    int least = 99, most = 0;
+    for (int k = 0; k < 40; k++) {
+        clear_drops(&g);
+        mob_kill(&g, mob_spawn(&g, scorpion, px + 6, ground, true, false));
+        int n = drops_of(&g, item_id("poison"));
+        if (n < least) least = n;
+        if (n > most) most = n;
+    }
+    CHECK(least == 1 && most == 3);
+    clear_mobs(&g);
+    clear_drops(&g);
+    sc->move_chance = saved_move;
+
+    /* A yak: on grass in the forest biomes, not in the tropics. */
+    CHECK(yak >= 0 && yk->shear_item == item_id("yak_shavings") && yk->shear_min == 1 && yk->shear_max == 3);
+    CHECK(yk->drop_count == 1 && yk->drops[0].item == item_id("yak_horn") && yk->drops[0].min == 1 && yk->drops[0].max == 1);
+    CHECK(yk->spawn_biome_count >= 4 && item_def(item_id("razor"))->shears && yk->sting_ticks == 0);
+    bool in_plains = false, in_tropics = false, in_desert = false;
+    for (int i = 0; i < yk->spawn_biome_count; i++) {
+        in_plains = in_plains || yk->spawn_biomes[i] == 0;
+        in_tropics = in_tropics || yk->spawn_biomes[i] == tropics;
+        in_desert = in_desert || yk->spawn_biomes[i] == desert;
+    }
+    CHECK(in_plains && !in_tropics && !in_desert);
+    yk->spawn_chance = 1.0f;
+    for (int x = px + 26; x <= px + 32; x++) world_set(w, x, s, TILE_GRASS);
+    w->biome[world_wrap_x(w, px + 30)] = (uint8_t)tropics;
+    CHECK(!mobs_try_spawn(&g, px + 30, ground) && count_mobs(&g) == 0);
+    CHECK(mobs_try_spawn(&g, px + 28, ground) && count_mobs(&g) == 1);
+    /* Where dodos live too, both turn up. */
+    content.mobs[dodo].spawn_chance = 0.5f;
+    int dodos = 0, yaks = 0;
+    for (int k = 0; k < 200; k++) {
+        clear_mobs(&g);
+        if (!mobs_try_spawn(&g, px + 28, ground)) continue;
+        for (int i = 0; i < MAX_MOBS; i++) {
+            dodos += g.mobs[i].active && g.mobs[i].kind == dodo;
+            yaks += g.mobs[i].active && g.mobs[i].kind == yak;
+        }
+    }
+    CHECK(dodos > 40 && yaks > 40);
+    yk->spawn_chance = 0.0f;
+    clear_mobs(&g);
+
+    /* A razor on a yak takes 1 to 3 shavings off it and does it no harm. */
+    saved_move = yk->move_chance;
+    yk->move_chance = 0.0f;
+    clear_inventory(&g);
+    inventory_add(inv, item_id("razor"), 1);
+    inventory_select(inv, 0, -1);
+    m = mob_spawn(&g, yak, px + 2, ground, true, false);
+    int hp = g.mobs[m].hp;
+    CHECK(hp == yk->health && !mob_shorn(&g.mobs[m]));
+    CHECK(game_click_mob(&g, m) && g.queue[0].type == ACTION_ATTACK && g.queue[0].arg == 1);
+    run(&g, 3.0f);
+    int shavings = count_item(&g, item_id("yak_shavings")) + drops_of(&g, item_id("yak_shavings"));
+    CHECK(g.mobs[m].active && g.mobs[m].hp == hp && shavings >= 1 && shavings <= 3 && mob_shorn(&g.mobs[m]) && is_idle(&g));
+    CHECK(count_item(&g, item_id("razor")) == 1 && count_item(&g, item_id("yak_horn")) + drops_of(&g, item_id("yak_horn")) == 0);
+    /* Shorn, it has nothing more to give until it has grown back. */
+    CHECK(game_click_mob(&g, m));
+    run(&g, 3.0f);
+    CHECK(count_item(&g, item_id("yak_shavings")) + drops_of(&g, item_id("yak_shavings")) == shavings && g.mobs[m].hp == hp);
+    CHECK(!mob_shear(&g, m));
+    for (int t = 0; t < yk->shear_ticks; t++) mobs_tick(&g);
+    CHECK(!mob_shorn(&g.mobs[m]) && mob_shear(&g, m) && mob_shorn(&g.mobs[m]));
+    /* Without the razor in hand a click is a blow, as on anything. */
+    inventory_select(inv, 3, -1);
+    CHECK(game_click_mob(&g, m) && g.queue[0].arg == 0);
+    run(&g, 3.0f);
+    CHECK(g.mobs[m].hp == hp - content.rules.hand_damage);
+    /* A razor does nothing to a creature that is not shorn but hit it. */
+    inventory_select(inv, 0, -1);
+    content.mobs[dodo].move_chance = 0.0f;
+    int bird = mob_spawn(&g, dodo, px + 1, ground, true, false);
+    CHECK(game_click_mob(&g, bird) && g.queue[0].arg == 0);
+    game_cancel_actions(&g);
+    content.mobs[dodo].move_chance = 0.2f;
+    /* Killed, a yak leaves one horn. */
+    clear_drops(&g);
+    mob_kill(&g, m);
+    CHECK(drops_of(&g, item_id("yak_horn")) == 1);
+    yk->move_chance = saved_move;
+    game_free(&g);
+
+    /* Poison lasts through a save. */
+    Game p;
+    game_init(&p, 64, 48, 40, WORLD_FLAT);
+    game_poison(&p, 33);
+    CHECK(save_game(&p, "build/test_poison.world"));
+    Game loaded;
+    CHECK(load_game(&loaded, "build/test_poison.world") && loaded.vitals.poison == 33);
+    game_free(&loaded);
+    game_free(&p);
+
+    /* Meditating and golden chests give shards of the gems now, not the gems. */
+    static const char *gems[] = { "amethyst", "sapphire", "emerald", "ruby", "diamond" };
+    for (int k = 0; k < 5; k++) {
+        char shard[48];
+        snprintf(shard, sizeof shard, "%s_shard", gems[k]);
+        bool whole = false, part = false;
+        for (int i = 0; i < content.rules.loot_count; i++) {
+            whole = whole || content.rules.loot[i].item == item_id(gems[k]);
+            part = part || content.rules.loot[i].item == item_id(shard);
+        }
+        CHECK(!whole && part && item_id(shard) > 0);
+    }
 }
 
 static void test_plants(void)
@@ -3079,7 +3644,8 @@ static void test_mobs(void)
     CHECK(game_mob_at(&g, mx + 0.5f, my + 0.5f) == born && game_mob_at(&g, mx + 3.5f, my + 0.5f) == -1);
     CHECK(game_click_mob(&g, born) && g.queue[0].type == ACTION_ATTACK);
     CHECK(game_click_mob(&g, born) && g.queue_count == 0); /* a second click calls it off */
-    for (int hit = 0; hit < 3 && g.mobs[born].active; hit++) {
+    /* (It does not stand still for it: a blow at where it was a moment ago misses, and is tried again.) */
+    for (int hit = 0; hit < 12 && g.mobs[born].active; hit++) {
         CHECK(game_click_mob(&g, born));
         run(&g, 20.0f);
         CHECK(is_idle(&g));
@@ -3307,8 +3873,8 @@ static void test_vitals(void)
     game_wake(&g);
     CHECK(v->rest == REST_NONE && v->meditation == 0.0f);
 
-    /* All five gems, with each rarer than the last; the fruits; the six ores. */
-    const char *gems[] = { "amethyst", "sapphire", "emerald", "ruby", "diamond" };
+    /* A shard of each of the five gems, with each rarer than the last; the fruits; the six ores. */
+    const char *gems[] = { "amethyst_shard", "sapphire_shard", "emerald_shard", "ruby_shard", "diamond_shard" };
     const char *others[] = { "acorn", "cherry", "apple", "orange", "prickly_pear", "copper_ore", "tin_ore",
                              "iron_ore", "gold_ore", "platinum_ore", "titanium_ore" };
     int last = 1 << 30;
@@ -3809,8 +4375,8 @@ static void test_decay_and_golden_chests(void)
         else if (strcmp(name, "gold_ore") == 0) ore += st->count;
         else if (strcmp(name, "iron_ingot") == 0) iron += st->count;
         else if (strcmp(name, "titanium_ingot") == 0) titanium += st->count;
-        else if (strcmp(name, "amethyst") == 0 || strcmp(name, "sapphire") == 0 || strcmp(name, "emerald") == 0 ||
-                 strcmp(name, "ruby") == 0) gems += st->count;
+        else if (strcmp(name, "amethyst_shard") == 0 || strcmp(name, "sapphire_shard") == 0 ||
+                 strcmp(name, "emerald_shard") == 0 || strcmp(name, "ruby_shard") == 0) gems += st->count;
         else other += st->count;
     }
     CHECK(coins >= 1 && coins <= 5 && ore <= 3 && iron <= 3 && titanium <= 1 && gems == 1 && other == 0);
@@ -3837,7 +4403,7 @@ static void test_decay_and_golden_chests(void)
     const LootDef *gem = &def->loot[4];
     CHECK(gem->item == ITEM_NONE && gem->choice_count == 4);
     for (int k = 1; k < gem->choice_count; k++) CHECK(gem->choices[k].weight < gem->choices[k - 1].weight);
-    CHECK(gem->choices[0].item == item_id("amethyst") && gem->choices[3].item == item_id("ruby"));
+    CHECK(gem->choices[0].item == item_id("amethyst_shard") && gem->choices[3].item == item_id("ruby_shard"));
 }
 
 /* The kinds a kind of creature breeds on into, by name, in any order. */
@@ -4746,7 +5312,7 @@ static void test_sea_and_combat(void)
     for (int i = 0; i < 10; i++) mob_spawn(&g, dodo, g.player.feet.x - 5 + i, ground, false, false);
     CHECK(mobs_near_player(&g) == 10 && mobs_near_player_in_water(&g) == 0);
     /* Fish turn up in it, and only in it; never more than their cap. */
-    CHECK(content.mobs[fish].swims && content.mobs[fish].spawn_water && content.mobs[fish].spawn_biome == ocean);
+    CHECK(content.mobs[fish].swims && content.mobs[fish].spawn_water && content.mobs[fish].spawn_biome_count == 1 && content.mobs[fish].spawn_biomes[0] == ocean);
     for (int i = 0; i < 4000; i++) {
         mobs_try_spawn(&g, left + (i * 7) % 40, top + (i * 5) % 12);
         mobs_try_spawn(&g, left - 10, ground); /* dry land */
@@ -5834,6 +6400,20 @@ static void test_guide(void)
     /* ...but a bench raised a tier is a different thing from the one put down. */
     n = guide_sources(item_id("workbench_2"), s, 64);
     CHECK(n == 1 && s[0].placed_by == item_id("workbench") && strstr(s[0].where, "raised a tier"));
+    /* Stone from the scars and from under the sand; what is shorn; the top of a tall plant. */
+    n = guide_sources(item_id("marble"), s, 64);
+    CHECK(n == 1 && source_of(s, n, SOURCE_BLOCK, "Marble") && strstr(s[0].where, "scars"));
+    n = guide_sources(item_id("sandstone"), s, 64);
+    CHECK(n == 1 && strstr(s[0].where, "The rock under") && strstr(s[0].where, "Desert") && strstr(s[0].where, "Beach"));
+    n = guide_sources(item_id("yak_shavings"), s, 64);
+    const ItemSource *shorn = source_of(s, n, SOURCE_SHEAR, "Yak");
+    CHECK(n == 1 && shorn && shorn->min == 1 && shorn->max == 3 && shorn->placed_by == item_id("razor"));
+    n = guide_sources(item_id("poison"), s, 64);
+    CHECK(source_of(s, n, SOURCE_CREATURE, "Scorpion") && strstr(source_of(s, n, SOURCE_CREATURE, "Scorpion")->where, "Desert"));
+    n = guide_sources(item_id("wheat"), s, 64);
+    CHECK(n == 2 && s[0].max == 1 && s[1].max == 3 && strstr(s[1].where, "Grows wild"));
+    n = guide_sources(item_id("tulip_seed"), s, 64);
+    CHECK(source_of(s, n, SOURCE_BLOCK, "Tulip") && strstr(source_of(s, n, SOURCE_BLOCK, "Tulip")->where, "Grows wild"));
     CHECK(guide_sources(ITEM_NONE, s, 64) == 0);
 
     /* Every recipe is found again under what it makes and under each thing it takes. */
@@ -6042,6 +6622,10 @@ int main(void)
         printf("could not load tests/legacy: %s\n", err);
         return 1;
     }
+    /* Likewise the creatures that came later keep out of the tests written
+     * before them: each is let in by the test that is about it. */
+    content.mobs[mob_id("yak")].spawn_chance = 0.0f;
+    content.mobs[mob_id("scorpion")].spawn_chance = 0.0f;
 
     test_world();
     test_mine_range();
@@ -6081,6 +6665,10 @@ int main(void)
     test_mobs();
     test_biomes();
     test_plants();
+    test_scars_and_sandstone();
+    test_tall_plants();
+    test_tulips();
+    test_scorpions_and_yaks();
     test_new_trees();
     test_caves();
     test_backwall();

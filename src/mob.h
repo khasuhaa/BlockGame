@@ -24,6 +24,11 @@ bool mob_hurt(Game *g, int mob, int damage);
  * more, to take a point off every `every` ticks. */
 int mob_poison(const Mob *m);
 void mob_poison_add(Mob *m, int points, int every);
+/* Shears a creature that can be shorn and has grown what there is to take:
+ * that is left lying by it, and it is none the worse. False if there was
+ * nothing to take. And whether it is shorn now. */
+bool mob_shear(Game *g, int mob);
+bool mob_shorn(const Mob *m);
 /* Kills a creature, leaving what a grown one leaves. */
 void mob_kill(Game *g, int mob);
 /* How many creatures of the land are within spawning range of the player. */

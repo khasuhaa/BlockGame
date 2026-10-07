@@ -32,6 +32,9 @@ typedef struct {
     uint8_t *water;
     uint8_t *water_awake;
     bool water_stirring; /* any column is awake */
+    /* A number kept with a square, for a block there that is more than its
+     * kind says: the two colours of a two-tone flower (see tone_pack). 0 for none. */
+    uint16_t *meta;
 } World;
 
 /* Allocates the grid and generates terrain from the seed. */
@@ -62,6 +65,15 @@ void world_set(World *w, int x, int y, TileType t);
 /* Whether a square is under water: at least half full of it. Water is not a
  * block; see water.h. */
 bool world_is_water(const World *w, int x, int y);
+
+/* The number kept with a square (see World.meta). It goes when a block that
+ * had one is replaced, so set it after the block. */
+int world_meta(const World *w, int x, int y);
+void world_set_meta(World *w, int x, int y, int value);
+/* Grows the plant in a square on by one stage, if it has one to grow to and
+ * the room and the water it needs. A plant whose last stage is two blocks
+ * tall gets its top put on. True if it grew. */
+bool world_grow_plant(World *w, int layer, int x, int y);
 
 /* Some blocks stand several tiles tall and are one thing. Given any tile of
  * one, this returns how many tiles it has and sets `bottom` to its lowest

@@ -33,7 +33,8 @@ typedef enum {
     BAR_GREEN,
     BAR_GOLD,
     BAR_BLUE,
-    BAR_RED /* the death bar */
+    BAR_RED, /* the death bar */
+    BAR_POISON /* health, while poison is at work on it */
 } BarColor;
 void playerui_draw_bar(Rectangle r, float value, BarColor color);
 

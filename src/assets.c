@@ -213,6 +213,68 @@ void assets_draw_item(ItemId id, Rectangle r)
                    (Vector2){ 0, 0 }, 0.0f, WHITE);
 }
 
+/* Any image under the textures directory, loaded the first time it is asked for. */
+static Texture2D image_texture(const char *file)
+{
+    int found = -1;
+    for (int i = 0; i < image_count; i++)
+        if (strcmp(images[i].file, file) == 0) found = i;
+    if (found < 0 && image_count < MAX_IMAGES) {
+        found = image_count++;
+        snprintf(images[found].file, sizeof images[found].file, "%s", file);
+        images[found].texture = load(data_dir, file);
+    }
+    return found < 0 ? (Texture2D){ 0 } : images[found].texture;
+}
+
+static Color tone_color(int color, float light)
+{
+    unsigned char c[3];
+    tone_rgb(color, c);
+    if (light < 0.0f) light = 0.0f;
+    return (Color){ (unsigned char)(c[0] * light), (unsigned char)(c[1] * light), (unsigned char)(c[2] * light), 255 };
+}
+
+void assets_draw_item_tones(ItemId id, Rectangle r, int tones)
+{
+    assets_draw_item(id, r);
+    if (id <= ITEM_NONE || id >= content.item_count || !content.items[id].two_tone || !item_textures[id].id) return;
+    const ItemDef *def = &content.items[id];
+    int part[2];
+    tone_unpack(tones > 0 ? tones : def->meter_start, &part[0], &part[1]);
+    /* Laid exactly over the item: the same piece of the picture, in the same place. */
+    Texture2D tex = item_textures[id];
+    Rectangle src = item_bounds[id];
+    float longest = src.width > src.height ? src.width : src.height;
+    float least = 0.72f * (float)(tex.width > tex.height ? tex.width : tex.height);
+    float scale = r.width * ITEM_FILL / (longest > least ? longest : least);
+    float w = src.width * scale, hgt = src.height * scale;
+    for (int k = 0; k < 2; k++) {
+        Texture2D over = def->tone_textures[k][0] ? image_texture(def->tone_textures[k]) : (Texture2D){ 0 };
+        if (!over.id) continue;
+        DrawTexturePro(over, src, (Rectangle){ r.x + (r.width - w) / 2, r.y + (r.height - hgt) / 2, w, hgt },
+                       (Vector2){ 0, 0 }, 0.0f, tone_color(part[k], 1.0f));
+    }
+}
+
+void assets_draw_tile_tones(TileType t, float px, float py, float tile_size, float dim, int tones)
+{
+    if (t <= TILE_AIR || t >= content.tile_count || !content.tiles[t].two_tone) return;
+    const TileDef *def = &content.tiles[t];
+    int part[2];
+    if (tones <= 0) tones = item_def(def->drop)->two_tone ? item_def(def->drop)->meter_start : tone_pack(0, 0);
+    tone_unpack(tones, &part[0], &part[1]);
+    for (int k = 0; k < 2; k++) {
+        Texture2D over = def->tone_textures[k][0] ? image_texture(def->tone_textures[k]) : (Texture2D){ 0 };
+        if (!over.id) continue;
+        float scale = tile_size / TEXTURE_PIXELS_PER_TILE;
+        float w = (float)over.width * scale, hgt = (float)over.height * scale;
+        DrawTexturePro(over, (Rectangle){ 0, 0, (float)over.width, (float)over.height },
+                       (Rectangle){ px + (tile_size - w) / 2, py + tile_size - hgt, w, hgt }, (Vector2){ 0, 0 }, 0.0f,
+                       tone_color(part[k], 1.0f - dim));
+    }
+}
+
 void assets_draw_sprite(const char *file, Rectangle r, bool flip)
 {
     int found = -1;

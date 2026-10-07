@@ -22,8 +22,8 @@
   "meditation": {
     "ticks": 900,
     "loot": [
-      { "item": "amethyst", "weight": 16 }, { "item": "sapphire", "weight": 8 }, { "item": "emerald", "weight": 4 },
-      { "item": "ruby", "weight": 2 }, { "item": "diamond", "weight": 1 },
+      { "item": "amethyst_shard", "weight": 16 }, { "item": "sapphire_shard", "weight": 8 }, { "item": "emerald_shard", "weight": 4 },
+      { "item": "ruby_shard", "weight": 2 }, { "item": "diamond_shard", "weight": 1 },
       { "item": "acorn", "weight": 16 }, { "item": "cherry", "weight": 16 }, { "item": "apple", "weight": 16 },
       { "item": "orange", "weight": 16 }, { "item": "prickly_pear", "weight": 16 }, { "item": "coffee_bean", "weight": 16 },
       { "item": "copper_ore", "weight": 14 }, { "item": "tin_ore", "weight": 14 }, { "item": "iron_ore", "weight": 10 },
@@ -32,7 +32,7 @@
   },
   "players": { "max": 2 },
   "death": { "bar": 1.0, "respawn_ticks": 1800, "respawn_cost": 100 },
-  "combat": { "hand_damage": 2, "attack_time": 0.35 },
+  "combat": { "hand_damage": 2, "poison_damage": 0.005, "attack_time": 0.35 },
   "teleport": { "bench": "portal", "level": 1, "cost": 10, "free_distance": 100, "per_blocks": 10 },
   "fog": { "enabled": true, "radius": 20, "fade": 8 },
   "view": { "zoom": [48, 40, 32, 24, 16, 6, 4, 2], "start": 32, "map_from": 12, "map_to": 8 },

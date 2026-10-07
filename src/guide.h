@@ -11,6 +11,7 @@
 typedef enum {
     SOURCE_BLOCK,      /* left by a block when it is mined */
     SOURCE_CREATURE,   /* left by a creature when it is killed */
+    SOURCE_SHEAR,      /* taken off a creature with the tool for it, leaving it alive */
     SOURCE_FRUIT,      /* borne by a tree */
     SOURCE_CHEST,      /* found inside a block the world was generated with */
     SOURCE_MEDITATION, /* brought by meditating */
@@ -25,7 +26,8 @@ typedef struct {
     int tool_class;   /* the kind of tool that makes shorter work of the block, or -1 */
     char label[64];   /* what the block, creature or tree is called */
     char where[200];  /* a sentence on where that is to be found; empty if nothing in the world says */
-    ItemId placed_by; /* for something the world does not have of itself: the item that puts it there */
+    ItemId placed_by; /* for something the world does not have of itself: the item that puts it there;
+                         for shearing, the tool */
 } ItemSource;
 
 /* The ways an item can be got other than by making or buying it. Returns how many, at most `max`. */

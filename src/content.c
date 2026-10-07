@@ -12,6 +12,39 @@ Content content;
 
 /* ---- lookup ------------------------------------------------------------ */
 
+int tone_pack(int body, int tip)
+{
+    if (body < 0 || body >= TONE_COLORS) body = 0;
+    if (tip < 0 || tip >= TONE_COLORS) tip = 0;
+    return 1 + body * TONE_COLORS + tip;
+}
+
+void tone_unpack(int tones, int *body, int *tip)
+{
+    if (tones < 1 || tones > TONE_MAX) tones = 1;
+    *body = (tones - 1) / TONE_COLORS;
+    *tip = (tones - 1) % TONE_COLORS;
+}
+
+int tone_nearest(int red, int green, int blue)
+{
+    int step = 255 / (TONE_LEVELS - 1), c[3] = { red, green, blue }, out = 0;
+    for (int k = 0; k < 3; k++) {
+        int level = (c[k] + step / 2) / step;
+        out = out * TONE_LEVELS + (level < 0 ? 0 : level >= TONE_LEVELS ? TONE_LEVELS - 1 : level);
+    }
+    return out;
+}
+
+void tone_rgb(int color, unsigned char rgb[3])
+{
+    int step = 255 / (TONE_LEVELS - 1);
+    if (color < 0 || color >= TONE_COLORS) color = 0;
+    rgb[0] = (unsigned char)(color / (TONE_LEVELS * TONE_LEVELS) * step);
+    rgb[1] = (unsigned char)(color / TONE_LEVELS % TONE_LEVELS * step);
+    rgb[2] = (unsigned char)(color % TONE_LEVELS * step);
+}
+
 TileType tile_id(const char *name)
 {
     for (int i = 0; i < content.tile_count; i++)
@@ -288,6 +321,25 @@ static bool read_tiles(Reader *r, const cJSON *root)
             if (tile < 0) return fail(r, "tile \"%s\": \"soil\" names a tile that does not exist", t->name);
             if (t->soil_count < MAX_TILE_SOILS) t->soil[t->soil_count++] = tile;
         }
+        t->grows_top = t->topped_by = t->cut_to = TILE_AIR;
+        if (!tile_ref(r, e, "grows_top", &t->grows_top) || !tile_ref(r, e, "topped_by", &t->topped_by) ||
+            !tile_ref(r, e, "cut_to", &t->cut_to))
+            return false;
+        /* "tones": it is two-tone; the pictures drawn in its two colours, and the colours wild ones come in. */
+        const cJSON *tones = field(e, "tones"), *tone;
+        t->two_tone = cJSON_IsObject(tones);
+        t->tone_color_count = 0;
+        t->tone_textures[0][0] = t->tone_textures[1][0] = '\0';
+        int tone_pictures = 0;
+        cJSON_ArrayForEach(tone, field(tones, "textures"))
+            if (cJSON_IsString(tone) && tone_pictures < 2) copy_name(t->tone_textures[tone_pictures++], CONTENT_PATH_LEN, tone->valuestring);
+        cJSON_ArrayForEach(tone, field(tones, "natural")) {
+            if (cJSON_GetArraySize(tone) != 3 || t->tone_color_count >= MAX_TONE_COLORS)
+                return fail(r, "tile \"%s\": \"natural\" lists at most %d colours, each [red, green, blue]", t->name, MAX_TONE_COLORS);
+            for (int k = 0; k < 3; k++)
+                t->tone_colors[t->tone_color_count][k] = (unsigned char)cJSON_GetArrayItem(tone, k)->valuedouble;
+            t->tone_color_count++;
+        }
         t->shade = (int)num(e, "shade", 0);
         t->lit_count = 0;
         const cJSON *lit = field(e, "texture_lit"), *frame;
@@ -423,6 +475,28 @@ static bool read_items(Reader *r, const cJSON *root)
             it->meter_max = MAX_TINTS;
             it->meter_start = 0;
         }
+        /* "tones": it is two-tone; the pictures drawn in its two colours, and the colour a new one is. */
+        const cJSON *tones = field(e, "tones"), *tone;
+        it->two_tone = cJSON_IsObject(tones);
+        it->tone_textures[0][0] = it->tone_textures[1][0] = '\0';
+        if (it->two_tone) {
+            int pictures = 0, plain[3] = { 255, 255, 255 }, k = 0;
+            cJSON_ArrayForEach(tone, field(tones, "textures"))
+                if (cJSON_IsString(tone) && pictures < 2) copy_name(it->tone_textures[pictures++], CONTENT_PATH_LEN, tone->valuestring);
+            cJSON_ArrayForEach(tone, field(tones, "default"))
+                if (k < 3) plain[k++] = (int)tone->valuedouble;
+            int color = tone_nearest(plain[0], plain[1], plain[2]);
+            it->holds_water = it->tinted = false;
+            it->meter_max = TONE_MAX;
+            it->meter_start = tone_pack(color, color);
+        }
+        it->crosses_with = it->crosses_into = TILE_AIR;
+        if (field(e, "crosses") && (!tile_ref(r, field(e, "crosses"), "with", &it->crosses_with) ||
+                                    !tile_ref(r, field(e, "crosses"), "into", &it->crosses_into)))
+            return false;
+        if ((it->crosses_with == TILE_AIR) != (it->crosses_into == TILE_AIR))
+            return fail(r, "item \"%s\": \"crosses\" needs both \"with\" and \"into\"", it->name);
+        it->shears = flag(e, "shears", false);
         it->places = TILE_AIR;
         it->sized = false;
         /* "places" is one block, or a list of them: the block for each size of a sized thing. */
@@ -651,6 +725,9 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         b->buried = TILE_AIR;
         if (field(e, "buried") && !tile_ref(r, field(e, "buried"), "tile", &b->buried)) return false;
         b->buried_one_in = (int)num(field(e, "buried"), "one_in", 0);
+        b->under = TILE_AIR;
+        if (field(e, "under") && !tile_ref(r, field(e, "under"), "tile", &b->under)) return false;
+        b->under_depth = (int)num(field(e, "under"), "depth", 0);
         b->tree_one_in = (int)num(e, "tree_one_in", 0);
         b->tree_spacing = (int)num(e, "tree_spacing", 0);
         b->heat_min = b->dry_min = -2.0f;
@@ -740,13 +817,21 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         if (v->host_count == 0) return fail(r, "vein \"%s\" needs \"in\": the blocks it forms in", name);
         v->min_size = v->max_size = 4;
         pair(e, "size", &v->min_size, &v->max_size);
-        if (v->min_size < 1 || v->max_size < v->min_size || v->max_size > MAX_VEIN_SIZE)
+        bool scar = str(e, "shape") && strcmp(str(e, "shape"), "scar") == 0; /* (its size is a length, with no such limit) */
+        if (v->min_size < 1 || v->max_size < v->min_size || (v->max_size > MAX_VEIN_SIZE && !scar))
             return fail(r, "vein \"%s\": \"size\" must be within 1 to %d", name, MAX_VEIN_SIZE);
         v->max_depth = 1000;
         pair(e, "depth", &v->min_depth, &v->max_depth);
         v->per_100_columns = (float)num(e, "per_100_columns", 1.0);
         v->buried = flag(e, "buried", false);
-        v->shape = str(e, "shape") && strcmp(str(e, "shape"), "streak") == 0 ? VEIN_STREAK : VEIN_BLOB;
+        const char *shape = str(e, "shape");
+        v->shape = shape && strcmp(shape, "streak") == 0 ? VEIN_STREAK : shape && strcmp(shape, "scar") == 0 ? VEIN_SCAR : VEIN_BLOB;
+        if (shape && v->shape == VEIN_BLOB && strcmp(shape, "blob") != 0)
+            return fail(r, "vein \"%s\": \"shape\" is \"blob\", \"streak\" or \"scar\"", name);
+        v->min_thick = v->max_thick = 3;
+        pair(e, "thickness", &v->min_thick, &v->max_thick);
+        if (v->min_thick < 1 || v->max_thick < v->min_thick)
+            return fail(r, "vein \"%s\": \"thickness\" is a range of 1 or more", name);
     }
 
     const cJSON *layers = field(root, "layers");
@@ -880,6 +965,7 @@ static bool read_rules(Reader *r, const cJSON *root)
     if (combat) {
         u->hand_damage = (int)num(combat, "hand_damage", u->hand_damage);
         u->attack_time = (float)num(combat, "attack_time", u->attack_time);
+        u->poison_damage = (float)num(combat, "poison_damage", u->poison_damage);
     }
     const cJSON *teleport = field(root, "teleport");
     if (teleport) {
@@ -970,11 +1056,30 @@ static bool read_mobs(Reader *r, const cJSON *root)
         m->hunts = flag(swim, "hunts", false);
         m->sight = (int)num(swim, "sight", 12);
         m->spawn_water = flag(field(e, "spawn"), "water", false);
-        m->spawn_biome = -1;
-        const char *where = str(field(e, "spawn"), "biome");
-        for (int i = 0; where && i < content.biome_count; i++)
-            if (strcmp(content.biomes[i].name, where) == 0) m->spawn_biome = i;
-        if (where && m->spawn_biome < 0) return fail(r, "mob \"%s\" spawns in a biome that does not exist", name);
+        /* "biome" is one biome, or a list of them. */
+        const cJSON *where = field(field(e, "spawn"), "biome"), *place;
+        for (int k = 0, n = cJSON_IsString(where) ? 1 : cJSON_GetArraySize(where); where && k < n; k++) {
+            place = cJSON_IsString(where) ? where : cJSON_GetArrayItem(where, k);
+            int found = -1;
+            for (int i = 0; cJSON_IsString(place) && i < content.biome_count; i++)
+                if (strcmp(content.biomes[i].name, place->valuestring) == 0) found = i;
+            if (found < 0 || m->spawn_biome_count >= MAX_MOB_BIOMES)
+                return fail(r, "mob \"%s\" spawns in at most %d biomes that exist", name, MAX_MOB_BIOMES);
+            m->spawn_biomes[m->spawn_biome_count++] = found;
+        }
+        /* "sting": it poisons a player it gets to. */
+        const cJSON *sting = field(e, "sting");
+        m->sting_ticks = (int)num(sting, "ticks", 0);
+        m->sting_rest = (int)num(sting, "rest_ticks", 60);
+        m->sting_sight = (int)num(sting, "sight", 6);
+        /* "shear": what the right tool takes off it without hurting it. */
+        const cJSON *shear = field(e, "shear");
+        if (shear && (!str(shear, "item") || !item_ref(r, shear, "item", &m->shear_item)))
+            return fail(r, "mob \"%s\": \"shear\" needs an \"item\"", name);
+        m->shear_min = (int)num(shear, "min", 1);
+        m->shear_max = (int)num(shear, "max", m->shear_min);
+        m->shear_ticks = (int)num(shear, "regrow_ticks", 3000);
+        copy_name(m->texture_shorn, sizeof m->texture_shorn, str(shear, "texture"));
         /* "perch": it lives in trees and comes down at the player. */
         const cJSON *perch = field(e, "perch");
         m->perches = cJSON_IsObject(perch);

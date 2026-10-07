@@ -21,6 +21,8 @@ static bool in_range(const Game *g, int x, int y)
     return dx * dx + dy * dy <= r * r;
 }
 
+static bool spawns_in(const World *w, const MobDef *def, int x);
+
 /* Creatures of the land and of the water are counted apart: each has its own cap. */
 static int count_near(const Game *g, bool swimmers)
 {
@@ -114,7 +116,7 @@ static bool try_spawn_in_water(Game *g, int x, int y)
     for (int kind = 0; kind < content.mob_count; kind++) {
         const MobDef *def = &content.mobs[kind];
         if (!def->swims || !def->spawn_water) continue;
-        if (def->spawn_biome >= 0 && world_biome(w, x) != def->spawn_biome) continue;
+        if (!spawns_in(w, def, x)) continue;
         if (!in_range(g, x, y) || mobs_near_player_in_water(g) >= content.mob_water_cap) return false;
         if (def->cap > 0 && kind_near_player(g, kind) >= def->cap) continue;
         if (chance(g) >= def->spawn_chance) continue;
@@ -137,11 +139,12 @@ bool mobs_try_spawn(Game *g, int x, int y)
         const MobDef *def = &content.mobs[kind];
         bool here = false;
         for (int i = 0; i < def->spawn_above_count; i++) here = here || def->spawn_above[i] == ground;
-        if (!here || def->perches || def->swims) continue;
+        if (!here || def->perches || def->swims || def->spawn_chance <= 0.0f || !spawns_in(w, def, x)) continue;
         /* Only near the player, and only while there is room for more. */
         if (!in_range(g, x, y) || mobs_near_player(g) >= content.mob_cap) return false;
-        if (def->cap > 0 && kind_near_player(g, kind) >= def->cap) return false;
-        if (chance(g) >= def->spawn_chance) return false;
+        /* (Where several kinds live, each has its own chance in turn.) */
+        if (def->cap > 0 && kind_near_player(g, kind) >= def->cap) continue;
+        if (chance(g) >= def->spawn_chance) continue;
         return mob_spawn(g, kind, x, y, false, false) >= 0;
     }
     return false;
@@ -176,6 +179,33 @@ void mob_poison_add(Mob *m, int points, int every)
     if (every < 1) every = 1;
     if (every > 255) every = 255;
     m->poison = left | (every << 8) | (m->poison & ~0xFFFF);
+}
+
+bool mob_shorn(const Mob *m)
+{
+    return m->active && content.mobs[m->kind].shear_item != ITEM_NONE && m->timer > 0;
+}
+
+bool mob_shear(Game *g, int mob)
+{
+    if (mob < 0 || mob >= MAX_MOBS || !g->mobs[mob].active) return false;
+    Mob *m = &g->mobs[mob];
+    const MobDef *def = &content.mobs[m->kind];
+    if (def->shear_item == ITEM_NONE || m->baby || m->timer > 0) return false;
+    int span = def->shear_max - def->shear_min + 1;
+    int n = def->shear_min + (span > 1 ? (int)(game_random(g) % (uint32_t)span) : 0);
+    for (int k = 0; k < n; k++) game_drop_item(g, def->shear_item, m->x, m->y);
+    m->timer = def->shear_ticks > 0 ? def->shear_ticks : 1;
+    return true;
+}
+
+/* Whether a kind of creature turns up in a column's biome. */
+static bool spawns_in(const World *w, const MobDef *def, int x)
+{
+    if (def->spawn_biome_count == 0) return true;
+    for (int i = 0; i < def->spawn_biome_count; i++)
+        if (def->spawn_biomes[i] == world_biome(w, x)) return true;
+    return false;
 }
 
 bool mob_hurt(Game *g, int mob, int damage)
@@ -451,13 +481,6 @@ void mobs_tick(Game *g)
             m->active = false;
             continue;
         }
-        if (m->step_left > 0) {
-            if (--m->step_left > 0) continue;
-            /* There. It goes straight on into whatever it does next, with
-             * no pause between one step and the following one. */
-            m->x = m->to_x;
-            m->y = m->to_y;
-        }
         if (m->hp <= 0) m->hp = def->health > 0 ? def->health : 1; /* (from before creatures had any) */
         /* Poison in it does its work a point at a time. */
         if (mob_poison(m) > 0) {
@@ -468,6 +491,15 @@ void mobs_tick(Game *g)
             }
             m->poison = left > 0 ? left | (every << 8) | (waited << 16) : 0;
             if (waited == 0 && mob_hurt(g, i, 1)) continue;
+        }
+        /* What was shorn off it grows back; one that has stung is a while about stinging again. */
+        if ((def->shear_item != ITEM_NONE || def->sting_ticks > 0) && m->timer > 0) m->timer--;
+        if (m->step_left > 0) {
+            if (--m->step_left > 0) continue;
+            /* There. It goes straight on into whatever it does next, with
+             * no pause between one step and the following one. */
+            m->x = m->to_x;
+            m->y = m->to_y;
         }
         if (def->swims) {
             swim_tick(g, m, def);
@@ -483,6 +515,23 @@ void mobs_tick(Game *g)
         if (def->perches) {
             perch_tick(g, m, def);
             continue;
+        }
+        if (def->sting_ticks > 0 && game_alive(g) && g->vitals.respawn == 0) {
+            /* One that stings: a player beside it is stung; one it can see, it makes for. */
+            const Player *p = &g->player;
+            int pdx = world_dx(w, m->x, p->feet.x), pdy = p->feet.y - m->y;
+            if (abs(pdx) <= 1 && pdy >= -1 && pdy <= 2) {
+                if (m->timer == 0) {
+                    game_poison(g, def->sting_ticks);
+                    m->timer = def->sting_rest > 0 ? def->sting_rest : 1;
+                }
+                if (pdx != 0) m->dir = pdx > 0 ? 1 : -1;
+                continue;
+            }
+            if (m->timer == 0 && abs(pdx) <= def->sting_sight && abs(pdy) <= def->sting_sight) {
+                m->dir = pdx > 0 ? 1 : -1;
+                if (start_step(g, m)) continue;
+            }
         }
         if (chance(g) < def->move_chance) {
             if (chance(g) < def->turn_chance) m->dir = -m->dir;

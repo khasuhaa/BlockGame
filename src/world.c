@@ -183,6 +183,33 @@ static void place_vein(World *w, const VeinDef *v, uint32_t *rng, int x, int y)
     for (int i = 0; i < count; i++) world_set(w, cells[i].x, cells[i].y, v->tile);
 }
 
+/* A scar: a long gash through the rock, thick in the middle and running out
+ * to nothing at its ends, on a slant that wanders. It takes the place of
+ * whatever it crosses that it may replace, earlier scars included. */
+static void place_scar(World *w, const VeinDef *v, uint32_t *rng, int x, int y)
+{
+    int length = rng_range(rng, v->min_size, v->max_size), thick = rng_range(rng, v->min_thick, v->max_thick);
+    int dir = rng_range(rng, 0, 1) ? 1 : -1;
+    float fy = (float)y, slope = rng_unit(rng) * 1.6f - 0.8f;
+    for (int step = 0; step < length; step++) {
+        float along = length > 1 ? (float)step / (float)(length - 1) : 0.5f;
+        float across = (float)thick * (0.3f + 0.7f * sinf(along * 3.14159265f));
+        int rows = (int)floorf(across + 0.5f), cx = world_wrap_x(w, x + dir * step);
+        if (rows < 1) rows = 1;
+        int top = (int)floorf(fy - across / 2.0f + 0.5f);
+        for (int yy = top; yy < top + rows; yy++) {
+            TileType t = world_get(w, cx, yy);
+            bool host = false;
+            for (int i = 0; i < v->host_count; i++) host = host || v->hosts[i] == t;
+            if (host && world_in_bounds(w, cx, yy)) world_set(w, cx, yy, v->tile);
+        }
+        slope += (rng_unit(rng) - 0.5f) * 0.16f;
+        if (slope > 1.1f) slope = 1.1f;
+        if (slope < -1.1f) slope = -1.1f;
+        fy += slope + (rng_unit(rng) - 0.5f) * 0.6f;
+    }
+}
+
 /* Scatters every kind of vein through the columns. `level` is each column's feet level. */
 static void place_veins(World *w, const int *level, uint32_t *rng)
 {
@@ -193,7 +220,9 @@ static void place_veins(World *w, const int *level, uint32_t *rng)
         for (int i = 0; i < attempts; i++) {
             int x = rng_range(rng, 0, w->width - 1);
             int top = world_y_to_row(w, level[x] - 1);
-            place_vein(w, v, rng, x, top + rng_range(rng, v->min_depth, v->max_depth));
+            int y = top + rng_range(rng, v->min_depth, v->max_depth);
+            if (v->shape == VEIN_SCAR) place_scar(w, v, rng, x, y);
+            else place_vein(w, v, rng, x, y);
         }
     }
 }
@@ -413,10 +442,18 @@ static void plant_world(World *w, const int *level, const int *biome, uint32_t *
             if (b->plants[i].one_in <= 0 || rng_range(rng, 0, b->plants[i].one_in - 1) != 0) continue;
             if (tile_def(t)->needs_water && !world_is_water(w, x, feet)) continue;
             if (world_get_at(w, tile_def(t)->layer, x, feet) != TILE_AIR) continue;
+            int layer = tile_def(t)->layer;
+            world_set_at(w, layer, x, feet, t);
+            /* A wild two-tone flower is one of its natural colours, all over. */
+            if (tile_def(t)->two_tone && tile_def(t)->tone_color_count > 0) {
+                const unsigned char *c = tile_def(t)->tone_colors[rng_range(rng, 0, tile_def(t)->tone_color_count - 1)];
+                int color = tone_nearest(c[0], c[1], c[2]);
+                world_set_meta(w, x, feet, tone_pack(color, color));
+            }
             /* Anywhere along its growth, from sown to ripe. */
-            for (int stage = rng_range(rng, 0, 3); stage > 0 && tile_def(t)->grows_into != TILE_AIR; stage--)
-                t = tile_def(t)->grows_into;
-            world_set_at(w, tile_def(t)->layer, x, feet, t);
+            int stages = 0;
+            for (TileType s = t; tile_def(s)->grows_into != TILE_AIR && stages < 16; s = tile_def(s)->grows_into) stages++;
+            for (int stage = rng_range(rng, 0, stages > 3 ? stages : 3); stage > 0 && world_grow_plant(w, layer, x, feet); stage--) {}
             break;
         }
     }
@@ -512,10 +549,18 @@ static bool generate_terrain(World *w)
         /* At the edge of its country a biome's ground is only a skin over the
          * ordinary soil, a block deep at the very edge and deepening inward. */
         int own = share[x] >= 1.0f ? soil : 1 + (int)floorf(share[x] * (float)(soil > 1 ? soil - 1 : 0) + 0.5f);
+        /* Some country has rock of its own under its ground: solid for the
+         * top half of its depth, then more and more broken up by the
+         * ordinary rock, and thinner toward the country's edge. */
+        int under = b->under != TILE_AIR ? (int)floorf((float)b->under_depth * fminf(1.0f, share[x]) + 0.5f) : 0;
         int top = world_y_to_row(w, level[x] - 1);
         for (int y = top < 0 ? 0 : top; y < w->height; y++) {
-            int below = y - top;
-            world_set(w, x, y, below >= soil ? gen->rock : below == 0 ? b->surface
+            int below = y - top, deep = below - soil;
+            TileType rock = gen->rock;
+            if (deep >= 0 && deep < under &&
+                (deep * 2 < under || hash01(w->seed ^ 0x5A4Du, x * 8191 + y) < 2.0f * (float)(under - deep) / (float)under - 0.15f))
+                rock = b->under;
+            world_set(w, x, y, below >= soil ? rock : below == 0 ? b->surface
                                : below < own ? b->soil : content.biomes[0].soil);
         }
     }
@@ -574,7 +619,8 @@ bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind)
     w->biome = calloc((size_t)width, 1);
     w->water = calloc((size_t)width, (size_t)height);
     w->water_awake = calloc((size_t)width, 1);
-    if (!w->biome || !w->water || !w->water_awake) {
+    w->meta = calloc((size_t)width * (size_t)height, sizeof(uint16_t));
+    if (!w->biome || !w->water || !w->water_awake || !w->meta) {
         world_free(w);
         return false;
     }
@@ -613,6 +659,7 @@ void world_free(World *w)
     free(w->biome);
     free(w->water);
     free(w->water_awake);
+    free(w->meta);
     memset(w, 0, sizeof *w);
 }
 
@@ -679,11 +726,42 @@ TileType world_get_at(const World *w, int layer, int x, int y)
 void world_set_at(World *w, int layer, int x, int y, TileType t)
 {
     if (!world_in_bounds(w, x, y)) return;
-    w->layers[layer][(size_t)y * w->width + world_wrap_x(w, x)] = (uint8_t)t;
+    size_t cell = (size_t)y * w->width + world_wrap_x(w, x);
+    /* What was kept with the block that was there goes with it. */
+    if (w->meta && w->meta[cell] != 0 && tile_def((TileType)w->layers[layer][cell])->two_tone) w->meta[cell] = 0;
+    w->layers[layer][cell] = (uint8_t)t;
     if (layer != LAYER_FOREGROUND || !w->water) return;
     /* A block where there was water pushes it out; one taken away lets it in. */
     if (tile_def(t)->solid) water_displace(w, x, y);
     else water_wake(w, x);
+}
+
+int world_meta(const World *w, int x, int y)
+{
+    if (!world_in_bounds(w, x, y) || !w->meta) return 0;
+    return w->meta[(size_t)y * w->width + world_wrap_x(w, x)];
+}
+
+void world_set_meta(World *w, int x, int y, int value)
+{
+    if (!world_in_bounds(w, x, y) || !w->meta) return;
+    w->meta[(size_t)y * w->width + world_wrap_x(w, x)] = (uint16_t)(value < 0 || value > 0xFFFF ? 0 : value);
+}
+
+bool world_grow_plant(World *w, int layer, int x, int y)
+{
+    const TileDef *def = tile_def(world_get_at(w, layer, x, y));
+    if (def->grows_into == TILE_AIR) return false;
+    if (def->needs_water && !world_is_water(w, x, y)) return false;
+    /* One that is about to stand two blocks tall needs the second free. */
+    if (def->grows_top != TILE_AIR && (!world_in_bounds(w, x, y - 1) || world_get(w, x, y - 1) != TILE_AIR ||
+                                       world_get_at(w, layer, x, y - 1) != TILE_AIR))
+        return false;
+    int meta = world_meta(w, x, y);
+    world_set_at(w, layer, x, y, def->grows_into);
+    world_set_meta(w, x, y, meta);
+    if (def->grows_top != TILE_AIR) world_set_at(w, layer, x, y - 1, def->grows_top);
+    return true;
 }
 
 TileType world_get(const World *w, int x, int y)

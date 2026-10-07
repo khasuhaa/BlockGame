@@ -75,6 +75,21 @@ typedef enum {
 } EquipSlot;
 
 #define MAX_ZOOM_LEVELS 16
+#define MAX_MOB_BIOMES 8
+
+/* Two-tone things - a flower with a body of one colour and tips of another -
+ * carry both colours as one number: a meter on the item, a number kept with
+ * the block. Each colour is one of 216: six levels each of red, green, blue. */
+#define TONE_LEVELS 6
+#define TONE_COLORS (TONE_LEVELS * TONE_LEVELS * TONE_LEVELS)
+#define TONE_MAX (TONE_COLORS * TONE_COLORS)
+#define MAX_TONE_COLORS 8
+/* The number for a pair of colours (never 0, which is "none given"), and back. */
+int tone_pack(int body, int tip);
+void tone_unpack(int tones, int *body, int *tip);
+/* The colour nearest to a red, green and blue of 0..255; and what a colour is in those. */
+int tone_nearest(int red, int green, int blue);
+void tone_rgb(int color, unsigned char rgb[3]);
 
 typedef struct {
     ItemId id;
@@ -123,6 +138,17 @@ typedef struct {
     int soil_count;
     bool needs_water;  /* only lives and grows under water */
     bool breaks_above; /* removing one removes every one of it stacked on top */
+    /* A plant that ends up two blocks tall. Its last low stage grows into
+     * its foot and puts `grows_top` on that; the foot is `topped_by` the
+     * same, which goes when the foot does; and taking the top alone leaves
+     * the block under it as the top's `cut_to`: the stage before. */
+    TileType grows_top, topped_by, cut_to;
+    /* Two-tone: every one of these in the world has two colours of its own,
+     * which what it drops and what it grows into carry on. */
+    bool two_tone;
+    char tone_textures[2][CONTENT_PATH_LEN]; /* drawn over it in the body colour and the tip colour; either may be empty */
+    unsigned char tone_colors[MAX_TONE_COLORS][3]; /* the colours wild ones come in, body and tips alike */
+    int tone_color_count;
 
     /* An egg: a random event on it turns it into a young creature. */
     int hatches;      /* kind of creature, or -1 */
@@ -204,6 +230,12 @@ typedef struct {
     bool holds_water;  /* the meter is eighths of water, scooped up and poured out */
     bool sized;        /* the meter is how big the thing is: a trophy from a creature of that size */
     bool tinted;       /* the meter is which colour it is: one of content.tints, plus one */
+    bool two_tone;     /* the meter is a pair of colours (see tone_pack); ones that differ do not stack together */
+    char tone_textures[2][CONTENT_PATH_LEN]; /* drawn over it in each of the two colours */
+    /* Crossing: planted where `crosses_with` already grows, it turns that
+     * into `crosses_into`, with colours bred from the two of them. */
+    TileType crosses_with, crosses_into;
+    bool shears;       /* used on a creature that can be shorn, it shears it and does it no harm */
     TileType places_sized[MAX_ITEM_SIZES]; /* for a sized item, the block each size is put down as */
     int damage;        /* what a blow with it in hand takes off a creature; 0 for no better than a bare hand */
     int range;         /* how many blocks off it can hit from: a bow; 0 for at arm's length */
@@ -290,7 +322,8 @@ typedef struct {
 
 typedef enum {
     VEIN_BLOB,  /* a clump */
-    VEIN_STREAK /* a long thin line, like a scratch */
+    VEIN_STREAK, /* a long thin line, like a scratch */
+    VEIN_SCAR    /* a long gash several blocks thick, cut across whatever it may replace */
 } VeinShape;
 
 /* A deposit of one block inside others: flint in soil, ore in rock. */
@@ -304,6 +337,7 @@ typedef struct {
     int min_depth, max_depth; /* blocks below the surface a vein may start */
     bool buried;              /* never touches open air */
     VeinShape shape;
+    int min_thick, max_thick; /* VEIN_SCAR: how thick at its middle; its size is its length */
 } VeinDef;
 
 /* Something set into the caves: a gem on a wall, a crystal on the floor. */
@@ -327,6 +361,10 @@ typedef struct {
     /* Something buried here and there at the bottom of its soil, on the rock. */
     TileType buried;
     int buried_one_in; /* one column in this many has it */
+    /* What lies under its soil in place of the rock: so many blocks of it,
+     * thinning out into the rock below and toward the biome's edges. */
+    TileType under;
+    int under_depth;
     TileType surface, soil;
     float soil_depth;  /* a fixed depth of soil, or 0 for the usual rule */
     int tree_one_in, tree_spacing;
@@ -458,6 +496,7 @@ typedef struct {
     int respawn_ticks;     /* how long the dead stay dead */
     int respawn_cost;      /* crystals to come back at once, right after dying; less as the wait runs down */
     int hand_damage;       /* what a blow with nothing better in hand takes off a creature */
+    float poison_damage;   /* share of the health bar each tick of being poisoned takes */
     float attack_time;     /* seconds a blow takes */
     float zoom[MAX_ZOOM_LEVELS];
     int zoom_count, zoom_start;
@@ -487,7 +526,17 @@ typedef struct {
      * round again. */
     bool swims, hunts;
     bool spawn_water;   /* it turns up in water */
-    int spawn_biome;    /* and only in this biome; -1 for any */
+    int spawn_biomes[MAX_MOB_BIOMES]; /* the only biomes it turns up in; anywhere, if none are named */
+    int spawn_biome_count;
+    /* A creature that stings. It makes for a player who comes near and
+     * poisons them: so many ticks of it, then leaves off for a while. */
+    int sting_ticks;    /* ticks of poison a sting gives; 0 for a creature that does not sting */
+    int sting_rest;     /* ticks before it stings again */
+    int sting_sight;    /* how near a player has to come for it to make for them */
+    /* A creature that can be shorn: what comes off, and how long it takes to grow back. */
+    ItemId shear_item;
+    int shear_min, shear_max, shear_ticks;
+    char texture_shorn[CONTENT_PATH_LEN]; /* how it looks until then; empty for no different */
     int sight;          /* how far off it notices a swimmer */
     /* A creature that lives in trees. It turns up at the top of one and sits
      * there. When the player comes by underneath it runs down, bites them

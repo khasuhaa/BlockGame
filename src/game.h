@@ -138,7 +138,7 @@ typedef struct {
     float oxygen;     /* breath left, which runs down with the head under water */
     float death;      /* the bar under health: what is left between no health and dead */
     int32_t respawn;  /* dead, with this many ticks to go before coming back; 0 for alive */
-    int32_t reserved[1];
+    int32_t poison;   /* ticks of being poisoned still to go */
 } Vitals;
 
 /* Fading marker shown on a tile whose action was refused. */
@@ -182,7 +182,8 @@ typedef struct {
     /* For a creature that lives in trees. */
     int32_t state;  /* a MobState */
     int32_t home_x; /* the column of its tree */
-    int32_t timer;  /* ticks left of the chase, or before it will come down again */
+    int32_t timer;  /* ticks left of the chase, or before it will come down again; for a creature that
+                       stings, before it will sting again; for one that is shorn, before it has grown back */
     int32_t hp;     /* what it can still take; 0 in a record from before creatures had any: full */
     int32_t size;   /* blocks long; 0 or 1 for the ordinary size */
     int32_t poison; /* poison in it still to do its work: see mob_poison */
@@ -486,6 +487,9 @@ void game_random_event(Game *g, int x, int y);
  * the trunk above and the leaves that hung on it decay. */
 void game_decay_tree(Game *g, int x, int y);
 
+/* Poisons the player for so many ticks: each takes a little health. A
+ * second dose does not add to the first, it only makes it last as long. */
+void game_poison(Game *g, int ticks);
 /* How far off the player can hit from with what is in their hand: a bow's
  * range, or 0 for only what is in reach. */
 int game_attack_range(const Game *g);

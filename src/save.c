@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 16u
+#define SAVE_VERSION 17u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -370,6 +370,15 @@ bool save_game(const Game *g, const char *path)
         snprintf(name, sizeof name, "%s", game_character_name(g, c));
         ok = fwrite(name, sizeof name, 1, f) == 1;
     }
+    /* The numbers kept with squares: few, so only the ones there are, each with where it is. */
+    uint32_t kept = 0;
+    for (size_t i = 0; i < cells; i++) kept += w->meta[i] != 0;
+    ok = ok && fwrite(&kept, sizeof kept, 1, f) == 1;
+    for (size_t i = 0; i < cells && ok; i++) {
+        if (w->meta[i] == 0) continue;
+        uint32_t record[2] = { (uint32_t)i, w->meta[i] };
+        ok = fwrite(record, sizeof record, 1, f) == 1;
+    }
     game_use_character(mine, played);
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
@@ -529,6 +538,14 @@ bool load_game(Game *g, const char *path)
             name[sizeof name - 1] = '\0';
             if (ok && (int)c < g->character_count && name[0])
                 snprintf((int)c == g->live ? g->name : g->characters[c].name, CHARACTER_NAME_MAX, "%s", name);
+        }
+        if (ok && h.version >= 17) {
+            uint32_t kept = 0, record[2];
+            ok = fread(&kept, sizeof kept, 1, f) == 1 && kept <= cells;
+            for (uint32_t i = 0; ok && i < kept; i++) {
+                ok = fread(record, sizeof record, 1, f) == 1 && record[0] < cells;
+                if (ok) w->meta[record[0]] = (uint16_t)record[1];
+            }
         }
         bool nobody = ok && h.version >= 15 && people[0] == 0;
         g->started = extra.started != 2;

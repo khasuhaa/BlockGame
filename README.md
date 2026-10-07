@@ -101,6 +101,7 @@ The land is plains broken up by mountains and valleys, always with a stretch of 
 
 - **Plains** are the ordinary country: grass over dirt, with oaks, and carrots and flax growing wild.
 - Each kind of tree keeps to its own country, so like grows with like: a **cherry grove** where it is cold, an **orchard** of apple trees where it is mild and damp, and the **tropics** - coffee and orange trees - where it is hot and damp. All three are grass over dirt like the plains. Which biome a column is is recorded with the world; a world saved before that has it worked out from its climate and the lie of the land, so there the name may not match the trees that were generated.
+- A **pine forest** stands where it is cold and dry, thick with tall pines, and a **maple forest** where it is mild and dry. Coconut palms grow on the sand of **beaches**.
 - **Desert** is where it is both hot and dry: sand instead of grass and dirt, and cacti instead of trees. The spawn is always on plains. Where a desert or a beach meets other country its sand does not stop at a line or break into stripes: it thins to a skin one block deep over the ordinary dirt at the edge, and deepens inward.
 - **Ocean** is everything below Y 0. Its bed is sand, kelp and coral grow on it, and it is filled with water up to Y 0. Valleys reach below Y 0, so every valley is a sea.
 - **Beach** is the land within nine columns of a sea: sand, more of it the nearer the water.
@@ -147,6 +148,17 @@ Veins of other blocks run through the ground:
 
 Veins of the same material never touch, so each stays within its size. Mining flint gives flint and mining any ore gives that ore; **clay** lies in the dirt in veins of its own, by exactly the rules flint does (4 to 10 blocks, 1 to 6 down, never touching the open air), and is dug the same way; the harder ores take longer to mine.
 
+**Scars.** Four other kinds of stone run through the rock in great gashes, tens of blocks long and several thick, on a wandering slant and tapering to nothing at their ends. They are laid down in order - **limestone**, then **marble**, then **lapis lazuli**, then **red marble** - and each cuts through whatever of the earlier ones it crosses, so a broad seam of limestone may have marble running through it, lapis through that, and red marble through all three. Limestone is the commonest and shallowest, red marble the scarcest and deepest. A scar is a vein with `"shape": "scar"`: its `"size"` is its length, its `"thickness"` how thick it is at the middle, and `"in"` the blocks it may replace; veins are placed in the order the file lists them.
+
+| Stone | Replaces | Long | Thick | Down |
+| --- | --- | --- | --- | --- |
+| Limestone | Stone | 50–140 | 4–8 | 8–170 |
+| Marble | Stone, limestone | 40–110 | 3–6 | 20–180 |
+| Lapis lazuli | Stone, limestone, marble | 30–80 | 2–4 | 40–190 |
+| Red marble | Stone and all three | 30–90 | 2–5 | 60–195 |
+
+**Sandstone** lies under deserts and beaches in place of stone: up to 10 blocks of it under the sand, solid for the top half and broken up more and more by stone below that, and thinner toward the edge of the sand. It is a biome's `"under": { "tile", "depth" }`.
+
 Columns are grass over dirt over stone. The dirt is 4 or 5 blocks deep on the plains and thins out gradually up a mountain or down a valley, so peaks and valley floors are bare stone. Stone takes twice as long to mine as dirt. Grass drops dirt.
 
 ## Time
@@ -160,7 +172,7 @@ Every tick, one random block in each 16-column chunk gets a random event. A chun
 Trees are generated on the plains at every stage of growth, and keep growing:
 
 - A random event on a **trunk** block makes its tree grow one step: either one new leaf, added outward from the trunk, or one more block of trunk. When the trunk extends, all the leaves move up a row with it; a leaf with a block in its way is lost.
-- A random event on a **leaf** hangs a fruit on it: an acorn on an oak, a cherry on a cherry tree. Fruit hovers on its leaf, never falls off by itself, and disappears after 1800 ticks. It is not collected by walking past; click it to queue picking it. If its leaf is broken it falls and can be collected like any other item.
+- A random event on a **leaf** hangs a fruit on it: an acorn on an oak, a cherry on a cherry tree, a cone on a pine, a coconut on a palm, a winged seed on a maple - and each of those, planted, grows its tree. Fruit hovers on its leaf, never falls off by itself, and disappears after 1800 ticks. It is not collected by walking past; click it to queue picking it. If its leaf is broken it falls and can be collected like any other item.
 
 With an acorn or a cherry selected, clicking dirt or grass that has room above it queues planting: the player walks over and a single trunk block appears on top, which then grows by random events like any other tree. Where it cannot be planted (other blocks, or something in the way above), the click mines as usual.
 
@@ -181,6 +193,10 @@ Trees stand in the background layer. The player walks straight past them, but ca
 The world has four layers from back to front: the backwall; the background layer, which holds the trees and the benches and is drawn slightly dimmed; the foreground layer, which holds the terrain and everything the player collides with; and the item layer, where dropped items and fruit are drawn in front of the blocks.
 
 ## Creatures
+
+**Scorpions** live in the desert, on sand, up to four near the player. One that sees a player within 6 blocks makes for them, and stings when it is beside them: 40 ticks of **poison**, each taking half a percent of the health bar (a fifth of it in all), while the health bar shows purple. A second sting while the first is at work does not add to it, only starts the 40 ticks again; a sting wakes a sleeper. Having stung, a scorpion leaves off for 80 ticks. It has 6 health, and killed leaves 1 to 3 poison. Stinging is a creature's `"sting"` in `mobs.json`; what poison does to a player is `"poison_damage"` in `rules.json`.
+
+**Yaks** graze on grass in the forests - plains, cherry grove, orchard, pine forest and maple forest, not the tropics - up to three near the player. They do nothing to anyone. Killed (15 health), a yak leaves one yak horn. With a **razor** in hand, a click on a yak shears it instead of hitting it: 1 to 3 yak shavings drop beside it, it is none the worse, and it goes about pale and shorn for 3000 ticks until it has grown back and can be shorn again. Shearing is a creature's `"shear"` and a tool's `"shears"`. Where two kinds of creature live on the same ground, as yaks and dodos do, each has its own chance to be the one that turns up.
 
 **Dodos** are the first creature. They walk about at random, along the level and up or down a step of one block; they will not cross a gap, drop further than one block, or go into water.
 
@@ -245,13 +261,32 @@ A **shark head** is a trophy the size of the shark it came from. It can be hung 
 
 ## Plants
 
-Carrots, flax and coral are single blocks that grow through four stages, one stage for each random event that lands on them. They can be pulled up at any stage, and give more the further they have grown.
+Carrots, flax, chilli and coral are single blocks that grow through four stages, one stage for each random event that lands on them. They can be pulled up at any stage, and give more the further they have grown.
 
 | Plant | Grows | Planted with | On | Gives, by stage |
 | --- | --- | --- | --- | --- |
-| Carrot | Plains | A carrot | Dirt or grass | 1, 1, 2, 4 carrots |
-| Flax | Plains | Flax seeds | Dirt or grass | 1 seed; 1 seed; 1 seed and 1 flax; 2 seeds and 3 flax |
+| Carrot | Plains, orchard | A carrot | Dirt or grass | 1, 1, 2, 4 carrots |
+| Flax | Plains, cherry grove, pine forest | Flax seeds | Dirt or grass | 1 seed; 1 seed; 1 seed and 1 flax; 2 seeds and 3 flax |
+| Chilli | Tropics | A chilli | Dirt or grass | 1, 1, 2, 4 chillies |
 | Coral | Ocean | Coral | Sand, under water | 1, 1, 2, 3 coral |
+
+**Tall plants** - sunflowers, tomatoes and wheat - grow through three stages one block high and then a last one two blocks high: a foot with a top on it. The last step needs the block above free, and waits until it is. Taking the **top** gives three of what the plant bears and puts the foot back to the third stage, to grow its top again; taking the **foot** takes the whole plant, top and all. They are sown like any plant, and grow wild at every stage.
+
+| Plant | Grows | Planted with | A stage or the foot gives | The top gives |
+| --- | --- | --- | --- | --- |
+| Sunflower | Plains, maple forest | A sunflower seed | 1 seed | 3 seeds |
+| Tomato | Orchard, tropics | A tomato | 1 tomato | 3 tomatoes |
+| Wheat | Plains, maple forest | Wheat | 1 wheat | 3 wheat |
+
+In data such a plant is three fields: the third stage's `"grows_top"` (the block put on top when it grows), the foot's `"topped_by"`, and the top's `"cut_to"` (what the block under it becomes when the top alone is taken).
+
+**Tulips** are one block high and each has two colours of its own: its **body** and its **tips**. Wild ones - on the plains, in cherry groves and maple forests - are one colour all over: red, blue, yellow or green. Picking a tulip gives a **bulb** and a **seed**, both of the flower's two colours, and either can be planted to grow that flower again (a shoot first, then the flower at the next random event).
+
+- **Crossing.** Plant a seed where a bulb has just been planted, or a bulb where a seed has - click the shoot itself or the soil under it - and the two become one crossed shoot. One of its two features, body or tips, is a mix of its parents' there: halfway between the two colours. The other is taken whole from one parent or the other. Red crossed with blue gives, say, a purple body with red tips; cross that again and the colours wander further. There are 216 colours a part can be.
+- **Stacking.** Bulbs and seeds stack only with others of exactly the same two colours; ones that differ take a slot each. A stack dropped on one that differs changes places with it.
+- Bought at the Shop they are plain red.
+
+A two-tone block has `"tones"` in `tiles.json` (the pictures drawn over it in its two colours, and the `"natural"` colours wild ones come in); a two-tone item has `"tones"` in `items.json`, and `"crosses": { "with", "into" }` says which shoot it crosses with and what the pair becomes. The colours are carried on the item as its meter and kept with the block in the world.
 
 Coral only grows while it is under water. Plants stand in the background layer: they are walked past, and clicking one pulls it up.
 
@@ -315,7 +350,7 @@ The button in the top left corner, under the readout, is the player. Under it ar
 - **Health** mends by itself, slowly, and a little with everything eaten - much less than the food does for hunger. With hunger at nothing it runs down instead, though never below a tenth.
 - **Energy** runs down while awake: a full bar lasts 1800 ticks. It has no golden state.
 - **Sleeping** lays the player on the ground and brings energy back; they wake by themselves when it is full. The button is greyed out while energy is full.
-- **Meditating** sits the player down, with a progress bar over their head. Every 900 ticks it reaches 100% and something drops out right on top of them, and is picked up like anything else at their feet: a gem (amethyst most often, diamond least), a fruit, or one of the six ores found in stone. (Coffee beans count as a fruit.)
+- **Meditating** sits the player down, with a progress bar over their head. Every 900 ticks it reaches 100% and something drops out right on top of them, and is picked up like anything else at their feet: a shard of a gem (amethyst most often, diamond least; three shards are pressed into the gem at a tier 3 press), a fruit, or one of the six ores found in stone. (Coffee beans count as a fruit.)
 - While meditating neither hunger nor energy runs down.
 - Being attacked wakes the player from either.
 - Either needs the player to be standing on the ground, and ends as soon as they are told to do anything else - a click on the world, a movement key - or the button is pressed again.
@@ -504,7 +539,7 @@ Removing a chest gives a chest item that still holds everything that was in it, 
 What an item holds is part of the item, and two stacks only merge if they hold the same things. So two chests with 5 wood in each stack together, and neither stacks with an empty chest. Taking one off such a stack gives it its own copy of the contents. Baskets never stack.
 ### Golden chests
 
-Under a beach, quite often - about one column in six, a dozen or more to a world - a golden chest lies buried at the bottom of the sand. A golden chest is what a portal chest is made from (with 100 crystals, at a tier 6 portal), and a tier 2 metalwork bench melts one down into a gold coin. It opens and is carried off like any chest. The first time it is opened or dug up it holds 1 to 5 gold coins, up to 3 gold ore, up to 3 iron ingots, perhaps a titanium ingot, and one gem: an amethyst most often, then sapphire, emerald, and a ruby least. What a block is found holding is its `"loot"` in `tiles.json`, and where it is buried is `"buried"` on a biome in `worldgen.json`; a golden chest the player puts down, or buys, holds only what they put in it.
+Under a beach, quite often - about one column in six, a dozen or more to a world - a golden chest lies buried at the bottom of the sand. A golden chest is what a portal chest is made from (with 100 crystals, at a tier 6 portal), and a tier 2 metalwork bench melts one down into a gold coin. It opens and is carried off like any chest. The first time it is opened or dug up it holds 1 to 5 gold coins, up to 3 gold ore, up to 3 iron ingots, perhaps a titanium ingot, and one gem shard: of amethyst most often, then sapphire, emerald, and ruby least. What a block is found holding is its `"loot"` in `tiles.json`, and where it is buried is `"buried"` on a biome in `worldgen.json`; a golden chest the player puts down, or buys, holds only what they put in it.
 
 ## Layout
 

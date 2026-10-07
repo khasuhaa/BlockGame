@@ -216,7 +216,7 @@ static void draw_items(const TradeUi *ui, const Game *g, Rectangle panel)
         bool chosen = items[i] == ui->selected;
         DrawRectangleRec(cell, cell_color);
         DrawRectangleLinesEx(cell, chosen ? 3.0f : 2.0f, chosen ? RAYWHITE : edge_color);
-        assets_draw_item(items[i], cell);
+        assets_draw_item_tones(items[i], cell, 0);
     }
     EndScissorMode();
     if (max_scroll(count) > 0.0f) {
@@ -235,7 +235,7 @@ static void draw_items(const TradeUi *ui, const Game *g, Rectangle panel)
     const TradeDef *t = &content.trade;
     int price = trade_price(ui->selected), held = inventory_count(&g->inventory, ui->selected);
     long wallet = trade_wallet(&g->inventory);
-    assets_draw_item(ui->selected, (Rectangle){ panel.x + PAD, y, 40, 40 });
+    assets_draw_item_tones(ui->selected, (Rectangle){ panel.x + PAD, y, 40, 40 }, 0);
     DrawText(item_def(ui->selected)->label, (int)(panel.x + PAD + 46), (int)y + 3, 16, RAYWHITE);
     DrawText(TextFormat("You have %d", held), (int)(panel.x + PAD + 46), (int)y + 23, 14, LIGHTGRAY);
     float right = panel.x + panel.width - PAD;

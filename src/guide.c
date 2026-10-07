@@ -45,11 +45,12 @@ static const char *biome_label(int b)
     return content.biomes[b].label[0] ? content.biomes[b].label : readable(content.biomes[b].name);
 }
 
-/* Whether block `t` is `first` or something `first` grows into in time. */
+/* Whether block `t` is `first` or something `first` grows into in time:
+ * the top of a plant that ends up two blocks tall included. */
 static bool grows_from(TileType first, TileType t)
 {
     for (int steps = 0; first != TILE_AIR && steps < MAX_TILES; steps++) {
-        if (first == t) return true;
+        if (first == t || (tile_def(first)->grows_top == t && t != TILE_AIR)) return true;
         first = tile_def(first)->grows_into;
     }
     return false;
@@ -92,12 +93,14 @@ static void mob_where(int mob, char *out, size_t size)
     const MobDef *def = &content.mobs[mob];
     if (def->spawn_chance > 0.0f) {
         if (def->perches) say(out, size, "Lives in the tops of trees.");
-        else if (def->spawn_water && def->spawn_biome >= 0) say(out, size, "Swims in the %s.", biome_label(def->spawn_biome));
+        else if (def->spawn_water && def->spawn_biome_count > 0) say(out, size, "Swims in the %s.", biome_label(def->spawn_biomes[0]));
         else if (def->spawn_water) say(out, size, "Swims in open water.");
         else {
             say(out, size, "Turns up in the wild");
             for (int i = 0; i < def->spawn_above_count; i++)
                 say(out, size, "%s%s", i == 0 ? ", on " : " or ", tile_label(def->spawn_above[i]));
+            for (int i = 0; i < def->spawn_biome_count; i++)
+                say(out, size, "%s%s", i == 0 ? ", in: " : ", ", biome_label(def->spawn_biomes[i]));
             say(out, size, ".");
         }
         return;
@@ -121,7 +124,8 @@ static bool natural(TileType t, char *out, size_t size, int depth)
     for (int i = 0; i < content.vein_count; i++) {
         const VeinDef *v = &content.veins[i];
         if (v->tile != t) continue;
-        say(out, size, "In veins of %d to %d", v->min_size, v->max_size);
+        if (v->shape == VEIN_SCAR) say(out, size, "In great scars, %d to %d blocks long", v->min_size, v->max_size);
+        else say(out, size, "In veins of %d to %d", v->min_size, v->max_size);
         for (int h = 0; h < v->host_count; h++) say(out, size, "%s%s", h == 0 ? " in " : " or ", tile_label(v->hosts[h]));
         say(out, size, ", %d to %d blocks down.", v->min_depth, v->max_depth);
         return true;
@@ -145,6 +149,14 @@ static bool natural(TileType t, char *out, size_t size, int depth)
         if (found) return say(out, size, "."), true;
         if (t == wg->surface) return say(out, size, "The ground of the plains."), true;
         if (t == wg->soil) return say(out, size, "Under the ground everywhere."), true;
+    }
+    for (int b = 0, found = 0; b <= content.biome_count; b++) {
+        if (b == content.biome_count) {
+            if (found) return say(out, size, "."), true;
+            break;
+        }
+        if (content.biomes[b].under != t || content.biomes[b].under_depth <= 0) continue;
+        say(out, size, "%s%s", found++ ? ", " : "The rock under: ", biome_label(b));
     }
     for (int b = 0, found = 0; b <= content.biome_count; b++) {
         if (b == content.biome_count) {
@@ -329,6 +341,18 @@ int guide_sources(ItemId item, ItemSource *out, int max)
             snprintf(s->label, sizeof s->label, "%s", mob_label(m));
             mob_where(m, s->where, sizeof s->where);
         }
+    }
+    for (int m = 0; m < content.mob_count; m++) {
+        const MobDef *def = &content.mobs[m];
+        if (def->shear_item != item || !mob_natural(m, 0)) continue;
+        ItemSource *s = add(out, &count, max, SOURCE_SHEAR, m, def->shear_min, def->shear_max, 1.0f);
+        snprintf(s->label, sizeof s->label, "%s", mob_label(m));
+        for (ItemId tool = 1; tool < content.item_count && s->placed_by == ITEM_NONE; tool++)
+            if (content.items[tool].shears) s->placed_by = tool;
+        if (s->placed_by != ITEM_NONE)
+            say(s->where, sizeof s->where, "With %s %s in hand. ", a(item_def(s->placed_by)->label), item_def(s->placed_by)->label);
+        say(s->where, sizeof s->where, "It grows back in %d ticks. ", def->shear_ticks);
+        mob_where(m, s->where, sizeof s->where);
     }
     for (int i = 0; i < content.tree_count; i++) {
         const TreeDef *tree = &content.trees[i];

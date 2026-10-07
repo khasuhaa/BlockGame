@@ -234,6 +234,144 @@
    "max_height": 14,
    "needs_water": true,
    "rows": []
+  },
+  {
+   "name": "pine",
+   "log": "pine_log",
+   "leaves": "pine_leaves",
+   "fruit": "pine_cone",
+   "fruit_ticks": 1800,
+   "layer": "background",
+   "soil": [
+    "dirt",
+    "grass"
+   ],
+   "max_height": 9,
+   "rows": [
+    {
+     "offset": -1,
+     "left": 0,
+     "right": 0,
+     "center": true
+    },
+    {
+     "offset": 0,
+     "left": 1,
+     "right": 1
+    },
+    {
+     "offset": 1,
+     "left": 2,
+     "right": 2
+    },
+    {
+     "offset": 2,
+     "left": 1,
+     "right": 1
+    },
+    {
+     "offset": 3,
+     "left": 2,
+     "right": 2
+    },
+    {
+     "offset": 4,
+     "left": 3,
+     "right": 3
+    },
+    {
+     "offset": 5,
+     "left": 2,
+     "right": 2
+    },
+    {
+     "offset": 6,
+     "left": 3,
+     "right": 3
+    }
+   ]
+  },
+  {
+   "name": "coconut",
+   "log": "coconut_log",
+   "leaves": "coconut_leaves",
+   "fruit": "coconut",
+   "fruit_ticks": 1800,
+   "layer": "background",
+   "soil": [
+    "sand"
+   ],
+   "max_height": 7,
+   "rows": [
+    {
+     "offset": -1,
+     "left": 1,
+     "right": 1,
+     "center": true
+    },
+    {
+     "offset": 0,
+     "left": 3,
+     "right": 3
+    },
+    {
+     "offset": 1,
+     "cells": [
+      -3,
+      -2,
+      2,
+      3
+     ]
+    },
+    {
+     "offset": 2,
+     "cells": [
+      -3,
+      3
+     ]
+    }
+   ]
+  },
+  {
+   "name": "maple",
+   "log": "maple_log",
+   "leaves": "maple_leaves",
+   "fruit": "maple_seed",
+   "fruit_ticks": 1800,
+   "layer": "background",
+   "soil": [
+    "dirt",
+    "grass"
+   ],
+   "max_height": 7,
+   "rows": [
+    {
+     "offset": -1,
+     "left": 1,
+     "right": 1,
+     "center": true
+    },
+    {
+     "offset": 0,
+     "left": 2,
+     "right": 2
+    },
+    {
+     "offset": 1,
+     "left": 3,
+     "right": 3
+    },
+    {
+     "offset": 2,
+     "left": 3,
+     "right": 3
+    },
+    {
+     "offset": 3,
+     "left": 2,
+     "right": 2
+    }
+   ]
   }
  ]
 }

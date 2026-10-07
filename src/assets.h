@@ -36,6 +36,11 @@ TilePart assets_tile_part(TileType t, TileType above, TileType below);
  * picture sits, it is what is drawn that gets centred, and it is sized to sit
  * a little inside the rectangle. */
 void assets_draw_item(ItemId id, Rectangle r);
+/* The same for a two-tone item: the parts of it that take its two colours are
+ * drawn over it in them. `tones` is the pair, as tone_pack makes it. */
+void assets_draw_item_tones(ItemId id, Rectangle r, int tones);
+/* The coloured parts of a two-tone block, drawn over the block itself. */
+void assets_draw_tile_tones(TileType t, float px, float py, float tile_size, float dim, int tones);
 /* The one colour that stands for a tile on a small map: the average of its texture. */
 Color assets_tile_color(TileType t);
 /* Draws any other image under `<dir>/textures`, loading it on first use. */

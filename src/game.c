@@ -411,16 +411,66 @@ static bool can_plant(const World *w, ItemId item, TilePos t)
     } else {
         return false;
     }
+    /* Something that crosses with what is growing there can go in beside it. */
+    if (soil && it->crosses_with != TILE_AIR && world_get_at(w, layer, t.x, t.y - 1) == it->crosses_with) return true;
     return soil && world_get_at(w, layer, t.x, t.y - 1) == TILE_AIR && !world_is_solid(w, t.x, t.y - 1);
+}
+
+/* The colours of a flower bred from two. One of its two features, body or
+ * tips, is a mix of its parents' there; the other is one parent's or the
+ * other's, as it falls out. */
+static int cross_tones(Game *g, int a, int b)
+{
+    int part[2][2], child[2];
+    tone_unpack(a, &part[0][0], &part[0][1]);
+    tone_unpack(b, &part[1][0], &part[1][1]);
+    int crossed = (int)(game_random(g) >> 8 & 1u);
+    unsigned char one[3], other[3];
+    tone_rgb(part[0][crossed], one);
+    tone_rgb(part[1][crossed], other);
+    int mixed[3];
+    for (int k = 0; k < 3; k++) {
+        /* Halfway between; where that falls between two shades, either. */
+        int step = 255 / (TONE_LEVELS - 1), sum = one[k] / step + other[k] / step;
+        mixed[k] = (sum / 2 + (sum % 2 ? (int)(game_random(g) >> 8 & 1u) : 0)) * step;
+    }
+    child[crossed] = tone_nearest(mixed[0], mixed[1], mixed[2]);
+    child[!crossed] = part[game_random(g) >> 8 & 1u][!crossed];
+    return tone_pack(child[0], child[1]);
+}
+
+/* What the two colours of a block are: the number kept with it, or, with
+ * none kept, what a new one of the item it leaves would be. */
+static int tile_tones(const World *w, int layer, int x, int y)
+{
+    int meta = world_meta(w, x, y);
+    const TileDef *def = tile_def(world_get_at(w, layer, x, y));
+    if (meta != 0 || !def->two_tone) return meta;
+    if (item_def(def->drop)->two_tone) return item_def(def->drop)->meter_start;
+    return tone_pack(0, 0);
 }
 
 /* Puts down what a planted item grows into: a tree's first trunk block, or a
  * plant's first stage. */
-static void plant_item(World *w, ItemId item, TilePos soil)
+static void plant_item(Game *g, World *w, ItemId item, TilePos soil, int tones)
 {
     const ItemDef *it = item_def(item);
-    if (it->plants >= 0) tree_plant(w, soil.x, soil.y - 1, it->plants);
-    else if (it->sows != TILE_AIR) world_set_at(w, tile_def(it->sows)->layer, soil.x, soil.y - 1, it->sows);
+    if (it->plants >= 0) {
+        tree_plant(w, soil.x, soil.y - 1, it->plants);
+    } else if (it->sows != TILE_AIR) {
+        int layer = tile_def(it->sows)->layer;
+        if (it->crosses_with != TILE_AIR && world_get_at(w, layer, soil.x, soil.y - 1) == it->crosses_with) {
+            /* In beside the other half of a cross: the two become one plant, bred from both. */
+            /* (Only in the world itself: a plan of what will be does no breeding.) */
+            int bred = w == &g->world ? cross_tones(g, tile_tones(w, layer, soil.x, soil.y - 1), tones) : 0;
+            world_set_at(w, layer, soil.x, soil.y - 1, it->crosses_into);
+            world_set_meta(w, soil.x, soil.y - 1, bred);
+            return;
+        }
+        world_set_at(w, layer, soil.x, soil.y - 1, it->sows);
+        /* A two-tone thing grows into a flower of its own colours. */
+        if (it->two_tone && tile_def(it->sows)->two_tone) world_set_meta(w, soil.x, soil.y - 1, tones);
+    }
 }
 
 static void place_tile(World *w, TilePos t, TileType tile);
@@ -595,7 +645,7 @@ static Pose sim_effect(Game *g, Pose pose, Action a)
     else if (a.type == ACTION_PLACE)
         place_tile(&g->sim, a.target, item_def((ItemId)a.item)->places);
     else if (a.type == ACTION_PLANT)
-        plant_item(&g->sim, (ItemId)a.item, a.target);
+        plant_item(g, &g->sim, (ItemId)a.item, a.target, 0);
     return pose_rest(&g->sim, pose);
 }
 
@@ -776,9 +826,12 @@ bool game_click_mob(Game *g, int mob)
     if (mob < 0 || mob >= MAX_MOBS || !g->mobs[mob].active) return false;
     if (unqueue(g, match_mob, (TilePos){ 0, 0 }, mob)) return true;
     const Mob *m = &g->mobs[mob];
-    /* (With a bow in hand, from as far off as it shoots.) */
+    /* (With a bow in hand, from as far off as it shoots. With something that
+     * shears in hand, a creature that can be shorn is shorn and not hit.) */
+    const ItemStack *held = inventory_selected(&g->inventory);
+    bool shear = held->count > 0 && item_def((ItemId)held->id)->shears && content.mobs[m->kind].shear_item != ITEM_NONE;
     Action a = { .type = ACTION_ATTACK, .target = { m->x, m->y }, .drop = mob, .drop_id = m->id,
-                 .amount = game_attack_range(g) };
+                 .amount = shear ? 0 : game_attack_range(g), .arg = shear ? 1 : 0 };
     return queue_checked(g, sim_pending(g), a);
 }
 
@@ -813,6 +866,13 @@ bool game_click_tile(Game *g, int tx, int ty)
     } else if (held->count > 0 && can_plant(&g->sim, (ItemId)held->id, a.target)) {
         /* Holding something that grows: soil with room above is where it is planted. */
         a = plant;
+    } else if (held->count > 0 && item_def((ItemId)held->id)->crosses_with != TILE_AIR &&
+               world_get_at(&g->sim, tile_def(item_def((ItemId)held->id)->crosses_with)->layer, tx, ty) ==
+                   item_def((ItemId)held->id)->crosses_with &&
+               can_plant(&g->sim, (ItemId)held->id, (TilePos){ tx, ty + 1 })) {
+        /* Onto the very plant it crosses with: it goes into the soil under that. */
+        a = plant;
+        a.target.y = ty + 1;
     } else if (world_in_bounds(&g->world, tx, ty) && mine_layer(&g->sim, a.target) >= 0) {
         /* A block here, in front or behind, is mined. */
         a.type = ACTION_MINE;
@@ -899,6 +959,13 @@ void game_reveal(Game *g, int x, int y)
             if (level > *cell) *cell = (uint8_t)level;
         }
     }
+}
+
+void game_poison(Game *g, int ticks)
+{
+    if (g->vitals.respawn > 0 || ticks <= 0) return;
+    game_wake(g);
+    if (g->vitals.poison < ticks) g->vitals.poison = ticks;
 }
 
 int game_attack_range(const Game *g)
@@ -1211,7 +1278,15 @@ static bool room_for(const World *w, TilePos t, TileType tile)
 
 /* Leaves what a removed block leaves: `count` of its main drop, the first
  * carrying `inside`, and whatever else it gives. */
+static void drop_block_items_toned(Game *g, const TileDef *def, TilePos at, uint16_t inside, int count, int tones);
+
 static void drop_block_items(Game *g, const TileDef *def, TilePos at, uint16_t inside, int count)
+{
+    drop_block_items_toned(g, def, at, inside, count, 0);
+}
+
+/* (`tones`: the colours of a two-tone block, which what it leaves keeps.) */
+static void drop_block_items_toned(Game *g, const TileDef *def, TilePos at, uint16_t inside, int count, int tones)
 {
     for (int i = 0; i < count; i++) {
         /* Something rotten does not always leave anything. (What a block
@@ -1221,10 +1296,16 @@ static void drop_block_items(Game *g, const TileDef *def, TilePos at, uint16_t i
         if (!kept) continue;
         /* (A block that is one size of a thing leaves that thing at that size.) */
         if (def->drop_meter > 0 && inside == 0) game_drop_item_sized(g, def->drop, at.x, at.y, def->drop_meter);
+        else if (tones > 0 && item_def(def->drop)->two_tone) game_drop_item_sized(g, def->drop, at.x, at.y, tones);
         else spawn_drop_stack(g, (ItemStack){ (uint16_t)def->drop, 1, i == 0 ? inside : 0 }, at);
     }
-    for (int k = 0; k < def->extra_drop_count; k++)
-        for (int i = 0; i < def->extra_drops[k].count; i++) spawn_drop(g, def->extra_drops[k].id, at);
+    for (int k = 0; k < def->extra_drop_count; k++) {
+        for (int i = 0; i < def->extra_drops[k].count; i++) {
+            if (tones > 0 && item_def(def->extra_drops[k].id)->two_tone)
+                game_drop_item_sized(g, def->extra_drops[k].id, at.x, at.y, tones);
+            else spawn_drop(g, def->extra_drops[k].id, at);
+        }
+    }
 }
 
 static void begin_work(Game *g, Activity activity, float duration)
@@ -1269,10 +1350,20 @@ static void finish_activity(Game *g)
                 drop_block_items(g, def, (TilePos){ t.x, y }, 0, 1);
                 world_set_at(&g->world, layer, t.x, y, TILE_AIR);
             }
+            /* A plant two blocks tall: its top goes with its foot... */
+            if (def->topped_by != TILE_AIR && world_get_at(&g->world, layer, t.x, t.y - 1) == def->topped_by) {
+                drop_block_items(g, tile_def(def->topped_by), (TilePos){ t.x, t.y - 1 }, 0,
+                                 tile_def(def->topped_by)->drop_count > 0 ? tile_def(def->topped_by)->drop_count : 1);
+                world_set_at(&g->world, layer, t.x, t.y - 1, TILE_AIR);
+            }
+            /* ...but the top taken by itself leaves the plant a stage back, to grow it again. */
+            bool cut = def->cut_to != TILE_AIR && tile_def(world_get_at(&g->world, layer, t.x, t.y + 1))->topped_by == tile;
             /* A tree cut through dies from the cut upward. */
             decay_tree(&g->world, layer, t);
-            drop_block_items(g, def, (TilePos){ t.x, bottom }, inside, count);
+            int tones = def->two_tone ? tile_tones(&g->world, layer, t.x, t.y) : 0;
+            drop_block_items_toned(g, def, (TilePos){ t.x, bottom }, inside, count, tones);
             replace_block(&g->world, layer, t, TILE_AIR);
+            if (cut) world_set_at(&g->world, layer, t.x, t.y + 1, def->cut_to);
         }
         g->has_current = false;
     } else if (p->activity == ACTIVITY_ATTACKING) {
@@ -1283,7 +1374,11 @@ static void finish_activity(Game *g)
             in_attack_range(&g->world, p->feet, (TilePos){ m->x, m->y }, range)) {
             const ItemStack *held = inventory_selected(&g->inventory);
             const ItemDef *with = item_def(held->count > 0 ? held->id : ITEM_NONE);
-            if (range > 0 && !in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y })) {
+            if (g->current.arg == 1) {
+                /* Shearing: it has to be in reach, and to have something to give. */
+                if (!with->shears || !in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y }) || !mob_shear(g, g->current.drop))
+                    deny(g, (TilePos){ m->x, m->y });
+            } else if (range > 0 && !in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y })) {
                 /* A shot: something to draw. */
                 g->shot.from_x = (float)p->feet.x + 0.5f;
                 g->shot.from_y = (float)p->feet.y - 0.5f;
@@ -1293,7 +1388,8 @@ static void finish_activity(Game *g)
                 g->shot.live = true;
             }
             /* What it does at once, and what it leaves working in the creature. */
-            if (!mob_hurt(g, g->current.drop, game_attack_damage(g)) && with->poison > 0)
+            if (g->current.arg == 1) {}
+            else if (!mob_hurt(g, g->current.drop, game_attack_damage(g)) && with->poison > 0)
                 mob_poison_add(m, with->poison, with->poison_every);
         }
         /* One blow to a click: hitting it again is asked for again. */
@@ -1306,8 +1402,9 @@ static void finish_activity(Game *g)
         if (!inventory_take_one(&g->inventory, item, &one)) {
             deny(g, t);
         } else if (g->current.type == ACTION_PLANT) {
+            int tones = item_def(item)->two_tone ? inventory_meter(&g->inventory, &one) : 0;
             container_free(&g->inventory, one.container);
-            plant_item(&g->world, item, t);
+            plant_item(g, &g->world, item, t, tones);
         } else if (!needs_storage(tile_def(tile))) {
             /* Something that comes in sizes goes down as the block of its size. */
             int size = item_def(item)->sized ? inventory_meter(&g->inventory, &one) : 0;
@@ -1389,7 +1486,7 @@ static bool start_next_activity(Game *g)
                     continue;
                 }
                 TilePos at = { m->x, m->y };
-                if (in_attack_range(w, p->feet, at, g->current.amount)) {
+                if (in_attack_range(w, p->feet, at, g->current.arg == 1 ? 0 : g->current.amount)) {
                     /* Within reach: one blow. */
                     begin_work(g, ACTIVITY_ATTACKING, content.rules.attack_time > 0.0f ? content.rules.attack_time : 0.3f);
                     return true;
@@ -1776,7 +1873,7 @@ void game_random_event(Game *g, int x, int y)
     for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
         const TileDef *def = tile_def(world_get_at(w, layer, x, y));
         if (def->grows_into == TILE_AIR) continue;
-        if (!def->needs_water || world_is_water(w, x, y)) world_set_at(w, layer, x, y, def->grows_into);
+        world_grow_plant(w, layer, x, y);
         return;
     }
 
@@ -2036,6 +2133,7 @@ static void die(Game *g)
     v->respawn = content.rules.respawn_ticks > 0 ? content.rules.respawn_ticks : 1;
     v->rest = REST_NONE;
     v->meditation = 0.0f;
+    v->poison = 0;
     game_cancel_actions(g);
     game_close_bench(g);
     g->move_dx = g->move_dy = 0;
@@ -2322,6 +2420,13 @@ static void vitals_tick(Game *g)
     if (v->respawn > 0) {
         if (--v->respawn == 0) revive(g);
         return;
+    }
+
+    /* Poison works for as long as it lasts. */
+    if (v->poison > 0) {
+        v->poison--;
+        game_hurt(g, u->poison_damage);
+        if (v->respawn > 0) return;
     }
 
     /* Meditating, the body wants nothing: neither hunger nor energy runs down. */

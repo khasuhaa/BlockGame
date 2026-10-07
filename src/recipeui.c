@@ -41,7 +41,7 @@ static void slot(ItemId id, Rectangle r, Rectangle clip, int count, bool marked)
     DrawRectangleRec(r, hot ? slot_hot : slot_color);
     if (marked) DrawRectangleLinesEx(r, 2.0f, accent_color);
     if (id == ITEM_NONE) return;
-    assets_draw_item(id, r);
+    assets_draw_item_tones(id, r, 0);
     if (count > 1) {
         const char *n = TextFormat("%d", count);
         int size = r.width >= 40 ? 16 : 10;
@@ -169,7 +169,7 @@ static float draw_recipe(const Recipe *r, float x, float y, float width, Rectang
 /* One way of getting a thing that is not making it. */
 static float draw_source(const ItemSource *s, float x, float y, float width, Rectangle clip)
 {
-    static const char *verbs[] = { "Mine", "Kill", "Pick from", "Open", "", "" };
+    static const char *verbs[] = { "Mine", "Kill", "Shear", "Pick from", "Open", "", "" };
     float text_x = x + 6 + CELL + 10, text_width = width - CELL - 28 - (s->placed_by != ITEM_NONE ? CELL + 10 : 0);
     float line = y + 8;
     /* (Measured first, so the row can be drawn behind its words.) */
@@ -197,9 +197,10 @@ static float draw_source(const ItemSource *s, float x, float y, float width, Rec
 
     Rectangle pic = { x + 6, y + 6, CELL, CELL };
     DrawRectangleRec(pic, slot_color);
-    if (s->kind == SOURCE_BLOCK || s->kind == SOURCE_CHEST)
+    if (s->kind == SOURCE_BLOCK || s->kind == SOURCE_CHEST) {
         assets_draw_tile((TileType)s->from, 0, 0, pic.x + 8, pic.y + 8, CELL - 16, 0.0f, TILE_PART_BODY);
-    else if (s->kind == SOURCE_CREATURE)
+        assets_draw_tile_tones((TileType)s->from, pic.x + 8, pic.y + 8, CELL - 16, 0.0f, 0);
+    } else if (s->kind == SOURCE_CREATURE || s->kind == SOURCE_SHEAR)
         assets_draw_sprite(content.mobs[s->from].texture, (Rectangle){ pic.x + 4, pic.y + 4, CELL - 8, CELL - 8 }, false);
     else if (s->kind == SOURCE_FRUIT)
         assets_draw_tile(content.trees[s->from].leaves, 0, 0, pic.x + 8, pic.y + 8, CELL - 16, 0.0f, TILE_PART_BODY);

@@ -507,6 +507,8 @@ static void draw_block(const Game *g, int layer, TileType t, int x, int y, float
         /* Something with a fire in it shows the fire while it has fuel. */
         assets_draw_tile_lit(t, wx, y, px, py, TILE_SIZE, dim, TILE_PART_BODY,
                              def->lit_count > 0 && game_fuel_at(g, wx, y) > 0);
+    /* A two-tone flower, in the colours this one is. */
+    if (def->two_tone) assets_draw_tile_tones(t, px, py, TILE_SIZE, dim, world_meta(&g->world, wx, y));
 }
 
 static void draw_world(const Game *g, Vector2 origin)
@@ -851,6 +853,11 @@ static void draw_mobs(const Game *g, Vector2 origin)
          * block, and bobs with each stride. */
         const char *file = m->baby ? def->texture_baby : def->texture;
         int frames = m->baby ? def->walk_baby_count : def->walk_count;
+        /* One that has been shorn looks it until it has grown back. */
+        if (mob_shorn(m) && def->texture_shorn[0]) {
+            file = def->texture_shorn;
+            frames = 0;
+        }
         float stride;
         if (game_mob_walking(g, i, &stride)) {
             if (frames > 0) {
@@ -894,7 +901,13 @@ static void draw_drops(const Game *g, Vector2 origin)
         if (DROP_LIFETIME > 0.0f && !d->attached && d->collect == 0.0f && left < DROP_WARNING &&
             fmodf(left, 0.5f) < 0.2f)
             continue;
-        hud_draw_item_icon((ItemId)d->item, (Rectangle){ p.x - size / 2, p.y - size / 2, size, size });
+        Rectangle at = { p.x - size / 2, p.y - size / 2, size, size };
+        if (item_def((ItemId)d->item)->two_tone) {
+            ItemStack one = { d->item, 1, d->container };
+            assets_draw_item_tones((ItemId)d->item, at, inventory_meter(&g->inventory, &one));
+        } else {
+            hud_draw_item_icon((ItemId)d->item, at);
+        }
     }
 }
 

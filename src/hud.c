@@ -240,7 +240,7 @@ void hud_draw_head_icon(Rectangle r)
 
 void hud_draw_item_icon(ItemId id, Rectangle r)
 {
-    assets_draw_item(id, r);
+    assets_draw_item_tones(id, r, 0);
 }
 
 /* Faint outline of what belongs in an empty armor slot. */
@@ -292,7 +292,7 @@ static void draw_stack(const Inventory *inv, const ItemStack *s, Rectangle r, in
         float k = 0.45f + 0.55f * (float)reads / (float)def->meter_max;
         icon = (Rectangle){ r.x + r.width * (1 - k) / 2, r.y + r.height * (1 - k) / 2, r.width * k, r.height * k };
     }
-    if (reads >= 0 && reads != def->meter_start && !def->sized && !def->tinted) {
+    if (reads >= 0 && reads != def->meter_start && !def->sized && !def->tinted && !def->two_tone) {
         float share = (float)reads / (float)def->meter_max;
         Rectangle bar = { r.x + 6, r.y + r.height - 9, r.width - 12, 5 };
         Color fill = def->holds_water ? (Color){ 70, 160, 236, 255 }
@@ -301,7 +301,8 @@ static void draw_stack(const Inventory *inv, const ItemStack *s, Rectangle r, in
         DrawRectangleRec((Rectangle){ bar.x - 1, bar.y - 1, bar.width + 2, bar.height + 2 }, (Color){ 12, 13, 18, 255 });
         DrawRectangleRec((Rectangle){ bar.x, bar.y, bar.width * share, bar.height }, fill);
     }
-    hud_draw_item_icon((ItemId)s->id, icon);
+    if (def->two_tone) assets_draw_item_tones((ItemId)s->id, icon, reads);
+    else hud_draw_item_icon((ItemId)s->id, icon);
     /* Something made in a colour shows which. */
     if (def->tinted && reads > 0 && reads <= content.tint_count) {
         const unsigned char *c = content.tints[reads - 1];

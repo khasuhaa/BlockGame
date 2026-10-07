@@ -115,7 +115,7 @@ static bool has_meter(ItemId id)
 
 /* How the meters of a stack read, one to an item, bottom of the stack first. */
 typedef struct {
-    uint8_t reads[256];
+    uint16_t reads[256];
     int count;
 } Meters;
 
@@ -123,11 +123,11 @@ static void meters_read(const Inventory *inv, const ItemStack *s, Meters *m)
 {
     m->count = 0;
     if (is_empty(s)) return;
-    uint8_t fresh = (uint8_t)item_def(s->id)->meter_start;
+    uint16_t fresh = (uint16_t)item_def(s->id)->meter_start;
     if (s->container != 0 && s->container < MAX_CONTAINERS && inv->containers[s->container].used == CONTAINER_METERS) {
         const ItemStack *runs = inv->containers[s->container].slots;
         for (int i = 0; i < CONTAINER_MAX_SLOTS; i++)
-            for (int k = 0; k < runs[i].count && m->count < s->count; k++) m->reads[m->count++] = (uint8_t)(runs[i].id - 1);
+            for (int k = 0; k < runs[i].count && m->count < s->count; k++) m->reads[m->count++] = (uint16_t)(runs[i].id - 1);
     }
     while (m->count < s->count) m->reads[m->count++] = fresh; /* anything unrecorded is as new */
 }
@@ -147,7 +147,7 @@ static bool meters_fit(const Meters *m)
 static bool meters_write(Inventory *inv, ItemStack *s, const Meters *m)
 {
     if (!meters_fit(m)) return false;
-    uint8_t fresh = (uint8_t)item_def(s->id)->meter_start;
+    uint16_t fresh = (uint16_t)item_def(s->id)->meter_start;
     bool plain = true;
     for (int i = 0; i < m->count; i++) plain = plain && m->reads[i] == fresh;
     if (plain) {
@@ -165,7 +165,7 @@ static bool meters_write(Inventory *inv, ItemStack *s, const Meters *m)
         for (int i = 0; i < m->count; i++) {
             if (run < 0 || c->slots[run].id != m->reads[i] + 1 || c->slots[run].count == 255) {
                 run++;
-                c->slots[run] = (ItemStack){ (uint8_t)(m->reads[i] + 1), 0, 0 };
+                c->slots[run] = (ItemStack){ (uint16_t)(m->reads[i] + 1), 0, 0 };
             }
             c->slots[run].count++;
         }
@@ -212,15 +212,17 @@ bool inventory_set_meter(Inventory *inv, ItemStack *s, int value)
     if (!s || is_empty(s) || !has_meter(s->id)) return false;
     int max = item_def(s->id)->meter_max;
     meters_read(inv, s, &m);
-    m.reads[m.count - 1] = (uint8_t)(value < 0 ? 0 : value > max ? max : value);
+    m.reads[m.count - 1] = (uint16_t)(value < 0 ? 0 : value > max ? max : value);
     return meters_write(inv, s, &m);
 }
 
 /* Two stacks that could be one: the same item with the same things inside,
- * or the same item with a meter, however the meters read. */
+ * or the same item with a meter, however the meters read - unless it is a
+ * two-tone thing, which only goes with others of exactly its colours. */
 static bool can_merge(const Inventory *inv, const ItemStack *a, const ItemStack *b)
 {
     if (a->id != b->id || item_def(a->id)->max_stack <= 1) return false;
+    if (item_def(a->id)->two_tone) return inventory_meter(inv, a) == inventory_meter(inv, b);
     return has_meter(a->id) || containers_equal(inv, a->container, b->container);
 }
 
@@ -569,7 +571,7 @@ int inventory_drain(Inventory *inv, ItemId id, int count)
         /* From the top of the stack down. */
         for (int k = m.count - 1; k >= 0 && done < count; k--) {
             if (m.reads[k] != full) continue;
-            m.reads[k] = (uint8_t)item_def(id)->meter_start;
+            m.reads[k] = (uint16_t)item_def(id)->meter_start;
             changed = true;
             done++;
         }
