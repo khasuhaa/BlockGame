@@ -1183,7 +1183,7 @@ static bool vein_in(TileType t, TileType host)
 static bool in_soil(TileType t)
 {
     /* (A golden chest lies buried at the bottom of the sand, here and there.) */
-    return t == TILE_DIRT || t == tile_id("sand") || t == tile_id("golden_chest") || vein_in(t, TILE_DIRT);
+    return t == TILE_DIRT || t == tile_id("sand") || t == tile_id("black_sand") || t == tile_id("golden_chest") || vein_in(t, TILE_DIRT);
 }
 
 static bool in_rock(TileType t)
@@ -2751,6 +2751,11 @@ static void test_scars_and_sandstone(void)
     CHECK(tile_def(sandstone)->drop == item_id("sandstone") && content.biomes[0].under == TILE_AIR);
 
     int under_sand = 0, sand_columns = 0, stray = 0, too_deep = 0, broken = 0;
+    int black_sand = 0, black_astray = 0, black_over = 0, over_sandstone = 0, jump = 0, sea_columns = 0, under_sea = 0;
+    const BiomeDef *ocean = NULL;
+    for (int b = 0; b < content.biome_count; b++)
+        if (content.biomes[b].below_sea) ocean = &content.biomes[b];
+    CHECK(ocean && ocean->under == sandstone);
     for (uint32_t seed = 1; seed <= 4; seed++) {
         World w;
         CHECK(world_init(&w, 2048, 401, seed, WORLD_TERRAIN));
@@ -2769,24 +2774,44 @@ static void test_scars_and_sandstone(void)
             }
             total[k] += n;
         }
-        /* Sandstone: only under the ground of country that has it, starting
-         * right under the sand, no more than 10 blocks of it, and giving way to stone raggedly. */
+        /* Sandstone: only under country that has it, and there only where
+         * the sand goes all the way down - under sand lying thin over dirt
+         * there is stone. No more than 10 blocks of it, giving way to stone
+         * raggedly. The lowest layer of sand over it is half black sand. */
+        TileType sand = tile_id("sand"), black = tile_id("black_sand");
+        int prev_depth = -1;
         for (int x = 0; x < w.width; x++) {
             const BiomeDef *b = &content.biomes[world_biome(&w, x)];
-            int first = -1, last = -1, gaps = 0;
+            int first = -1, last = -1, gaps = 0, depth = 0, lowest = -1;
+            /* (By the backwalls, which keep the ground as it was laid before caves were cut in it.) */
             for (int y = 0; y < w.height; y++) {
-                if (world_get(&w, x, y) != sandstone && world_get_at(&w, LAYER_WALL, x, y) != sandstone) continue;
+                TileType t = world_get_at(&w, LAYER_WALL, x, y);
+                if (t == sand || t == black || t == TILE_DIRT || t == TILE_GRASS) lowest = y;
+                if (t == black) {
+                    black_sand++;
+                    if (world_get_at(&w, LAYER_WALL, x, y + 1) != sandstone) black_astray++;
+                }
+                if (t != sandstone) continue;
+                depth++;
                 if (first < 0) first = y;
                 else if (y - last > 1) gaps++;
                 last = y;
             }
+            TileType bottom = lowest >= 0 ? world_get_at(&w, LAYER_WALL, x, lowest) : TILE_AIR;
             if (first >= 0 && b->under != sandstone) stray++;
             if (first >= 0 && last - first >= 10) too_deep++;
+            /* Never under dirt; always right under the last of the sand. */
+            if (first >= 0 && (bottom == TILE_DIRT || bottom == TILE_GRASS || first != lowest + 1)) stray++;
             broken += gaps;
-            if (b != desert) continue;
+            if (first >= 0) over_sandstone++, black_over += bottom == black;
+            /* It comes in and goes out by degrees along the ground, not as a cliff. */
+            if (prev_depth >= 0 && abs(depth - prev_depth) > jump) jump = abs(depth - prev_depth);
+            prev_depth = depth;
+            if (b == ocean && lowest >= 0) sea_columns++, under_sea += first >= 0;
+            if (b != desert || (bottom != sand && bottom != black)) continue;
+            /* (Desert whose sand goes right down: all but the very edge of that has it.) */
             sand_columns++;
-            /* (Right under the ground: sand, or at the desert's edge the dirt its sand lies thin over.) */
-            if (first >= 0 && world_get(&w, x, first - 1) != TILE_STONE) under_sand++;
+            under_sand += first >= 0;
         }
         world_free(&w);
     }
@@ -2794,7 +2819,12 @@ static void test_scars_and_sandstone(void)
     CHECK(total[0] > total[1] && total[1] > total[2]);
     CHECK(thick > 500 && crossings > 0);
     CHECK(stray == 0 && too_deep == 0 && broken > 20);
-    CHECK(sand_columns > 100 && under_sand * 10 >= sand_columns * 9);
+    CHECK(sand_columns > 100 && under_sand * 10 >= sand_columns * 8);
+    CHECK(sea_columns > 100 && under_sea * 10 >= sea_columns * 9);
+    CHECK(jump <= 6);
+    /* Black sand: only in that one layer, and about half of it. */
+    CHECK(black_sand > 200 && black_astray == 0 && black_over * 10 > over_sandstone * 4 && black_over * 10 < over_sandstone * 6);
+    CHECK(tile_def(tile_id("black_sand"))->drop == item_id("black_sand") && desert->seam == tile_id("black_sand") && desert->seam_share == 0.5f);
 }
 
 /* Plants that end up two blocks tall, and chilli, which does not. */
@@ -7026,7 +7056,9 @@ static void test_guide(void)
     n = guide_sources(item_id("marble"), s, 64);
     CHECK(n == 1 && source_of(s, n, SOURCE_BLOCK, "Marble") && strstr(s[0].where, "scars"));
     n = guide_sources(item_id("sandstone"), s, 64);
-    CHECK(n == 1 && strstr(s[0].where, "The rock under") && strstr(s[0].where, "Desert") && strstr(s[0].where, "Beach"));
+    CHECK(n == 1 && strstr(s[0].where, "The rock under") && strstr(s[0].where, "Desert") && strstr(s[0].where, "Ocean"));
+    n = guide_sources(item_id("black_sand"), s, 64);
+    CHECK(n == 1 && source_of(s, n, SOURCE_BLOCK, "Black sand") && strstr(s[0].where, "lowest layer") && strstr(s[0].where, "Sandstone"));
     n = guide_sources(item_id("yak_shavings"), s, 64);
     const ItemSource *shorn = source_of(s, n, SOURCE_SHEAR, "Yak");
     CHECK(n == 1 && shorn && shorn->min == 1 && shorn->max == 3 && shorn->placed_by == item_id("razor"));

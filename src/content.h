@@ -394,6 +394,10 @@ typedef struct {
      * thinning out into the rock below and toward the biome's edges. */
     TileType under;
     int under_depth;
+    /* Where that rock lies, the lowest layer of the ground over it is partly
+     * another block: so much of it, scattered through. */
+    TileType seam;
+    float seam_share;
     TileType surface, soil;
     float soil_depth;  /* a fixed depth of soil, or 0 for the usual rule */
     int tree_one_in, tree_spacing;

@@ -164,6 +164,15 @@ static bool natural(TileType t, char *out, size_t size, int depth)
             if (found) return say(out, size, "."), true;
             break;
         }
+        if (content.biomes[b].seam != t || content.biomes[b].under == TILE_AIR) continue;
+        if (!found) say(out, size, "Mixed through the lowest layer of the ground, on the %s, under: ", tile_label(content.biomes[b].under));
+        say(out, size, "%s%s", found++ ? ", " : "", biome_label(b));
+    }
+    for (int b = 0, found = 0; b <= content.biome_count; b++) {
+        if (b == content.biome_count) {
+            if (found) return say(out, size, "."), true;
+            break;
+        }
         if (content.biomes[b].buried != t) continue;
         say(out, size, "%s%s", found++ ? ", " : "Buried under: ", biome_label(b));
     }

@@ -404,7 +404,9 @@ static void bury(World *w, const int *level, const int *biome)
         if (b->buried == TILE_AIR || b->buried_one_in <= 0) continue;
         if (hash01(w->seed ^ 0x7EA5u, x) >= 1.0f / (float)b->buried_one_in) continue;
         int top = world_y_to_row(w, level[x] - 1), y = top;
-        while (y < w->height - 1 && (world_get(w, x, y) == b->surface || world_get(w, x, y) == b->soil)) y++;
+        while (y < w->height - 1 && (world_get(w, x, y) == b->surface || world_get(w, x, y) == b->soil ||
+                                     (b->seam != TILE_AIR && world_get(w, x, y) == b->seam)))
+            y++;
         int lowest = y - 1;
         /* (Under at least one block of its own ground, on whatever lies beneath that.) */
         if (lowest <= top || !world_is_solid(w, x, y)) continue;
@@ -548,7 +550,18 @@ static bool generate_terrain(World *w)
 
     /* Fill the columns: the biome's surface over its soil over rock. The
      * soil thins out into a feature until it is bare rock, unless the biome
-     * keeps a depth of its own, as the sea bed does. */
+     * keeps a depth of its own, as the sea bed does. (First how deep each
+     * layer is in every column, then the blocks.) */
+    int *layers = calloc((size_t)width * 3, sizeof(int));
+    if (!layers) {
+        free(biome);
+        free(share);
+        free(c.level);
+        free(c.shape);
+        free(level);
+        return false;
+    }
+    int *soil_of = layers, *own_of = layers + width, *under_of = layers + 2 * width;
     for (int x = 0; x < width; x++) {
         const BiomeDef *b = &content.biomes[biome[x]];
         float bare = smoothstep(gen->bare_at > 0.0f ? c.shape[x] / gen->bare_at : 1.0f);
@@ -561,10 +574,37 @@ static bool generate_terrain(World *w)
         /* At the edge of its country a biome's ground is only a skin over the
          * ordinary soil, a block deep at the very edge and deepening inward. */
         int own = share[x] >= 1.0f ? soil : 1 + (int)floorf(share[x] * (float)(soil > 1 ? soil - 1 : 0) + 0.5f);
-        /* Some country has rock of its own under its ground: solid for the
-         * top half of its depth, then more and more broken up by the
-         * ordinary rock, and thinner toward the country's edge. */
-        int under = b->under != TILE_AIR ? (int)floorf((float)b->under_depth * fminf(1.0f, share[x]) + 0.5f) : 0;
+        /* Some country has rock of its own under its ground - but only
+         * where its own ground goes all the way down to the rock. At the
+         * country's edge, where its ground is a skin over the ordinary soil,
+         * the ordinary rock lies under that; from where the skin has
+         * deepened to the full depth, its own rock comes in beneath, thin at
+         * first and thickening inward. So the wedge that the ground makes
+         * above is carried on by the rock below. It is solid for the top
+         * half of its depth, then more and more broken up by the ordinary rock. */
+        int under = 0;
+        if (b->under != TILE_AIR && soil >= 1 && own >= soil) {
+            float from = soil > 1 ? ((float)soil - 1.5f) / ((float)soil - 1.0f) : 0.0f;
+            float in = share[x] >= 1.0f || from >= 1.0f ? 1.0f : (share[x] - from) / (1.0f - from);
+            under = (int)floorf((float)b->under_depth * fmaxf(0.0f, fminf(1.0f, in)) + 0.5f);
+        }
+        soil_of[x] = soil;
+        own_of[x] = own;
+        under_of[x] = under;
+    }
+    /* That rock comes and goes by degrees along the ground too: never more
+     * than a couple of blocks deeper than in the column beside it, so it
+     * runs out to nothing wherever it stops and does not end in a cliff. */
+    for (int pass = 0; pass < 2; pass++) {
+        for (int x = 0; x < width * 2; x++) {
+            int at = pass == 0 ? x % width : (width * 2 - 1 - x) % width;
+            int beside = (at + (pass == 0 ? width - 1 : 1)) % width;
+            if (under_of[at] > under_of[beside] + 2) under_of[at] = under_of[beside] + 2;
+        }
+    }
+    for (int x = 0; x < width; x++) {
+        const BiomeDef *b = &content.biomes[biome[x]];
+        int soil = soil_of[x], own = own_of[x], under = under_of[x];
         int top = world_y_to_row(w, level[x] - 1);
         for (int y = top < 0 ? 0 : top; y < w->height; y++) {
             int below = y - top, deep = below - soil;
@@ -572,10 +612,15 @@ static bool generate_terrain(World *w)
             if (deep >= 0 && deep < under &&
                 (deep * 2 < under || hash01(w->seed ^ 0x5A4Du, x * 8191 + y) < 2.0f * (float)(under - deep) / (float)under - 0.15f))
                 rock = b->under;
-            world_set(w, x, y, below >= soil ? rock : below == 0 ? b->surface
-                               : below < own ? b->soil : content.biomes[0].soil);
+            TileType ground = below == 0 ? b->surface : below < own ? b->soil : content.biomes[0].soil;
+            /* The layer of ground lying on that rock has something else mixed through it. */
+            if (under > 0 && b->seam != TILE_AIR && below == soil - 1 && below > 0 &&
+                hash01(w->seed ^ 0xB1A5u, x * 8191 + y) < b->seam_share)
+                ground = b->seam;
+            world_set(w, x, y, below >= soil ? rock : ground);
         }
     }
+    free(layers);
     free(share);
 
     raise_walls(w);

@@ -758,6 +758,9 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         b->under = TILE_AIR;
         if (field(e, "under") && !tile_ref(r, field(e, "under"), "tile", &b->under)) return false;
         b->under_depth = (int)num(field(e, "under"), "depth", 0);
+        b->seam = TILE_AIR;
+        if (str(field(e, "under"), "seam") && !tile_ref(r, field(e, "under"), "seam", &b->seam)) return false;
+        b->seam_share = (float)num(field(e, "under"), "seam_share", 0.5);
         b->tree_one_in = (int)num(e, "tree_one_in", 0);
         b->tree_spacing = (int)num(e, "tree_spacing", 0);
         b->heat_min = b->dry_min = -2.0f;

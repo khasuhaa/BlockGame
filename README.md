@@ -157,7 +157,7 @@ Veins of the same material never touch, so each stays within its size. Mining fl
 | Lapis lazuli | Stone, limestone, marble | 30–80 | 2–4 | 40–190 |
 | Red marble | Stone and all three | 30–90 | 2–5 | 60–195 |
 
-**Sandstone** lies under deserts and beaches in place of stone: up to 10 blocks of it under the sand, solid for the top half and broken up more and more by stone below that, and thinner toward the edge of the sand. It is a biome's `"under": { "tile", "depth" }`.
+**Sandstone** lies under deserts, beaches and the sea bed in place of stone - but only where the sand goes all the way down. At the edge of sandy country, where the sand is a skin over dirt, there is ordinary stone under the dirt; from the point where the sand has deepened to the full depth of the ground, sandstone comes in beneath it, thin at first and thickening inward to 10 blocks, never more than a couple of blocks deeper than in the column beside it. So the wedge that sand makes over dirt above is carried on by sandstone over stone below. It is solid for the top half of its depth and broken up more and more by stone under that. The lowest layer of sand, lying on the sandstone, is half **black sand**, scattered through it; black sand is dug with a shovel like sand. This is a biome's `"under": { "tile", "depth", "seam", "seam_share" }`.
 
 Columns are grass over dirt over stone. The dirt is 4 or 5 blocks deep on the plains and thins out gradually up a mountain or down a valley, so peaks and valley floors are bare stone. Stone takes twice as long to mine as dirt. Grass drops dirt. One time in ten, digging **dirt** turns up **worms** as well (a drop can have a `"chance"` of its own in a block's `"drops"`).
 
