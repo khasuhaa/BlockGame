@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 24u
+#define SAVE_VERSION 25u
 
 /* Fixed-size part of a save. After it come the names of the tiles and items
  * the save's ids stand for, the tile layers, the inventory and the drops. */
@@ -664,6 +664,16 @@ bool load_game(Game *g, const char *path)
                 g->drops[i].item = g->drops[i].item < MAX_ITEMS ? items[g->drops[i].item] : 0;
                 if (g->drops[i].item == ITEM_NONE) g->drops[i].active = false;
             }
+        }
+        /* A block that has since been moved to the background - a golden chest, say - goes there in an older world,
+         * where nothing is in its way. */
+        for (size_t i = 0; ok && h.version < 25 && i < cells; i++) {
+            TileType front = w->layers[LAYER_FOREGROUND][i];
+            if (front == TILE_AIR || tile_def(front)->layer != LAYER_BACKGROUND || tile_def(front)->pair_of != TILE_AIR ||
+                tile_def(front)->pair != TILE_AIR || tile_def(front)->height > 1 || w->layers[LAYER_BACKGROUND][i] != TILE_AIR)
+                continue;
+            w->layers[LAYER_BACKGROUND][i] = (uint16_t)front;
+            w->layers[LAYER_FOREGROUND][i] = TILE_AIR;
         }
         /* The look a door keeps is a block: that is an id of the save's too. Before version 24
          * a door looked like whatever it stood between at the time: each keeps the look it had. */

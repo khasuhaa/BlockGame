@@ -378,7 +378,11 @@ bool recipeui_frame(RecipeUi *ui, bool escape)
     if (ui->grid_scroll < 0.0f) ui->grid_scroll = 0.0f;
     BeginScissorMode((int)grid.x, (int)grid.y, (int)grid.width, (int)grid.height);
     int n = 0;
-    for (ItemId i = 1; i < content.item_count; i++) {
+    /* (Sorted: by category, then by name.) */
+    static ItemId order[MAX_ITEMS];
+    int listed = guide_order(order);
+    for (int at = 0; at < listed; at++) {
+        ItemId i = order[at];
         if (!guide_matches(i, ui->search)) continue;
         Rectangle r = { grid.x + (n % GRID_COLUMNS) * (CELL + CELL_GAP),
                         grid.y + (float)(n / GRID_COLUMNS) * (CELL + CELL_GAP) - ui->grid_scroll, CELL, CELL };

@@ -44,4 +44,11 @@ bool guide_tile_natural(TileType t, char *where, size_t size);
 /* Whether `text` (any case) is in an item's label. An empty text is in every one. */
 bool guide_matches(ItemId item, const char *text);
 
+/* Every item, in the order the book lists them: by the category it is traded
+ * under, in the order the categories come, then by what it is called (items
+ * of the same name - the tiers of a bench - in the order they were made in);
+ * and last the ones with no category. Fills `out` (which needs room for every
+ * item) and returns how many. */
+int guide_order(ItemId *out);
+
 #endif

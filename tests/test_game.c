@@ -7,6 +7,7 @@
 #include "../src/save.h"
 #include "../src/trade.h"
 
+#include <ctype.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -2153,7 +2154,7 @@ static void test_caves(void)
         for (int y = 0; y < w.height - 1; y++) {
             for (int x = 0; x < w.width; x++) {
                 const TileDef *def = tile_def(world_get_at(&w, BG, x, y));
-                if (def->light == 0 || def->log_of >= 0 || def->leaves_of >= 0) continue;
+                if (def->light == 0 || def->log_of >= 0 || def->leaves_of >= 0 || def->storage_columns > 0) continue;
                 /* Gems and crystals sit in open cave, against a block; crystals on the floor. */
                 if (world_get(&w, x, y) != TILE_AIR || world_get_at(&w, WALL, x, y) != TILE_STONE) bad++;
                 bool held = world_is_solid(&w, x, y + 1) || world_is_solid(&w, x + 1, y) ||
@@ -3582,6 +3583,106 @@ static void test_scorpions_and_yaks(void)
         }
         CHECK(!whole && part && item_id(shard) > 0);
     }
+}
+
+/* Steps in the way are walked past; a bed is gone to and slept in; the book lists things in order. */
+static void test_steps_beds_and_order(void)
+{
+    Game g;
+    game_init(&g, 128, 64, 91, WORLD_FLAT);
+    World *w = &g.world;
+    g.tick_rate = 0;
+    clear_mobs(&g);
+    int s = w->surface_y, ground = s - 1, px = g.player.feet.x;
+    TileType stairs = tile_id("stone_stairs");
+
+    /* One flight of steps standing by itself in the way: the keys walk past it, not up it and down again. */
+    world_set_at(w, BG, px + 3, ground, stairs);
+    int highest = ground;
+    game_set_move_input(&g, 1, 0);
+    for (int i = 0; i < 300 && g.player.feet.x < px + 6; i++) {
+        game_update(&g, 1.0f / 60.0f);
+        if (g.player.feet.y < highest) highest = g.player.feet.y;
+    }
+    game_set_move_input(&g, 0, 0);
+    run(&g, 1.0f);
+    CHECK(g.player.feet.x >= px + 6 && highest == ground && g.player.feet.y == ground);
+    /* So does a route somewhere beyond it. */
+    highest = ground;
+    CHECK(game_queue_action(&g, ACTION_MOVE, px, ground));
+    for (int i = 0; i < 600 && !(is_idle(&g) && g.player.feet.x == px); i++) {
+        game_update(&g, 1.0f / 60.0f);
+        if (g.player.feet.y < highest) highest = g.player.feet.y;
+    }
+    CHECK(g.player.feet.x == px && highest == ground);
+    /* With up held as well they are gone up; and steps that lead on to a floor are gone up without it. */
+    g.player.feet = g.player.step_to = (TilePos){ px + 2, ground };
+    highest = ground;
+    game_set_move_input(&g, 1, -1);
+    for (int i = 0; i < 40; i++) {
+        game_update(&g, 1.0f / 60.0f);
+        if (g.player.feet.y < highest) highest = g.player.feet.y;
+    }
+    game_set_move_input(&g, 0, 0);
+    CHECK(highest == ground - 1);
+    run(&g, 1.0f);
+    for (int x = px + 4; x <= px + 8; x++) world_set(w, x, ground, TILE_STONE);
+    g.player.feet = g.player.step_to = (TilePos){ px + 2, ground };
+    highest = ground;
+    game_set_move_input(&g, 1, 0);
+    for (int i = 0; i < 40; i++) {
+        game_update(&g, 1.0f / 60.0f);
+        if (g.player.feet.y < highest) highest = g.player.feet.y;
+    }
+    game_set_move_input(&g, 0, 0);
+    run(&g, 1.0f);
+    CHECK(highest == ground - 1);
+    for (int x = px + 3; x <= px + 8; x++) world_set(w, x, ground, TILE_AIR), world_set_at(w, BG, x, ground, TILE_AIR);
+
+    /* A bed: found at either half; told to sleep in it, the character goes there and lies down. */
+    TileType bed = tile_id("wooden_bed"), foot = tile_id("wooden_bed_foot");
+    world_set_at(w, tile_def(bed)->layer, px - 8, ground, bed);
+    world_set_at(w, tile_def(foot)->layer, px - 7, ground, foot);
+    CHECK(game_bed_at(&g, px - 8, ground) == bed && game_bed_at(&g, px - 7, ground) == bed && game_bed_at(&g, px - 6, ground) == TILE_AIR);
+    CHECK(game_bench_at(&g, px - 8, ground) == TILE_AIR); /* (it is not something that is opened) */
+    g.player.feet = g.player.step_to = (TilePos){ px, ground };
+    g.vitals.energy = 0.3f;
+    CHECK(!game_sleep_in(&g, px - 5, ground) && game_sleep_in(&g, px - 7, ground));
+    run(&g, 6.0f);
+    CHECK(g.player.feet.x == px - 7 && g.player.feet.y == ground && g.vitals.rest == REST_SLEEP);
+    CHECK(game_sleep_speed(&g, NULL) == tile_def(bed)->sleep_speed);
+    game_wake(&g);
+    /* (Wide awake, they go to it and stand there.) */
+    g.player.feet = g.player.step_to = (TilePos){ px, ground };
+    g.vitals.energy = 1.0f;
+    CHECK(game_sleep_in(&g, px - 8, ground));
+    run(&g, 6.0f);
+    CHECK(g.player.feet.x == px - 8 && g.vitals.rest == REST_NONE && is_idle(&g));
+
+    /* The book: every item once, by category in the order the categories come, and by name within one. */
+    static ItemId order[MAX_ITEMS];
+    static uint8_t met[MAX_ITEMS];
+    int n = guide_order(order), out_of_order = 0;
+    memset(met, 0, sizeof met);
+    CHECK(n == content.item_count - 1);
+    for (int i = 0; i < n; i++) {
+        met[order[i]]++;
+        if (i == 0) continue;
+        const ItemDef *a = item_def(order[i - 1]), *b = item_def(order[i]);
+        int ca = a->category < 0 ? 1000 : a->category, cb = b->category < 0 ? 1000 : b->category;
+        if (ca > cb) out_of_order++;
+        if (ca == cb) {
+            char la[CONTENT_NAME_LEN * 2], lb[CONTENT_NAME_LEN * 2];
+            snprintf(la, sizeof la, "%s", a->label);
+            snprintf(lb, sizeof lb, "%s", b->label);
+            for (char *c = la; *c; c++) *c = (char)tolower((unsigned char)*c);
+            for (char *c = lb; *c; c++) *c = (char)tolower((unsigned char)*c);
+            if (strcmp(la, lb) > 0) out_of_order++;
+        }
+    }
+    for (ItemId i = 1; i < content.item_count; i++) CHECK(met[i] == 1);
+    CHECK(out_of_order == 0);
+    game_free(&g);
 }
 
 /* Columns and stairs in the background, and stairs to walk up; vines; worms; milk; leather; the mango tree. */
@@ -6571,6 +6672,7 @@ static void test_decay_and_golden_chests(void)
     ItemId coin = item_id("gold_coin");
     const TileDef *def = tile_def(chest);
     CHECK(chest > 0 && def->loot_count == 5 && def->storage_columns == 4 && item_id("golden_chest") > 0);
+    CHECK(def->layer == LAYER_BACKGROUND && !def->solid && tile_def(tile_id("portal_chest"))->layer == LAYER_BACKGROUND);
     int found = 0, beach_columns = 0, misplaced = 0;
     Game t;
     TilePos where = { 0, 0 };
@@ -6581,10 +6683,11 @@ static void test_decay_and_golden_chests(void)
             bool beach = strcmp(content.biomes[world_biome(tw, x)].name, "beach") == 0;
             beach_columns += beach;
             for (int y = 1; y < tw->height - 1; y++) {
-                if (world_get(tw, x, y) != chest) continue;
+                if (world_get_at(tw, BG, x, y) != chest) continue;
                 found++;
                 where = (TilePos){ x, y };
-                if (!beach || world_get(tw, x, y - 1) != sand || !world_is_solid(tw, x, y + 1)) misplaced++;
+                /* (Behind the sand it is buried in, not in place of it.) */
+                if (!beach || !world_is_solid(tw, x, y) || world_get(tw, x, y - 1) != sand || !world_is_solid(tw, x, y + 1)) misplaced++;
             }
         }
         if (seed < 6 || found == 0) game_free(&t);
@@ -6604,6 +6707,10 @@ static void test_decay_and_golden_chests(void)
     for (int y = where.y - 4; y < where.y; y++) world_set(tw, where.x, y, TILE_AIR), world_set(tw, where.x - 1, y, TILE_AIR);
     world_set(tw, where.x - 1, where.y, sand);
     t.player.feet = t.player.step_to = (TilePos){ where.x - 1, where.y - 1 };
+    /* (Still under the sand it is not to be seen, nor opened: the sand in front of it is dug away first.) */
+    CHECK(game_bench_at(&t, where.x, where.y) == TILE_AIR && !game_queue_action(&t, ACTION_USE, where.x, where.y));
+    world_set(tw, where.x, where.y, TILE_AIR);
+    CHECK(game_bench_at(&t, where.x, where.y) == chest);
     CHECK(game_queue_action(&t, ACTION_USE, where.x, where.y));
     run(&t, 2.0f);
     uint16_t box = game_open_storage(&t);
@@ -8766,6 +8873,7 @@ static void test_shipped_recipes(void)
     static const char *const stones[5][2] = { { "limestone", "limestone_dodo_egg" }, { "sandstone", "sandstone_dodo_egg" },
                                               { "marble", "marble_dodo_egg" }, { "lapis_lazuli", "lapis_dodo_egg" },
                                               { "red_marble", "red_marble_dodo_egg" } };
+    CHECK(item_def(item_id("basalt"))->places == tile_id("basalt") && item_def(item_id("ice"))->places == tile_id("ice"));
     for (int i = 0; i < 5; i++) {
         const Recipe *r = find_recipe(tile_id("egg_extractor"), stones[i][0]);
         CHECK(r && costs(r, stones[i][1], 1, NULL, 0) && r->output.count == 1);
@@ -9010,6 +9118,7 @@ int main(void)
     test_tulips();
     test_scorpions_and_yaks();
     test_stairs_and_more();
+    test_steps_beds_and_order();
     test_seasons_and_weather();
     test_doors_walls_lamps_armor();
     test_power();

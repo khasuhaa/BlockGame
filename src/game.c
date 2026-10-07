@@ -60,6 +60,16 @@ static bool can_step_up(const World *w, TilePos feet, int d)
            body_fits(w, feet.x, feet.y - 1) && body_fits(w, feet.x + d, feet.y - 1);
 }
 
+/* Whether going up the steps beside the feet gets anywhere: at the top of
+ * them there is more to go up, or a floor to walk on to. Steps that stand by
+ * themselves in the way are walked past, not up and down again. */
+static bool steps_lead_on(const World *w, TilePos feet, int d)
+{
+    TilePos top = { feet.x + d, feet.y - 1 };
+    if (can_step_up(w, top, d)) return true;
+    return low_fits(w, top.x + d, top.y) && !world_is_step(w, top.x + d, top.y + 1) && is_supported(w, (TilePos){ top.x + d, top.y });
+}
+
 /* The floors a running lift will take a character at `feet` to: every place
  * along its shaft, up or down, where there is room for them and something to
  * stand on. It goes through whatever blocks are between. `out` gets how far
@@ -229,7 +239,7 @@ static int list_moves(const World *w, Pose p, Step *out)
 
     bool upright = !is_crawling(w, p.feet);
     for (int d = -1; d <= 1; d += 2) {
-        if (can_step_up(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, -1, false };
+        /* (Walking past steps comes before going up them: a way that only passes them does not climb them.) */
         if (!low_fits(w, x + d, y)) {
             if (can_mantle(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, -1, false };
         } else if (is_supported(w, (TilePos){ x + d, y })) {
@@ -244,6 +254,7 @@ static int list_moves(const World *w, Pose p, Step *out)
             if (is_supported(w, (TilePos){ x + d, y + 1 })) out[n++] = (Step){ (int8_t)d, 0, false };
             else out[n++] = (Step){ (int8_t)d, 1, true };
         }
+        if (can_step_up(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, -1, false };
     }
     /* Jump and catch a wall too tall to step onto, or something overhead. */
     if (can_climb_up(w, p.feet)) out[n++] = (Step){ 0, -1, true };
@@ -309,7 +320,8 @@ static Step key_step(const World *w, Pose p, int dx, int dy)
     bool upright = !is_crawling(w, p.feet);
     if (dx != 0) {
         /* Steps are gone up; with down held as well, walked through. */
-        if (dy <= 0 && can_step_up(w, p.feet, dx)) return (Step){ (int8_t)dx, -1, false };
+        /* (With up held, always; otherwise only where they lead on to something.) */
+        if (dy <= 0 && can_step_up(w, p.feet, dx) && (dy < 0 || steps_lead_on(w, p.feet, dx))) return (Step){ (int8_t)dx, -1, false };
         if (!low_fits(w, x + dx, y)) {
             if (can_mantle(w, p.feet, dx)) return (Step){ (int8_t)dx, -1, false };
             if (can_cling_side(w, (TilePos){ x, y - 1 }, dx) && can_climb_up(w, p.feet))
@@ -426,6 +438,8 @@ static TileType usable_at(const World *w, int x, int y, int *layer)
     for (int l = 0; l < BLOCK_LAYERS; l++) {
         TileType t = world_get_at(w, l, x, y);
         if (!tile_def(t)->bench && !tile_def(t)->trade && tile_def(t)->storage_columns == 0) continue;
+        /* (Not one that is out of sight and out of reach behind a block: something buried, till it is dug out.) */
+        if (l != LAYER_FOREGROUND && tile_def(world_get(w, x, y))->solid && !tile_def(world_get(w, x, y))->see_through) continue;
         if (layer) *layer = l;
         return t;
     }
@@ -1820,6 +1834,11 @@ static bool start_next_activity(Game *g)
                     g->has_current = false;
                     continue;
                 }
+                case ACTION_SLEEP:
+                    /* In the bed: they lie down, if they are tired enough to. */
+                    g->has_current = false;
+                    game_rest(g, REST_SLEEP);
+                    continue;
                 case ACTION_USE:
                     game_close_bench(g);
                     g->bench_open = true;
@@ -2837,6 +2856,22 @@ float game_sleep_speed(const Game *g, bool *over)
         }
     }
     return best;
+}
+
+TileType game_bed_at(const Game *g, int x, int y)
+{
+    for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
+        TileType t = world_get_at(&g->world, layer, x, y);
+        if (tile_def(t)->pair_of != TILE_AIR) t = tile_def(t)->pair_of;
+        if (tile_def(t)->sleep_speed > 0.0f) return t;
+    }
+    return TILE_AIR;
+}
+
+bool game_sleep_in(Game *g, int x, int y)
+{
+    if (game_bed_at(g, x, y) == TILE_AIR) return false;
+    return game_queue_action(g, ACTION_SLEEP, world_wrap_x(&g->world, x), y);
 }
 
 bool game_rest(Game *g, Rest kind)

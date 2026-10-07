@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* Adds to the end of a sentence being put together. */
@@ -460,4 +461,27 @@ bool guide_matches(ItemId item, const char *text)
         if (i == n) return true;
     }
     return false;
+}
+
+static int by_listing(const void *a, const void *b)
+{
+    ItemId ia = *(const ItemId *)a, ib = *(const ItemId *)b;
+    const ItemDef *da = item_def(ia), *db = item_def(ib);
+    int ca = da->category < 0 ? content.trade.category_count : da->category;
+    int cb = db->category < 0 ? content.trade.category_count : db->category;
+    if (ca != cb) return ca - cb;
+    for (const char *x = da->label, *y = db->label; *x || *y; x++, y++) {
+        int lx = tolower((unsigned char)*x), ly = tolower((unsigned char)*y);
+        if (lx != ly) return lx - ly;
+        if (!*x || !*y) break;
+    }
+    return (int)ia - (int)ib;
+}
+
+int guide_order(ItemId *out)
+{
+    int n = 0;
+    for (ItemId i = 1; i < content.item_count; i++) out[n++] = i;
+    qsort(out, (size_t)n, sizeof out[0], by_listing);
+    return n;
 }

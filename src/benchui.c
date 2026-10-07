@@ -137,12 +137,29 @@ static Rectangle teleport_rect(Rectangle menu)
     return (Rectangle){ menu.x, menu.y - 34.0f, 196.0f, 30.0f };
 }
 
-static Rectangle popup_rect(const BenchUi *ui, const View *v)
+/* What the two buttons of the little menu over a block say: "Open ..." and
+ * "Remove ..." in the block's own word for itself; "Sleep" for a bed. */
+static void popup_labels(const BenchUi *ui, const Game *g, char labels[2][2 * CONTENT_NAME_LEN])
 {
-    float h = 2 * POPUP_BUTTON_HEIGHT + 3 * 6.0f;
+    TileType bed = game_bed_at(g, ui->popup_tile.x, ui->popup_tile.y);
+    TileType t = game_bench_at(g, ui->popup_tile.x, ui->popup_tile.y);
+    if (t == TILE_AIR) t = bed;
+    const char *name = tile_def(t)->popup_name;
+    if (game_bench_at(g, ui->popup_tile.x, ui->popup_tile.y) == TILE_AIR && bed != TILE_AIR) snprintf(labels[0], 2 * CONTENT_NAME_LEN, "Sleep");
+    else snprintf(labels[0], 2 * CONTENT_NAME_LEN, "Open %s", name);
+    snprintf(labels[1], 2 * CONTENT_NAME_LEN, "Remove %s", name);
+}
+
+/* (As wide as what it says needs.) */
+static Rectangle popup_rect(const BenchUi *ui, const Game *g, const View *v)
+{
+    char labels[2][2 * CONTENT_NAME_LEN];
+    popup_labels(ui, g, labels);
+    float h = 2 * POPUP_BUTTON_HEIGHT + 3 * 6.0f, wide = POPUP_WIDTH;
+    for (int i = 0; i < 2; i++)
+        if ((float)MeasureText(labels[i], 16) + 36.0f > wide) wide = (float)MeasureText(labels[i], 16) + 36.0f;
     Vector2 tile = view_tile_pos(v, (float)ui->popup_tile.x, (float)ui->popup_tile.y);
-    return (Rectangle){ tile.x + v->tile_size / 2 - POPUP_WIDTH / 2, tile.y - h - 8.0f,
-                        POPUP_WIDTH, h };
+    return (Rectangle){ tile.x + v->tile_size / 2 - wide / 2, tile.y - h - 8.0f, wide, h };
 }
 
 static Rectangle popup_button(Rectangle popup, int i)
@@ -193,7 +210,7 @@ bool benchui_mouse_over(const BenchUi *ui, const Game *g, const View *v)
     Vector2 m = GetMousePosition();
     if (is_trade(g)) return false;
     if (ui->press != BENCH_PRESS_NONE) return true;
-    if (ui->popup && CheckCollisionPointRec(m, popup_rect(ui, v))) return true;
+    if (ui->popup && CheckCollisionPointRec(m, popup_rect(ui, g, v))) return true;
     if (!g->bench_open) return false;
     Rectangle menu = menu_rect(g, v);
     if (game_bench_fuel(g, NULL) >= 0) {
@@ -207,7 +224,7 @@ bool benchui_mouse_over(const BenchUi *ui, const Game *g, const View *v)
 static BenchPress press_target(const BenchUi *ui, const Game *g, const View *v, Vector2 m)
 {
     if (ui->popup) {
-        Rectangle popup = popup_rect(ui, v);
+        Rectangle popup = popup_rect(ui, g, v);
         if (CheckCollisionPointRec(m, popup_button(popup, 0))) return BENCH_PRESS_OPEN;
         if (CheckCollisionPointRec(m, popup_button(popup, 1))) return BENCH_PRESS_REMOVE;
         if (CheckCollisionPointRec(m, popup)) return BENCH_PRESS_PANEL;
@@ -333,8 +350,10 @@ bool benchui_handle_input(BenchUi *ui, Game *g, const View *v)
         game_craft(g, recipes[ui->selected], ui->amount);
     } else if (ui->press == BENCH_PRESS_OPEN && released == BENCH_PRESS_OPEN) {
         ui->popup = false;
-        /* A bench shows its menu from here; a chest is walked to. */
-        if (!game_open_bench(g, ui->popup_tile.x, ui->popup_tile.y))
+        /* A bench shows its menu from here; a chest is walked to; a bed is gone to, and slept in. */
+        if (game_bench_at(g, ui->popup_tile.x, ui->popup_tile.y) == TILE_AIR)
+            game_sleep_in(g, ui->popup_tile.x, ui->popup_tile.y);
+        else if (!game_open_bench(g, ui->popup_tile.x, ui->popup_tile.y))
             game_queue_action(g, ACTION_USE, ui->popup_tile.x, ui->popup_tile.y);
     } else if (ui->press == BENCH_PRESS_REMOVE && released == BENCH_PRESS_REMOVE) {
         ui->popup = false;
@@ -354,12 +373,9 @@ static void draw_centered(const char *text, Rectangle r, int size, Color c)
 
 static void draw_popup(const BenchUi *ui, const Game *g, const View *v)
 {
-    /* The block's own word for itself: "Open bench", "Remove chest". */
-    const char *name = tile_def(game_bench_at(g, ui->popup_tile.x, ui->popup_tile.y))->popup_name;
     char labels[2][2 * CONTENT_NAME_LEN];
-    snprintf(labels[0], sizeof labels[0], "Open %s", name);
-    snprintf(labels[1], sizeof labels[1], "Remove %s", name);
-    Rectangle popup = popup_rect(ui, v);
+    popup_labels(ui, g, labels);
+    Rectangle popup = popup_rect(ui, g, v);
     Vector2 m = GetMousePosition();
     DrawRectangleRec(popup, panel_color);
     DrawRectangleLinesEx(popup, 2.0f, edge_color);

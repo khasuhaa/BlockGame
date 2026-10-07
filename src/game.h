@@ -57,7 +57,8 @@ typedef enum {
     ACTION_ATTACK,  /* go after a creature, and kill it */
     ACTION_BUCKET,  /* go within reach of a tile, then scoop its water up or pour some out */
     ACTION_PAINT,   /* go within reach of a tile, then paint its block or backwall, or strip the paint off */
-    ACTION_RELEASE  /* walk next to the target tile, then let out there the creature in the item held */
+    ACTION_RELEASE, /* walk next to the target tile, then let out there the creature in the item held */
+    ACTION_SLEEP    /* go to the target tile - a bed - and lie down to sleep there */
 } ActionType;
 
 /* What can be done at an open bench or trade block. Its menu can be looked
@@ -542,6 +543,11 @@ bool game_bar_full(float value);
  * full. Sleep ends by itself once energy is full; anything the player is told
  * to do ends either. While it lasts the ticks go faster. */
 bool game_rest(Game *g, Rest kind);
+/* The bed at a square, if there is one there, in front or behind: the block
+ * it is (its first half, for either half of it). TILE_AIR if there is none. */
+TileType game_bed_at(const Game *g, int x, int y);
+/* Queues going to the bed at a square and sleeping in it. False if there is no bed there. */
+bool game_sleep_in(Game *g, int x, int y);
 void game_wake(Game *g);
 /* Ticks per second as they are going now: the world's rate, sped up at rest. */
 int game_tick_speed(const Game *g);

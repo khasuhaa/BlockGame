@@ -445,6 +445,8 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
             /* A second click on a square with something queued takes it back. */
             else if (game_unqueue_tile(g, t.x, t.y)) {}
             else if (opens && def->removable) benchui_show_popup(bench, t);
+            /* A bed has the same little menu: to sleep in it, or to take it up. */
+            else if (!opens && game_bed_at(g, t.x, t.y) != TILE_AIR) benchui_show_popup(bench, t);
             /* A bench or a portal shows its menu from wherever the player is;
              * a chest has to be walked to. */
             else if (opens && game_open_bench(g, t.x, t.y)) {}
