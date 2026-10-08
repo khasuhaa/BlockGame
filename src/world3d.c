@@ -28,6 +28,7 @@ typedef struct {
 
 static Shape shapes[MAX_TEXTURES];
 static bool active;
+static double near_was, far_was;
 static Vector2 center;
 static Shader cutout;
 static bool cutout_tried;
@@ -74,6 +75,10 @@ void world3d_begin(float zoom)
     float d = eye_distance(zoom);
     Camera3D eye = { .position = { center.x / UNIT, -center.y / UNIT, d / UNIT }, .target = { center.x / UNIT, -center.y / UNIT, 0.0f },
                      .up = { 0.0f, 1.0f, 0.0f }, .fovy = FOVY, .projection = CAMERA_PERSPECTIVE };
+    /* (It sees no nearer than a little in front of the scene and no further than a little behind it: the narrower
+     * that is, the finer it can tell one depth from another, however far off the eye is.) */
+    near_was = rlGetCullDistanceNear(), far_was = rlGetCullDistanceFar();
+    rlSetClipPlanes(d / UNIT > 4.5 ? d / UNIT - 4.0 : 0.5, d / UNIT + 8.0);
     BeginMode3D(eye);
     if (cutout.id > 0) BeginShaderMode(cutout);
     rlDisableBackfaceCulling();
@@ -94,6 +99,7 @@ void world3d_end(void)
     rlEnableBackfaceCulling();
     if (cutout.id > 0) EndShaderMode();
     EndMode3D();
+    rlSetClipPlanes(near_was, far_was);
 }
 
 void world3d_flat(void)

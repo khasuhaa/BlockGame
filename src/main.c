@@ -112,6 +112,10 @@ static void update_view(const MapCamera *cam, const World *w)
      * nothing shimmers against them as the camera glides. */
     view.origin = (Vector2){ floorf((seen.x / 2.0f - cam->center.x) * zoom) / zoom,
                              floorf((seen.y / 2.0f - cam->center.y) * zoom) / zoom };
+    /* And to thirty-seconds of a pixel of the world, which a number can hold exactly: then the edge one block ends
+     * at and the edge the next begins at come out the very same, at any zoom, and nothing shows through between
+     * them - nor between the squares of darkness laid over them. */
+    view.origin = (Vector2){ roundf(view.origin.x * 32.0f) / 32.0f, roundf(view.origin.y * 32.0f) / 32.0f };
     view.tile_size = TILE_SIZE;
     view.center_x = cam->center.x / TILE_SIZE;
     view.world_width = w->width;
@@ -984,6 +988,9 @@ static void draw_light(const Game *g, Vector2 origin)
      * glows, and then once more added on top, so that it is brighter than
      * daylight makes anything. Nothing round it is touched. (Where someone or
      * something stands in front of it, it is left as it is, behind them.) */
+    /* (These are drawn where they stand, behind whatever is in front of them: the darkness was not.) */
+    rlDrawRenderBatchActive();
+    if (world3d_active()) rlEnableDepthTest();
     static uint8_t *taken;
     static int taken_capacity;
     if (cols * rows > taken_capacity) {
@@ -1979,9 +1986,12 @@ static void session_draw(Session *s)
          * leaves no mark on the depth of things: what glows is drawn again through it, where it stands.) */
         rlDrawRenderBatchActive();
         rlDisableDepthMask();
-        /* (A hair in front of the front: laid exactly on the faces of the blocks, it loses to them as often as not.) */
-        world3d_push(1.0f);
+        /* (Over everything, whatever its depth: weighed against the faces of the blocks it lies on, it would win and
+         * lose by turns as the view moved in and out.) */
+        rlDisableDepthTest();
         draw_light(g, origin);
+        rlDrawRenderBatchActive();
+        rlDisableDepthTest();
         draw_fog(g, origin);
         /* What each of them has queued. */
         for (int n = 0; n < g->character_count; n++) {
@@ -1994,7 +2004,6 @@ static void session_draw(Session *s)
             !tradeui_mouse_over(&s->trade, g, &ui_view))
             DrawRectangleLinesEx(tile_rect(origin, tile_at_screen(&s->cam, GetMousePosition())), 1.0f,
                                  Fade(WHITE, 0.5f));
-        world3d_pop();
         rlDrawRenderBatchActive();
         rlEnableDepthMask();
         world3d_end();
