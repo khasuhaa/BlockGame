@@ -344,7 +344,7 @@ static bool take_slot_for_basket(Inventory *inv, ItemStack basket)
         inv->containers[c].slots[free_slot] = *held;
         *held = (ItemStack){ basket.id, 1, c };
         inv->choice[i] = (int8_t)free_slot;
-        if (inv->sel_slot == i) inv->sel_inner = free_slot;
+        if (inv->sel_slot == i && !inventory_hand(inv)) inv->sel_inner = free_slot;
         return true;
     }
     return false;
@@ -419,7 +419,8 @@ int inventory_count(const Inventory *inv, ItemId id)
 float inventory_tool_speed(const Inventory *inv, int tool_class)
 {
     float best = 1.0f;
-    if (tool_class < 0) return best;
+    /* (With their bare hands chosen, that is what they use, whatever they carry.) */
+    if (tool_class < 0 || inventory_hand(inv)) return best;
     for (int i = 0; i < INVENTORY_SLOTS; i++) {
         const ItemStack *s = &inv->slots[i];
         if (is_empty(s)) continue;
@@ -729,6 +730,16 @@ int inventory_basket_choice(const Inventory *inv, int slot)
     return inner;
 }
 
+void inventory_select_hand(Inventory *inv)
+{
+    inv->sel_inner = SEL_HAND;
+}
+
+bool inventory_hand(const Inventory *inv)
+{
+    return inv->sel_inner == SEL_HAND;
+}
+
 void inventory_select_slot(Inventory *inv, int slot)
 {
     if (slot < 0 || slot >= INVENTORY_SLOTS) return;
@@ -748,6 +759,8 @@ bool inventory_selection_inside(const Inventory *inv, int slot)
 
 const ItemStack *inventory_selected(const Inventory *inv)
 {
+    static const ItemStack nothing = { 0 };
+    if (inventory_hand(inv)) return &nothing;
     const ItemStack *s = &inv->slots[inv->sel_slot];
     if (inventory_selection_inside(inv, inv->sel_slot))
         return &inv->containers[s->container].slots[inv->sel_inner];

@@ -72,6 +72,7 @@ static bool hit_test(const Hud *hud, const Inventory *inv, Vector2 p, bool *head
 /* The top of whatever stands on the selected slot: the slot, or the basket open above it. */
 static Rectangle selected_top(const Hud *hud, const Inventory *inv)
 {
+    if (inventory_hand(inv)) return cell_rect(0, 0);
     return cell_rect(inv->sel_slot + 1, basket_shown(hud, inv, inv->sel_slot) ? COLUMN_ROWS : 0);
 }
 
@@ -120,6 +121,8 @@ static void handle_tap(Hud *hud, Inventory *inv)
         hud_close_all(hud);
         hud->armor_open = open;
         for (int i = 0; i < INVENTORY_SLOTS; i++) hud->basket_open[i] = open;
+        /* And it is chosen, as a slot is: nothing in hand but the hand. */
+        inventory_select_hand(inv);
     } else if (s.kind == SLOT_BAR) {
         inventory_select_slot(inv, s.index);
         if (is_basket(inv, s.index)) hud->basket_open[s.index] = !hud->basket_open[s.index];
@@ -353,7 +356,7 @@ void hud_draw(const Hud *hud, const Inventory *inv)
         draw_stack(inv, s, hud->extra[i].rect, s == dragged ? picked : 0);
     }
 
-    draw_box(cell_rect(0, 0), hud->armor_open);
+    draw_box(cell_rect(0, 0), hud->armor_open || inventory_hand(inv));
     hud_draw_head_icon(cell_rect(0, 0));
     if (hud->armor_open) {
         for (int i = 0; i < ARMOR_SLOTS; i++) {
@@ -369,7 +372,7 @@ void hud_draw(const Hud *hud, const Inventory *inv)
         const ItemStack *s = &inv->slots[i];
         bool open = basket_shown(hud, inv, i);
         bool inside = inventory_selection_inside(inv, i);
-        draw_box(r, inv->sel_slot == i && !(open && inside));
+        draw_box(r, inv->sel_slot == i && !(open && inside) && !inventory_hand(inv));
 
         int chosen = inside ? inv->sel_inner : inventory_basket_choice(inv, i);
         if (!open && chosen >= 0) {

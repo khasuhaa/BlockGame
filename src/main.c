@@ -518,7 +518,8 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
             int mob = game_mob_at(g, world_at(mouse, Z_BODY).x, world_at(mouse, Z_BODY).y);
             /* What has not been uncovered cannot be clicked on: nothing in it, and not the square. */
             if (game_explored(g, t.x, t.y) == 0) {}
-            else if (drop >= 0) game_click_drop(g, drop);
+            /* (Something lying there that there is no room for is not in the way of what is behind it.) */
+            else if (drop >= 0 && game_can_collect(g, drop)) game_click_drop(g, drop);
             /* A creature under the cursor is hunted. */
             else if (mob >= 0) game_click_mob(g, mob);
             /* A second click on a square with something queued takes it back. */

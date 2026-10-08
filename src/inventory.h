@@ -126,6 +126,11 @@ void inventory_select(Inventory *inv, int slot, int inner);
 /* Chooses a bar slot as the number keys do: if a basket is there, the item
  * last chosen inside it, as long as it is still there. */
 void inventory_select_slot(Inventory *inv, int slot);
+/* Selecting nothing: the character's bare hands. Then nothing is held - there is nothing to put down or eat - and
+ * no tool is used, whatever tools are carried. (Kept as a value of `sel_inner` that no basket has.) */
+#define SEL_HAND (-2)
+void inventory_select_hand(Inventory *inv);
+bool inventory_hand(const Inventory *inv);
 /* The slot inside the basket in a bar slot that it shows when closed, or -1. */
 int inventory_basket_choice(const Inventory *inv, int slot);
 /* The selected stack: the chosen item inside a container if there is one

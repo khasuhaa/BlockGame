@@ -495,6 +495,9 @@ float game_mine_time(const Game *g, TileType t);
 
 /* Queues walking up to a drop and picking it up. */
 bool game_queue_collect(Game *g, int drop);
+/* Whether the character has room for something lying on the ground: a click on one they have not is a click on
+ * whatever is behind it. */
+bool game_can_collect(const Game *g, int drop);
 /* The drop whose centre is nearest a point in tile space and within reach of
  * a tap, or -1. */
 int game_drop_at(const Game *g, float x, float y);

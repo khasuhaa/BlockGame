@@ -345,7 +345,7 @@ The bar along the bottom has a head button followed by 8 slots. Stacks hold up t
 
 - Tap a slot to select it. Tapping a basket also opens or closes its 4 slots, which extend upward from it. The name of the selected item shows above its slot for a couple of seconds whenever the selection changes, and the name of anything being dragged shows under the cursor.
 - Tap an item inside a basket to select it; the closed basket then shows that item. Tapping an empty basket slot selects the basket.
-- Tap the head button to open the 4 armor slots (head, chest, legs, boots) and every basket at once.
+- Tap the head button to open the 4 armor slots (head, chest, legs, boots) and every basket at once. It is also a slot that can be chosen, as the others are: with it chosen the character has nothing in hand but their hands. Nothing is put down or eaten, and a block is dug by hand - at the pace of no tool at all - whatever tools are in the bar. Choosing any other slot goes back to using the best tool carried.
 - A stack has an order: things are taken off the **top** of it, and things added go on top. For most items that makes no difference. For items with a **meter** - a bucket's water, or a tool's wear if it is given a `"durability"` in `items.json` (none of the shipped tools is) - each one keeps its own reading, a stack of them holds them whatever they read, and the one on top is the one that is shown and used. So taking half a stack off and putting the rest back on top of it leaves what was the top one in the middle.
 - Tools stack.
 - Press and hold on a stack to pick items up from it, from the top down: 1 after a moment, then 2, 3 … 10, then 15, 20, 25 … up to one fewer than the stack holds. The count stops rising once the cursor leaves the slot. Release over an empty slot or an equal stack to put them there; release anywhere else to put them back.
@@ -652,7 +652,7 @@ The world is drawn in depth. The game itself is still a grid seen from the side 
 
 **A creature that attacks, hit and not killed, goes for whoever hit it**, there and then: a dropbear comes down out of its tree for them from however far along they hit it from, and a scorpion or a shark that was resting from its last attack has done resting.
 
-**A click on something lying on the ground** picks up all of that thing that is lying in the square - the whole pile, or as much of it as there is room for.
+**A click on something lying on the ground** picks up all of that thing that is lying in the square - the whole pile, or as much of it as there is room for. Where there is room for none of it, the click is not on it at all: it goes to whatever is behind - the block, the bench, the square.
 
 ### Pace, and flying
 

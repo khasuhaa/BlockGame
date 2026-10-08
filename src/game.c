@@ -1065,6 +1065,16 @@ bool game_unqueue_tile(Game *g, int tx, int ty)
     return unqueue(g, match_tile, (TilePos){ world_wrap_x(&g->world, tx), ty }, 0);
 }
 
+bool game_can_collect(const Game *g, int drop)
+{
+    static Inventory tried; /* (the whole of what they carry, to try it in: too big to keep on the stack) */
+    if (drop < 0 || drop >= MAX_DROPS || !g->drops[drop].active) return false;
+    const Drop *d = &g->drops[drop];
+    if (item_def(d->item)->crystals > 0) return true;
+    tried = g->inventory;
+    return inventory_add_stack(&tried, (ItemStack){ d->item, 1, 0 }) == 0;
+}
+
 bool game_click_drop(Game *g, int drop)
 {
     if (unqueue(g, match_drop, (TilePos){ 0, 0 }, drop)) return true;

@@ -11386,6 +11386,60 @@ static void test_no_dropping(void)
     game_free(&g);
 }
 
+/* Bare hands, chosen like a slot; and what lies on the ground that there is no room for. */
+static void test_hands_and_full_bars(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    static Game g;
+    game_init(&g, 128, 64, 4, WORLD_FLAT);
+    g.tick_rate = 0;
+    clear_mobs(&g);
+    clear_inventory(&g);
+    Inventory *inv = &g.inventory;
+    World *w = &g.world;
+    int row = w->surface_y - 1, x = g.player.feet.x;
+    ItemId pick = item_id("iron_pickaxe"), axe = item_id("iron_axe");
+    /* A bar full of tools: digging goes at the pace of the best of them, whichever slot is chosen... */
+    for (int i = 0; i < INVENTORY_SLOTS; i++) inv->slots[i] = (ItemStack){ .id = (uint16_t)(i % 2 ? pick : axe), .count = 1 };
+    inventory_select_slot(inv, 0);
+    float bare = tile_def(TILE_STONE)->mine_time, tooled = game_mine_time(&g, TILE_STONE);
+    CHECK(!inventory_hand(inv) && inventory_selected(inv)->id == axe && tooled < bare * 0.75f);
+    /* ...until the hand is chosen: then nothing is held, and it is by hand, as slow as that is. */
+    inventory_select_hand(inv);
+    CHECK(inventory_hand(inv) && inventory_selected(inv)->count == 0 && inventory_selected(inv)->id == ITEM_NONE);
+    CHECK(game_mine_time(&g, TILE_STONE) == bare && inventory_tool_speed(inv, item_def(pick)->tool_class) == 1.0f);
+    world_set(w, x + 1, row, TILE_STONE);
+    CHECK(game_click_tile(&g, x + 1, row) && g.queue[0].type == ACTION_MINE);
+    run(&g, 0.3f);
+    CHECK(g.player.activity == ACTIVITY_MINING && near(g.player.duration, bare));
+    run(&g, bare + 1.0f);
+    CHECK(world_get(w, x + 1, row) == TILE_AIR);
+    /* Nothing is carried off for its having been chosen; and choosing a slot again is choosing its tool again. */
+    CHECK(inventory_count(inv, pick) + inventory_count(inv, axe) == INVENTORY_SLOTS);
+    inventory_select_slot(inv, 3);
+    CHECK(!inventory_hand(inv) && inventory_selected(inv)->id == pick && near(game_mine_time(&g, TILE_STONE), tooled));
+    /* It is kept with the world, like any choice of slot. */
+    inventory_select_hand(inv);
+    CHECK(save_game(&g, "build/test_hand.world"));
+    static Game loaded;
+    CHECK(load_game(&loaded, "build/test_hand.world") && inventory_hand(&loaded.inventory) && inventory_selected(&loaded.inventory)->count == 0);
+    game_free(&loaded);
+
+    /* With the bar full, what was dug lies where it fell: there is no room for it... */
+    int stone = -1;
+    for (int i = 0; i < MAX_DROPS; i++)
+        if (g.drops[i].active && g.drops[i].item == item_id("stone")) stone = i;
+    CHECK(stone >= 0 && !game_can_collect(&g, stone));
+    /* ...and with room made, there is. */
+    inv->slots[5] = (ItemStack){ 0 };
+    CHECK(game_can_collect(&g, stone) && !game_can_collect(&g, -1) && !game_can_collect(&g, MAX_DROPS));
+    inv->slots[5] = (ItemStack){ .id = (uint16_t)item_id("stone"), .count = 1 }; /* (or a stack of the same to add it to) */
+    CHECK(game_can_collect(&g, stone));
+    game_free(&g);
+}
+
 int main(void)
 {
     char err[256];
@@ -11518,6 +11572,7 @@ int main(void)
     test_trains();
     test_pace_and_flight();
     test_no_dropping();
+    test_hands_and_full_bars();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;
