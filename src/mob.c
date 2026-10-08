@@ -267,6 +267,18 @@ static void kill_mob(Game *g, int mob, bool cooked)
             else game_drop_item(g, item, m->x, m->y);
         }
     }
+    /* Sunk: what is left of it lies on the bottom under where it went down. Weed gives way to it; a thing that
+     * holds something or is worked at does not, and it comes to rest on top. */
+    if (def->wreck != TILE_AIR) {
+        int y = m->y, layer = tile_def(def->wreck)->layer;
+        while (y < g->world.height - 2 && !world_is_solid(&g->world, m->x, y + 1)) y++;
+        for (int up = 0; up < 4 && y - up >= 0; up++) {
+            const TileDef *there = tile_def(world_get_at(&g->world, layer, m->x, y - up));
+            if (there->storage_columns > 0 || there->bench || there == tile_def(def->wreck)) continue;
+            world_set_at(&g->world, layer, m->x, y - up, def->wreck);
+            break;
+        }
+    }
     m->active = false;
 }
 
@@ -686,7 +698,9 @@ void mobs_tick(Game *g)
             if (m->state > 0) m->state--;
             int sdx = world_dx(w, m->x, g->player.feet.x), sdy = g->player.feet.y - m->y;
             if (m->state == 0 && abs(sdx) <= def->strike_range && abs(sdy) <= def->strike_range && game_boons(g).unseen <= 0.0f) {
-                game_attacked(g, def->strike_share);
+                /* (Aboard something, it is that which is struck - and sunk under them, if it comes to it.) */
+                if (g->mount > 0 && g->mount <= MAX_MOBS && g->mobs[g->mount - 1].active && content.mobs[g->mobs[g->mount - 1].kind].gun_range > 0) mob_hurt(g, g->mount - 1, (int)(def->strike_share * 200.0f + 0.5f));
+                else game_attacked(g, def->strike_share);
                 g->shot.from_x = (float)m->x + 0.5f, g->shot.from_y = (float)m->y - 0.5f;
                 g->shot.to_x = (float)m->x + (float)sdx + 0.5f, g->shot.to_y = (float)g->player.feet.y - 0.5f;
                 g->shot.age = 0.0f;
@@ -697,6 +711,16 @@ void mobs_tick(Game *g)
         if (def->swims || def->flies) {
             /* One of the air or the water that is somebody's: it keeps near them, as far as it can go. */
             int fdx = world_dx(w, m->x, g->player.feet.x), fdy = g->player.feet.y - 2 - m->y;
+            /* (And goes for whatever wild thing is near enough to fire on.) */
+            if (m->owned && def->companion && g->mount != i + 1 && def->gun_damage > 0) {
+                if (m->timer > 0) m->timer--;
+                for (int k = 0; m->timer == 0 && k < MAX_MOBS; k++) {
+                    const Mob *o = &g->mobs[k];
+                    if (!o->active || o->owned || abs(world_dx(w, m->x, o->x)) > def->gun_range || abs(o->y - m->y) > def->gun_range || (content.mobs[o->kind].strike_share <= 0.0f && content.mobs[o->kind].bite <= 0.0f)) continue;
+                    mob_hurt(g, k, def->gun_damage);
+                    m->timer = 40;
+                }
+            }
             if (m->owned && def->companion && game_alive(g) && (abs(fdx) > 4 || abs(fdy) > 4)) {
                 if (abs(fdx) > 30 || abs(fdy) > 20) {
                     if (def->flies) m->x = m->to_x = g->player.feet.x, m->y = m->to_y = g->player.feet.y - 2, m->step_left = 0;

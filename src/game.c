@@ -1351,6 +1351,14 @@ bool game_click_mob(Game *g, int mob)
     bool tame = held->count > 0 && item_def((ItemId)held->id)->tames > 0 && content.mobs[m->kind].tame > 0 && !m->owned;
     /* One of their own: fed with what makes it grow; or, with nothing of the sort in hand, got up on or down from. */
     if (held->count > 0 && item_def((ItemId)held->id)->feeds > 0 && m->owned && content.mobs[m->kind].companion) tame = true;
+    /* A ship that can be boarded, with something to board it by in hand: from a little way off. */
+    bool board = held->count > 0 && item_def((ItemId)held->id)->boards && content.mobs[m->kind].crew_count > 0 && !m->owned;
+    if (board) {
+        /* (A ship does not wait to be walked up to: near enough, the hook is thrown there and then.) */
+        if (abs(world_dx(&g->world, g->player.feet.x, m->x)) > 8 || abs(g->player.feet.y - m->y) > 6) return false;
+        game_board(g, mob);
+        return true;
+    }
     if (!tame && m->owned && content.mobs[m->kind].mount && game_technique_armed(g) == ITEM_NONE &&
         !(held->count > 0 && (item_def((ItemId)held->id)->cages || item_def((ItemId)held->id)->shears || item_def((ItemId)held->id)->milks)) &&
         abs(world_dx(&g->world, g->player.feet.x, m->x)) <= 3 && abs(g->player.feet.y - m->y) <= 3) {
@@ -1564,6 +1572,9 @@ void game_poison(Game *g, int ticks)
 int game_attack_range(const Game *g)
 {
     const ItemStack *held = inventory_selected(&g->inventory);
+    /* (Aboard something with guns, it is the guns that are fired.) */
+    if (g->mount > 0 && g->mount <= MAX_MOBS && g->mobs[g->mount - 1].active && content.mobs[g->mobs[g->mount - 1].kind].gun_damage > 0)
+        return content.mobs[g->mobs[g->mount - 1].kind].gun_range;
     return held->count > 0 ? item_def(held->id)->range : 0;
 }
 
@@ -1571,6 +1582,8 @@ int game_attack_damage(const Game *g)
 {
     const ItemStack *held = inventory_selected(&g->inventory);
     int with = held->count > 0 ? item_def(held->id)->damage : 0;
+    if (g->mount > 0 && g->mount <= MAX_MOBS && g->mobs[g->mount - 1].active && content.mobs[g->mobs[g->mount - 1].kind].gun_damage > 0)
+        return content.mobs[g->mobs[g->mount - 1].kind].gun_damage * (g->mobs[g->mount - 1].size > 1 ? 1 : 1) + game_boons(g).strength;
     return (with > content.rules.hand_damage ? with : content.rules.hand_damage) + game_boons(g).strength;
 }
 
@@ -2129,7 +2142,9 @@ static void finish_activity(Game *g)
                     deny(g, (TilePos){ m->x, m->y });
             } else if (g->current.arg == HAND_TAME) {
                 /* Taming: with something strong enough for it, a wild creature is theirs from then on. */
-                if (m->owned && with->feeds > 0 && content.mobs[m->kind].companion && in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y }) && inventory_remove(&g->inventory, held->id, 1) == 1) {
+                if (with->boards && content.mobs[m->kind].crew_count > 0 && !m->owned) {
+                    game_board(g, g->current.drop);
+                } else if (m->owned && with->feeds > 0 && content.mobs[m->kind].companion && in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y }) && inventory_remove(&g->inventory, held->id, 1) == 1) {
                     /* Fed: it is well again, and - up to a point - bigger. */
                     if (m->size < 3) m->size = (uint8_t)((m->size > 0 ? m->size : 1) + 1);
                     m->hp = (content.mobs[m->kind].health > 0 ? content.mobs[m->kind].health : 1) * (m->size > 0 ? m->size : 1);
@@ -2946,6 +2961,73 @@ static TileType gate_at(const World *w, int x, int y, int *bottom)
     *bottom = y;
     world_structure(w, layer, x, y, bottom);
     return t;
+}
+
+/* Boarding: the ship is grappled and is a ship no longer - where it lay there is a deck on the water, its crew are
+ * on it, their captain among them, and whoever boarded stands at the end of it. */
+void game_board(Game *g, int mob)
+{
+    World *w = &g->world;
+    if (mob < 0 || mob >= MAX_MOBS || !g->mobs[mob].active) return;
+    Mob *m = &g->mobs[mob];
+    const MobDef *def = &content.mobs[m->kind];
+    int crew = mob_id(def->crew), captain = mob_id(def->captain);
+    if (def->crew_count <= 0 || def->deck == TILE_AIR || crew < 0) return;
+    int row = m->y, half = 4 + def->crew_count, cx = m->x;
+    /* (The top of the water there: the deck lies on it.) */
+    while (row > 1 && world_is_water(w, cx, row - 1)) row--;
+    int side = world_dx(w, cx, g->player.feet.x) >= 0 ? 1 : -1;
+    for (int dx = -half; dx <= half; dx++) {
+        int x = world_wrap_x(w, cx + dx);
+        if (world_is_solid(w, x, row)) continue;
+        world_set_water(w, x, row, 0);
+        world_set(w, x, row, def->deck);
+        for (int up = 1; up <= 3; up++)
+            if (!world_is_solid(w, x, row - up)) world_set_water(w, x, row - up, 0);
+    }
+    m->active = false;
+    for (int n = 0; n < def->crew_count; n++) mob_spawn(g, crew, world_wrap_x(w, cx - side * (n * 2 - def->crew_count + 1)), row - 1, false, false);
+    if (captain >= 0) mob_spawn(g, captain, world_wrap_x(w, cx - side * (half - 1)), row - 1, false, false);
+    g->mount = 0;
+    g->player.feet = g->player.step_to = (TilePos){ world_wrap_x(w, cx + side * (half - 1)), row - 1 };
+    g->player.activity = ACTIVITY_IDLE;
+    game_cancel_actions(g);
+}
+
+/* Where the buried thing a treasure map is of lies: the column, or -1 if there is nothing buried anywhere. A map
+ * that is of nothing yet is given something - whatever it is, it keeps. */
+int game_treasure_column(Game *g, ItemStack *map)
+{
+    const World *w = &g->world;
+    int rows = w->region_count > 0 ? w->home_height : w->height;
+    int at = inventory_meter(&g->inventory, map);
+    if (at > 0 && at <= w->width) {
+        for (int y = 0; y < rows; y++)
+            for (int layer = 0; layer < BLOCK_LAYERS; layer++)
+                if (tile_def(world_get_at(w, layer, at - 1, y))->buried_treasure) return at - 1;
+    }
+    /* (Dug up, or never set: another, by chance, of those there are.) */
+    int found = 0, pick = -1;
+    for (int pass = 0; pass < 2; pass++) {
+        int seen = 0;
+        for (int x = 0; x < w->width; x++) {
+            bool here = false;
+            for (int y = 0; y < rows && !here; y++)
+                for (int layer = 0; layer < BLOCK_LAYERS && !here; layer++) here = tile_def(world_get_at(w, layer, x, y))->buried_treasure;
+            if (!here) continue;
+            if (pass == 1 && seen == pick) {
+                inventory_set_meter(&g->inventory, map, x + 1);
+                return x;
+            }
+            seen++;
+        }
+        if (pass == 0) {
+            found = seen;
+            if (found == 0) return -1;
+            pick = (int)(game_random(g) % (uint32_t)found);
+        }
+    }
+    return -1;
 }
 
 bool game_rocket_report(const Game *g, int x, int y, int *fuel, int *thrust, float *reliability, bool *escape, int *need_fuel, int *need_thrust)
@@ -4311,6 +4393,7 @@ void game_tick(Game *g)
     mobs_tick(g);
     signal_tick(g);
     dao_world_tick(g);
+    if (g->mount > 0 && (g->mount > MAX_MOBS || !g->mobs[g->mount - 1].active)) g->mount = 0; /* (what they rode is gone) */
     water_step(w);
     power_tick(g);
     industry_tick(g);

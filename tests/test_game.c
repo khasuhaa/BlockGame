@@ -13006,6 +13006,154 @@ static void test_sky_mod(void)
         if (&mods.mods[i] != mine) CHECK(!mods_conflict(mine, &mods.mods[i], what, sizeof what));
 }
 
+/* Plunder & Thunder: a world of sea and islands, ships, boarding, treasure. */
+static void test_plunder_mod(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    CHECK(!content.worldgen.ocean);
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count, mobs = content.mob_count;
+    if (!content_load("mods/plunder_and_thunder", err, sizeof err)) {
+        printf("FAIL plunder and thunder does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    CHECK(content.tile_count - tiles == 299 && content.item_count - items == 730 && content.recipe_count - recipes == 633 && content.mob_count - mobs == 94);
+    CHECK(content.worldgen.ocean && content.worldgen.wreck_count == 7);
+
+    /* The world: mostly sea, land where it begins, towns on some of the islands, things buried and things sunk. */
+    static Game g;
+    game_init(&g, 2048, 401, 77, WORLD_TERRAIN);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    g.tick_rate = 20;
+    int wet = 0, isles = 0;
+    bool was_sea = true;
+    for (int x = 0; x < w->width; x++) {
+        bool sea = world_is_water(w, x, w->sea_row + 1);
+        wet += sea;
+        isles += was_sea && !sea;
+        was_sea = sea;
+    }
+    CHECK(wet > w->width * 55 / 100 && wet < w->width * 92 / 100 && isles >= 8);
+    CHECK(!world_is_water(w, w->spawn_x, w->sea_row + 1) && world_is_solid(w, g.player.feet.x, g.player.feet.y + 1));
+    CHECK(count_tile(w, BG, tile_id("town_bell")) >= 2 && count_tile(w, BG, tile_id("harbour_market")) >= 2 && count_tile(w, 0, tile_id("treasure_mound")) >= 5 && count_tile(w, BG, tile_id("wreck_chest")) >= 3);
+
+    /* An island is one of the islands' own countries, whatever the climate there; things grow on the sea bed, and things lie on the sand. */
+    {
+        int start = -1, own = 0, other = 0;
+        for (int x = 0; x < w->width; x++) {
+            bool sea = world_is_water(w, x, w->sea_row + 1);
+            if (!sea && start < 0) start = x;
+            if (!sea || start < 0) continue;
+            if (x - start > 20) {
+                const char *name = content.biomes[w->biome[(start + x) / 2]].name;
+                bool mine = false;
+                for (int k = 0; k < content.worldgen.isle_biome_count; k++) mine = mine || strcmp(name, content.worldgen.isle_biomes[k]) == 0;
+                own += mine;
+                other += !mine;
+            }
+            start = -1;
+        }
+        CHECK(content.worldgen.isle_biome_count == 12 && own >= 5 && other == 0);
+        CHECK(count_tile(w, BG, tile_id("oyster_bed")) >= 8 && count_tile(w, BG, tile_id("sponge_bed")) >= 5 && count_tile(w, BG, tile_id("giant_clam")) >= 1);
+        CHECK(count_tile(w, BG, tile_id("driftwood_pile")) + count_tile(w, BG, tile_id("conch_on_sand")) + count_tile(w, BG, tile_id("castaway_bones")) + count_tile(w, BG, tile_id("bottle_on_sand")) >= 12);
+        CHECK(count_tile(w, BG, tile_id("sunken_reliquary")) >= 1);
+    }
+    /* A ship is launched on the water, got aboard, and sailed; and her guns are what her captain fights with. */
+    int sx = -1, row = w->sea_row + 1;
+    for (int x = w->spawn_x; x < w->spawn_x + 400 && sx < 0; x++)
+        if (world_is_water(w, x, row) && world_is_water(w, x + 6, row) && world_is_water(w, x - 6, row) && world_is_water(w, x, row + 4)) sx = x;
+    CHECK(sx > 0);
+    int sloop = -1, foe_kind = -1;
+    for (int k = 0; k < content.mob_count; k++) {
+        if (strcmp(content.mobs[k].name, "sloop_afloat") == 0) sloop = k;
+        if (strcmp(content.mobs[k].name, "pirate_sloop") == 0) foe_kind = k;
+    }
+    CHECK(sloop >= 0 && foe_kind >= 0 && content.mobs[sloop].caged == item_id("sloop") && content.mobs[sloop].mount && content.mobs[sloop].gun_damage == 14 && content.mobs[foe_kind].crew_count == 4);
+    clear_inventory(&g);
+    g.player.feet = g.player.step_to = (TilePos){ sx, row };
+    int mine = mob_spawn(&g, sloop, sx + 1, row, true, false);
+    int afoot = game_attack_damage(&g);
+    CHECK(mine >= 0 && g.mount == 0 && game_click_mob(&g, mine) && g.mount == mine + 1);
+    CHECK(game_attack_damage(&g) == 14 + (afoot - content.rules.hand_damage) && game_attack_range(&g) == 9 && game_boons(&g).walk > 2.0f);
+    ticks(&g, 3);
+    CHECK(g.mobs[mine].x == g.player.feet.x && g.mobs[mine].y == g.player.feet.y);
+    /* What fires on them strikes the ship, not them. */
+    int foe = mob_spawn(&g, foe_kind, sx + 6, row, false, false);
+    int hull = g.mobs[mine].hp;
+    float health = g.vitals.health;
+    for (int i = 0; i < 400 && g.mobs[mine].active && g.mobs[mine].hp == hull; i++) game_tick(&g);
+    CHECK(foe >= 0 && g.mobs[mine].hp < hull && g.vitals.health == health);
+    /* Boarding: grappled, she is a deck on the water with her crew on it - and her captain has her papers. */
+    int cutthroats = 0, captains = 0;
+    clear_inventory(&g);
+    in_hand(&g, "grappling_hook");
+    g.player.feet = g.player.step_to = (TilePos){ g.mobs[foe].x - 3, row };
+    int fx = g.mobs[foe].x;
+    CHECK(game_click_mob(&g, foe));
+    for (int k = 0; k < MAX_MOBS; k++) {
+        if (!g.mobs[k].active) continue;
+        cutthroats += strcmp(content.mobs[g.mobs[k].kind].name, "pirate_cutthroat") == 0;
+        captains += strcmp(content.mobs[g.mobs[k].kind].name, "pirate_sloop_captain") == 0;
+    }
+    int ships_left = 0;
+    for (int k = 0; k < MAX_MOBS; k++) ships_left += g.mobs[k].active && g.mobs[k].kind == foe_kind;
+    CHECK(ships_left == 0 && cutthroats == 4 && captains == 1 && g.mount == 0);
+    int deck = 0;
+    for (int dx = -10; dx <= 10; dx++) deck += world_get(w, fx + dx, row) == tile_id("ship_planks") || world_get(w, fx + dx, row - 1) == tile_id("ship_planks") || world_get(w, fx + dx, row + 1) == tile_id("ship_planks");
+    CHECK(deck >= 10 && world_is_solid(w, g.player.feet.x, g.player.feet.y + 1));
+    bool papers = false;
+    int cap_kind = mob_id("pirate_sloop_captain");
+    for (int i = 0; i < content.mobs[cap_kind].drop_count; i++) papers = papers || content.mobs[cap_kind].drops[i].item == item_id("sloop");
+    CHECK(papers);
+    /* Sunk, a ship leaves her wreckage on the bottom. */
+    int doomed = mob_spawn(&g, foe_kind, sx + 40, row, false, false), before = count_tile(w, BG, tile_id("ship_wreckage"));
+    mob_hurt(&g, doomed, 100000);
+    CHECK(!g.mobs[doomed].active && count_tile(w, BG, tile_id("ship_wreckage")) == before + 1);
+
+    /* A map is of something buried: the same thing each time it is looked at, and another once that is dug up. */
+    clear_inventory(&g);
+    in_hand(&g, "treasure_map");
+    ItemStack *map = (ItemStack *)inventory_selected(inv);
+    int at = game_treasure_column(&g, map);
+    CHECK(at >= 0 && game_treasure_column(&g, map) == at && tile_def(tile_id("treasure_mound"))->buried_treasure);
+    int found_row = -1;
+    for (int y = 0; y < w->height; y++)
+        if (world_get(w, at, y) == tile_id("treasure_mound")) found_row = y;
+    CHECK(found_row > 0);
+    world_set(w, at, found_row, TILE_AIR);
+    for (int y = 0; y < w->height; y++)
+        if (world_get(w, at, y) == tile_id("treasure_mound")) world_set(w, at, y, TILE_AIR);
+    CHECK(game_treasure_column(&g, map) != at);
+    CHECK(save_game(&g, "build/test_plunder.world"));
+    static Game back;
+    CHECK(load_game(&back, "build/test_plunder.world") && back.world.sea_row == w->sea_row);
+    game_free(&back);
+    game_free(&g);
+
+    /* Without it a world is what it always was. */
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    static Game plain;
+    game_init(&plain, 2048, 401, 77, WORLD_TERRAIN);
+    wet = 0;
+    for (int x = 0; x < plain.world.width; x++) wet += world_is_water(&plain.world, x, plain.world.sea_row + 1);
+    CHECK(wet < plain.world.width / 2);
+    game_free(&plain);
+
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/settest/saves");
+    const ModInfo *mine_mod = NULL;
+    for (int i = 0; i < mods.count; i++)
+        if (strcmp(mods.mods[i].id, "plunder_and_thunder") == 0) mine_mod = &mods.mods[i];
+    CHECK(mine_mod != NULL);
+    char what[64];
+    for (int i = 0; mine_mod && i < mods.count; i++)
+        if (&mods.mods[i] != mine_mod) CHECK(!mods_conflict(mine_mod, &mods.mods[i], what, sizeof what));
+}
+
 static void test_recipe_shown(void)
 {
     const Recipe *sluice = NULL, *plain = NULL;
@@ -13852,6 +14000,7 @@ int main(void)
     test_recipe_shown();
     test_seeker_mod();
     test_sky_mod();
+    test_plunder_mod();
     test_equip_selected();
     test_worn();
     test_trade_tiers();

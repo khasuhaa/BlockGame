@@ -593,6 +593,10 @@ bool game_teleport(Game *g);
 bool game_gate_open(const Game *g, int x, int y);
 bool game_travel(Game *g, int x, int y);
 int game_enter_dimension(Game *g, int dim);
+/* Boards a ship (see MobDef): it becomes a deck with its crew on it. */
+void game_board(Game *g, int mob);
+/* The column a treasure map is of (it is given one the first time it is asked), or -1. */
+int game_treasure_column(Game *g, ItemStack *map);
 /* Whether there is air to breathe in a square of a place that has none of its own: it is in a sealed room (walls, and
  * a wall behind) with something lit in it that gives air. Always true where the place has air. */
 bool game_aired(const Game *g, int x, int y);

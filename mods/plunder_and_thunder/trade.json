@@ -1,0 +1,6 @@
+{
+  "categories": [
+    {"name": "cargo", "label": "Cargo"}
+  ],
+  "villages": {"only": true, "swing": 0.35, "share": 0.6, "days": 7, "specialities": 5}
+}

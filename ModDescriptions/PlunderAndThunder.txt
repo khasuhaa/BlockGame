@@ -281,3 +281,45 @@ HARD PARTS, said now:
 
 SIZE, AS PROPOSED            blocks   items   recipes   creatures   ships   islands & buildings
    Plunder & Thunder          ~450     ~900    ~1,100      ~50        9            ~70
+
+================================================================================================================
+WHAT WAS DECIDED, WHAT WAS BUILT, AND WHAT WAS NOT   (October 2026)
+================================================================================================================
+
+THE OWNER'S ANSWERS. Q1: new worlds only. Q2/Q3: ships with boarding. Q4: yes. Q6: yes. Q9: one sitting, all
+stages. Q5, Q7 and Q8 were not answered and the recommendations were taken, as far as they were built.
+
+BUILT (tools/mod_plunder_and_thunder.py; tests in test_plunder_mod)
+   - Ocean worlds: sea bed and islands remade from a stream of their own; a great island every seventh; land
+     where the world begins. Twelve kinds of island, one to an island. Old worlds are untouched.
+   - Ten kinds of town from 61 buildings and wrecks: Company harbour, Crown fort, free port, stilt town,
+     fishing hamlet, lighthouse rock, plantation, old ruin, whaling station, smugglers' den. Trade only in
+     towns, at their own prices; cargo as a category.
+   - Seventeen ships to build, raft to first-rate, sailed as mounts, their guns the rider's attack. Long
+     makings: sloop 9, brig 12, frigate 15, man-of-war 18 deep.
+   - Twenty-two other ships with captains and crews; boarding by grappling hook, which makes the ship a deck
+     to fight on; the captain carries the prize; wreckage on the bottom.
+   - Buried treasure under beaches and a map that draws the island and the cross (Q6); wrecks, drowned
+     shrines and temples; sealed coffers and fourteen great treasures that cannot be made.
+   - Four powers with boards in five ranks, paying and selling in marks.
+   - Twenty-three benches; goods chains (cotton to dyed cloth, tobacco, sugar and rum that ages, chandlery,
+     instruments to a chronometer, guns, a surgeon's chest, jewellery, carving); fourteen outfits; hands and
+     officers' warrants; fish, sea-bed life, shore finds, beasts to the Kraken.
+   SIZE, AS BUILT: 299 blocks, 730 items (74 of them caged creatures), 633 recipes, 94 creatures, 12 island
+   biomes, 61 structures, 19 sets - against ~450 / ~900 / ~1,100 proposed.
+
+NOT BUILT
+   - Wind, tides and storms at sea.
+   - Standing with the powers: no notoriety, wanted level, gaol or pardon. Navy and pirate ships are always
+     hostile and merchants never; marks are only a currency.
+   - Crews as the plan had them (Q4): no wages, morale or mutiny. Hands are hired companions; officers are
+     warrants worn as relics.
+   - Fittings as slots on a ship; a hold that is the ship's own; shot used up by the guns (it is made and
+     goes into other makings only).
+   - Towns that change hands, rumours in taverns, convoys and escorts.
+   - Torn maps, riddle maps, paced-out maps; burying treasure of one's own.
+   - Q8: with Rags to Riches on, both mods' settlements appear together.
+   - Anything for worlds made before the mod.
+   - The art: ships, people and benches are drawn fresh; columns and stairs come from the shared tool. It has
+     been looked at in screenshots (a town, ships at sea, a boarding, a wreck, the map) and not played.
+     Prices, how often ships appear and how hard they hit are guesses.

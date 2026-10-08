@@ -29,7 +29,7 @@
 #define MAX_STRUCTURES 128
 #define STRUCTURE_MAX_WIDTH 32
 #define STRUCTURE_MAX_HEIGHT 20
-#define MAX_VILLAGE_KINDS 8
+#define MAX_VILLAGE_KINDS 24
 #define MAX_VILLAGE_HOUSES 16
 #define MAX_BIOME_SPIKES 8
 #define MAX_GEODES 4
@@ -355,6 +355,7 @@ typedef struct {
     /* "grow_one_in": it grows on only one time in so many that its turn comes (0 or 1: every time). "insight": what
      * using it gives somebody who cultivates (with "use_becomes", once). */
     int grow_one_in, insight;
+    bool buried_treasure; /* "buried_treasure": a treasure map may be of where one of these lies */
     /* Rocketry. "rocket": a part of one - the fuel it holds, the thrust it gives, how likely it is to work, whether it
      * saves the crew when one does not. "pad": what a rocket stands on. "launch": on a way to another place - it is gone
      * through only from on top of a rocket with so much fuel and thrust. "air": lit, it fills the sealed room it is in
@@ -617,6 +618,8 @@ typedef struct {
     /* "technique": {"insight"}: the insight it takes to use. "tames": used on a creature whose "tame" is no more, it is theirs. */
     int technique_insight, tames;
     int insight_gain; /* "insight": taken, it gives so much */
+    bool boards;      /* "boards": used on a ship that can be boarded, it is */
+    bool treasure_map; /* "treasure_map": in hand, it shows the lie of the land about something buried (which, its meter says) */
     int meridian;     /* "meridian": which one it opens, from 1 - and only when those before it are open (0: whichever is next) */
     /* Something taken - drunk, eaten - that does something for a while: these boons, for so many ticks (less
      * than nothing for ever after: a thing that can be taken only once by anybody). Taken again while it lasts,
@@ -1008,6 +1011,18 @@ typedef struct {
     /* The sea: everything open to the sky below this height is under water. */
     bool has_sea;
     int sea_level;
+    /* "ocean": the world is sea with islands in it - how far apart, how long, how high; every so many of them a great
+     * one; how deep the sea lies; and what is sunk in it. (With none of this the world is as it always was.) */
+    bool ocean;
+    int isle_gap_min, isle_gap_max, isle_min, isle_max, isle_peak, great_every, great_min, great_max, great_peak, sea_depth_min, sea_depth_max;
+    char buried_name[CONTENT_NAME_LEN];
+    TileType buried; /* "buried": what lies under the beaches, so many to 1,000 columns */
+    float buried_rate;
+    char wrecks[16][CONTENT_NAME_LEN]; /* (structures, by name: they are read after this is) */
+    int wreck_count;
+    float wreck_rate;
+    char isle_biomes[16][CONTENT_NAME_LEN]; /* what an island may be, by name: one to an island, or to each stretch of a long one */
+    int isle_biome_count;
     /* Climate: two smooth maps round the world, which pick the biome. */
     int heat_wavelength, dryness_wavelength;
     float climate_blend;       /* how far into a climate its border is still mixed */
@@ -1221,6 +1236,13 @@ typedef struct {
     bool swims, hunts;
     /* A creature of the air: it drifts about the open sky as one of the water does the sea, and never lands. */
     bool flies;
+    /* "ship": ridden, whoever rides fights with its guns - so much, so far - and what is aimed at them strikes it; sunk,
+     * it leaves "wreck" on the bottom. "boarding": with something that boards in hand it is grappled - it is gone, there
+     * is a deck where it was, and so many of "crew" on it and their "captain". */
+    int gun_damage, gun_range;
+    TileType wreck, deck;
+    char crew[CONTENT_NAME_LEN], captain[CONTENT_NAME_LEN];
+    int crew_count;
     /* "mount": owned, it can be ridden, at so many times walking pace. "strike": it hits whoever it can see from afar. */
     bool mount;
     float mount_speed;

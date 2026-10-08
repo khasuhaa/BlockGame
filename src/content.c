@@ -381,6 +381,7 @@ static bool read_tiles(Reader *r, const cJSON *root)
             t->qi_reach = (int)num(e, "qi_reach", 6);
             t->needs_qi = (float)num(e, "needs_qi", 0.0);
             t->grow_one_in = (int)num(e, "grow_one_in", 0);
+            t->buried_treasure = flag(e, "buried_treasure", false);
             t->rocket_fuel = (int)num(field(e, "rocket"), "fuel", 0);
             t->rocket_thrust = (int)num(field(e, "rocket"), "thrust", 0);
             t->rocket_reliability = (float)num(field(e, "rocket"), "reliability", 1.0);
@@ -817,6 +818,14 @@ static bool read_items(Reader *r, const cJSON *root)
             it->technique_element = (int)num(technique, "element", -1);
             it->tames = (int)num(e, "tames", 0);
             it->insight_gain = (int)num(e, "insight", 0);
+            it->boards = flag(e, "boards", false);
+            it->treasure_map = flag(e, "treasure_map", false);
+            if (it->treasure_map) {
+                /* (Which buried thing it is of, is what its meter reads: the column, plus one; 0 for none yet.) */
+                it->holds_water = false;
+                it->meter_max = 32000;
+                it->meter_start = 0;
+            }
             it->meridian = (int)num(e, "meridian", 0);
             if (it->meridian > 0) it->opens_meridian = true;
             it->needs_stage = (int)num(e, "needs_stage", 0);
@@ -1151,6 +1160,34 @@ static bool read_worldgen(Reader *r, const cJSON *root)
     if (cJSON_IsNumber(field(root, "sea_level"))) {
         g->has_sea = true;
         g->sea_level = (int)num(root, "sea_level", 0);
+    }
+    {
+        const cJSON *ocean = field(root, "ocean"), *one;
+        if (ocean) {
+            g->ocean = true;
+            g->isle_gap_min = 40, g->isle_gap_max = 140, g->isle_min = 14, g->isle_max = 110, g->great_min = 160, g->great_max = 260, g->sea_depth_min = 10, g->sea_depth_max = 34;
+            pair(ocean, "gap", &g->isle_gap_min, &g->isle_gap_max);
+            pair(ocean, "length", &g->isle_min, &g->isle_max);
+            pair(ocean, "great_length", &g->great_min, &g->great_max);
+            pair(ocean, "depth", &g->sea_depth_min, &g->sea_depth_max);
+            g->isle_peak = (int)num(ocean, "peak", 14);
+            g->great_peak = (int)num(ocean, "great_peak", 46);
+            g->great_every = (int)num(ocean, "great_every", 7);
+            g->wreck_rate = (float)num(ocean, "wrecks_per_1000_columns", 0.0);
+            g->buried_rate = (float)num(ocean, "buried_per_1000_columns", 0.0);
+            copy_name(g->buried_name, CONTENT_NAME_LEN, str(ocean, "buried"));
+            g->wreck_count = 0;
+            cJSON_ArrayForEach(one, field(ocean, "wrecks")) {
+                if (!cJSON_IsString(one) || g->wreck_count >= 16) return fail(r, "\"ocean\": \"wrecks\" lists at most 16 structures, by name");
+                copy_name(g->wrecks[g->wreck_count++], CONTENT_NAME_LEN, one->valuestring);
+            }
+            g->isle_biome_count = 0;
+            cJSON_ArrayForEach(one, field(ocean, "biomes")) {
+                if (!cJSON_IsString(one) || g->isle_biome_count >= 16) return fail(r, "\"ocean\": \"biomes\" lists at most 16 biomes, by name");
+                copy_name(g->isle_biomes[g->isle_biome_count++], CONTENT_NAME_LEN, one->valuestring);
+            }
+            if (g->isle_gap_min < 4 || g->isle_min < 6 || g->isle_max < g->isle_min || g->sea_depth_min < 2) return fail(r, "\"ocean\": islands are 6 or more long, 4 or more apart, in a sea 2 or more deep");
+        }
     }
     const cJSON *climate = field(root, "climate");
     if (climate) {
@@ -2011,6 +2048,16 @@ static bool read_mobs(Reader *r, const cJSON *root)
         if (m->spawn_time < 0) return fail(r, "mob \"%s\": the \"time\" it spawns at is \"day\" or \"night\"", name);
         m->flies = flag(e, "flies", false);
         m->tame = (int)num(e, "tame", 0);
+        {
+            const cJSON *ship = field(e, "ship"), *boarding = field(e, "boarding");
+            m->gun_damage = (int)num(ship, "guns", 0);
+            m->gun_range = ship ? (int)num(ship, "range", 8) : 0;
+            m->wreck = m->deck = TILE_AIR;
+            if (!tile_ref(r, ship, "wreck", &m->wreck) || !tile_ref(r, boarding, "deck", &m->deck)) return false;
+            copy_name(m->crew, sizeof m->crew, str(boarding, "crew"));
+            copy_name(m->captain, sizeof m->captain, str(boarding, "captain"));
+            m->crew_count = (int)num(boarding, "count", 0);
+        }
         m->mount = field(e, "mount") != NULL;
         m->mount_speed = (float)num(field(e, "mount"), "speed", 1.5);
         m->strike_share = (float)num(field(e, "strike"), "share", 0.0);

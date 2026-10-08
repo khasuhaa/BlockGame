@@ -557,6 +557,31 @@ static void assign_biomes(World *w, const int *level, int *biome, float *share_o
             }
         }
     }
+
+    /* A world of sea: an island is one country from the list given, whatever the climate there - and a long
+     * island one for each stretch of it. Its shores stay shore. (Chosen by the seed and where the island is,
+     * not from the world's run of numbers.) */
+    int kinds[16], kind_count = 0;
+    for (int k = 0; gen->ocean && gen->has_sea && k < gen->isle_biome_count; k++)
+        for (int b = 1; b < content.biome_count; b++)
+            if (strcmp(content.biomes[b].name, gen->isle_biomes[k]) == 0 && content.biomes[b].dimension < 0) kinds[kind_count++] = b;
+    for (int x = 0; kind_count > 0 && x < width;) {
+        if (level[x] < gen->sea_level) { x++; continue; }
+        int end = x;
+        while (end < width && level[end] >= gen->sea_level) end++;
+        int parts = (end - x + 109) / 110;
+        for (int p = 0; p < parts; p++) {
+            int from = x + (end - x) * p / parts, to = x + (end - x) * (p + 1) / parts;
+            uint32_t h = (w->seed ^ 0x151Eu) * 2654435761u + (uint32_t)from * 40503u;
+            h ^= h >> 15; h *= 2246822519u; h ^= h >> 13;
+            for (int i = from; i < to; i++) {
+                if (content.biomes[biome[i]].near_sea > 0) continue;
+                biome[i] = kinds[h % (uint32_t)kind_count];
+                share_out[i] = 1.0f;
+            }
+        }
+        x = end;
+    }
 }
 
 /* Which kind of cave a square underground is in, or -1: by its column and how far down it is. */
@@ -872,6 +897,91 @@ static void place_villages(World *w, const int *level)
     }
 }
 
+/* An ocean world: the land the world would have had is put aside, and in its place is a sea bed with islands
+ * standing out of it - one where the world begins, then one after another round it, every so many a great one.
+ * (All from numbers of its own, so that a world made without it is what it always was.) */
+static void ocean_levels(World *w, int *level)
+{
+    const WorldGenDef *gen = &content.worldgen;
+    uint32_t rng = w->seed ^ 0x0CEA11u;
+    if (rng == 0) rng = 1;
+    int width = w->width;
+    for (int x = 0; x < width; x++) {
+        float deep = (ring_noise(w->seed ^ 0xDEE9u, x, width, 70) + 1.0f) * 0.5f;
+        level[x] = gen->sea_level - gen->sea_depth_min - (int)(deep * (float)(gen->sea_depth_max - gen->sea_depth_min)) - (int)(hash01(w->seed ^ 0x5EAu, x / 3) * 2.0f);
+    }
+    int at = w->spawn_x - 9, count = 0;
+    int done = 0;
+    while (done < width - gen->isle_gap_min) {
+        bool great = count > 0 && gen->great_every > 0 && count % gen->great_every == gen->great_every - 1;
+        int length = count == 0 ? 18 : great ? rng_range(&rng, gen->great_min, gen->great_max) : rng_range(&rng, gen->isle_min, gen->isle_max);
+        /* (Most are small: the long ones are the rarer.) */
+        if (count > 0 && !great && rng_range(&rng, 0, 2) != 0) length = gen->isle_min + (length - gen->isle_min) / 2;
+        if (done + length > width - gen->isle_gap_min) break;
+        int peak = great ? gen->great_peak : 3 + (gen->isle_peak - 3) * length / (gen->isle_max > 0 ? gen->isle_max : 1);
+        peak = count == 0 ? 3 : rng_range(&rng, peak / 2 + 2, peak + 2);
+        int flat = rng_range(&rng, 0, 2);
+        for (int i = 0; i < length; i++) {
+            int x = world_wrap_x(w, at + i);
+            float t = ((float)i + 0.5f) / (float)length, edge = t < 0.5f ? t * 2.0f : (1.0f - t) * 2.0f;
+            /* A beach either end, rising to the middle - or to a table, or to two hills with a saddle between. */
+            float shape = flat == 0 ? smoothstep(edge) : flat == 1 ? smoothstep(edge * 2.5f) : smoothstep(edge) * (0.55f + 0.45f * fabsf(t - 0.5f) * 2.0f + 0.2f);
+            int high = gen->sea_level + 2 + (int)(shape * (float)peak + ring_noise(w->seed ^ 0x151Eu, x, width, 9) * (great ? 3.0f : 1.2f) * shape);
+            /* (The shore shelves away under the water.) */
+            if (high > level[x]) level[x] = high;
+        }
+        for (int side = -1; side <= 1; side += 2) {
+            for (int k = 1; k <= 12; k++) {
+                int x = world_wrap_x(w, side < 0 ? at - k : at + length - 1 + k), shelf = gen->sea_level - k;
+                if (shelf > level[x]) level[x] = shelf;
+            }
+        }
+        int gap = rng_range(&rng, gen->isle_gap_min, gen->isle_gap_max);
+        at += length + gap;
+        done += length + gap;
+        count++;
+    }
+}
+
+/* What lies on the bottom of an ocean world: wrecks, each where the water is deep enough to hide it. */
+static void sink_wrecks(World *w, const int *level)
+{
+    const WorldGenDef *gen = &content.worldgen;
+    uint32_t rng = w->seed ^ 0x3EC4ED5u;
+    if (rng == 0) rng = 1;
+    /* And under the beaches, a little way down, what somebody buried. */
+    TileType buried = gen->buried_name[0] ? tile_id(gen->buried_name) : -1;
+    for (int n = 0; buried > 0 && n < (int)(gen->buried_rate * (float)w->width / 1000.0f); n++) {
+        for (int go = 0; go < 60; go++) {
+            int x = rng_range(&rng, 0, w->width - 1);
+            if (level[x] <= gen->sea_level || level[x] > gen->sea_level + 7) continue;
+            int row = world_y_to_row(w, level[x]) + rng_range(&rng, 3, 5);
+            if (!world_is_solid(w, x, row) || !world_is_solid(w, x, row - 1) || abs(world_dx(w, w->spawn_x, x)) < 12) continue;
+            world_set(w, x, row, buried);
+            break;
+        }
+    }
+    int want = (int)(gen->wreck_rate * (float)w->width / 1000.0f);
+    for (int n = 0; n < want && gen->wreck_count > 0; n++) {
+        const char *which = gen->wrecks[rng_range(&rng, 0, gen->wreck_count - 1)];
+        const StructureDef *s = NULL;
+        for (int i = 0; i < content.structure_count; i++)
+            if (strcmp(content.structures[i].name, which) == 0) s = &content.structures[i];
+        if (!s) continue;
+        for (int go = 0; go < 40; go++) {
+            int x = rng_range(&rng, 0, w->width - 1), low = level[x], high = low;
+            for (int dx = 0; dx < s->width; dx++) {
+                int here = level[world_wrap_x(w, x + dx)];
+                if (here < low) low = here;
+                if (here > high) high = here;
+            }
+            if (high > gen->sea_level - s->height - 2 || high - low > 3) continue;
+            stamp_structure(w, s, x, world_y_to_row(w, low));
+            break;
+        }
+    }
+}
+
 static bool generate_terrain(World *w)
 {
     const WorldGenDef *gen = &content.worldgen;
@@ -936,6 +1046,7 @@ static bool generate_terrain(World *w)
 
     for (int x = 0; x < width; x++) level[x] = (int)floorf(c.level[x] + 0.5f);
     for (int i = 0; i < span_count; i++) limit_steps(w, level, spans[i][0], spans[i][1], spans[i][2]);
+    if (gen->ocean && gen->has_sea) ocean_levels(w, level);
 
     int *biome = calloc((size_t)width, sizeof(int));
     float *share = calloc((size_t)width, sizeof(float));
@@ -1045,6 +1156,7 @@ static bool generate_terrain(World *w)
     plant_world(w, level, biome, &rng);
     place_poles(w);
     if (content.village_count > 0) place_villages(w, level);
+    if (gen->ocean && gen->has_sea) sink_wrecks(w, level);
     free(biome);
 
     free(c.level);

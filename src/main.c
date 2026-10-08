@@ -2285,6 +2285,36 @@ static void session_draw(Session *s)
             DrawRectangle(GetScreenWidth() / 2 - 52, 32, (int)(104.0f * (g->vitals.oxygen < 0.0f ? 0.0f : g->vitals.oxygen > 1.0f ? 1.0f : g->vitals.oxygen)), 7, (Color){ 110, 190, 240, 255 });
         }
     }
+    {
+        /* A treasure map in hand: the lie of the land about what is buried, as it would be drawn - the shape of the
+         * ground against the sea, and a cross. Where that is, is for whoever holds it to find. */
+        const ItemStack *held = inventory_selected(&g->inventory);
+        if (held->count > 0 && item_def((ItemId)held->id)->treasure_map) {
+            static int column = -1;
+            static uint64_t asked;
+            static uint16_t of;
+            if (g->tick - asked > 100 || asked == 0 || of != held->id) column = game_treasure_column(g, (ItemStack *)held), asked = g->tick > 0 ? g->tick : 1, of = held->id;
+            Rectangle page = { (float)GetScreenWidth() - 356.0f, 96.0f, 340.0f, 190.0f };
+            DrawRectangleRec(page, (Color){ 226, 208, 164, 245 });
+            DrawRectangleLinesEx(page, 3.0f, (Color){ 120, 88, 48, 255 });
+            const World *w = &g->world;
+            int rows = w->region_count > 0 ? w->home_height : w->height, span = 80;
+            for (int i = 0; column >= 0 && i < 2 * span; i++) {
+                int x = world_wrap_x(w, column - span + i), top = 0;
+                while (top < rows - 1 && !world_is_solid(w, x, top)) top++;
+                int sea = w->sea_row >= 0 ? w->sea_row : rows / 2;
+                float px = page.x + 10.0f + (float)i * 2.0f, base = page.y + 120.0f;
+                DrawRectangle((int)px, (int)base, 2, 60, (Color){ 150, 176, 190, 255 });
+                if (top <= sea) DrawRectangle((int)px, (int)(base - (float)(sea - top) * 2.0f), 2, (int)((float)(sea - top) * 2.0f) + 60, (Color){ 150, 112, 66, 255 });
+                else DrawRectangle((int)px, (int)(base + (float)(top - sea) * 2.0f < base + 58.0f ? base + (float)(top - sea) * 2.0f : base + 58.0f), 2, 4, (Color){ 110, 130, 150, 255 });
+                if (i == span) {
+                    float cy = base - (float)(sea - top) * 2.0f - 12.0f;
+                    DrawLineEx((Vector2){ px - 6, cy - 6 }, (Vector2){ px + 6, cy + 6 }, 3.0f, (Color){ 170, 30, 30, 255 });
+                    DrawLineEx((Vector2){ px + 6, cy - 6 }, (Vector2){ px - 6, cy + 6 }, 3.0f, (Color){ 170, 30, 30, 255 });
+                }
+            }
+        }
+    }
     daoui_draw(&dao_ui, g);
     if (g->lightning > 0) {
         /* A bolt of a tribulation: down the column it struck, and the whole view white for a moment. */
