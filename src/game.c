@@ -1,4 +1,5 @@
 #include "game.h"
+#include "signal.h"
 #include "digital.h"
 #include "industry.h"
 #include "power.h"
@@ -490,7 +491,7 @@ static TileType usable_at(const World *w, int x, int y, int *layer)
 {
     for (int l = 0; l < BLOCK_LAYERS; l++) {
         TileType t = world_get_at(w, l, x, y);
-        if (!tile_def(t)->bench && !tile_def(t)->trade && tile_def(t)->storage_columns == 0 && tile_def(t)->leads_dim < 0) continue;
+        if (!tile_def(t)->bench && !tile_def(t)->trade && tile_def(t)->storage_columns == 0 && tile_def(t)->leads_dim < 0 && tile_def(t)->use_becomes == TILE_AIR) continue;
         /* (Not one that is out of sight and out of reach behind a block: something buried, till it is dug out.) */
         if (l != LAYER_FOREGROUND && tile_def(world_get(w, x, y))->solid && !tile_def(world_get(w, x, y))->see_through) continue;
         if (layer) *layer = l;
@@ -1074,6 +1075,121 @@ bool game_identifies(const Game *g)
             if (inv->containers[st->container].slots[k].count > 0 && item_def((ItemId)inv->containers[st->container].slots[k].id)->identifies) return true;
     }
     return false;
+}
+
+static void drop_block_items(Game *g, const TileDef *def, TilePos at, uint16_t inside, int count);
+static Storage *storage_at(Game *g, TilePos t);
+static bool needs_storage(const TileDef *def);
+
+/* A block that is only itself: not a bench, a chest, or anything of more than one square. */
+static bool plain_block(const TileDef *def)
+{
+    return def->removable && !def->bench && !def->trade && def->storage_columns == 0 && def->height <= 1 && def->pair == TILE_AIR &&
+           def->pair_of == TILE_AIR && !def->written;
+}
+
+bool game_break_block(Game *g, int x, int y)
+{
+    World *w = &g->world;
+    if (!world_in_bounds(w, x, y)) return false;
+    /* What is in front first; failing that, what is behind. */
+    for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
+        TileType block = world_get_at(w, layer, x, y);
+        const TileDef *def = tile_def(block);
+        if (block == TILE_AIR || !plain_block(def) || def->immovable) continue;
+        drop_block_items(g, def, (TilePos){ world_wrap_x(w, x), y }, 0, def->drop_count > 0 ? def->drop_count : 1);
+        world_set_at(w, layer, x, y, TILE_AIR);
+        return true;
+    }
+    return false;
+}
+
+bool game_deploy_block(Game *g, int sx, int sy, int x, int y)
+{
+    World *w = &g->world;
+    Storage *st = storage_at(g, (TilePos){ world_wrap_x(w, sx), sy });
+    if (!st || st->container == 0 || !world_in_bounds(w, x, y)) return false;
+    Container *box = &g->inventory.containers[st->container];
+    for (int i = 0; i < CONTAINER_MAX_SLOTS; i++) {
+        ItemStack *s = &box->slots[i];
+        if (s->count < 1 || s->container != 0) continue;
+        TilePos at = { world_wrap_x(w, x), y };
+        /* Something that is sown is sown; something that is a block is put down as one. */
+        if (item_def((ItemId)s->id)->sows != TILE_AIR || item_def((ItemId)s->id)->plants >= 0) {
+            if (!can_plant(w, (ItemId)s->id, at)) continue;
+            plant_item(g, w, (ItemId)s->id, at, 0);
+            s->count--;
+            return true;
+        }
+        TileType tile = item_def((ItemId)s->id)->places;
+        const TileDef *def = tile_def(tile);
+        if (tile == TILE_AIR || !plain_block(def) || needs_storage(def)) continue;
+        if (world_get_at(w, def->layer, at.x, at.y) != TILE_AIR || (def->solid && world_is_solid(w, at.x, at.y)) || game_square_stood(g, at.x, at.y, false)) continue;
+        place_tile(w, at, tile);
+        s->count--;
+        return true;
+    }
+    return false;
+}
+
+void game_blast(Game *g, int x, int y, int radius)
+{
+    World *w = &g->world;
+    for (int dy = -radius; dy <= radius; dy++) {
+        for (int dx = -radius; dx <= radius; dx++) {
+            if (dx * dx + dy * dy > radius * radius || !world_in_bounds(w, x + dx, y + dy)) continue;
+            TilePos t = { world_wrap_x(w, x + dx), y + dy };
+            TileType block = world_get(w, t.x, t.y);
+            const TileDef *def = tile_def(block);
+            if (block == TILE_AIR || !plain_block(def) || def->hardness > 0) continue;
+            drop_block_items(g, def, t, 0, def->drop_count > 0 ? def->drop_count : 1);
+            world_set(w, t.x, t.y, TILE_AIR);
+        }
+    }
+    /* Whoever is near is hurt by it, the nearer the worse. */
+    int far = abs(world_dx(w, x, g->player.feet.x)) + abs(g->player.feet.y - y);
+    if (far <= radius + 1) game_hurt(g, 0.5f - 0.08f * (float)far > 0.1f ? 0.5f - 0.08f * (float)far : 0.1f);
+}
+
+bool game_square_stood(const Game *g, int x, int y, bool items)
+{
+    const World *w = &g->world;
+    x = world_wrap_x(w, x);
+    if (game_alive(g) && g->player.feet.x == x && g->player.feet.y == y) return true;
+    for (int i = 0; i < MAX_MOBS; i++)
+        if (g->mobs[i].active && g->mobs[i].x == x && g->mobs[i].y == y) return true;
+    for (int i = 0; items && i < MAX_DROPS; i++)
+        if (g->drops[i].active && !g->drops[i].attached && g->drops[i].x == x && (int)(g->drops[i].y + 0.5f) == y) return true;
+    return false;
+}
+
+bool game_shove(Game *g, int x, int y, int dx, int dy)
+{
+    World *w = &g->world;
+    Player *p = &g->player;
+    bool moved = false;
+    x = world_wrap_x(w, x);
+    /* (Their feet, or their head: either is in the way.) */
+    if (game_alive(g) && p->feet.x == x && (p->feet.y == y || p->feet.y - 1 == y) && p->activity != ACTIVITY_STEPPING &&
+        body_fits(w, p->feet.x + dx, p->feet.y + dy)) {
+        p->feet = p->step_to = (TilePos){ world_wrap_x(w, p->feet.x + dx), p->feet.y + dy };
+        moved = true;
+    }
+    for (int i = 0; i < MAX_MOBS; i++) {
+        Mob *m = &g->mobs[i];
+        if (!m->active || m->x != x || m->y != y || world_is_solid(w, m->x + dx, m->y + dy)) continue;
+        m->x = m->to_x = world_wrap_x(w, m->x + dx);
+        m->y = m->to_y = m->y + dy;
+        moved = true;
+    }
+    for (int i = 0; i < MAX_DROPS; i++) {
+        Drop *d = &g->drops[i];
+        if (!d->active || d->attached || d->x != x || (int)(d->y + 0.5f) != y || world_is_solid(w, d->x + dx, y + dy)) continue;
+        d->x = world_wrap_x(w, d->x + dx);
+        d->y += (float)dy;
+        moved = true;
+    }
+    return moved;
 }
 
 bool game_can_dig(const Game *g, TileType t)
@@ -2243,6 +2359,13 @@ static bool start_next_activity(Game *g)
                     game_rest(g, REST_SLEEP);
                     continue;
                 case ACTION_USE:
+                    /* Something that using turns into something else - a lever, a piston to be turned - is used, not opened. */
+                    if (tile_def(game_bench_at(g, g->current.target.x, g->current.target.y))->use_becomes != TILE_AIR) {
+                        TilePos used = g->current.target;
+                        g->has_current = false;
+                        game_use_block(g, used.x, used.y);
+                        continue;
+                    }
                     /* A way to another place is gone through, not opened. */
                     if (tile_def(game_bench_at(g, g->current.target.x, g->current.target.y))->leads_dim >= 0) {
                         TilePos gate = g->current.target;
@@ -3771,6 +3894,7 @@ void game_tick(Game *g)
     }
 
     mobs_tick(g);
+    signal_tick(g);
     water_step(w);
     power_tick(g);
     industry_tick(g);
@@ -4278,6 +4402,8 @@ void game_free(Game *g)
     free(g->bfs_queue);
     free(g->bfs_seen);
     free(g->explored);
+    free(g->signal);
+    free(g->signal_was);
     free(g->snow);
     free(g->flows);
     free(g->signs);

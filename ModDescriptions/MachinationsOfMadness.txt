@@ -1,0 +1,27 @@
+MACHINATIONS OF MADNESS - WHAT WAS ASKED FOR, AND WHAT WAS BUILT
+
+Asked for: redstone, in this game - torch, dust, repeaters, pistons, sticky pistons, slime blocks, redstone
+blocks, pressure plates, levers, buttons - and more of my own choosing (moving walkways and the like); all of it
+steampunk; another tier of the workbench; a great many machines for automatic factories, in the manner of
+Minecraft's Create; immense freedom, deep mechanics, world-altering content.
+
+Built (no plan was put to the owner first: the request said to work it out):
+
+  Signals     Spark dust (wire, 15 squares), spark torch (inverter), spark block, repeater, delayer, and gate,
+              latch, lever, button, pressure plate, weighing plate (items), slow and quick clocks, daylight sensor.
+  Moved by    Piston and sticky piston (four ways, up to 24 blocks, carry whoever is in the way), resin block
+  them        (slime), bore (digs), deployer (builds, sows, plants), spout and drain (water), blasting charge and
+              great charge, signal hatch, signal lamp, gate belt, moving walkway and swift walkway.
+  Steam       Boiler, windmill, steam pipe, pressure tank; belt, swift belt, mechanical arm, brass hopper; steam
+              press, furnace, saw, loom, mill, smith; steam assembler; steam drill and the seeps it mines.
+  Benches     Steam workbench (one more level of the workbench), gearworks, tinker's bench.
+  94 blocks, 59 items, 63 recipes.
+
+How it differs from redstone: dust joins on all four sides and runs through the air; a block is powered by a
+signal beside it, never through a block; a torch reads what is under it; there is no comparator, observer or
+hopper clock - a weighing plate, a clock and a latch do those jobs.
+
+Left for later, if wanted: only the character being played is pushed, carried and weighed (creatures are, other
+characters are not); nothing shows which dust is live; rotating shafts and gear ratios (Create's own idea) were
+not attempted - steam is the game's electricity under another name; no fans, cranes, trains of blocks, or
+contraptions that move as one.

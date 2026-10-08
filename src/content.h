@@ -287,6 +287,43 @@ typedef struct {
     bool extends;
     RecipeItem extend_cost[RECIPE_MAX_INPUTS];
     int extend_cost_count, extend_crystals;
+    /* Signals. A signal is a strength, 0 to 15, that some blocks make, some carry and some act on (see signal.h).
+     * - `signal_wire` carries it, a little weaker with every square.
+     * - `signal_out` is what it makes all the time; `signal_clock` makes the most there is for so many ticks and
+     *   then nothing for as many; `signal_daylight` makes it by day.
+     * - A block with `signal_in` reads the squares on those sides of it and makes a signal of its own from them,
+     *   toward `signal_toward` (every way but its inputs, if that is 0,0): the most there is if any input is on
+     *   (all of them, for `signal_and`) - or, for `signal_invert`, if none is. `signal_delay` is how many ticks
+     *   its inputs must have stood before it follows them (never fewer than one).
+     * - Anything else is powered while a signal reaches the square it is in or one beside it: it turns into
+     *   `powered_becomes` when it gets one, `unpowered_becomes` when it loses it, and `pulse_becomes` each time
+     *   one arrives. */
+    bool signal_wire, signal_daylight, signal_invert, signal_and;
+    int signal_out, signal_clock, signal_delay;
+    int8_t signal_in[3][2], signal_toward[2];
+    int signal_in_count;
+    TileType powered_becomes, unpowered_becomes, pulse_becomes;
+    /* Using it - a click, with nothing in hand that digs it - turns it into another block; one that reverts
+     * turns into another by itself after so many ticks; one that is stood on turns into `stood_becomes` while
+     * anybody (or, for `stood_by_items`, anything lying there) is in its square, and `clear_becomes` when not. */
+    TileType use_becomes, reverts_to, stood_becomes, clear_becomes;
+    int revert_ticks;
+    bool stood_by_items;
+    /* A piston: powered, it pushes the blocks in front of it a square along (`piston_dir`) and puts its head
+     * there; unpowered, the head comes back - and a sticky one brings the block that was against it. `sticky`
+     * is a block that takes its neighbours with it when it is pushed; `immovable` is one nothing can push. */
+    int8_t piston_dir[2];
+    TileType piston_head;
+    bool piston, piston_out, piston_sticky, sticky, immovable;
+    /* Things done to the square in front when a signal arrives: the block there is dug (`breaks`); a block out
+     * of what this holds is put there (`deploys`); so many eighths of water are poured there (`spout`, or taken,
+     * if less than nothing) for as long as the signal lasts; everything within `blast` blocks goes, this included. */
+    bool breaks, deploys;
+    int8_t act_dir[2];
+    int spout, blast;
+    /* A moving walkway: whoever stands on it is carried a square that way (-1 left, 1 right) every so many ticks. */
+    int walkway, walk_ticks;
+    bool device;       /* (worked out: it has some part in any of that) */
     int village;       /* it is the heart of a village: everywhere within so many blocks of it is in that village; 0 for not */
     int hardness;      /* nothing with less `power` than this digs it; 0 for anything */
     float harm;        /* the share of a health bar it takes, each second, from whoever stands on it or against it */

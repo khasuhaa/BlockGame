@@ -1,0 +1,8 @@
+{
+  "veins": [
+    {"name": "sparkstone", "tile": "sparkstone_ore", "in": ["stone"], "size": [3, 8], "per_100_columns": 18, "depth": [20, 190]},
+    {"name": "coal_seep", "tile": "coal_seep", "in": ["stone"], "size": [1, 2], "per_100_columns": 2.5, "depth": [30, 190]},
+    {"name": "iron_seep", "tile": "iron_seep", "in": ["stone"], "size": [1, 2], "per_100_columns": 2.5, "depth": [30, 190]},
+    {"name": "copper_seep", "tile": "copper_seep", "in": ["stone"], "size": [1, 2], "per_100_columns": 2.5, "depth": [30, 190]}
+  ]
+}

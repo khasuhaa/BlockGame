@@ -60,6 +60,11 @@ typedef struct {
      * (Set by the game for the character in hand; not part of the world, and not saved.) */
     bool aloft;
     bool glide;       /* and, the same way, whether a drop of any height is a step to them */
+    /* Where the blocks are that have to do with signals (see signal.h): each square with one, kept up as blocks
+     * come and go. Not saved: it is looked for again in a world that has just been made or loaded. */
+    int32_t *devices;
+    int device_count, device_room;
+    bool devices_known;
     /* The other places it has (see Region), in the order they were made: each lies under the last. `biome`
      * has a row of columns for each after the world's own. */
     Region regions[MAX_REGIONS];
@@ -75,6 +80,8 @@ bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind);
 bool world_init_with(World *w, int width, int height, uint32_t seed, WorldKind kind, const WorldOptions *options);
 void world_free(World *w);
 
+/* Looks through the whole world for the blocks that have to do with signals. */
+void world_find_devices(World *w);
 /* Which region a row is in: -1 for the world as it began. */
 int world_region_at(const World *w, int y);
 /* The region that is a dimension (one of content.dimensions), or -1 if the world has not got it yet. */

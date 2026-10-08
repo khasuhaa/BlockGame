@@ -1255,6 +1255,7 @@ void world_free(World *w)
     free(w->meta);
     free(w->paint[0]);
     free(w->paint[1]);
+    free(w->devices);
     memset(w, 0, sizeof *w);
 }
 
@@ -1754,6 +1755,7 @@ int world_add_region(World *w, int dim, const char *name, int height, bool gener
     w->biome = biome;
 
     if (w->region_count == 0) w->home_height = w->height;
+    w->devices_known = false; /* (the new rows are looked through with the rest, when next it matters) */
     int region = w->region_count++;
     Region *g = &w->regions[region];
     memset(g, 0, sizeof *g);
@@ -1841,14 +1843,49 @@ TileType world_get_at(const World *w, int layer, int x, int y)
     return (TileType)w->layers[layer][(size_t)y * w->width + world_wrap_x(w, x)];
 }
 
+static void device_note(World *w, int32_t cell)
+{
+    for (int i = 0; i < w->device_count; i++)
+        if (w->devices[i] == cell) return;
+    if (w->device_count >= w->device_room) {
+        int room = w->device_room > 0 ? w->device_room * 2 : 256;
+        int32_t *more = realloc(w->devices, sizeof(int32_t) * (size_t)room);
+        if (!more) return;
+        w->devices = more;
+        w->device_room = room;
+    }
+    w->devices[w->device_count++] = cell;
+}
+
+void world_find_devices(World *w)
+{
+    w->device_count = 0;
+    size_t cells = (size_t)w->width * w->height;
+    for (size_t i = 0; i < cells; i++)
+        if (tile_def((TileType)w->layers[LAYER_FOREGROUND][i])->device || tile_def((TileType)w->layers[LAYER_BACKGROUND][i])->device) device_note(w, (int32_t)i);
+    w->devices_known = true;
+}
+
 void world_set_at(World *w, int layer, int x, int y, TileType t)
 {
     if (!world_in_bounds(w, x, y)) return;
     size_t cell = (size_t)y * w->width + world_wrap_x(w, x);
+    /* (A square with anything to do with signals is kept note of; one that has no more to do with them is forgotten.) */
+    if (w->devices_known && layer < BLOCK_LAYERS) {
+        bool had = tile_def((TileType)w->layers[LAYER_FOREGROUND][cell])->device || tile_def((TileType)w->layers[LAYER_BACKGROUND][cell])->device;
+        bool other = tile_def((TileType)w->layers[layer == LAYER_FOREGROUND ? LAYER_BACKGROUND : LAYER_FOREGROUND][cell])->device;
+        bool has = tile_def(t)->device || other;
+        if (has && !had) device_note(w, (int32_t)cell);
+        for (int i = 0; had && !has && i < w->device_count; i++)
+            if (w->devices[i] == (int32_t)cell) {
+                w->devices[i] = w->devices[--w->device_count];
+                break;
+            }
+    }
     /* What was kept with the block that was there goes with it. */
     if (w->meta && w->meta[cell] != 0) {
         const TileDef *was = tile_def((TileType)w->layers[layer][cell]);
-        if (was->two_tone || was->written || was->mimics != MIMIC_NONE || was->motor_power > 0 || (TileType)w->layers[layer][cell] == content.rules.ice) w->meta[cell] = 0;
+        if (was->two_tone || was->written || was->mimics != MIMIC_NONE || was->motor_power > 0 || was->revert_ticks > 0 || was->signal_delay > 0 || (TileType)w->layers[layer][cell] == content.rules.ice) w->meta[cell] = 0;
     }
     /* Paint goes with the block, or the backwall, it was on. */
     if (w->paint[0] && (TileType)w->layers[layer][cell] != t) {

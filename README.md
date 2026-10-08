@@ -965,6 +965,30 @@ A mod about trade. With it on, a new world has **villages**, with people living 
 
 In the data: `"structures"` in `worldgen.json` are pictures in rows of characters with a `"legend"` (a block in front, something behind, a backwall; `~` leaves the world as it was), and `"villages"` there say where each kind goes and what it is built of. A block with `"village": N` is a village's heart. `"villages"` in `trade.json` has `"only"`, `"swing"`, `"share"`, `"days"` and `"specialities"`; an item with `"speciality": true` is one.
 
+### Machinations of Madness
+
+A mod of signals, pistons and steam: machinery that moves the world about, and factories that run themselves.
+
+**Signals.** A signal is a strength from 0 to 15. Some blocks make one, **spark dust** carries it - a point weaker with every square, so fifteen squares from its source - and anything else beside a square that has one is **powered**, and does whatever it does.
+
+- *What makes one*: a **lever** (a click throws it, and it stays), a **button** (in for a second), a **pressure plate** (down while anybody stands on it, creatures included), a **weighing plate** (down while anything lies on it), a **spark block** (always), a **slow clock** and a **quick clock** (on and off by themselves, every two seconds or every half), a **daylight sensor** (on by day).
+- *What reads one and makes another*: a **spark torch** is lit unless what it stands on is on - an inverter. A **repeater** reads behind it and tells in front, a moment late and at full strength again, and only that way; a **delayer** does the same a second late. An **and gate** tells in front only if both behind it and under it are on. A click turns any of these to face the other way. A **latch** turns over each time a signal arrives, and stays.
+- Dust runs along floors, up walls and through the air, and joins on all four sides. A click on any of these things uses it; with a pickaxe in hand the click digs it instead.
+
+**What a signal moves.**
+
+- A **piston** pushes the row of blocks in front of it one square along - up to 24 of them - and whoever is in the way; its head comes back when the signal goes. A **sticky piston** brings the block against it back too. A click turns a piston to face right, up, left or down; one facing up is a lift. Benches, chests, anything more than a square big, and the seeps (below) cannot be pushed. A **resin block** takes the blocks beside it along when it is pushed, where they are free to go.
+- A **bore** digs the block in front of it each time a signal arrives, and leaves what the block leaves. A **deployer** holds two stacks and each time puts a block from them down in front of it - or sows a seed, or plants a tree. A click turns a bore; a deployer comes facing each way, and one kind is made from another at the gearworks.
+- A **spout** pours water in front of it for as long as it is powered - from nowhere, for ever - and a **drain** takes water away. A **blasting charge** takes every plain block within 3 of it when a signal reaches it, and a **great charge** within 6: both hurt whoever is near.
+- A **signal hatch** is a block that opens while it is powered; a **signal lamp** lights; a **gate belt** carries things only while it is powered.
+- A **moving walkway** carries whoever stands on it a square every fifth of a second, and a **swift walkway** twice as fast; a click turns one round.
+
+**Steam.** A **boiler** burns fuel and a **windmill** turns under open sky; **steam pipe** carries what they make, a **pressure tank** stores it. On that run **belts** and **swift belts**, the **mechanical arm** (takes things out of whatever is beside it and sends them along the belts to whatever will have them), the **brass hopper** (a store the belts fill only with the kinds of thing already in its first slots), the **steam press, furnace, saw, loom, mill and smith** (each makes what its bench makes, by itself, from what is put in it), the **steam assembler** (makes one chosen recipe of a bench beside it), and the **steam drill**, which mines a **seep** - coal, iron or copper that is never used up - for ever. Put the plates, clocks and gate belts on that and a factory can count, wait, sort and stop itself.
+
+**To make it all.** The workbench has one more level, the **steam workbench** (4 brass plates and 4 brass gears), which makes the steam machines; the **gearworks** makes moving parts and the **tinker's bench** everything to do with signals. **Brass** is copper, tin and coal at a furnace. **Spark dust** is smelted from **sparkstone ore**, which a new world has in its rock - or mixed from coal, copper and flint, for a world that has none.
+
+In the data, all of it is fields on blocks: `"signal"` (`"wire"`, `"out"`, `"clock"`, `"daylight"`, `"in"`, `"toward"`, `"invert"`, `"and"`, `"delay"`), `"powered_becomes"`, `"unpowered_becomes"`, `"pulse_becomes"`, `"use_becomes"`, `"reverts"`, `"stood_becomes"`, `"clear_becomes"`, `"piston"`, `"sticky"`, `"immovable"`, `"breaks"`, `"deploys"`, `"spout"`, `"blast"`, `"walkway"`.
+
 ### Golden chests
 
 Under a beach, quite often - about one column in six, a dozen or more to a world - a golden chest lies buried at the bottom of the sand: behind the sand, in the background, so it is not seen or opened until the sand in front of it is dug away. (Golden chests and portal chests are things of the background: they are walked past, not into.) A golden chest is what a portal chest is made from (with 100 crystals, at a tier 6 portal), and a tier 2 metalwork bench melts one down into a gold coin. It opens and is carried off like any chest. The first time it is opened or dug up it holds 1 to 5 gold coins, up to 3 gold ore, up to 3 iron ingots, perhaps a titanium ingot, and one gem shard: of amethyst most often, then sapphire, emerald, and ruby least. What a block is found holding is its `"loot"` in `tiles.json`, and where it is buried is `"buried"` on a biome in `worldgen.json`; a golden chest the player puts down, or buys, holds only what they put in it.

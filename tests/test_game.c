@@ -8,6 +8,7 @@
 #include "../src/mods.h"
 #include "../src/power.h"
 #include "../src/save.h"
+#include "../src/signal.h"
 #include "../src/trade.h"
 #include "../src/train.h"
 
@@ -11743,6 +11744,320 @@ static void test_rags_mod(void)
     CHECK(content_load("data", err, sizeof err));
 }
 
+/* Puts a block down in the layer it belongs in. */
+static void put(Game *g, const char *name, int x, int y)
+{
+    world_set_at(&g->world, tile_def(tile_id(name))->layer, x, y, tile_id(name));
+}
+
+static bool is_block(const Game *g, const char *name, int x, int y)
+{
+    return world_get_at(&g->world, tile_def(tile_id(name))->layer, x, y) == tile_id(name);
+}
+
+static void ticks(Game *g, int n)
+{
+    for (int i = 0; i < n; i++) game_tick(g);
+}
+
+/* Machinations of Madness: signals, and the machinery that goes by them. */
+static void test_machinations_mod(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count;
+    if (!content_load("mods/machinations", err, sizeof err)) {
+        printf("FAIL machinations does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    CHECK(content.tile_count == tiles + 94 && content.item_count == items + 59 && content.recipe_count == recipes + 63);
+    CHECK(tile_def(tile_id("workbench_4"))->upgrade_to == tile_id("steam_workbench") && tile_def(tile_id("steam_workbench"))->bench_level == 5);
+    CHECK(find_recipe(tile_id("steam_workbench"), "steam_assembler") && find_recipe(tile_id("steam_workbench"), "steam_assembler")->level == 5);
+    CHECK(tile_def(tile_id("belt"))->conveyor == 1 && tile_def(tile_id("mechanical_arm"))->extractor && tile_def(tile_id("steam_assembler"))->automat && tile_def(tile_id("steam_pipe"))->wire &&
+          tile_def(tile_id("boiler"))->gen_power > 0 && tile_def(tile_id("coal_seep"))->endless && tile_def(tile_id("steam_drill"))->miner_ticks > 0);
+
+    static Game g;
+    game_init(&g, 200, 60, 9, WORLD_FLAT);
+    World *w = &g.world;
+    g.tick_rate = 20;
+    int r = w->surface_y - 1, x = 20;
+    g.player.feet = g.player.step_to = (TilePos){ 5, r };
+
+    /* A source, and wire from it: the most there is beside the source, a point less with every square, and in the end nothing. */
+    put(&g, "spark_block", x, r);
+    for (int i = 1; i <= 17; i++) put(&g, "spark_dust", x + i, r);
+    put(&g, "signal_lamp_off", x + 5, r - 1);
+    put(&g, "signal_lamp_off", x + 17, r - 1);
+    ticks(&g, 2);
+    CHECK(game_signal_at(&g, x, r) == 15 && game_signal_at(&g, x + 1, r) == 15 && game_signal_at(&g, x + 5, r) == 11 && game_signal_at(&g, x + 15, r) == 1 && game_signal_at(&g, x + 16, r) == 0);
+    /* What is beside a square with a signal is powered: a lamp lights; one past the end of it does not; and with the source gone it goes out. */
+    CHECK(is_block(&g, "signal_lamp_on", x + 5, r - 1) && is_block(&g, "signal_lamp_off", x + 17, r - 1) && tile_def(tile_id("signal_lamp_on"))->light == 15);
+    world_set(w, x, r, TILE_AIR);
+    ticks(&g, 2);
+    CHECK(game_signal_at(&g, x + 1, r) == 0 && is_block(&g, "signal_lamp_off", x + 5, r - 1));
+    for (int i = 0; i <= 17; i++) world_set_at(w, LAYER_BACKGROUND, x + i, r, TILE_AIR), world_set(w, x + i, r - 1, TILE_AIR);
+    CHECK(w->device_count == 0);
+
+    /* A lever is thrown by using it - by a click on it - and stays as it is put. */
+    put(&g, "lever_off", x, r);
+    put(&g, "spark_dust", x + 1, r);
+    g.player.feet = g.player.step_to = (TilePos){ x - 1, r };
+    CHECK(game_queue_action(&g, ACTION_USE, x, r));
+    run(&g, 1.0f);
+    CHECK(is_block(&g, "lever_on", x, r) && game_signal_at(&g, x + 1, r) == 15 && !g.bench_open);
+    /* A torch on top of something that is on is out, and lit when that is off. */
+    put(&g, "spark_torch", x, r - 1);
+    put(&g, "spark_dust", x + 1, r - 1);
+    ticks(&g, 3);
+    CHECK(game_signal_at(&g, x, r - 1) == 0);
+    CHECK(game_use_block(&g, x, r) && is_block(&g, "lever_off", x, r));
+    ticks(&g, 3);
+    CHECK(game_signal_at(&g, x, r - 1) == 15 && game_signal_at(&g, x + 1, r - 1) == 15);
+    for (int i = 0; i < 2; i++) world_set_at(w, LAYER_BACKGROUND, x + i, r, TILE_AIR), world_set_at(w, LAYER_BACKGROUND, x + i, r - 1, TILE_AIR);
+
+    /* A repeater passes a signal one way and not the other, a little late, and at full strength again; a click turns it round. */
+    put(&g, "lever_on", x, r);
+    for (int i = 1; i <= 14; i++) put(&g, "spark_dust", x + i, r);
+    put(&g, "repeater_right", x + 15, r);
+    put(&g, "spark_dust", x + 16, r);
+    ticks(&g, 1);
+    CHECK(game_signal_at(&g, x + 14, r) == 2 && game_signal_at(&g, x + 16, r) == 0);
+    ticks(&g, 4);
+    CHECK(game_signal_at(&g, x + 16, r) == 15);
+    CHECK(game_use_block(&g, x + 15, r) && is_block(&g, "repeater_left", x + 15, r));
+    ticks(&g, 4);
+    CHECK(game_signal_at(&g, x + 16, r) == 0 && game_signal_at(&g, x + 14, r) == 2);
+    for (int i = 0; i <= 16; i++) world_set_at(w, LAYER_BACKGROUND, x + i, r, TILE_AIR);
+
+    /* A button stays in for a second; a plate is down while anybody stands on it. */
+    put(&g, "spark_button", x, r);
+    put(&g, "spark_dust", x + 1, r);
+    CHECK(game_use_block(&g, x, r) && is_block(&g, "spark_button_pressed", x, r));
+    ticks(&g, 5);
+    CHECK(game_signal_at(&g, x + 1, r) == 15);
+    ticks(&g, 20);
+    CHECK(is_block(&g, "spark_button", x, r) && game_signal_at(&g, x + 1, r) == 0);
+    put(&g, "pressure_plate", x + 3, r);
+    put(&g, "spark_dust", x + 4, r);
+    ticks(&g, 2);
+    CHECK(is_block(&g, "pressure_plate", x + 3, r) && game_signal_at(&g, x + 4, r) == 0);
+    g.player.feet = g.player.step_to = (TilePos){ x + 3, r };
+    ticks(&g, 2);
+    CHECK(is_block(&g, "pressure_plate_down", x + 3, r) && game_signal_at(&g, x + 4, r) == 15);
+    g.player.feet = g.player.step_to = (TilePos){ 5, r };
+    ticks(&g, 2);
+    CHECK(is_block(&g, "pressure_plate", x + 3, r));
+    /* A weighing plate goes down under a thing lying on it. */
+    put(&g, "item_plate", x + 6, r);
+    game_drop_item(&g, ITEM_DIRT, x + 6, r);
+    ticks(&g, 3);
+    CHECK(is_block(&g, "item_plate_down", x + 6, r));
+    clear_drops(&g);
+    for (int i = 0; i <= 6; i++) world_set_at(w, LAYER_BACKGROUND, x + i, r, TILE_AIR);
+
+    /* A gate that wants both its inputs; a clock that goes on and off by itself; a latch that every signal arriving turns over. */
+    put(&g, "lever_on", x, r);
+    put(&g, "and_gate_right", x + 1, r);
+    put(&g, "spark_dust", x + 2, r);
+    world_set(w, x + 1, r + 1, TILE_AIR);
+    put(&g, "lever_off", x + 1, r + 1);
+    ticks(&g, 3);
+    CHECK(game_signal_at(&g, x + 2, r) == 0);
+    game_use_block(&g, x + 1, r + 1);
+    ticks(&g, 3);
+    CHECK(game_signal_at(&g, x + 2, r) == 15);
+    put(&g, "quick_clock", x + 6, r);
+    int ons = 0, flips = 0, last = -1;
+    for (int i = 0; i < 40; i++) {
+        game_tick(&g);
+        int on = game_signal_at(&g, x + 6, r) > 0;
+        ons += on;
+        flips += last >= 0 && on != last;
+        last = on;
+    }
+    CHECK(ons == 20 && flips >= 3);
+    put(&g, "spark_button", x + 9, r);
+    put(&g, "latch_off", x + 10, r);
+    ticks(&g, 2);
+    game_use_block(&g, x + 9, r);
+    ticks(&g, 30);
+    CHECK(is_block(&g, "latch_on", x + 10, r));
+    game_use_block(&g, x + 9, r);
+    ticks(&g, 30);
+    CHECK(is_block(&g, "latch_off", x + 10, r));
+    for (int i = 0; i <= 10; i++) world_set_at(w, LAYER_BACKGROUND, x + i, r, TILE_AIR);
+    world_set_at(w, LAYER_BACKGROUND, x + 1, r + 1, TILE_AIR);
+    world_set(w, x + 1, r + 1, tile_id("dirt"));
+
+    /* A piston pushes what is in front of it a square along, and whoever is in the way; its head comes back when the signal goes. */
+    put(&g, "piston_right", x, r);
+    put(&g, "lever_off", x, r - 1);
+    world_set(w, x + 1, r, tile_id("stone"));
+    world_set(w, x + 2, r, tile_id("marble"));
+    g.player.feet = g.player.step_to = (TilePos){ x + 3, r };
+    ticks(&g, 2);
+    CHECK(is_block(&g, "piston_right", x, r) && world_get(w, x + 1, r) == tile_id("stone"));
+    game_use_block(&g, x, r - 1);
+    ticks(&g, 2);
+    CHECK(is_block(&g, "piston_right_out", x, r) && is_block(&g, "piston_head_right", x + 1, r) && world_get(w, x + 2, r) == tile_id("stone") &&
+          world_get(w, x + 3, r) == tile_id("marble") && g.player.feet.x == x + 4);
+    /* (Out, it is not to be turned, nor its head dug.) */
+    CHECK(!game_use_block(&g, x, r) && !tile_def(tile_id("piston_head_right"))->removable);
+    game_use_block(&g, x, r - 1);
+    ticks(&g, 2);
+    CHECK(is_block(&g, "piston_right", x, r) && world_get(w, x + 1, r) == TILE_AIR && world_get(w, x + 2, r) == tile_id("stone"));
+    /* A sticky one brings the block back with it. */
+    world_set(w, x, r, TILE_AIR);
+    put(&g, "sticky_piston_right", x, r);
+    world_set(w, x + 1, r, tile_id("stone"));
+    world_set(w, x + 2, r, TILE_AIR);
+    world_set(w, x + 3, r, TILE_AIR);
+    game_use_block(&g, x, r - 1);
+    ticks(&g, 2);
+    CHECK(world_get(w, x + 2, r) == tile_id("stone") && is_block(&g, "piston_head_right", x + 1, r));
+    game_use_block(&g, x, r - 1);
+    ticks(&g, 2);
+    CHECK(world_get(w, x + 1, r) == tile_id("stone") && world_get(w, x + 2, r) == TILE_AIR && is_block(&g, "sticky_piston_right", x, r));
+    /* A resin block takes what is beside it along; too long a row does not move at all, nor does anything in front of what cannot be pushed. */
+    world_set(w, x + 1, r, tile_id("resin_block"));
+    world_set(w, x + 1, r - 1, tile_id("marble"));
+    game_use_block(&g, x, r - 1);
+    ticks(&g, 2);
+    CHECK(world_get(w, x + 2, r) == tile_id("resin_block") && world_get(w, x + 2, r - 1) == tile_id("marble") && world_get(w, x + 1, r - 1) == TILE_AIR);
+    game_use_block(&g, x, r - 1);
+    ticks(&g, 2);
+    world_set(w, x + 1, r - 1, TILE_AIR);
+    world_set(w, x + 2, r - 1, TILE_AIR);
+    for (int i = 1; i <= 30; i++) world_set(w, x + i, r, tile_id("stone"));
+    game_use_block(&g, x, r - 1);
+    ticks(&g, 2);
+    CHECK(is_block(&g, "sticky_piston_right", x, r) && world_get(w, x + 31, r) == TILE_AIR);
+    for (int i = 1; i <= 30; i++) world_set(w, x + i, r, TILE_AIR);
+    world_set(w, x + 1, r, tile_id("stone"));
+    put(&g, "piston_head_left", x + 2, r);
+    ticks(&g, 2);
+    CHECK(is_block(&g, "sticky_piston_right", x, r) && world_get(w, x + 1, r) == tile_id("stone"));
+    world_set(w, x + 2, r, TILE_AIR);
+    world_set(w, x + 1, r, TILE_AIR);
+    world_set_at(w, LAYER_BACKGROUND, x, r - 1, TILE_AIR);
+    /* A click turns a piston to face another way; one that faces up lifts whoever stands on what it pushes. */
+    world_set(w, x, r, TILE_AIR);
+    put(&g, "piston_right", x, r);
+    CHECK(game_use_block(&g, x, r) && is_block(&g, "piston_up", x, r));
+    world_set(w, x, r - 1, tile_id("stone"));
+    g.player.feet = g.player.step_to = (TilePos){ x, r - 2 };
+    put(&g, "lever_on", x - 1, r);
+    ticks(&g, 2);
+    CHECK(is_block(&g, "piston_up_out", x, r) && world_get(w, x, r - 2) == tile_id("stone") && g.player.feet.y == r - 3);
+    g.player.feet = g.player.step_to = (TilePos){ 5, r };
+    world_set_at(w, LAYER_BACKGROUND, x - 1, r, TILE_AIR);
+    ticks(&g, 2);
+    world_set(w, x, r, TILE_AIR);
+    world_set(w, x, r - 2, TILE_AIR);
+
+    /* A bore digs what is in front of it when a signal arrives, leaving what the block leaves. */
+    put(&g, "bore_right", x, r);
+    world_set(w, x + 1, r, tile_id("stone"));
+    put(&g, "lever_off", x, r - 1);
+    ticks(&g, 2);
+    CHECK(world_get(w, x + 1, r) == tile_id("stone"));
+    game_use_block(&g, x, r - 1);
+    ticks(&g, 2);
+    CHECK(world_get(w, x + 1, r) == TILE_AIR && drops_of(&g, item_id("stone")) == 1);
+    /* (Once for each signal, not all the time it lasts.) */
+    world_set(w, x + 1, r, tile_id("stone"));
+    ticks(&g, 5);
+    CHECK(world_get(w, x + 1, r) == tile_id("stone"));
+    clear_drops(&g);
+    world_set(w, x + 1, r, TILE_AIR);
+    world_set(w, x, r, TILE_AIR);
+    world_set_at(w, LAYER_BACKGROUND, x, r - 1, TILE_AIR);
+
+    /* A deployer puts down a block out of what it holds. */
+    g.player.feet = g.player.step_to = (TilePos){ x - 1, r };
+    in_hand(&g, "deployer_right");
+    CHECK(game_click_tile(&g, x, r));
+    run(&g, 2.0f);
+    CHECK(is_block(&g, "deployer_right", x, r) && game_queue_action(&g, ACTION_USE, x, r));
+    run(&g, 1.0f);
+    uint16_t box = game_open_storage(&g);
+    CHECK(box != 0);
+    if (box) g.inventory.containers[box].slots[0] = (ItemStack){ .id = (uint16_t)item_id("marble"), .count = 2 };
+    game_close_bench(&g);
+    g.player.feet = g.player.step_to = (TilePos){ 5, r };
+    put(&g, "lever_on", x, r - 1);
+    ticks(&g, 2);
+    CHECK(world_get(w, x + 1, r) == tile_id("marble") && box && g.inventory.containers[box].slots[0].count == 1);
+    world_set(w, x + 1, r, TILE_AIR);
+    world_set_at(w, LAYER_BACKGROUND, x, r - 1, TILE_AIR);
+
+    /* A spout pours while it has a signal; a drain takes water away; a charge takes everything round it, itself included. */
+    int sx = x + 40;
+    world_set(w, sx + 1, r + 1, TILE_AIR);
+    for (int dy = 0; dy <= 1; dy++) world_set(w, sx + 1, r + 1 + dy, TILE_AIR);
+    put(&g, "spout_right", sx, r + 1);
+    world_set(w, sx, r + 1, tile_id("spout_right"));
+    put(&g, "lever_on", sx, r);
+    ticks(&g, 12);
+    CHECK(world_water(w, sx + 1, r + 2) > 0 || world_water(w, sx + 1, r + 1) > 0);
+    world_set(w, sx, r + 1, tile_id("drain_right"));
+    ticks(&g, 40);
+    CHECK(world_water(w, sx + 1, r + 1) == 0);
+    world_set_at(w, LAYER_BACKGROUND, sx, r, TILE_AIR);
+    int bx = x + 60;
+    world_set(w, bx, r + 3, tile_id("blasting_charge"));
+    world_set(w, bx, r + 2, TILE_AIR);
+    put(&g, "lever_on", bx, r + 2);
+    ticks(&g, 2);
+    CHECK(world_get(w, bx, r + 3) == TILE_AIR && world_get(w, bx + 2, r + 3) == TILE_AIR && world_get(w, bx, r + 5) == TILE_AIR && world_get(w, bx + 5, r + 3) != TILE_AIR);
+    clear_drops(&g);
+
+    /* A hatch is a block that a signal opens; a gate belt runs only while it has one; a walkway carries whoever is on it. */
+    int hx = x + 80;
+    world_set(w, hx, r, tile_id("hatch_shut"));
+    put(&g, "gate_belt_shut", hx + 2, r);
+    put(&g, "lever_off", hx + 1, r);
+    ticks(&g, 2);
+    CHECK(world_is_solid(w, hx, r) && tile_def(world_get_at(w, LAYER_BACKGROUND, hx + 2, r))->conveyor == 0);
+    game_use_block(&g, hx + 1, r);
+    ticks(&g, 2);
+    CHECK(!world_is_solid(w, hx, r) && world_get(w, hx, r) == tile_id("hatch_open") && tile_def(world_get_at(w, LAYER_BACKGROUND, hx + 2, r))->conveyor == 1);
+    int wx = x + 90;
+    for (int i = 0; i < 6; i++) world_set(w, wx + i, r + 1, tile_id("walkway_right"));
+    g.player.feet = g.player.step_to = (TilePos){ wx, r };
+    ticks(&g, 20);
+    CHECK(g.player.feet.x >= wx + 4 && g.player.feet.y == r);
+
+    /* Saved and loaded, what was on is on, and a tick puts every signal back. */
+    put(&g, "lever_on", x + 100, r);
+    put(&g, "spark_dust", x + 101, r);
+    world_set(w, x + 102, r, tile_id("signal_lamp_off"));
+    ticks(&g, 2);
+    CHECK(save_game(&g, "build/test_machinations.world"));
+    static Game loaded;
+    CHECK(load_game(&loaded, "build/test_machinations.world"));
+    CHECK(world_get_at(&loaded.world, LAYER_BACKGROUND, x + 100, r) == tile_id("lever_on") && world_get(&loaded.world, x + 102, r) == tile_id("signal_lamp_on"));
+    game_tick(&loaded);
+    CHECK(game_signal_at(&loaded, x + 101, r) == 15 && loaded.world.device_count > 5);
+    game_free(&loaded);
+    game_free(&g);
+
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/settest/saves");
+    const ModInfo *mine = NULL;
+    for (int i = 0; i < mods.count; i++)
+        if (strcmp(mods.mods[i].id, "machinations") == 0) mine = &mods.mods[i];
+    CHECK(mine != NULL && strcmp(mine->label, "Machinations of Madness") == 0);
+    for (int i = 0; mine && i < mods.count; i++) {
+        char what[64];
+        if (&mods.mods[i] != mine) CHECK(!mods_conflict(mine, &mods.mods[i], what, sizeof what));
+    }
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+}
+
 /* The workbench makes benches and nothing else: in the game, and in every mod it comes with. (A machine is a bench for this.) */
 static void test_workbench_only(void)
 {
@@ -12581,6 +12896,7 @@ int main(void)
     test_alchemie_mod();
     test_dimensions_mod();
     test_rags_mod();
+    test_machinations_mod();
     test_workbench_only();
     test_all_caged();
     test_equip_selected();

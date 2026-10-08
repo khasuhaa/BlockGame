@@ -409,6 +409,9 @@ typedef struct {
     /* Scratch space for planning. */
     World sim;
     /* Where the character in hand last went from into a place that is only so wide: where they come back out. Not saved. */
+    /* Signals: what every square with anything to do with them has this tick, and had last (see signal.h). Not saved. */
+    uint8_t *signal, *signal_was;
+    size_t signal_cells;
     int travels;      /* how many times anybody has gone from one place to another: the view watches it. Not saved. */
     TilePos gate_from;
     bool gate_from_set;
@@ -543,6 +546,15 @@ bool game_travel(Game *g, int x, int y);
 int game_enter_dimension(Game *g, int dim);
 /* Makes the game's own room for a world that has just been given more rows. False if there was not the memory. */
 bool game_world_grew(Game *g);
+/* What machinery does to the world (see signal.h). Digs the plain block in a square, leaving what it leaves;
+ * puts down there a block out of what the block at (sx, sy) holds; takes everything plain within so many
+ * blocks; moves whoever is in a square a step, if there is room for them where they would go; and says
+ * whether anybody (or anything lying there, if asked) is in a square. */
+bool game_break_block(Game *g, int x, int y);
+bool game_deploy_block(Game *g, int sx, int sy, int x, int y);
+void game_blast(Game *g, int x, int y, int radius);
+bool game_shove(Game *g, int x, int y, int dx, int dy);
+bool game_square_stood(const Game *g, int x, int y, bool items);
 /* Whether what is in hand can dig a block at all: some are too hard for a lesser tool. */
 bool game_can_dig(const Game *g, TileType t);
 

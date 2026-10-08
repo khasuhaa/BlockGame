@@ -363,6 +363,57 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->opens_below = (int)num(e, "opens_below", 0);
         t->hardness = (int)num(e, "hardness", 0);
         t->village = (int)num(e, "village", 0);
+        {
+            /* Signals, and the machinery that goes by them. A direction is [across, down]. */
+            const cJSON *sig = field(e, "signal"), *one, *piston = field(e, "piston"), *reverts = field(e, "reverts"), *walk = field(e, "walkway");
+            int dir[2];
+            t->signal_wire = flag(sig, "wire", false);
+            t->signal_daylight = flag(sig, "daylight", false);
+            t->signal_invert = flag(sig, "invert", false);
+            t->signal_and = flag(sig, "and", false);
+            t->signal_out = (int)num(sig, "out", 0);
+            t->signal_clock = (int)num(sig, "clock", 0);
+            t->signal_delay = (int)num(sig, "delay", 0);
+            t->signal_in_count = 0;
+            cJSON_ArrayForEach(one, field(sig, "in")) {
+                if (t->signal_in_count >= 3 || cJSON_GetArraySize(one) != 2) return fail(r, "tile \"%s\": a signal comes \"in\" from at most 3 sides, each [across, down]", t->name);
+                t->signal_in[t->signal_in_count][0] = (int8_t)cJSON_GetArrayItem(one, 0)->valuedouble;
+                t->signal_in[t->signal_in_count++][1] = (int8_t)cJSON_GetArrayItem(one, 1)->valuedouble;
+            }
+            dir[0] = dir[1] = 0;
+            pair(sig, "toward", &dir[0], &dir[1]);
+            t->signal_toward[0] = (int8_t)dir[0], t->signal_toward[1] = (int8_t)dir[1];
+            t->powered_becomes = t->unpowered_becomes = t->pulse_becomes = t->use_becomes = t->reverts_to = t->stood_becomes = t->clear_becomes = t->piston_head = TILE_AIR;
+            if (!tile_ref(r, e, "powered_becomes", &t->powered_becomes) || !tile_ref(r, e, "unpowered_becomes", &t->unpowered_becomes) ||
+                !tile_ref(r, e, "pulse_becomes", &t->pulse_becomes) || !tile_ref(r, e, "use_becomes", &t->use_becomes) ||
+                !tile_ref(r, reverts, "to", &t->reverts_to) || !tile_ref(r, e, "stood_becomes", &t->stood_becomes) ||
+                !tile_ref(r, e, "clear_becomes", &t->clear_becomes) || !tile_ref(r, piston, "head", &t->piston_head)) return false;
+            t->revert_ticks = reverts ? (int)num(reverts, "ticks", 20) : 0;
+            t->stood_by_items = flag(e, "stood_by_items", false);
+            t->piston = piston != NULL;
+            t->piston_out = flag(piston, "out", false);
+            t->piston_sticky = flag(piston, "sticky", false);
+            dir[0] = 1, dir[1] = 0;
+            pair(piston, "dir", &dir[0], &dir[1]);
+            t->piston_dir[0] = (int8_t)dir[0], t->piston_dir[1] = (int8_t)dir[1];
+            t->sticky = flag(e, "sticky", false);
+            t->immovable = flag(e, "immovable", false);
+            const cJSON *acts = field(e, "breaks") ? field(e, "breaks") : field(e, "deploys") ? field(e, "deploys") : field(e, "spout") ? field(field(e, "spout"), "dir") : NULL;
+            t->breaks = field(e, "breaks") != NULL;
+            t->deploys = field(e, "deploys") != NULL;
+            t->spout = (int)num(field(e, "spout"), "amount", 0);
+            t->blast = (int)num(e, "blast", 0);
+            t->act_dir[0] = cJSON_GetArraySize(acts) == 2 ? (int8_t)cJSON_GetArrayItem(acts, 0)->valuedouble : 1;
+            t->act_dir[1] = cJSON_GetArraySize(acts) == 2 ? (int8_t)cJSON_GetArrayItem(acts, 1)->valuedouble : 0;
+            t->walkway = (int)num(walk, "dir", 0);
+            t->walk_ticks = (int)num(walk, "ticks", 4);
+            t->device = t->signal_wire || t->signal_daylight || t->signal_out > 0 || t->signal_clock > 0 || t->signal_in_count > 0 ||
+                        t->powered_becomes != TILE_AIR || t->unpowered_becomes != TILE_AIR || t->pulse_becomes != TILE_AIR || t->reverts_to != TILE_AIR ||
+                        t->stood_becomes != TILE_AIR || t->clear_becomes != TILE_AIR || t->piston || t->breaks || t->deploys || t->spout != 0 ||
+                        t->blast > 0 || t->walkway != 0;
+            if ((t->piston && abs(t->piston_dir[0]) + abs(t->piston_dir[1]) != 1) || t->signal_out < 0 || t->signal_out > 15)
+                return fail(r, "tile \"%s\": a piston pushes one square along or up or down; a signal is 0 to 15", t->name);
+        }
         t->harm = (float)num(e, "harm", 0.0);
         const cJSON *extends = field(e, "extends"), *ext_cost;
         t->extends = extends != NULL;

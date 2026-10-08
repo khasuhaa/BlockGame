@@ -550,6 +550,11 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
                 if (far_x * far_x + far_y * far_y <= 36) termui_open(&term_ui, t, false);
                 else game_queue_action(g, ACTION_MOVE, t.x + (far_x > 0 ? -1 : 1), t.y);
             }
+            /* Something that is used by a click - a lever, a button, a piston to be turned - is used; unless what is
+             * in hand is what digs it, when the click is a dig like any other. */
+            else if (def->use_becomes != TILE_AIR && !(inventory_selected(&g->inventory)->count > 0 && def->tool_class >= 0 &&
+                                                       item_def((ItemId)inventory_selected(&g->inventory)->id)->tool_class == def->tool_class))
+                game_queue_action(g, ACTION_USE, t.x, t.y);
             else if (opens && def->removable) benchui_show_popup(bench, t);
             /* A bed has the same little menu: to sleep in it, or to take it up. */
             else if (!opens && game_bed_at(g, t.x, t.y) != TILE_AIR) benchui_show_popup(bench, t);
