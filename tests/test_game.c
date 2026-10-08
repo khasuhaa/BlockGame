@@ -11417,6 +11417,42 @@ static void test_hands_and_full_bars(void)
     CHECK(g.player.activity == ACTIVITY_MINING && near(g.player.duration, bare));
     run(&g, bare + 1.0f);
     CHECK(world_get(w, x + 1, row) == TILE_AIR);
+    /* They turn to what they work on, whichever way they last walked: a block behind them is not dug with their back to it. */
+    {
+        int fx = g.player.feet.x;
+        game_set_move_input(&g, 1, 0);
+        run(&g, 0.4f);
+        game_set_move_input(&g, 0, 0);
+        run(&g, 1.0f);
+        fx = g.player.feet.x;
+        CHECK(g.player.facing == 1 && fx > x);
+        world_set(w, fx - 1, row, TILE_STONE);
+        CHECK(game_click_tile(&g, fx - 1, row) && g.queue[0].type == ACTION_MINE);
+        run(&g, 0.3f);
+        CHECK(g.player.activity == ACTIVITY_MINING && g.player.facing == -1);
+        run(&g, bare + 1.0f);
+        /* Something straight overhead turns them neither way; putting a block down turns them to where it goes. */
+        world_set(w, fx, row - 2, TILE_STONE);
+        CHECK(game_click_tile(&g, fx, row - 2));
+        run(&g, 0.3f);
+        CHECK(g.player.activity == ACTIVITY_MINING && g.player.facing == -1);
+        run(&g, bare + 1.0f);
+        for (int i = 0; i < INVENTORY_SLOTS; i++) inv->slots[i] = (ItemStack){ 0 };
+        inventory_add(inv, ITEM_DIRT, 1);
+        inventory_select_slot(inv, 0);
+        CHECK(game_click_tile(&g, fx + 1, row) && g.queue[0].type == ACTION_PLACE);
+        run(&g, 0.05f);
+        CHECK(g.player.activity == ACTIVITY_PLACING && g.player.facing == 1);
+        run(&g, 1.0f);
+        CHECK(world_get(w, fx + 1, row) == TILE_DIRT);
+        world_set(w, fx + 1, row, TILE_AIR);
+        for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+        for (int i = 0; i < INVENTORY_SLOTS; i++) inv->slots[i] = (ItemStack){ .id = (uint16_t)(i % 2 ? pick : axe), .count = 1 };
+        inventory_select_hand(inv);
+        world_set(w, fx - 1, row, TILE_STONE);
+        CHECK(game_click_tile(&g, fx - 1, row));
+        run(&g, bare + 1.5f);
+    }
     /* Nothing is carried off for its having been chosen; and choosing a slot again is choosing its tool again. */
     CHECK(inventory_count(inv, pick) + inventory_count(inv, axe) == INVENTORY_SLOTS);
     inventory_select_slot(inv, 3);

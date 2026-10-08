@@ -1745,6 +1745,12 @@ static void begin_work(Game *g, Activity activity, float duration)
 {
     g->player.activity = activity;
     g->player.timer = 0.0f;
+    /* They turn to what they are working on. (Until now they went on facing whichever way they had last walked:
+     * so, having come to a block from the far side of it, or climbed to it, they dug or built with their back to it.) */
+    if (g->has_current) {
+        int across = world_dx(&g->world, g->player.feet.x, world_wrap_x(&g->world, g->current.target.x));
+        if (across != 0) g->player.facing = across > 0 ? 1 : -1;
+    }
     /* (The weather having got to them, it takes longer.) */
     g->player.duration = duration / game_pace(g);
 }
@@ -2081,6 +2087,7 @@ static bool start_next_activity(Game *g)
                 TilePos at = { m->x, m->y };
                 if (in_attack_range(w, p->feet, at, g->current.arg != HAND_HIT ? 0 : g->current.amount)) {
                     /* Within reach: one blow. */
+                    g->current.target = at;
                     begin_work(g, ACTIVITY_ATTACKING, content.rules.attack_time > 0.0f ? content.rules.attack_time : 0.3f);
                     return true;
                 }

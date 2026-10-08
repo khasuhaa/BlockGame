@@ -651,6 +651,8 @@ The world is drawn in depth. The game itself is still a grid seen from the side 
 
 **Nobody lets themselves drop.** A step that would leave a character falling more than one block - off the end of a row they are hanging from, down from the underside of a block, off a ledge into the air - is not one they will take, by the keys or on the way to a click: they go over the side and climb down, or stay where they are. One block down is an ordinary step. They still fall when what they stand on or hold is taken away, and when a jetpack is taken off in the air. (How far they will let themselves drop is `"max_drop"` under `"player"` in `rules.json`; 0 is any distance.)
 
+**They face what they work on.** Digging, building or striking, a character turns to the block or creature it is being done to, whichever way they last walked - and does so even while holding on to a wall on their other side. Something straight above or below turns them neither way.
+
 **How they move** is drawn all the way through: going up onto a block they lean to it and bring the leading knee up and over; coming down off one, or falling, the arms go out and up; a hop tucks the knees; and lying down to sleep, sitting to meditate, and dying are gone into and come out of, not jumped to.
 
 **Attacked**, a character throws their arms about for a little over half a second (`"flail_time"`): a bite or a sting does it.

@@ -1576,7 +1576,9 @@ static void draw_player(const Game *g, Vector2 origin)
     /* Stood doing nothing, they turn to face out of the screen; to go anywhere or do anything, to the side. */
     e->idle = p->activity == ACTIVITY_IDLE && !holding && !crawling && !swimming ? e->idle + dt : 0.0f;
     if (game_player_flying(g)) swimming = false;
-    int facing = grip != 0 ? grip : p->facing;
+    /* (Holding on to a wall they face it - but not while they work at something on the other side of them.) */
+    bool busy = p->activity == ACTIVITY_MINING || p->activity == ACTIVITY_PLACING || p->activity == ACTIVITY_ATTACKING;
+    int facing = grip != 0 && !busy ? grip : p->facing;
     BodyPose to = { .tint = WHITE };
     float side = e->idle > 0.18f ? 0.0f : (float)facing * PLAYERMODEL_SIDE, shift = 0.0f, bob = 0.0f;
     int rise = stepping ? p->step_to.y - p->feet.y : 0;
