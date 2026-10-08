@@ -182,6 +182,21 @@ static void piston_in(Game *g, const TileDef *def, int layer, int x, int y)
 
 /* ---- the tick ------------------------------------------------------------ */
 
+bool game_turn_block(Game *g, int x, int y)
+{
+    World *w = &g->world;
+    for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
+        const TileDef *def = tile_def(world_get_at(w, layer, x, y));
+        if (def->turns_to == TILE_AIR) continue;
+        /* (What it holds, and anything else kept with its square, stays where it is: only the block is another.) */
+        int kept = world_meta(w, x, y);
+        world_set_at(w, layer, x, y, def->turns_to);
+        if (kept) world_set_meta(w, x, y, kept);
+        return true;
+    }
+    return false;
+}
+
 bool game_use_block(Game *g, int x, int y)
 {
     World *w = &g->world;
@@ -225,6 +240,12 @@ void signal_tick(Game *g)
         int x = list[i] % w->width, y = list[i] / w->width, layer = 0;
         const TileDef *def = device_in(w, x, y, &layer);
         if (!def) continue;
+        /* A piston's head with no piston behind it - left hanging by a world from before they went together - goes. */
+        if (def->is_piston_head) {
+            const TileDef *behind = tile_def(world_get(w, x - def->piston_dir[0], y - def->piston_dir[1]));
+            if (!(behind->piston && behind->piston_out && behind->piston_head == world_get(w, x, y))) world_set(w, x, y, TILE_AIR);
+            continue;
+        }
         if (def->reverts_to != TILE_AIR) {
             int left = world_meta(w, x, y);
             if (left <= 1) world_set_at(w, layer, x, y, def->reverts_to);

@@ -307,6 +307,10 @@ typedef struct {
      * turns into another by itself after so many ticks; one that is stood on turns into `stood_becomes` while
      * anybody (or, for `stood_by_items`, anything lying there) is in its square, and `clear_becomes` when not. */
     TileType use_becomes, reverts_to, stood_becomes, clear_becomes;
+    /* A thing with a front: the block it is when turned to face the next way round. Something that turns things
+     * - a wrench - in hand, a click on it turns it. */
+    TileType turns_to;
+    bool is_piston_head; /* (worked out: some piston has this for its head, and pushes it out the way `piston_dir` says) */
     int revert_ticks;
     bool stood_by_items;
     /* A piston: powered, it pushes the blocks in front of it a square along (`piston_dir`) and puts its head
@@ -552,6 +556,7 @@ typedef struct {
     int power;             /* a tool: what `hardness` of block it can dig */
     bool glides;           /* worn, a drop of any height is a step like another: they come down slowly */
     float cooling;         /* worn, how much of the environment score it keeps where it is hot: a share, 0 to 1 */
+    bool turns;            /* in hand, a click on a thing with a front turns it to face another way */
     bool speciality;       /* it is sold only in villages, and only in the few of them that happen to deal in it */
     bool pack;             /* worn, it is a pack on the back as well: a box there, drawn from the top right of its picture */
     bool lifts;            /* worn, it lets them fly: the air holds them up wherever they go in it */

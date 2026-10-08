@@ -491,7 +491,7 @@ static TileType usable_at(const World *w, int x, int y, int *layer)
 {
     for (int l = 0; l < BLOCK_LAYERS; l++) {
         TileType t = world_get_at(w, l, x, y);
-        if (!tile_def(t)->bench && !tile_def(t)->trade && tile_def(t)->storage_columns == 0 && tile_def(t)->leads_dim < 0 && tile_def(t)->use_becomes == TILE_AIR) continue;
+        if (!tile_def(t)->bench && !tile_def(t)->trade && tile_def(t)->storage_columns == 0 && tile_def(t)->leads_dim < 0 && tile_def(t)->use_becomes == TILE_AIR && tile_def(t)->turns_to == TILE_AIR) continue;
         /* (Not one that is out of sight and out of reach behind a block: something buried, till it is dug out.) */
         if (l != LAYER_FOREGROUND && tile_def(world_get(w, x, y))->solid && !tile_def(world_get(w, x, y))->see_through) continue;
         if (layer) *layer = l;
@@ -2360,6 +2360,19 @@ static bool start_next_activity(Game *g)
                     continue;
                 case ACTION_USE:
                     /* Something that using turns into something else - a lever, a piston to be turned - is used, not opened. */
+                    /* (And with something that turns things in hand, a thing with a front is turned - even one that would open.) */
+                    if (item_def((ItemId)inventory_selected(&g->inventory)->id)->turns && inventory_selected(&g->inventory)->count > 0 &&
+                        game_turn_block(g, g->current.target.x, g->current.target.y)) {
+                        g->has_current = false;
+                        continue;
+                    }
+                    if (tile_def(game_bench_at(g, g->current.target.x, g->current.target.y))->turns_to != TILE_AIR &&
+                        tile_def(game_bench_at(g, g->current.target.x, g->current.target.y))->use_becomes == TILE_AIR &&
+                        tile_def(game_bench_at(g, g->current.target.x, g->current.target.y))->storage_columns == 0) {
+                        /* (Without one, there is nothing to do to it by using it.) */
+                        g->has_current = false;
+                        continue;
+                    }
                     if (tile_def(game_bench_at(g, g->current.target.x, g->current.target.y))->use_becomes != TILE_AIR) {
                         TilePos used = g->current.target;
                         g->has_current = false;

@@ -129,6 +129,13 @@ rec('metalwork_bench', 'steam_valve', 1, [('copper_ingot', 2), ('brass_gear', 1)
 rec('furnace', 'spark_dust', 4, [('sparkstone_ore', 1)], 60, level=2); rec('mixing_bench', 'spark_dust', 2, [('coal', 2), ('copper_ingot', 1), ('flint', 1)], 120)
 rec('mixing_bench', 'sticky_resin', 2, [('kelp', 2), ('flour', 1)], 80); rec('mixing_bench', 'sticky_resin', 4, [('raw_resin', 1)], 40)
 
+def wrench():
+    t = P()
+    for i in range(3, 12): t.p(i, 15 - i, IRON); t.p(i + 1, 15 - i, dk(IRON))
+    t.r(10, 1, 14, 2, BRASS); t.r(13, 2, 14, 5, BRASS); t.r(10, 1, 10, 3, BRASS); t.p(12, 3, (0, 0, 0, 0)); return t
+simple('wrench', wrench)
+item('wrench', 'Wrench', 'tools', 900, max_stack=1, turns=True); rec('metalwork_bench', 'wrench', 1, [('iron_ingot', 2), ('brass_ingot', 1)], 80)
+
 # ---- the benches -----------------------------------------------------------------------------------------------
 def bench_pic(name, top, body):
     t = P(); t.box(1, 6, 14, 15, body); t.r(0, 4, 15, 6, top); t.r(0, 4, 15, 4, lt(top)); t.r(3, 9, 6, 12, dk(body, 0.5)); t.r(4, 10, 5, 11, BRASS); t.r(9, 9, 12, 12, IRON); t.p(10, 10, lt(IRON)); t.r(11, 1, 12, 3, DARK); t.p(11, 0, STEAM)
@@ -167,7 +174,7 @@ def facing(name, label, base, sig, price, ins, extra=None):
         s = json.loads(json.dumps(sig)); k = -1 if flip else 1
         s['in'] = [[-k if a == 'back' else 0, 1 if a == 'below' else 0] for a in s['in']]; s['toward'] = [k, 0]
         tile('%s_%s' % (name, side), label, False, mine_time=0.15, attaches=True, floats=True, model='panel', drop=name, signal=s,
-             use_becomes='%s_%s' % (name, 'left' if side == 'right' else 'right'), **(extra or {}))
+             turns_to='%s_%s' % (name, 'left' if side == 'right' else 'right'), **(extra or {}))
     icon_of(name, name + '_right'); item(name, label, 'energy', price, places=name + '_right'); rec(T, name, 1, ins)
 rp = slab(IRON); rp.r(3, 7, 5, 8, dk(SPARK, 0.6)); rp.arrow(SPARK); rp.r(12, 6, 13, 9, SPARK)
 facing('repeater', 'Repeater', rp, {'in': ['back'], 'delay': 2}, 420, [('spark_dust', 2), ('spark_torch', 1), ('stone', 2)])
@@ -240,30 +247,24 @@ for kind, label, face, sticky in (('piston', 'Piston', WOOD, False), ('sticky_pi
         body.turned(quarter).save('tiles', '%s_%s' % (kind, side)); out.turned(quarter).save('tiles', '%s_%s_out' % (kind, side))
         (head if not sticky else head).turned(quarter).save('tiles', 'piston_head_%s' % side)
         tile('%s_%s' % (kind, side), label, drop=kind, wall=False, piston={'dir': d, 'head': 'piston_head_' + side, 'sticky': sticky}, powered_becomes='%s_%s_out' % (kind, side),
-             use_becomes='%s_%s' % (kind, nxt))
-        tile('%s_%s_out' % (kind, side), label, drop=kind, wall=False, immovable=True,
+             turns_to='%s_%s' % (kind, nxt))
+        tile('%s_%s_out' % (kind, side), label, drop=kind, wall=False, immovable=True, see_through=True,
              piston={'dir': d, 'head': 'piston_head_' + side, 'sticky': sticky, 'out': True}, unpowered_becomes='%s_%s' % (kind, side))
     icon_of(kind, kind + '_right', block=True); item(kind, label, 'energy', 1400 if not sticky else 1800, places=kind + '_right')
-for side, d, quarter in DIRS: tile('piston_head_' + side, 'Piston head', removable=False, drop=None, immovable=True, wall=False)
+for side, d, quarter in DIRS: tile('piston_head_' + side, 'Piston head', removable=False, drop=None, immovable=True, wall=False, see_through=True)
 rec(G, 'piston', 1, [('wood', 3), ('stone', 4), ('piston_rod', 1), ('spark_dust', 1)]); rec(G, 'sticky_piston', 1, [('piston', 1), ('sticky_resin', 1)])
 rb = P().box(0, 0, 15, 15, RESIN); rb.r(3, 3, 12, 12, lt(RESIN, 1.2)); rb.r(5, 5, 7, 7, c('d0ffb0')); rb.save('tiles', 'resin_block'); icon_of('resin_block', block=True)
 tile('resin_block', 'Resin block', sticky=True, wall=False, see_through=True); item('resin_block', 'Resin block', 'crafted', 1800, places='resin_block'); rec(G, 'resin_block', 1, [('sticky_resin', 9)])
 
 def turning(name, label, pic, extra, price, ins, cat='energy', storage=None):
-    """A machine with a front: four blocks, one for each way it can face; a click turns one that holds nothing."""
+    """A machine with a front: four blocks, one for each way it can face, and one item; a wrench turns it."""
     for i, (side, d, quarter) in enumerate(DIRS):
         pic.turned(quarter).save('tiles', '%s_%s' % (name, side))
         e = json.loads(json.dumps(extra).replace('"DIR"', json.dumps(d)))
-        tile('%s_%s' % (name, side), label, drop=name if not storage else '%s_%s' % (name, side), wall=False, storage=storage,
-             use_becomes=None if storage else '%s_%s' % (name, DIRS[(i + 1) % 4][0]), **e)
-        if storage:
-            icon_of('%s_%s' % (name, side), block=True)
-            item('%s_%s' % (name, side), '%s (%s)' % (label, side), cat, price, places='%s_%s' % (name, side), container={'slots': storage['columns'] * storage['rows']})
-            if side != 'right': rec(G, '%s_%s' % (name, side), 1, [('%s_right' % name, 1)], 5); rec(G, '%s_right' % name, 1, [('%s_%s' % (name, side), 1)], 5)
-    if not storage:
-        icon_of(name, name + '_right', block=True); item(name, label, cat, price, places=name + '_right'); rec(G, name, 1, ins)
-    else:
-        rec(G, name + '_right', 1, ins)
+        tile('%s_%s' % (name, side), label, drop=name, wall=False, storage=storage, turns_to='%s_%s' % (name, DIRS[(i + 1) % 4][0]), **e)
+    icon_of(name, name + '_right', block=True)
+    item(name, label, cat, price, places=name + '_right', **({'container': {'slots': storage['columns'] * storage['rows']}} if storage else {}))
+    rec(G, name, 1, ins)
 bore = P().box(0, 0, 10, 15, c('5a5e6a')); bore.r(11, 2, 13, 13, IRON); bore.r(14, 5, 15, 10, lt(IRON)); bore.r(11, 7, 15, 8, DARK); bore.r(3, 6, 7, 9, BRASS)
 turning('bore', 'Bore', bore, {'breaks': 'DIR'}, 2600, [('iron_ingot', 4), ('piston_rod', 1), ('iron_gear', 2), ('spark_dust', 1)])
 dep = P().box(0, 0, 15, 15, BRASS); dep.r(11, 3, 15, 12, DARK); dep.r(12, 5, 14, 10, c('1a1a20')); dep.r(3, 5, 8, 10, WOOD)
@@ -282,7 +283,7 @@ wk.r(3, 8, 6, 11, IRON); wk.r(9, 8, 12, 11, IRON)
 for name, label, ticks, price, ins in (('walkway', 'Moving walkway', 4, 500, [('iron_ingot', 1), ('iron_gear', 1), ('leather', 1)]), ('swift_walkway', 'Swift walkway', 2, 1200, [('walkway', 2), ('brass_gear', 1)])):
     for side, k, pic in (('right', 1, wk), ('left', -1, wk.flipped())):
         pic.save('tiles', '%s_%s' % (name, side))
-        tile('%s_%s' % (name, side), label, drop=name, wall=False, walkway={'dir': k, 'ticks': ticks}, use_becomes='%s_%s' % (name, 'left' if side == 'right' else 'right'))
+        tile('%s_%s' % (name, side), label, drop=name, wall=False, walkway={'dir': k, 'ticks': ticks}, turns_to='%s_%s' % (name, 'left' if side == 'right' else 'right'))
     icon_of(name, name + '_right', block=True); item(name, label, 'energy', price, places=name + '_right'); rec(G, name, 4 if name == 'walkway' else 2, ins)
 
 # ---- steam, and what it drives ---------------------------------------------------------------------------------

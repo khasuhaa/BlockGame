@@ -19,6 +19,8 @@
 void signal_tick(Game *g);
 /* The signal in a square just now: what a wire there carries or a source there makes; 0 for none. */
 int game_signal_at(const Game *g, int x, int y);
+/* Turns the block in a square to face the next way round, if it is a thing with a front. */
+bool game_turn_block(Game *g, int x, int y);
 /* Uses the block in a square, if it is one that using turns into another: a lever thrown, a piston turned. */
 bool game_use_block(Game *g, int x, int y);
 

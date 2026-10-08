@@ -550,7 +550,11 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
                 if (far_x * far_x + far_y * far_y <= 36) termui_open(&term_ui, t, false);
                 else game_queue_action(g, ACTION_MOVE, t.x + (far_x > 0 ? -1 : 1), t.y);
             }
-            /* Something that is used by a click - a lever, a button, a piston to be turned - is used; unless what is
+            /* With something that turns things in hand, a click on a thing with a front turns it. */
+            else if (inventory_selected(&g->inventory)->count > 0 && item_def((ItemId)inventory_selected(&g->inventory)->id)->turns &&
+                     (tile_def(world_get(&g->world, t.x, t.y))->turns_to != TILE_AIR || tile_def(world_get_at(&g->world, LAYER_BACKGROUND, t.x, t.y))->turns_to != TILE_AIR))
+                game_queue_action(g, ACTION_USE, t.x, t.y);
+            /* Something that is used by a click - a lever, a button - is used; unless what is
              * in hand is what digs it, when the click is a dig like any other. */
             else if (def->use_becomes != TILE_AIR && !(inventory_selected(&g->inventory)->count > 0 && def->tool_class >= 0 &&
                                                        item_def((ItemId)inventory_selected(&g->inventory)->id)->tool_class == def->tool_class))

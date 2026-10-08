@@ -11772,7 +11772,7 @@ static void test_machinations_mod(void)
         failures++;
         return;
     }
-    CHECK(content.tile_count == tiles + 94 && content.item_count == items + 59 && content.recipe_count == recipes + 63);
+    CHECK(content.tile_count == tiles + 94 && content.item_count == items + 57 && content.recipe_count == recipes + 58);
     CHECK(tile_def(tile_id("workbench_4"))->upgrade_to == tile_id("steam_workbench") && tile_def(tile_id("steam_workbench"))->bench_level == 5);
     CHECK(find_recipe(tile_id("steam_workbench"), "steam_assembler") && find_recipe(tile_id("steam_workbench"), "steam_assembler")->level == 5);
     CHECK(tile_def(tile_id("belt"))->conveyor == 1 && tile_def(tile_id("mechanical_arm"))->extractor && tile_def(tile_id("steam_assembler"))->automat && tile_def(tile_id("steam_pipe"))->wire &&
@@ -11826,7 +11826,7 @@ static void test_machinations_mod(void)
     CHECK(game_signal_at(&g, x + 14, r) == 2 && game_signal_at(&g, x + 16, r) == 0);
     ticks(&g, 4);
     CHECK(game_signal_at(&g, x + 16, r) == 15);
-    CHECK(game_use_block(&g, x + 15, r) && is_block(&g, "repeater_left", x + 15, r));
+    CHECK(!game_use_block(&g, x + 15, r) && game_turn_block(&g, x + 15, r) && is_block(&g, "repeater_left", x + 15, r));
     ticks(&g, 4);
     CHECK(game_signal_at(&g, x + 16, r) == 0 && game_signal_at(&g, x + 14, r) == 2);
     for (int i = 0; i <= 16; i++) world_set_at(w, LAYER_BACKGROUND, x + i, r, TILE_AIR);
@@ -11904,7 +11904,20 @@ static void test_machinations_mod(void)
     CHECK(is_block(&g, "piston_right_out", x, r) && is_block(&g, "piston_head_right", x + 1, r) && world_get(w, x + 2, r) == tile_id("stone") &&
           world_get(w, x + 3, r) == tile_id("marble") && g.player.feet.x == x + 4);
     /* (Out, it is not to be turned, nor its head dug.) */
-    CHECK(!game_use_block(&g, x, r) && !tile_def(tile_id("piston_head_right"))->removable);
+    CHECK(!game_turn_block(&g, x, r) && !tile_def(tile_id("piston_head_right"))->removable);
+    /* Taken away while it is out, its head goes with it; and a head left with no piston behind it does not last a tick. */
+    world_set(w, x, r, TILE_AIR);
+    CHECK(world_get(w, x + 1, r) == TILE_AIR && world_get(w, x + 2, r) == tile_id("stone"));
+    world_set(w, x + 30, r, tile_id("piston_head_up"));
+    ticks(&g, 1);
+    CHECK(world_get(w, x + 30, r) == TILE_AIR);
+    world_set(w, x + 2, r, TILE_AIR);
+    world_set(w, x + 3, r, TILE_AIR);
+    put(&g, "piston_right", x, r);
+    world_set(w, x + 1, r, tile_id("stone"));
+    world_set(w, x + 2, r, tile_id("marble"));
+    ticks(&g, 2);
+    CHECK(is_block(&g, "piston_right_out", x, r) && world_get(w, x + 3, r) == tile_id("marble"));
     game_use_block(&g, x, r - 1);
     ticks(&g, 2);
     CHECK(is_block(&g, "piston_right", x, r) && world_get(w, x + 1, r) == TILE_AIR && world_get(w, x + 2, r) == tile_id("stone"));
@@ -11936,16 +11949,25 @@ static void test_machinations_mod(void)
     CHECK(is_block(&g, "sticky_piston_right", x, r) && world_get(w, x + 31, r) == TILE_AIR);
     for (int i = 1; i <= 30; i++) world_set(w, x + i, r, TILE_AIR);
     world_set(w, x + 1, r, tile_id("stone"));
-    put(&g, "piston_head_left", x + 2, r);
+    world_set(w, x + 2, r, tile_id("coal_seep"));
     ticks(&g, 2);
     CHECK(is_block(&g, "sticky_piston_right", x, r) && world_get(w, x + 1, r) == tile_id("stone"));
     world_set(w, x + 2, r, TILE_AIR);
     world_set(w, x + 1, r, TILE_AIR);
     world_set_at(w, LAYER_BACKGROUND, x, r - 1, TILE_AIR);
-    /* A click turns a piston to face another way; one that faces up lifts whoever stands on what it pushes. */
+    /* A wrench in hand, a click turns a piston to face another way - and without one does nothing to it. One that faces up lifts whoever stands on what it pushes. */
     world_set(w, x, r, TILE_AIR);
     put(&g, "piston_right", x, r);
-    CHECK(game_use_block(&g, x, r) && is_block(&g, "piston_up", x, r));
+    g.player.feet = g.player.step_to = (TilePos){ x - 1, r };
+    clear_inventory(&g);
+    CHECK(game_queue_action(&g, ACTION_USE, x, r));
+    run(&g, 1.0f);
+    CHECK(is_block(&g, "piston_right", x, r) && !g.bench_open && item_def(item_id("wrench"))->turns);
+    in_hand(&g, "wrench");
+    CHECK(game_queue_action(&g, ACTION_USE, x, r));
+    run(&g, 1.0f);
+    CHECK(is_block(&g, "piston_up", x, r) && count_item(&g, item_id("wrench")) == 1);
+    clear_inventory(&g);
     world_set(w, x, r - 1, tile_id("stone"));
     g.player.feet = g.player.step_to = (TilePos){ x, r - 2 };
     put(&g, "lever_on", x - 1, r);
@@ -11977,7 +11999,7 @@ static void test_machinations_mod(void)
 
     /* A deployer puts down a block out of what it holds. */
     g.player.feet = g.player.step_to = (TilePos){ x - 1, r };
-    in_hand(&g, "deployer_right");
+    in_hand(&g, "deployer");
     CHECK(game_click_tile(&g, x, r));
     run(&g, 2.0f);
     CHECK(is_block(&g, "deployer_right", x, r) && game_queue_action(&g, ACTION_USE, x, r));
@@ -11990,6 +12012,8 @@ static void test_machinations_mod(void)
     put(&g, "lever_on", x, r - 1);
     ticks(&g, 2);
     CHECK(world_get(w, x + 1, r) == tile_id("marble") && box && g.inventory.containers[box].slots[0].count == 1);
+    /* (Turned with a wrench, it faces another way and holds what it held; taken up, it is the one thing whichever way it faced.) */
+    CHECK(game_turn_block(&g, x, r) && is_block(&g, "deployer_up", x, r) && g.inventory.containers[box].slots[0].count == 1 && tile_def(tile_id("deployer_up"))->drop == item_id("deployer"));
     world_set(w, x + 1, r, TILE_AIR);
     world_set_at(w, LAYER_BACKGROUND, x, r - 1, TILE_AIR);
 

@@ -383,7 +383,8 @@ static bool read_tiles(Reader *r, const cJSON *root)
             dir[0] = dir[1] = 0;
             pair(sig, "toward", &dir[0], &dir[1]);
             t->signal_toward[0] = (int8_t)dir[0], t->signal_toward[1] = (int8_t)dir[1];
-            t->powered_becomes = t->unpowered_becomes = t->pulse_becomes = t->use_becomes = t->reverts_to = t->stood_becomes = t->clear_becomes = t->piston_head = TILE_AIR;
+            t->powered_becomes = t->unpowered_becomes = t->pulse_becomes = t->use_becomes = t->reverts_to = t->stood_becomes = t->clear_becomes = t->piston_head = t->turns_to = TILE_AIR;
+            if (!tile_ref(r, e, "turns_to", &t->turns_to)) return false;
             if (!tile_ref(r, e, "powered_becomes", &t->powered_becomes) || !tile_ref(r, e, "unpowered_becomes", &t->unpowered_becomes) ||
                 !tile_ref(r, e, "pulse_becomes", &t->pulse_becomes) || !tile_ref(r, e, "use_becomes", &t->use_becomes) ||
                 !tile_ref(r, reverts, "to", &t->reverts_to) || !tile_ref(r, e, "stood_becomes", &t->stood_becomes) ||
@@ -763,6 +764,7 @@ static bool read_items(Reader *r, const cJSON *root)
         it->reveals_all = flag(e, "reveals_all", false);
         it->identifies = flag(e, "identifies", false);
         it->speciality = flag(e, "speciality", false);
+        it->turns = flag(e, "turns", false);
         it->relic = flag(e, "relic", false);
         read_boons(field(e, "boons"), &it->boons);
         if (!boons_ok(&it->boons)) return fail(r, "item \"%s\": its \"boons\" are not less than nothing, and shares are no more than 1", it->name);
@@ -2056,6 +2058,16 @@ static bool validate(Reader *r)
     r->file = "data";
 
     if (!extend_benches(r)) return false;
+    /* A piston's head is a thing of the piston's: it knows which way it was pushed out, and is watched like the rest. */
+    for (int i = 1; i < content.tile_count; i++) content.tiles[i].is_piston_head = false;
+    for (int i = 1; i < content.tile_count; i++) {
+        const TileDef *p = &content.tiles[i];
+        if (!p->piston || p->piston_head <= TILE_AIR || p->piston_head >= content.tile_count) continue;
+        TileDef *head = &content.tiles[p->piston_head];
+        head->is_piston_head = true;
+        head->device = true;
+        head->piston_dir[0] = p->piston_dir[0], head->piston_dir[1] = p->piston_dir[1];
+    }
     for (int i = 0; i < content.biome_count; i++)
         if (!dimension_named(content.biomes[i].dimension_name, &content.biomes[i].dimension))
             return fail(r, "biome \"%s\" is of the dimension \"%s\", which does not exist", content.biomes[i].name, content.biomes[i].dimension_name);

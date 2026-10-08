@@ -1882,6 +1882,15 @@ void world_set_at(World *w, int layer, int x, int y, TileType t)
                 break;
             }
     }
+    /* A piston that goes while it is out takes its head with it. */
+    {
+        const TileDef *was = tile_def((TileType)w->layers[layer][cell]);
+        if (was->piston && was->piston_out && (TileType)w->layers[layer][cell] != t && was->piston_head != TILE_AIR &&
+            world_get(w, x + was->piston_dir[0], y + was->piston_dir[1]) == was->piston_head) {
+            w->layers[layer][cell] = (uint16_t)t; /* (first, so that this is not gone round again) */
+            world_set(w, x + was->piston_dir[0], y + was->piston_dir[1], TILE_AIR);
+        }
+    }
     /* What was kept with the block that was there goes with it. */
     if (w->meta && w->meta[cell] != 0) {
         const TileDef *was = tile_def((TileType)w->layers[layer][cell]);
