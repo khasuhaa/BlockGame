@@ -1014,6 +1014,60 @@ Boons game_boons(const Game *g)
     return all;
 }
 
+int game_boon_lines(const Boons *b, char lines[][BOON_LINE], int max)
+{
+    int n = 0;
+#define LINE(...) do { if (n < max) snprintf(lines[n++], BOON_LINE, __VA_ARGS__); } while (0)
+#define MORE(x) ((int)(((x) - 1.0f) * 100.0f + 0.5f))
+#define LESS(x) ((int)((1.0f - (x)) * 100.0f + 0.5f))
+    if (b->walk > 0.0f && b->walk != 1.0f) LINE("%d%% faster on foot", MORE(b->walk));
+    if (b->mine > 0.0f && b->mine != 1.0f) LINE("%d%% faster digging", MORE(b->mine));
+    if (b->craft > 0.0f && b->craft != 1.0f) LINE("%d%% faster at a bench", MORE(b->craft));
+    if (b->strength > 0) LINE("+%d damage", b->strength);
+    if (b->armor > 0.0f) LINE("%d%% of attacks stopped", (int)(b->armor * 100.0f + 0.5f));
+    if (b->thorns > 0) LINE("%d thorns", b->thorns);
+    if (b->warmth > 0.0f) LINE("%d%% of environment kept", (int)(b->warmth * 100.0f + 0.5f));
+    if (b->regen > 0.0f && b->regen != 1.0f) LINE("%d%% faster mending", MORE(b->regen));
+    if (b->lung > 0.0f && b->lung != 1.0f) LINE("%d%% more breath", MORE(b->lung));
+    if (b->appetite > 0.0f && b->appetite != 1.0f) LINE("Hunger %d%% slower", LESS(b->appetite));
+    if (b->stamina > 0.0f && b->stamina != 1.0f) LINE("Tiredness %d%% slower", LESS(b->stamina));
+    if (b->luck > 0.0f) LINE("%d%% luck", (int)(b->luck * 100.0f + 0.5f));
+#undef LINE
+#undef MORE
+#undef LESS
+    return n;
+}
+
+int game_item_lines(ItemId item, char lines[][BOON_LINE], int max)
+{
+    if (item <= ITEM_NONE || item >= content.item_count) return 0;
+    const ItemDef *def = item_def(item);
+    /* What it does of itself, in the older fields armour has, and then its boons: all said the same way. */
+    Boons all = def->boons;
+    if (def->walk_speed > 0.0f) all.walk = (all.walk > 0.0f ? all.walk : 1.0f) * def->walk_speed;
+    all.armor += def->armor;
+    all.warmth += def->warmth;
+    int n = game_boon_lines(&all, lines, max);
+    if (def->sated && n < max) snprintf(lines[n++], BOON_LINE, "Never hungry");
+    if (def->shelters && n < max) snprintf(lines[n++], BOON_LINE, "The weather cannot touch you");
+    if (def->lifts && n < max) snprintf(lines[n++], BOON_LINE, "Flight");
+    return n;
+}
+
+bool game_identifies(const Game *g)
+{
+    const Inventory *inv = &g->inventory;
+    for (int i = 0; i < INVENTORY_SLOTS; i++) {
+        const ItemStack *st = &inv->slots[i];
+        if (st->count == 0) continue;
+        if (item_def((ItemId)st->id)->identifies) return true;
+        if (st->container == 0 || st->container >= MAX_CONTAINERS || inv->containers[st->container].used != CONTAINER_ITEMS) continue;
+        for (int k = 0; k < CONTAINER_MAX_SLOTS; k++)
+            if (inv->containers[st->container].slots[k].count > 0 && item_def((ItemId)inv->containers[st->container].slots[k].id)->identifies) return true;
+    }
+    return false;
+}
+
 float game_mine_time(const Game *g, TileType t)
 {
     const TileDef *def = tile_def(t);
@@ -2379,11 +2433,14 @@ void game_note_found(Game *g)
         const ItemStack *st = i < INVENTORY_SLOTS ? &inv->slots[i] : &inv->armor[i - INVENTORY_SLOTS];
         if (st->count == 0 || st->id >= MAX_ITEMS) continue;
         g->discovered[st->id] = 1;
+        /* (Something that knows everything: with it in hand, so do they.) */
+        if (item_def((ItemId)st->id)->reveals_all) memset(g->discovered, 1, sizeof g->discovered);
         /* And what is in a basket in the bar. */
         if (st->container == 0 || st->container >= MAX_CONTAINERS || inv->containers[st->container].used != CONTAINER_ITEMS) continue;
         for (int k = 0; k < CONTAINER_MAX_SLOTS; k++) {
             const ItemStack *in = &inv->containers[st->container].slots[k];
             if (in->count > 0 && in->id < MAX_ITEMS) g->discovered[in->id] = 1;
+            if (in->count > 0 && in->id < MAX_ITEMS && item_def((ItemId)in->id)->reveals_all) memset(g->discovered, 1, sizeof g->discovered);
         }
     }
 }

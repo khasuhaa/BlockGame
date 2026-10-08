@@ -11587,7 +11587,7 @@ static void test_discovery_mod(void)
         failures++;
         return;
     }
-    CHECK(content.tile_count == tiles + 3 && content.item_count == items + 39 && content.recipe_count == recipes + 39);
+    CHECK(content.tile_count == tiles + 3 && content.item_count == items + 40 && content.recipe_count == recipes + 40);
     CHECK(content.has_relics && content.set_count == 9 && content.pool_count == 12);
     /* Thirty-six relics, four to a set: each does something, is one to a slot, and has a price and a place in the trade. */
     int relics = 0, in_set[MAX_SETS] = { 0 };
@@ -11754,6 +11754,32 @@ static void test_discovery_mod(void)
     CHECK(made == 1 && count_item(&g, item_id("relic_dust")) == 0);
     game_close_bench(&g);
 
+    /* The relic identifier. What a thing does is said in words - its own effects, and each bonus of its set - and
+     * with an identifier carried, in the bar or a basket in it, the game will say them. */
+    {
+        char lines[12][BOON_LINE];
+        CHECK(game_item_lines(item_id("worn_compass"), lines, 12) == 1 && strcmp(lines[0], "8% faster on foot") == 0);
+        CHECK(game_item_lines(item_id("mountain_heart"), lines, 12) == 2 && strcmp(lines[0], "8% of attacks stopped") == 0 && strcmp(lines[1], "100% faster mending") == 0);
+        CHECK(game_item_lines(item_id("nomads_waterskin"), lines, 12) == 1 && strcmp(lines[0], "Hunger 25% slower") == 0);
+        CHECK(game_item_lines(item_id("void_shard"), lines, 12) == 1 && strcmp(lines[0], "3 thorns") == 0);
+        CHECK(game_item_lines(item_id("obsidian_skull"), lines, 12) == 1 && strcmp(lines[0], "+5 damage") == 0);
+        CHECK(game_item_lines(item_id("relic_dust"), lines, 12) == 0 && game_item_lines(ITEM_NONE, lines, 12) == 0);
+        /* (Armour is read the same way: what it stops, what it keeps of the weather.) */
+        CHECK(game_item_lines(item_id("iron_helmet"), lines, 12) == 2 && strcmp(lines[0], "13% of attacks stopped") == 0 && strcmp(lines[1], "20% of environment kept") == 0);
+        CHECK(game_item_lines(item_id("pole_boots"), lines, 12) == 2 && strcmp(lines[0], "100% faster on foot") == 0);
+        const SetDef *deep = &content.sets[item_def(item_id("ember_lantern"))->set];
+        CHECK(game_boon_lines(&deep->tiers[0].boons, lines, 12) == 1 && strcmp(lines[0], "10% faster digging") == 0);
+        CHECK(game_boon_lines(&deep->tiers[1].boons, lines, 12) == 2 && strcmp(lines[0], "20% faster digging") == 0 && strcmp(lines[1], "8% luck") == 0);
+        ItemId lens = item_id("relic_identifier");
+        CHECK(lens > 0 && item_def(lens)->identifies && find_recipe(tile_id("reliquary"), "relic_identifier") != NULL);
+        for (int i = 0; i < INVENTORY_SLOTS; i++) inv->slots[i] = (ItemStack){ 0 };
+        CHECK(!game_identifies(&g));
+        inv->slots[4] = (ItemStack){ .id = (uint16_t)lens, .count = 1 };
+        CHECK(game_identifies(&g));
+        inv->slots[4] = (ItemStack){ 0 };
+        CHECK(!game_identifies(&g));
+    }
+
     /* Relics are kept with the world, in the slots they were in; a world from before there were any has none. */
     carry(&g, "jade_idol", NULL, "pearl_of_breath", NULL);
     CHECK(save_game(&g, "build/test_relics.world"));
@@ -11776,6 +11802,110 @@ static void test_discovery_mod(void)
     for (int i = 0; road && i < mods.count; i++) {
         char what[64];
         if (&mods.mods[i] != road) CHECK(!mods_conflict(road, &mods.mods[i], what, sizeof what));
+    }
+}
+
+/* Alchemie: benches that turn one thing into another, and at the end of them a table that makes coins of nothing. */
+static void test_alchemie_mod(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count;
+    if (!content_load("mods/alchemie", err, sizeof err)) {
+        printf("FAIL alchemie does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    CHECK(content.tile_count == tiles + 4 && content.item_count == items + 13 && content.recipe_count == recipes + 54);
+    /* Everything it adds is made of something: there is a recipe for each, with a price and a place in the trade. */
+    for (int i = items; i < content.item_count; i++) {
+        bool made = false;
+        for (int r = 0; r < content.recipe_count; r++) made = made || content.recipes[r].output.id == i;
+        CHECK(made && item_def((ItemId)i)->category >= 0 && item_def((ItemId)i)->price >= 10);
+    }
+    /* Four benches, each made with what the one before makes. */
+    const char *benches[4] = { "alembic", "athanor", "alchemists_desk", "transmutation_table" };
+    for (int i = 0; i < 4; i++)
+        CHECK(tile_id(benches[i]) > 0 && tile_def(tile_id(benches[i]))->bench && item_def(item_id(benches[i]))->places == tile_id(benches[i]));
+    CHECK(find_recipe_from(tile_id("athanor"), "gold_ingot", "iron_ingot") != NULL && find_recipe_from(tile_id("alembic"), "terra_essence", "dirt") != NULL);
+    CHECK(find_recipe_from(tile_id("alchemists_desk"), "transmutation_table", "philosophers_stone") != NULL &&
+          find_recipe_from(tile_id("alchemists_desk"), "philosophers_stone", "diamond") != NULL);
+
+    static Game g;
+    game_init(&g, 128, 64, 4, WORLD_FLAT);
+    g.tick_rate = 0;
+    clear_mobs(&g);
+    Inventory *inv = &g.inventory;
+    int x = g.player.feet.x;
+    /* The alembic draws an essence out of dirt; the athanor turns iron into gold with what the alembic makes. */
+    CHECK(place_and_open(&g, "alembic", x + 2));
+    const Recipe *r = find_recipe_from(tile_id("alembic"), "terra_essence", "dirt");
+    inventory_add(inv, ITEM_DIRT, 16);
+    CHECK(r && game_craft(&g, r, 1));
+    run(&g, 21.0f);
+    CHECK(count_item(&g, item_id("terra_essence")) == 1 && count_item(&g, ITEM_DIRT) == 0);
+    game_close_bench(&g);
+    CHECK(place_and_open(&g, "athanor", x + 5));
+    r = find_recipe_from(tile_id("athanor"), "gold_ingot", "iron_ingot");
+    inventory_add(inv, item_id("iron_ingot"), 3);
+    inventory_add(inv, item_id("metallum_essence"), 2);
+    inventory_add(inv, item_id("aether_essence"), 1);
+    CHECK(r && game_craft(&g, r, 1));
+    run(&g, 61.0f);
+    CHECK(count_item(&g, item_id("gold_ingot")) == 1 && count_item(&g, item_id("iron_ingot")) == 0 && count_item(&g, item_id("metallum_essence")) == 0);
+    game_close_bench(&g);
+
+    /* The Transmutation Table: a platinum coin out of nothing at all. It takes nothing but the time - a quarter of an hour. */
+    CHECK(place_and_open(&g, "transmutation_table", x + 8));
+    ItemId platinum = item_id("platinum_coin");
+    r = find_recipe(tile_id("transmutation_table"), "platinum_coin");
+    CHECK(r != NULL && r->input_count == 0 && r->crystals == 0 && r->time == 900.0f && count_item(&g, platinum) == 0);
+    for (int i = 0; i < INVENTORY_SLOTS; i++) inv->slots[i] = (ItemStack){ 0 };
+    CHECK(r && recipe_max_crafts(inv, r, 0) >= 1 && game_craft(&g, r, 2));
+    run(&g, 600.0f);
+    CHECK(count_item(&g, platinum) == 0 && g.craft_remaining == 2);
+    run(&g, 310.0f);
+    CHECK(count_item(&g, platinum) == 1 && g.craft_remaining == 1);
+    run(&g, 905.0f);
+    CHECK(count_item(&g, platinum) == 2 && g.craft_remaining == 0 && trade_wallet(inv) == 2 * 10000);
+    game_close_bench(&g);
+
+    /* The Tome of Knowledge: with it in hand everything is found, and a trade portal deals in all it could. */
+    ItemId tome = item_id("tome_of_knowledge");
+    CHECK(tome > 0 && item_def(tome)->reveals_all && item_def(tome)->max_stack == 1);
+    memset(g.discovered, 0, sizeof g.discovered);
+    for (int i = 0; i < INVENTORY_SLOTS; i++) inv->slots[i] = (ItemStack){ 0 };
+    game_note_found(&g);
+    CHECK(!g.discovered[item_id("iron_sword")] && !g.discovered[item_id("diamond")]);
+    inv->slots[2] = (ItemStack){ .id = (uint16_t)tome, .count = 1 };
+    game_tick(&g);
+    for (int i = 1; i < content.item_count; i++) CHECK(g.discovered[i]);
+    /* (It need not be kept: what has been found stays found.) */
+    inv->slots[2] = (ItemStack){ 0 };
+    game_tick(&g);
+    CHECK(g.discovered[item_id("iron_sword")] && g.discovered[item_id("diamond")]);
+    CHECK(place_and_open(&g, "trade_portal_6", x + 12) && game_trade_open(&g));
+    CHECK(game_trade_deals(&g, item_id("iron_sword")) && game_trade_deals(&g, item_id("diamond")) && game_trade_deals(&g, item_id("philosophers_stone")) &&
+          !game_trade_deals(&g, item_id("workbench")));
+    static ItemId listed[1024];
+    static bool can[1024];
+    for (int cat = 0; cat < content.trade.category_count; cat++) {
+        int n = game_trade_listing(&g, cat, listed, can, 1024);
+        for (int i = 0; i < n; i++) CHECK(can[i]);
+    }
+    game_close_bench(&g);
+    game_free(&g);
+    /* It is no trouble to any of the other mods. */
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/settest/saves");
+    const ModInfo *mine = NULL;
+    for (int i = 0; i < mods.count; i++)
+        if (strcmp(mods.mods[i].id, "alchemie") == 0) mine = &mods.mods[i];
+    CHECK(mine != NULL && strcmp(mine->label, "Alchemie") == 0);
+    for (int i = 0; mine && i < mods.count; i++) {
+        char what[64];
+        if (&mods.mods[i] != mine) CHECK(!mods_conflict(mine, &mods.mods[i], what, sizeof what));
     }
 }
 
@@ -11906,6 +12036,7 @@ int main(void)
     test_culinary_mod();
     test_explorers_mod();
     test_discovery_mod();
+    test_alchemie_mod();
     test_worn();
     test_trade_tiers();
     test_environment();

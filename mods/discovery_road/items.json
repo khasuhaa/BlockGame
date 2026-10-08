@@ -534,6 +534,16 @@
    "texture": "items/reliquary.png",
    "category": "special",
    "price": 600
+  },
+  {
+   "name": "relic_identifier",
+   "label": "Relic identifier",
+   "texture": "items/relic_identifier.png",
+   "max_stack": 1,
+   "identifies": true,
+   "category": "relics",
+   "price": 800,
+   "tier": 5
   }
  ],
  "sets": [

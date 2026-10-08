@@ -1,0 +1,17 @@
+{
+  "items": [
+    {"name": "terra_essence", "label": "Terra essence", "texture": "items/terra_essence.png", "category": "materials", "price": 120, "tier": 4},
+    {"name": "vita_essence", "label": "Vita essence", "texture": "items/vita_essence.png", "category": "materials", "price": 120, "tier": 4},
+    {"name": "ignis_essence", "label": "Ignis essence", "texture": "items/ignis_essence.png", "category": "materials", "price": 120, "tier": 4},
+    {"name": "aqua_essence", "label": "Aqua essence", "texture": "items/aqua_essence.png", "category": "materials", "price": 120, "tier": 4},
+    {"name": "metallum_essence", "label": "Metallum essence", "texture": "items/metallum_essence.png", "category": "materials", "price": 120, "tier": 4},
+    {"name": "aether_essence", "label": "Aether essence", "texture": "items/aether_essence.png", "category": "materials", "price": 400, "tier": 4},
+    {"name": "quicksilver", "label": "Quicksilver", "texture": "items/quicksilver.png", "category": "materials", "price": 420, "tier": 5},
+    {"name": "philosophers_stone", "label": "Philosopher's stone", "texture": "items/philosophers_stone.png", "max_stack": 1, "category": "materials", "price": 24000, "tier": 6},
+    {"name": "tome_of_knowledge", "label": "Tome of Knowledge", "texture": "items/tome_of_knowledge.png", "max_stack": 1, "reveals_all": true, "category": "materials", "price": 18000, "tier": 6},
+    {"name": "alembic", "label": "Alembic", "places": "alembic", "texture": "items/alembic.png", "category": "benches", "price": 260},
+    {"name": "athanor", "label": "Athanor", "places": "athanor", "texture": "items/athanor.png", "category": "benches", "price": 1900},
+    {"name": "alchemists_desk", "label": "Alchemist's desk", "places": "alchemists_desk", "texture": "items/alchemists_desk.png", "category": "benches", "price": 2600},
+    {"name": "transmutation_table", "label": "Transmutation table", "places": "transmutation_table", "texture": "items/transmutation_table.png", "category": "benches", "price": 60000}
+  ]
+}

@@ -431,3 +431,16 @@ void hud_draw(const Hud *hud, const Inventory *inv)
         draw_name(item_def(dragged->id)->label, m.x, m.y + SLOT_SIZE / 2 + 4, 1.0f);
     }
 }
+
+ItemId hud_item_at(const Hud *hud, const Inventory *inv, Vector2 point)
+{
+    bool head;
+    SlotRef slot;
+    if (!hit_test(hud, inv, point, &head, &slot) || head || slot.kind == SLOT_NONE) return ITEM_NONE;
+    const ItemStack *st = inventory_slot((Inventory *)inv, slot);
+    if (!st || st->count == 0) return ITEM_NONE;
+    /* (A basket in the bar, shut, stands for what is chosen inside it.) */
+    if (slot.kind == SLOT_BAR && !basket_shown(hud, inv, slot.index) && inventory_basket_choice(inv, slot.index) >= 0)
+        return (ItemId)inv->containers[st->container].slots[inventory_basket_choice(inv, slot.index)].id;
+    return (ItemId)st->id;
+}

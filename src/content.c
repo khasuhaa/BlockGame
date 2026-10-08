@@ -689,6 +689,8 @@ static bool read_items(Reader *r, const cJSON *root)
         copy_name(it->worn, sizeof it->worn, str(e, "worn"));
         it->walk_speed = (float)num(e, "walk_speed", 0.0);
         it->lifts = flag(e, "lifts", false);
+        it->reveals_all = flag(e, "reveals_all", false);
+        it->identifies = flag(e, "identifies", false);
         it->relic = flag(e, "relic", false);
         read_boons(field(e, "boons"), &it->boons);
         if (!boons_ok(&it->boons)) return fail(r, "item \"%s\": its \"boons\" are not less than nothing, and shares are no more than 1", it->name);

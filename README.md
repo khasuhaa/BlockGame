@@ -896,9 +896,24 @@ So a chest far down under a desert may hold a Dune relic's neighbour from the de
 
 **The reliquary** is a bench (workbench tier 2: 6 stone, 2 glass, 1 gold ingot). At it any relic is **broken down** into 3 relic dust, and 12 relic dust with an amethyst are **restored** into a relic - which, there is no saying: any of the thirty-six, the everyday ones likelier and the Abyssal and Skyborne rarer. That is what to do with the third Worn compass. It also makes a relic chest of your own from a chest, 4 relic dust and 2 bronze ingots.
 
+**The relic identifier** is a lens (made at the reliquary: 2 glass, 1 gold ingot, 4 relic dust). With one anywhere in the bar or a basket, putting the cursor over a relic - in a relic slot, the bar, a basket or a chest - shows what it does: its own effects; its set, and how many of it are in the slots; what the set gives at two pieces and at four, in green once it is being given; and the set's four relics, the ones carried marked. It reads armour the same way. Without one a relic says nothing of itself.
+
 Relics have a category of their own at the trade portal, **Relics**, all at tier VI: found first, as everything is, they can then be bought and sold.
 
 In the data, a relic is an item with `"relic": true` and `"boons"`; `"set"` names its set, and `"sets"` in `items.json` says what each set gives for how many `"pieces"`. A chest's loot is `{"area": true}` for something from the place it stands in, and `"loot_pools"` in `worldgen.json` are the places: each with its `"biomes"` (any, if none), the heights `"y"` it runs between, and its `"loot"` by weight. Armour can have boons and a set as well.
+
+### Alchemie
+
+A mod (`mods/alchemie`, written out by `tools/mod_alchemie.py`) of benches that turn things into other things, ending in one that makes money out of nothing.
+
+- **The alembic** (workbench tier 2: 4 glass, 2 copper ingots, 2 clay) draws the six **essences** out of ordinary stuff, 20 seconds each: *terra* from 16 dirt, 12 stone, 12 sand or 8 gravel; *vita* from 8 wheat, 8 flax, 6 apples, 6 kelp or 4 compost; *ignis* from 4 coal, 6 charcoal or 2 oil; *aqua* from 4 ice or a bucket of water (the bucket is kept); *metallum* from 2 copper ore, 2 tin ore or 1 iron ore; *aether* from 2 amethyst shards, or 2 of it from an amethyst.
+- **The athanor** (workbench tier 3: 8 red brick, 4 iron ingots, 2 ignis, 2 terra) turns one thing into another with an essence to do it.
+  - Metals, up the ladder: 2 copper ingots and a metallum make 2 tin (and back); 3 copper, a metallum and an ignis make an iron ingot; **3 iron, 2 metallum and an aether make a gold ingot**; 2 gold, 2 metallum and an ignis make titanium; 2 titanium, a metallum and 2 aether make platinum.
+  - Stone, four at a time: stone to gravel to sand and round again (terra); stone to limestone (aqua) or basalt (ignis); sand to sandstone (terra and ignis), glass (ignis) or black sand (metallum); limestone to marble (ignis); marble to red marble (metallum) or lapis (aether); and 4 ice from 2 aqua.
+  - And 4 dirt into clay (aqua) or compost (vita), 4 charcoal into 2 coal (terra), 2 coal into 2 oil (aqua).
+- **The alchemist's desk** (workbench tier 3: 6 wood, 2 gold ingots, 4 aether, 2 vita) does gems and the great works. Each gem is made of two of the one before with aether: amethyst to sapphire (1), sapphire to emerald (2), emerald to ruby (2), ruby to diamond (3). **Quicksilver** is 2 metallum and an aqua. The **philosopher's stone** is a diamond, 4 quicksilver and 2 of every essence, and takes ten minutes.
+- **The Tome of Knowledge** (alchemist's desk: 8 linen, 4 aether, 4 vita, a gold ingot) knows everything there is. With it in the bar, or in a basket in the bar, every item counts as found in that world - for good, whether the tome is kept or not - so every `?` at a trade portal becomes the thing itself. (The portal's tier still has to be reached, and what it never deals in it still does not.)
+- **The Transmutation Table** (alchemist's desk: the philosopher's stone, 2 gold blocks, 8 marble, 8 aether) makes things **out of nothing at all**: no ingredients, only time. A **platinum coin** takes fifteen minutes; an aether essence, two. As with any work at a bench it goes on while the character does other things nearby, can be queued up to the usual number, and can be hurried for crystals.
 
 ### Golden chests
 

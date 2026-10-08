@@ -1,0 +1,8 @@
+{
+  "tiles": [
+    {"name": "alembic", "label": "Alembic", "solid": false, "layer": "background", "removable": true, "mine_time": 0.4, "drop": "alembic", "texture": "tiles/alembic.png", "bench": true, "bench_kind": "alembic", "bench_level": 1, "popup_name": "alembic", "tool": "pickaxe"},
+    {"name": "athanor", "label": "Athanor", "solid": false, "layer": "background", "removable": true, "mine_time": 0.4, "drop": "athanor", "texture": "tiles/athanor.png", "bench": true, "bench_kind": "athanor", "bench_level": 1, "popup_name": "athanor", "tool": "pickaxe", "light": 5},
+    {"name": "alchemists_desk", "label": "Alchemist's desk", "solid": false, "layer": "background", "removable": true, "mine_time": 0.4, "drop": "alchemists_desk", "texture": "tiles/alchemists_desk.png", "bench": true, "bench_kind": "alchemists_desk", "bench_level": 1, "popup_name": "desk", "tool": "axe"},
+    {"name": "transmutation_table", "label": "Transmutation table", "solid": false, "layer": "background", "removable": true, "mine_time": 0.4, "drop": "transmutation_table", "texture": "tiles/transmutation_table.png", "bench": true, "bench_kind": "transmutation_table", "bench_level": 1, "popup_name": "table", "tool": "pickaxe", "light": 8}
+  ]
+}

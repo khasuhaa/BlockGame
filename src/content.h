@@ -487,6 +487,8 @@ typedef struct {
     Boons boons;
     int set;
     char set_name[CONTENT_NAME_LEN];
+    bool reveals_all;      /* carried, everything there is counts as found: a trade block deals in all of it */
+    bool identifies;       /* carried, what a thing does for whoever has it on can be read off it */
     bool lifts;            /* worn, it lets them fly: the air holds them up wherever they go in it */
     /* Something that runs on rails: put down on them, it is not a block but a vehicle (see train.h). */
     struct {

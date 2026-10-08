@@ -656,6 +656,13 @@ float game_pace(const Game *g);
 int game_area_pools(const Game *g, int x, int y, int *out);
 /* Something found there: one thing picked from all of those pools together, by weight. ITEM_NONE if there is nothing. */
 ItemId game_area_find(Game *g, int x, int y);
+/* What boons come to, in words: a line to each thing they do. Fills `lines` (each of BOON_LINE); returns how many. */
+#define BOON_LINE 48
+int game_boon_lines(const Boons *b, char lines[][BOON_LINE], int max);
+/* The same for everything an item does for whoever has it on - its boons, and what armour does besides. */
+int game_item_lines(ItemId item, char lines[][BOON_LINE], int max);
+/* Whether the character carries something that reads these off a thing. */
+bool game_identifies(const Game *g);
 /* Relics: where the character carries them - a container of RELIC_SLOTS slots, made the first time it is asked for;
  * 0 if the game has no relics to carry. */
 uint16_t game_relic_box(Game *g);

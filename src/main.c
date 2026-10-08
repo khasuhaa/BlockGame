@@ -1841,6 +1841,73 @@ static void sign_draw(void)
     }
 }
 
+/* With something in hand that reads them, what the thing under the cursor does for whoever has it on: its own
+ * effects, and its set - how much of it is on, what each number of pieces gives, and which those pieces are. */
+static void draw_identified(const Game *g, const Hud *hud)
+{
+    if (!game_identifies(g)) return;
+    Vector2 m = GetMousePosition();
+    ItemId item = hud_item_at(hud, &g->inventory, m);
+    if (item == ITEM_NONE) return;
+    const ItemDef *def = item_def(item);
+    static char own[12][BOON_LINE], bonus[MAX_SET_TIERS][8][BOON_LINE];
+    int own_count = game_item_lines(item, own, 12), bonus_count[MAX_SET_TIERS] = { 0 };
+    const SetDef *set = def->set >= 0 && def->set < content.set_count ? &content.sets[def->set] : NULL;
+    if (own_count == 0 && !set) return;
+    int pieces = set ? game_set_pieces(g, def->set) : 0, members = 0;
+    ItemId member[16];
+    for (int i = 1; set && i < content.item_count && members < 16; i++)
+        if (content.items[i].set == def->set) member[members++] = (ItemId)i;
+    const Color got = { 140, 226, 140, 255 }, not_yet = { 150, 154, 170, 255 }, gold = { 226, 196, 102, 255 };
+    /* How big it has to be. */
+    float wide = (float)MeasureText(def->label, 18), tall = 30.0f + (float)own_count * 18.0f;
+    for (int i = 0; i < own_count; i++) wide = fmaxf(wide, (float)MeasureText(own[i], 14));
+    if (set) {
+        tall += 30.0f;
+        wide = fmaxf(wide, (float)MeasureText(TextFormat("%s set   %d of %d", set->label, pieces, members), 16));
+        for (int t = 0; t < set->tier_count; t++) {
+            bonus_count[t] = game_boon_lines(&set->tiers[t].boons, bonus[t], 8);
+            tall += (float)bonus_count[t] * 18.0f;
+            for (int i = 0; i < bonus_count[t]; i++) wide = fmaxf(wide, 34.0f + (float)MeasureText(bonus[t][i], 14));
+        }
+        tall += 8.0f + (float)members * 16.0f;
+        for (int i = 0; i < members; i++) wide = fmaxf(wide, 14.0f + (float)MeasureText(item_def(member[i])->label, 12));
+    }
+    Rectangle box = { m.x + 18.0f, m.y - tall - 28.0f, wide + 24.0f, tall + 14.0f };
+    if (box.x + box.width > (float)GetScreenWidth() - 6.0f) box.x = (float)GetScreenWidth() - 6.0f - box.width;
+    if (box.y < 6.0f) box.y = 6.0f;
+    DrawRectangleRec(box, (Color){ 24, 26, 34, 245 });
+    DrawRectangleLinesEx(box, 2.0f, def->relic ? gold : (Color){ 120, 122, 134, 255 });
+    float x = box.x + 12.0f, y = box.y + 9.0f;
+    DrawText(def->label, (int)x, (int)y, 18, RAYWHITE);
+    y += 26.0f;
+    for (int i = 0; i < own_count; i++, y += 18.0f) DrawText(own[i], (int)x, (int)y, 14, (Color){ 200, 220, 255, 255 });
+    if (!set) return;
+    y += 8.0f;
+    DrawLineEx((Vector2){ x, y }, (Vector2){ box.x + box.width - 12.0f, y }, 1.0f, (Color){ 70, 74, 90, 255 });
+    y += 6.0f;
+    DrawText(TextFormat("%s set   %d of %d", set->label, pieces, members), (int)x, (int)y, 16, gold);
+    y += 22.0f;
+    for (int t = 0; t < set->tier_count; t++) {
+        bool on = pieces >= set->tiers[t].pieces;
+        for (int i = 0; i < bonus_count[t]; i++, y += 18.0f) {
+            if (i == 0) DrawText(TextFormat("%d:", set->tiers[t].pieces), (int)x, (int)y, 14, on ? got : not_yet);
+            DrawText(bonus[t][i], (int)x + 34, (int)y, 14, on ? got : not_yet);
+        }
+    }
+    y += 6.0f;
+    /* Its pieces: the ones that are on, lit. */
+    const Inventory *inv = &g->inventory;
+    for (int i = 0; i < members; i++, y += 16.0f) {
+        bool on = false;
+        for (int k = 0; k < ARMOR_SLOTS; k++) on = on || (inv->armor[k].count > 0 && inv->armor[k].id == member[i]);
+        for (int k = 0; g->relic_box > 0 && g->relic_box < MAX_CONTAINERS && k < RELIC_SLOTS; k++)
+            on = on || (inv->containers[g->relic_box].slots[k].count > 0 && inv->containers[g->relic_box].slots[k].id == member[i]);
+        DrawRectangle((int)x, (int)y + 4, 5, 5, on ? got : (Color){ 70, 74, 90, 255 });
+        DrawText(item_def(member[i])->label, (int)x + 14, (int)y, 12, on ? RAYWHITE : not_yet);
+    }
+}
+
 static bool readout_shown = true;
 
 static void draw_hud(const Game *g, const MapCamera *cam)
@@ -2070,6 +2137,7 @@ static void session_draw(Session *s)
     draw_fast_forward(g);
     playerui_draw(&s->player_ui, g);
     hud_draw(&s->hud, &g->inventory);
+    draw_identified(g, &s->hud);
     sign_draw();
     termui_frame(&term_ui, g);
 }

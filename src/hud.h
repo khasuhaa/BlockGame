@@ -61,6 +61,9 @@ typedef struct {
  * belongs to the inventory, so the world should ignore it. */
 bool hud_handle_input(Hud *hud, Inventory *inv);
 /* Collapses the armor column and every basket. */
+/* The item in whatever slot is under a point of the screen - the bar, a basket, the armour, a chest, the relic
+ * slots - or ITEM_NONE. */
+ItemId hud_item_at(const Hud *hud, const Inventory *inv, Vector2 point);
 /* Where the i-th relic slot goes: a column beside the armour's, shown with it. */
 Rectangle hud_relic_rect(int i);
 void hud_close_all(Hud *hud);

@@ -6,7 +6,8 @@
 Relics - thirty-six of them, in nine sets of four - each of which does a little for whoever carries it in a relic
 slot, and more with others of its set. They are found in relic chests, each of which holds what belongs to the
 place it stands in (the loot pools below); broken down to relic dust at a reliquary; and restored from dust, at
-random. Ancient urns lie about underground and in the dry places, and break into dust.
+random. Ancient urns lie about underground and in the dry places, and break into dust. A relic identifier,
+carried, reads off what a relic does.
 
 Either edit this and run it again, or edit the mod's files by hand and stop using this: not both.
 """
@@ -254,6 +255,14 @@ tiles.append({'name': 'reliquary', 'label': 'Reliquary', 'solid': False, 'layer'
               'texture': 'tiles/reliquary.png', 'bench': True, 'bench_kind': 'reliquary', 'bench_level': 1, 'popup_name': 'reliquary', 'tool': 'pickaxe'})
 items.append({'name': 'reliquary', 'label': 'Reliquary', 'places': 'reliquary', 'texture': 'items/reliquary.png', 'category': 'special', 'price': 600})
 
+# The relic identifier: a lens in a brass frame. Carried, the cursor over a relic says what it does, and what its set does.
+t = P(); t.r(4, 2, 9, 7, c('c8a040')); t.r(3, 3, 10, 6, c('c8a040')); t.r(5, 3, 8, 6, c('a8d8e8')); t.r(4, 4, 9, 5, c('a8d8e8')); t.p(5, 3, c('ffffff')); t.p(6, 4, c('ffffff'))
+for i in range(5): t.r(9 + i, 8 + i, 10 + i, 9 + i, c('8c6537'))
+t.p(9, 7, c('c8a040')); t.p(8, 5, c('f6e88a'))
+t.outline().save('items', 'relic_identifier')
+items.append({'name': 'relic_identifier', 'label': 'Relic identifier', 'texture': 'items/relic_identifier.png', 'max_stack': 1, 'identifies': True,
+              'category': 'relics', 'price': 800, 'tier': 5})
+
 def rec(bench, out, n, ins, time, level=1):
     return {'bench': bench, 'level': level, 'output': out if isinstance(out, dict) else {'item': out, 'count': n}, 'inputs': [{'item': a, 'count': b} for a, b in ins], 'time': time}
 recipes.append(rec('workbench', 'reliquary', 1, [('stone', 6), ('glass', 2), ('gold_ingot', 1)], 90, level=2))
@@ -262,6 +271,7 @@ every = [r[0] for s in SETS.values() for r in s[2]]
 for name in every: recipes.append(rec('reliquary', 'relic_dust', 3, [(name, 1)], 10))
 recipes.append(rec('reliquary', {'one_of': [{'item': n, 'weight': 3 if n in of('wayfarer') + of('artisan') else 1 if n in of('abyss') + of('sky') else 2} for n in every], 'count': 1},
                    1, [('relic_dust', 12), ('amethyst', 1)], 60))
+recipes.append(rec('reliquary', 'relic_identifier', 1, [('glass', 2), ('gold_ingot', 1), ('relic_dust', 4)], 60))
 recipes.append(rec('reliquary', 'relic_chest', 1, [('chest', 1), ('relic_dust', 4), ('bronze_ingot', 2)], 60))
 
 worldgen = {
