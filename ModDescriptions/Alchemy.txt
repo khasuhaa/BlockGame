@@ -1,0 +1,233 @@
+ALCHEMY - PROPOSAL  (for approval; nothing below is built)
+
+A mod of potions: things gathered, ground, brewed and bottled, with something worth drinking, throwing or
+pouring out at every stage of the game - from a poultice made at a campfire on the first night to an elixir
+that takes the whole of the late game to brew.
+
+The game already has a mod called Alchemie: benches that turn one material into another, six essences, the
+philosopher's stone and the Transmutation Table. It has no potions at all. See question 1.
+
+Names and numbers below are proposals. Anything can be renamed, cut or swapped.
+
+================================================================================================================
+0. QUESTIONS
+================================================================================================================
+
+Q1. ONE MOD OR TWO?
+    A (recommended). Put all of this INTO Alchemie. It becomes one mod with two halves - transmutation (what it
+       has) and potions (this) - sharing the alembic and the six essences. One thing to switch on, and the
+       essences get a second use.
+    B. A separate mod, "Apothecary". Cleaner to switch on and off, but it cannot use Alchemie's essences or
+       benches (a mod may not depend on another), so it needs its own, and the two will overlap in theme.
+
+Q2. EFFECTS THAT LAST. Nothing in the game lasts for a while and then stops: food fills a bar, clothes work
+    while worn. A potion needs "for the next three minutes". That is new engine work and a new save version
+    (each character's running effects are saved). I would build it so that food and anything else can use it
+    too - Dimensions' drinks were meant to and could not. Yes?
+
+Q3. HOW MANY AT ONCE? Recommended: a **toxicity** bar. Every potion adds to it; it drains with time; the fuller
+    it is the weaker the next potion, and at the top the character is sick (slow, no effect from potions) until
+    it falls. Stronger potions cost more of it. It makes "which three do I drink before this" a decision,
+    and gives the mod a reason for antidotes and for clothing that raises the limit.
+    The plain alternative: at most three effects at once, a fourth replaces the oldest.
+
+Q4. THROWN POTIONS. Recommended yes: a flask thrown at a square (a click, in reach of a bow) bursts and does
+    something to what is there - creatures, blocks, water, plants. This is where the world-altering ones live.
+
+Q5. WHERE INGREDIENTS COME FROM. New plants in the game's own biomes only appear in worlds made after the mod
+    is on. Recommended: every herb also has a recipe or a drop that an old world can reach (seeds sold at the
+    trade portal, or grown from something the world already has), so an existing save is not locked out.
+
+Q6. THE LATE GAME. Dimensions adds tiers VII to X. A mod cannot depend on another, but a loot pool or a biome
+    list may name things an absent mod has and simply skip them. Recommended: four top-tier potions whose
+    ingredients are Aether and Deep things, which only exist - and only appear in the recipe book - when
+    Dimensions is on too. Everything else is complete without it.
+
+Q7. SIZE. As proposed: about 45 blocks, 150 items, 190 recipes, 9 creature drops put to use, one new save
+    version. Say if it should be bigger or smaller.
+
+================================================================================================================
+1. HOW IT WORKS
+================================================================================================================
+
+A potion is three things: a BASE (what it is carried in), a REAGENT (what it does) and often a CATALYST (how
+strongly, or for how long).
+
+  Bases       water (weak, short), spirit of wine (the standard), oil (for things rubbed on, not drunk),
+              quicksilver (the strongest; raises toxicity most).
+  Reagents    herbs, fungi, creature parts, minerals, essences.
+  Catalysts   salt (longer), sugar (kinder: less toxicity), ember (stronger), gem dust (stronger and longer:
+              amethyst, then sapphire and so on up the tiers - each gem's dust is the catalyst of its tier).
+
+Every drinkable potion comes in three strengths - plain, strong (II) and grand (III) - made at successive
+tiers of the cauldron. So one reagent gives a potion that is still worth making three tiers later.
+
+Kinds of potion:
+  DRAUGHT     drunk; an effect for a time.
+  TONIC       drunk; something at once (health, hunger, a cure) and nothing lasting.
+  OIL         rubbed on the tool or weapon in hand; it lasts so many uses.
+  FLASK       thrown; bursts where it lands.
+  SALVE       put on the body's worn things; lasts while they are worn, wears off with time.
+  ELIXIR      the great works: one each, hard to make, with an effect that does not wear off.
+
+Bottles are glass, made at the kiln, and come back empty when a potion is drunk.
+
+================================================================================================================
+2. INGREDIENTS
+================================================================================================================
+
+Herbs (15, each a crop that can be sown, with a biome it grows wild in):
+  feverfew (plains)        bloodroot (forest)       marshmallow (shore)      nightshade (anywhere, by night)
+  sunwort (desert)         frostcap (cold places)   kingsfoil (mountains)    mandrake (rare, deep soil)
+  dreamleaf (orchard)      glowmoss (caves)         firethorn (desert)       willowbark (from any willow or oak)
+  sea lavender (shore)     wolfsbane (pine forest)  ghost orchid (cave lakes, rare)
+
+Fungi (5, cave floors): inkcap, puffball, stinkhorn, brain fungus, death cap.
+
+From creatures the game has: dodo feather and egg, dropbear claw (new drop), scorpion venom (it has), shark
+fin (new drop), fish oil (from fish), yak milk and horn (it has), and one new thing from each gem dodo.
+
+Minerals: salt, sulphur (new vein), saltpetre (cave walls), gem dusts (any gem at the mortar), coal, quicksilver.
+
+Made along the way: spirit of wine (fermented from wheat or fruit), vinegar, lye, tinctures (a herb steeped in
+spirit - keeps for ever, and is what most recipes actually take), extracts (a tincture distilled: what the
+strong potions take), and the essences Alchemie already has.
+
+================================================================================================================
+3. BENCHES
+================================================================================================================
+
+  Mortar and pestle     workbench I.   Grinds: powders, pastes, gem dust.
+  Drying rack           workbench I.   Dries herbs (they keep, and weigh less in a recipe).
+  Cauldron I            workbench I.   Over a fire. Water-based potions: teas, poultices, weak draughts.
+  Fermenting crock      workbench II.  Spirit of wine, vinegar, the things that take days.
+  Cauldron II (copper)  upgrade.       Spirit-based potions: the standard draughts.
+  Alembic               (Alchemie's, or this mod's own if separate.) Tinctures into extracts; oils.
+  Cauldron III (iron)   upgrade.       Strong (II) potions; flasks.
+  Infuser               workbench III. Oils and salves.
+  Cauldron IV (gold)    upgrade.       Grand (III) potions.
+  Athanor               (Alchemie's.)  Elixirs.
+  Apothecary's cabinet  workbench II.  A chest of 32 small slots that only takes potions and ingredients.
+  Potion belt           tailor.        Worn; four potions on it can be drunk with a key each, without the bar.
+
+================================================================================================================
+4. THE POTIONS, BY STAGE OF THE GAME
+================================================================================================================
+
+STAGE 1 - FIRST DAYS (flint and stone; a campfire; cauldron I). Teas and poultices, from one herb and water.
+  Poultice            tonic     mends a quarter of health over ten seconds.
+  Willowbark tea      draught   health mends twice as fast for 3 minutes.
+  Feverfew tea        draught   the cold gets to you half as fast (the environment score) for 5 minutes.
+  Dodo broth          tonic     fills hunger; the first "cooked" food that needs no bench but the cauldron.
+  Wakeful tea         draught   energy does not run down for 3 minutes.
+  Bitter draught      tonic     cures poison.
+  Torchwater          flask     a square it lands on glows for a day, as a torch would, with nothing to hold it.
+
+STAGE 2 - COPPER AND TIN (cauldron II; the crock). The standard draughts.
+  Swiftness           draught   walks a quarter faster.
+  Miner's draught     draught   digs a quarter faster.
+  Stoneskin           draught   a fifth of every blow turned.
+  Gills               draught   breath lasts four times as long.
+  Owl sight           draught   it is never darker than dusk to you (a floor under the light you see by).
+  Stillness           draught   hunger runs down half as fast.
+  Growth tonic        flask     every plant within 2 squares grows a stage.
+  Weed-killer         flask     every plant within 2 squares is taken up and left lying.
+  Snare               flask     creatures within 2 squares cannot move for 10 seconds.
+
+STAGE 3 - IRON (cauldron III; the alembic; flasks). Strong potions, and potions that act on the world.
+  Strong (II) forms of every stage 2 draught.
+  Strength            draught   every blow does more.
+  Thorns              draught   whatever bites you is hurt.
+  Feather fall        draught   a drop of any height is a step (what a glider does).
+  Craftsman's draught draught   work at a bench goes a third faster.
+  Fortune             draught   a block dug sometimes leaves one more.
+  Frost flask         flask     water within 2 squares freezes; creatures are slowed.
+  Fire flask          flask     everything that burns within 2 squares burns.
+  Acid flask          flask     plain blocks within 1 square dissolve and leave nothing.
+  Whetstone oil       oil       the tool in hand works half again as fast for 200 blocks.
+  Venom oil           oil       the weapon in hand poisons what it hits, for 40 blows.
+
+STAGE 4 - STEEL AND GOLD (cauldron IV; the infuser). Grand potions; salves; the first strange ones.
+  Grand (III) forms of the stage 2 draughts; strong forms of stage 3's.
+  Invisibility        draught   creatures do not see you unless you hit one.
+  Magnetism           draught   things lying within 6 squares come to you.
+  Second wind         draught   the first time health would run out, it is set to a third instead. Once.
+  Recall              tonic     takes you to the portal you last used, at no cost in crystals.
+  Warming salve       salve     on clothes: they keep half again as much of the cold out, for a day.
+  Cooling salve       salve     the same against heat (for Dimensions' hot places, and useless without them).
+  Rain bottle         flask     thrown into the sky: it rains for a day.
+  Sun bottle          flask     thrown into the sky: it stops raining, and the next rain is put off a day.
+  Gem-seed tonic      flask     thrown at a gem set in a cave wall: another grows beside it.
+
+STAGE 5 - TITANIUM AND GEMS (the athanor). Elixirs, and the potions that change what a world is.
+  Grand forms of everything in stages 3 and 4.
+  Flask of the tide   flask     where it lands becomes a spring: water rises there for a minute.
+  Flask of drought    flask     all water within 6 squares is gone.
+  Stoneshaper         flask     plain blocks within 3 squares become the block it is thrown AT (a wall of
+                                dirt struck where it meets marble becomes marble).
+  Midas oil           oil       the pickaxe in hand makes ore leave half again as much, for 100 blocks.
+  ELIXIR OF VIGOUR              health bar a quarter longer, for good.
+  ELIXIR OF THE DEEP BREATH     breath twice as long, for good.
+  ELIXIR OF THE LONG ROAD       a tenth quicker on foot, for good.
+  ELIXIR OF IRON STOMACH        toxicity drains twice as fast, for good.
+  PANACEA                       cures everything, empties toxicity, fills every bar. One use.
+  (An elixir can be drunk once by each character. Each needs a philosopher's stone's worth of work, not a
+  stone: its recipe is a tree eight to ten makings deep.)
+
+STAGE 6 - WITH DIMENSIONS ON (see Q6). Four potions of Aether and Deep ingredients.
+  Skywalker's draught           walk on air: every square is ground to you for 30 seconds.
+  Draught of the abyss          magma does not burn you for 3 minutes.
+  Stormcaller                   flask: lightning strikes where it lands (a blast of radius 2, and fire).
+  ELIXIR OF THE SECOND SHADOW   a potion's effect lasts twice as long on you, for good.
+
+That is 58 kinds of potion, about 95 counting the strengths.
+
+================================================================================================================
+5. THINGS BESIDES POTIONS
+================================================================================================================
+
+  Herb garden beds       a block that herbs grow twice as fast in.
+  Hanging herbs, bottles on a shelf, a bubbling cauldron: things to furnish a workroom with.
+  The Herbal             a book (as the Tome of Knowledge is): carried, the recipe book shows what every potion
+                         does and for how long, which it otherwise only says once you have drunk one.
+  Antidote and the sick  creatures that poison (scorpions) get a second kind of venom at night; the Bitter
+                         draught cures one and a new Antivenom the other.
+  Trade                  potions sell well and are light: with Rags to Riches on, a thing to carry between
+                         villages. (No dependence: they simply have prices.)
+  A mob                  the Bog witch, in shore biomes by night: hostile, throws flasks, drops rare reagents
+                         and now and then a potion you cannot yet make.
+
+================================================================================================================
+6. ENGINE WORK
+================================================================================================================
+
+All as data fields the base game could use; no "if Alchemy is on".
+
+  Timed effects     An item, drunk or eaten, gives boons for so many ticks ("effect": {"boons": ..., "ticks": N}).
+                    Kept per character and saved: one new save version, every older save still loading.
+                    The game already adds up boons from armour and relics in one place (game_boons): effects
+                    are a third thing added there.
+  New boons         glide, see in the dark, unseen by creatures, draw things to you, immune to what burns,
+                    walk on air, a floor under health once. Each a field beside the twelve there are.
+  Toxicity          one more bar per character (Q3), with the rules above; shown with the other bars.
+  Thrown things     an item that is thrown at a square in range and does one of: grow plants, clear plants,
+                    freeze, burn, dissolve blocks, add or remove water, hold creatures, change the weather,
+                    turn blocks into another. Most of these exist already as spells (Magic and Mayhem's wands
+                    cast water, dig, and damage) - a flask is a spell used up in one throw.
+  Oils and salves   a number kept with the single item in hand or worn (the "meter" tools and buckets have):
+                    uses left, and which oil.
+  Lasting changes   an elixir raises a limit for one character for good: saved with them.
+  Benches           the cauldron tiers use "extends" (so they sit after anything another mod adds).
+  The recipe book   says what a potion does; hides it until drunk unless the Herbal is carried.
+  Tests             one for each rule; a fixture of the save version being left behind.
+
+================================================================================================================
+7. ORDER OF WORK, IF APPROVED
+================================================================================================================
+
+  1. Timed effects, toxicity, the save version; six stage-1 potions to prove them.
+  2. Ingredients: herbs, fungi, drops, veins; the mortar, rack, crock and cauldrons; stages 2 and 3 draughts.
+  3. Thrown flasks, oils and salves.
+  4. Stage 4 and 5: the strange ones, the world-changing flasks, the elixirs and their trees.
+  5. The belt, the cabinet, the Herbal, the witch, furniture; prices; the README.
+  Each stage tested, documented, committed and pushed.
