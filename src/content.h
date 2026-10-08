@@ -435,7 +435,13 @@ typedef struct {
         bool hand;       /* it goes as whoever is on it says */
         int cargo_slots; /* what it carries besides */
         int seats;       /* places to ride */
-        float speed;     /* squares a second */
+        float speed;     /* squares a second: an engine's pace, or the most something worked by hand can be got up to */
+        /* Something worked by hand goes by what pushes it, all in squares a second, each second: */
+        float accel;     /* what whoever is working it adds on the level */
+        float climb;     /* and what they add going up, which is less */
+        float gravity;   /* what a slope takes off going up it, and adds going down */
+        float drag;      /* what the rails take off all the time */
+        float brake;     /* what stopping it takes off */
         char texture[CONTENT_PATH_LEN];
     } vehicle;
     float warmth;          /* worn, how much of the environment score it keeps whatever the weather: a share, 0 to 1 */

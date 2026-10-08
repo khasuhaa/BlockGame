@@ -7,7 +7,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 31u
+#define SAVE_VERSION 32u
 
 /* Up to version 28 a world had room for a quarter as many of these, and they
  * were written out whole: every reader of an older version goes by these. */
@@ -773,8 +773,11 @@ bool load_game(Game *g, const char *path)
             uint32_t vehicles = 0, vehicle_size = 0;
             int32_t rides[MAX_CHARACTERS][2];
             ok = fread(&vehicles, sizeof vehicles, 1, f) == 1 && fread(&vehicle_size, sizeof vehicle_size, 1, f) == 1 &&
-                 vehicles == MAX_VEHICLES && vehicle_size == sizeof(Vehicle) && fread(g->vehicles, sizeof g->vehicles, 1, f) == 1 &&
-                 fread(rides, sizeof rides, 1, f) == 1;
+                 vehicles == MAX_VEHICLES && vehicle_size >= 32 && vehicle_size <= sizeof(Vehicle);
+            /* (Each is as long as it was when it was written - version 31 had not the speed of one - and the rest of it nothing.) */
+            memset(g->vehicles, 0, sizeof g->vehicles);
+            for (uint32_t i = 0; ok && i < vehicles; i++) ok = fread(&g->vehicles[i], vehicle_size, 1, f) == 1;
+            ok = ok && fread(rides, sizeof rides, 1, f) == 1;
             for (int i = 0; ok && i < MAX_VEHICLES; i++) {
                 Vehicle *v = &g->vehicles[i];
                 ItemId now = v->used && v->item < MAX_ITEMS ? items[v->item] : ITEM_NONE;

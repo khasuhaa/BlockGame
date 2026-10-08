@@ -178,9 +178,7 @@ void train_unseat(Game *g, int character)
         Vehicle *v = &g->vehicles[i];
         for (int s = 0; v->used && s < VEHICLE_SEATS; s++) {
             if (v->seats[s] != character + 1) continue;
-            v->seats[s] = 0;
-            /* (Nobody at the handle: it stops.) */
-            if (kind(v)->vehicle.hand) v->dir = 0;
+            v->seats[s] = 0; /* (something worked by hand rolls on by itself till it stops) */
         }
     }
     if (character == g->live) g->ride = g->ride_seat = 0;
@@ -311,7 +309,7 @@ int train_options(const Game *g, int v, int x, TrainOption *out)
     }
     /* Taking it up is always the last of them. */
     out[n] = (TrainOption){ TRAIN_REMOVE, 0, "" };
-    snprintf(out[n].label, sizeof out[n].label, "Remove %s", def->vehicle.engine ? "locomotive" : def->vehicle.width > 1 ? "car" : def->label);
+    snprintf(out[n].label, sizeof out[n].label, "Remove %s", def->vehicle.engine ? "locomotive" : def->vehicle.hand ? def->label : "car");
     for (char *c = out[n].label + 7; *c; c++) *c = (char)tolower((unsigned char)*c);
     return n + 1;
 }
@@ -408,6 +406,8 @@ static void settle(Game *g, const int *members, int count)
     }
 }
 
+static void advance(Game *g, const int *members, int count, int dir);
+
 static void drive(Game *g, int v, float dt)
 {
     Vehicle *it = &g->vehicles[v];
@@ -430,14 +430,7 @@ static void drive(Game *g, int v, float dt)
         }
         left -= need;
         /* A square further on, all of them, and whoever is in them. */
-        for (int i = 0; i < count; i++) {
-            Vehicle *one = &g->vehicles[members[i]];
-            int y = one->y;
-            if (!train_next(&g->world, one->x, one->y, it->dir, &y)) continue;
-            one->x = world_wrap_x(&g->world, one->x + it->dir);
-            one->y = y;
-            for (int s = 0; s < VEHICLE_SEATS; s++) seat_rider(g, members[i], s);
-        }
+        advance(g, members, count, it->dir);
         it->step = 0.0f;
         if (it->has_dest && it->x == it->dest_x && it->y == it->dest_y) {
             it->dir = 0;
@@ -454,22 +447,101 @@ static void drive(Game *g, int v, float dt)
     }
 }
 
+/* A square on, for every vehicle of a train, and whoever is in them. */
+static void advance(Game *g, const int *members, int count, int dir)
+{
+    for (int i = 0; i < count; i++) {
+        Vehicle *one = &g->vehicles[members[i]];
+        int y = one->y;
+        if (!train_next(&g->world, one->x, one->y, dir, &y)) continue;
+        one->x = world_wrap_x(&g->world, one->x + dir);
+        one->y = y;
+        for (int s = 0; s < VEHICLE_SEATS; s++) seat_rider(g, members[i], s);
+    }
+}
+
+/* Whether the square of track a vehicle is making for is higher (-1) or lower (1) than the one it is on, or level (0). */
+static int grade(const Game *g, const Vehicle *it)
+{
+    int y = it->y;
+    if (it->dir == 0 || !train_next(&g->world, it->x, it->y, it->dir, &y)) return 0;
+    return y < it->y ? -1 : y > it->y ? 1 : 0;
+}
+
+/* Something worked by hand: it is pushed, and rolls. `push` is which way whoever is on it is working it (0 for
+ * not), and `braking` whether they are holding it back. */
+static void roll(Game *g, int v, float dt, int push, bool braking)
+{
+    Vehicle *it = &g->vehicles[v];
+    const ItemDef *def = kind(it);
+    int members[MAX_VEHICLES], count = train_group(g, v, members);
+    /* (In small pieces of time, so that a slow frame does not carry it up a hill it has not the speed for.) */
+    for (float left = dt; left > 0.0f; left -= 1.0f / 240.0f) {
+        float t = left < 1.0f / 240.0f ? left : 1.0f / 240.0f;
+        if (it->dir == 0) {
+            /* At rest, on a square: it takes a push to start it, and track to start along. */
+            if (push == 0 || braking || !clear_ahead(g, members, count, push)) break;
+            it->dir = (int8_t)push;
+            it->speed = 0.0f;
+            it->step = 0.0f;
+        }
+        int slope = grade(g, it);
+        float force = -def->vehicle.drag + (float)slope * def->vehicle.gravity;
+        /* Working it adds to its speed, up to the most it can be got to; working it the other way, or holding it, slows it. */
+        if (push == it->dir && !braking && it->speed < def->vehicle.speed) force += slope < 0 ? def->vehicle.climb : def->vehicle.accel;
+        if (braking || push == -it->dir) force -= def->vehicle.brake;
+        it->speed += force * t;
+        if (it->speed <= 0.0f) {
+            it->speed = 0.0f;
+            if (slope < 0 && it->step > 0.0f && !braking) {
+                /* Out of speed part way up: it runs back down the way it came. */
+                advance(g, members, count, it->dir);
+                it->dir = (int8_t)-it->dir;
+                it->step = 1.0f - it->step;
+                continue;
+            }
+            if (it->step <= 0.0f) {
+                /* Stopped on a square: there it stays (to be started again the other way, if that is how it is being worked). */
+                it->dir = 0;
+                continue;
+            }
+            /* Stopped between two squares on the level: it creeps on to the next, and stops there. */
+            it->speed = 0.6f;
+        }
+        it->step += it->speed * t;
+        if (it->step < 1.0f) continue;
+        advance(g, members, count, it->dir);
+        it->step -= 1.0f;
+        /* The end of the track stops it dead; so does having crept there. */
+        if (!clear_ahead(g, members, count, it->dir) || it->speed <= 0.6f) {
+            it->speed = 0.0f;
+            it->step = 0.0f;
+            it->dir = 0;
+        }
+    }
+    if (it->dir == 0) {
+        settle(g, members, count);
+        return;
+    }
+    for (int i = 0; i < count; i++) {
+        g->vehicles[members[i]].pull = it->dir;
+        g->vehicles[members[i]].step = it->step;
+    }
+}
+
 void train_update(Game *g, float dt)
 {
-    /* Whoever is on something worked by hand says which way it goes: along with the keys, and stopped by up or down. */
-    if (g->ride > 0 && g->ride <= MAX_VEHICLES && g->vehicles[g->ride - 1].used && kind(&g->vehicles[g->ride - 1])->vehicle.hand && game_alive(g)) {
-        Vehicle *it = &g->vehicles[g->ride - 1];
-        if (g->move_dx != 0) {
-            if (it->dir != (g->move_dx < 0 ? -1 : 1) && it->step <= 0.0f) it->dir = (int8_t)(g->move_dx < 0 ? -1 : 1), it->has_dest = 0;
-            else if (it->dir != (g->move_dx < 0 ? -1 : 1)) halt(g, g->ride - 1);
-        } else if (g->move_dy != 0) {
-            halt(g, g->ride - 1);
-        }
+    for (int i = 0; i < MAX_VEHICLES; i++) {
+        Vehicle *it = &g->vehicles[i];
+        if (!it->used || !kind(it)->vehicle.hand) continue;
+        /* Whoever is on it works it with the keys: left and right to push it that way, up or down to hold it back. */
+        bool worked = g->ride == i + 1 && game_alive(g);
+        if (it->dir != 0 || (worked && g->move_dx != 0)) roll(g, i, dt, worked ? (g->move_dx > 0) - (g->move_dx < 0) : 0, worked && g->move_dy != 0);
     }
     for (int i = 0; i < MAX_VEHICLES; i++) {
         Vehicle *it = &g->vehicles[i];
-        if (!it->used || it->dir == 0) continue;
-        if (!kind(it)->vehicle.engine && !kind(it)->vehicle.hand) {
+        if (!it->used || it->dir == 0 || kind(it)->vehicle.hand) continue;
+        if (!kind(it)->vehicle.engine) {
             it->dir = 0;
             continue;
         }

@@ -10672,7 +10672,7 @@ static void test_trains(void)
            passenger = item_id("passenger_car"), freight = item_id("freight_car"), coal = item_id("coal");
     CHECK(tile_def(rail)->rail && tile_def(rail)->needs_tool && tile_def(rail)->on_floor && tile_def(rail)->layer == LAYER_BACKGROUND);
     CHECK(item_def(loco)->vehicle.is && item_def(loco)->vehicle.engine && item_def(loco)->vehicle.width == 3 && item_def(loco)->vehicle.seats == 1);
-    CHECK(item_def(handcar)->vehicle.hand && item_def(handcar)->vehicle.width == 1 && item_def(passenger)->vehicle.seats == 2 &&
+    CHECK(item_def(handcar)->vehicle.hand && item_def(handcar)->vehicle.width == 3 && item_def(handcar)->vehicle.seats == 1 && item_def(passenger)->vehicle.seats == 2 &&
           item_def(freight)->vehicle.cargo_slots == 16 && !item_def(rail_item)->vehicle.is);
     CHECK(item_def(crowbar)->tool_class == tile_def(rail)->tool_class && item_def(crowbar)->tool_class >= 0);
 
@@ -10743,52 +10743,93 @@ static void test_trains(void)
     run(&g, 4.0f);
     CHECK(world_get(w, x0 - 10, row - 1) == TILE_AIR && !train_rail(w, x0 - 11, row) && !train_rail(w, x0 - 10, row) && !train_rail(w, x0 - 9, row));
 
-    /* A handcar: put on the track by a click, got on to, and sent along with the keys to where the track ends. */
+    /* A handcar: three squares of track, put on it by a click, with whoever works it stood at its left end. */
     g.player.feet = g.player.step_to = (TilePos){ x0 + 2, row };
     hold(&g, handcar);
     CHECK(train_at(&g, x0 + 3, row) < 0);
     CHECK(game_click_tile(&g, x0 + 3, row) && count_item(&g, handcar) == 0);
     int car = train_at(&g, x0 + 3, row);
-    CHECK(car >= 0 && train_under(&g, x0 + 3, row - 1) == car && train_at(&g, x0 + 4, row) < 0);
+    CHECK(car >= 0 && train_at(&g, x0 + 2, row) == car && train_at(&g, x0 + 4, row) == car && train_at(&g, x0 + 5, row) < 0 &&
+          train_under(&g, x0 + 3, row - 1) == car);
+    const ItemDef *hc = item_def(handcar);
+    CHECK(hc->vehicle.speed == 9.0f && hc->vehicle.accel == 2.5f && hc->vehicle.climb == 3.5f && hc->vehicle.gravity == 5.0f && hc->vehicle.drag == 0.5f);
     /* (Nothing comes up from under it, crowbar or no.) */
     hold(&g, crowbar);
     game_click_tile(&g, x0 + 3, row);
     CHECK(g.queue_count == 0 || g.queue[0].type == ACTION_MOVE);
     game_cancel_actions(&g);
     run(&g, 1.0f);
-    g.player.feet = g.player.step_to = (TilePos){ x0 + 2, row };
+    g.player.feet = g.player.step_to = (TilePos){ x0 + 1, row };
     CHECK(option(&g, car, x0 + 3, "Get in", NULL) == 0 && option(&g, car, x0 + 3, "Remove rail handcar", NULL) == 1);
-    CHECK(choose(&g, car, x0 + 3, "Get in") && g.ride == car + 1 && g.player.feet.x == x0 + 3 && g.player.feet.y == row);
+    CHECK(choose(&g, car, x0 + 3, "Get in") && g.ride == car + 1 && g.player.feet.x == x0 + 2 && g.player.feet.y == row);
     CHECK(option(&g, car, x0 + 3, "Get out", NULL) == 0 && !game_click_tile(&g, x0 + 8, row) && !game_queue_action(&g, ACTION_MOVE, x0 + 8, row));
+    Vehicle *hv = &g.vehicles[car];
+    /* Worked to the left: the two squares there are to the end of the track, where it stops dead; and it does not start against the end. */
     game_set_move_input(&g, -1, 0);
-    game_update(&g, 0.01f);
-    game_set_move_input(&g, 0, 0);
-    run(&g, 3.0f);
-    CHECK(g.vehicles[car].x == x0 && g.vehicles[car].dir == 0 && g.player.feet.x == x0); /* to the end, and no further */
+    run(&g, 4.0f);
+    CHECK(hv->x == x0 + 1 && hv->dir == 0 && hv->speed == 0.0f && hv->step == 0.0f && g.player.feet.x == x0);
+    /* It takes working to get it going, and gathers speed slowly. */
     game_set_move_input(&g, 1, 0);
-    game_update(&g, 0.01f);
-    game_set_move_input(&g, 0, 0);
-    run(&g, 0.5f);
+    run(&g, 0.4f);
     float vx, vy;
     game_player_visual_pos(&g, &vx, &vy);
-    CHECK(g.vehicles[car].dir == 1 && g.vehicles[car].x > x0 + 1 && g.vehicles[car].x < x0 + 6 && vx >= (float)g.vehicles[car].x);
-    game_set_move_input(&g, 0, 1); /* up or down stops it, at the next square */
-    game_update(&g, 0.01f);
+    CHECK(hv->dir == 1 && hv->speed > 0.5f && hv->speed < 1.2f && hv->x <= x0 + 2 && vx > (float)x0 && vx < (float)(x0 + 1));
+    run(&g, 1.6f);
+    CHECK(hv->speed > 3.5f && hv->speed < 4.5f && hv->x > x0 + 3 && hv->x < x0 + 7); /* two seconds: 4 squares a second */
+    /* Left alone it rolls on, losing a little speed all the time. */
     game_set_move_input(&g, 0, 0);
-    run(&g, 0.5f);
-    int stopped = g.vehicles[car].x;
+    float was = hv->speed;
+    int rolled = hv->x;
     run(&g, 1.0f);
-    CHECK(g.vehicles[car].dir == 0 && g.vehicles[car].x == stopped && stopped < x0 + 9 && g.player.feet.x == stopped);
-    /* Up the slope and along the top, to the end. */
-    game_set_move_input(&g, 1, 0);
-    game_update(&g, 0.01f);
+    CHECK(hv->dir == 1 && hv->speed < was - 0.4f && hv->speed > was - 0.6f && hv->x >= rolled + 3);
+    /* Held back, it stops in short order, on a square. */
+    game_set_move_input(&g, 0, 1);
+    run(&g, 2.0f);
     game_set_move_input(&g, 0, 0);
-    run(&g, 8.0f);
-    CHECK(g.vehicles[car].x == x0 + 39 && g.vehicles[car].y == row - 3 && g.player.feet.x == x0 + 39 && g.player.feet.y == row - 3);
+    int stopped = hv->x;
+    run(&g, 1.0f);
+    CHECK(hv->dir == 0 && hv->speed == 0.0f && hv->step == 0.0f && hv->x == stopped && stopped < x0 + 16 && g.player.feet.x == stopped - 1);
+    /* A hill wants a run at it. From the foot of it, worked all the while, it never gets to the top... */
+    hv->x = x0 + 27;
+    game_set_move_input(&g, 1, 0);
+    int highest = row;
+    for (int i = 0; i < 8 * 60; i++) {
+        game_update(&g, 1.0f / 60.0f);
+        if (hv->y < highest) highest = hv->y;
+    }
+    CHECK(highest > row - 3 && hv->x < x0 + 32 && hv->speed < 4.0f);
+    /* ...and from far enough back to have its speed up, it goes over and on, to where the track ends. */
+    game_set_move_input(&g, 0, 1);
+    run(&g, 3.0f);
+    hv->x = x0 + 3, hv->y = row, hv->dir = 0, hv->speed = hv->step = 0.0f;
+    game_set_move_input(&g, 1, 0);
+    float fastest = 0.0f, over = 0.0f;
+    for (int i = 0; i < 10 * 60; i++) {
+        game_update(&g, 1.0f / 60.0f);
+        if (hv->speed > fastest) fastest = hv->speed;
+        if (hv->x == x0 + 32 && over == 0.0f) over = hv->speed;
+    }
+    game_set_move_input(&g, 0, 0);
+    CHECK(fastest > 8.9f && fastest < 9.1f);  /* no faster than it can be worked up to */
+    CHECK(over > 5.0f && over < fastest - 0.5f); /* the hill took some of it */
+    CHECK(hv->x == x0 + 38 && hv->y == row - 3 && hv->dir == 0 && hv->speed == 0.0f && g.player.feet.x == x0 + 37 && g.player.feet.y == row - 3);
+    /* Going back down, the hill does the work: faster at the bottom than working it on the level would have got it. */
+    game_set_move_input(&g, -1, 0);
+    float foot = 0.0f;
+    for (int i = 0; i < 3 * 60 && hv->x > x0 + 28; i++) {
+        game_update(&g, 1.0f / 60.0f);
+        if (hv->x == x0 + 29) foot = hv->speed;
+    }
+    CHECK(foot > 6.0f);
+    game_set_move_input(&g, 0, 1);
+    run(&g, 3.0f);
+    game_set_move_input(&g, 0, 0);
+    CHECK(hv->dir == 0 && hv->y == row);
     /* Getting out leaves them standing where it is; taking it up leaves it lying there. */
-    CHECK(choose(&g, car, x0 + 39, "Get out") && g.ride == 0 && g.vehicles[car].seats[0] == 0 && is_idle(&g));
+    int left_at = hv->x;
+    CHECK(choose(&g, car, left_at, "Get out") && g.ride == 0 && g.vehicles[car].seats[0] == 0 && is_idle(&g));
     hold(&g, ITEM_NONE);
-    CHECK(choose(&g, car, x0 + 39, "Remove rail handcar") && !g.vehicles[car].used && train_at(&g, x0 + 39, row - 3) < 0);
+    CHECK(choose(&g, car, left_at, "Remove rail handcar") && !g.vehicles[car].used && train_at(&g, left_at, row) < 0);
     CHECK(drops_of(&g, handcar) == 1 || count_item(&g, handcar) == 1);
 
     /* A locomotive: three squares of track, and nothing to be done with it from far off. */
@@ -10869,6 +10910,16 @@ static void test_trains(void)
     CHECK(loaded.inventory.containers[loaded.vehicles[wagon].cargo].slots[5].count == 40 &&
           loaded.inventory.containers[loaded.vehicles[engine].fuel].slots[0].id == coal);
     CHECK(train_group(&loaded, engine, members) == 3);
+    game_free(&loaded);
+    /* A world saved at version 31, when a vehicle had no speed of its own to keep: what was on its rails is there still. */
+    CHECK(load_game(&loaded, "tests/fixtures/v31_train.world"));
+    {
+        int there = train_at(&loaded, 51, loaded.player.feet.y), behind = train_at(&loaded, 54, loaded.player.feet.y);
+        CHECK(there >= 0 && behind >= 0 && there != behind && loaded.vehicles[there].item == loco && loaded.vehicles[behind].item == freight);
+        CHECK(loaded.vehicles[there].speed == 0.0f && loaded.ride == there + 1 && loaded.vehicles[there].seats[0] == 1);
+        CHECK(loaded.inventory.containers[loaded.vehicles[there].fuel].slots[0].id == coal && loaded.inventory.containers[loaded.vehicles[there].fuel].slots[0].count == 4);
+        CHECK(loaded.inventory.containers[loaded.vehicles[behind].cargo].slots[3].id == ITEM_DIRT && loaded.inventory.containers[loaded.vehicles[behind].cargo].slots[3].count == 9);
+    }
     game_free(&loaded);
     /* A world from before there were any has none. */
     CHECK(load_game(&loaded, "tests/fixtures/v29_plain.world"));

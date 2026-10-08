@@ -1417,10 +1417,11 @@ static void draw_player(const Game *g, Vector2 origin)
         /* Riding: sat in a seat, looking out; or stood on a handcar, working the handle while it goes. */
         const Vehicle *on = &g->vehicles[g->ride - 1];
         if (item_def((ItemId)on->item)->vehicle.hand) {
-            float pump = on->dir != 0 ? sinf((float)GetTime() * 9.0f) * 28.0f : 0.0f;
-            draw_body(g, cx, ground - 22.0f,
-                      (BodyPose){ .facing = on->dir != 0 ? on->dir : p->facing, .turn = on->dir != 0 ? 0.0f : PLAYERMODEL_SIDE, .lean = on->dir != 0 ? 10.0f + pump * 0.3f : 0.0f,
-                                  .arm = { 62.0f + pump, 62.0f + pump }, .tint = WHITE });
+            /* (Stood at their end of the deck, facing the pump; while they work it, bending to it - faster as it goes faster.) */
+            bool working = g->controlled == g->live && g->move_dx != 0 && g->move_dy == 0;
+            float pump = working ? sinf((float)GetTime() * (5.0f + on->speed)) * 26.0f : 0.0f;
+            draw_body(g, cx, ground - 26.0f,
+                      (BodyPose){ .facing = 1, .lean = working ? 14.0f + pump * 0.35f : 0.0f, .arm = { 68.0f + pump, 68.0f + pump }, .tint = WHITE });
         } else {
             /* (Only as much of them as is above the sill: a carriage is not as tall inside as they are.) */
             float vx, vy;

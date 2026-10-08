@@ -300,6 +300,7 @@ typedef struct {
     int32_t dest_x, dest_y;
     int32_t burn;      /* ticks of fire left from the last thing burnt */
     float step;        /* how far it has got toward the next square, 0 to 1 */
+    float speed;       /* something worked by hand: how fast it is going the way it is going, in squares a second */
 } Vehicle;
 
 typedef struct {

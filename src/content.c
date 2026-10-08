@@ -670,6 +670,13 @@ static bool read_items(Reader *r, const cJSON *root)
             it->vehicle.cargo_slots = (int)num(vehicle, "cargo_slots", 0);
             it->vehicle.seats = (int)num(vehicle, "seats", 0);
             it->vehicle.speed = (float)num(vehicle, "speed", 6.0);
+            it->vehicle.accel = (float)num(vehicle, "accel", 2.5);
+            it->vehicle.climb = (float)num(vehicle, "climb", it->vehicle.accel);
+            it->vehicle.gravity = (float)num(vehicle, "gravity", 5.0);
+            it->vehicle.drag = (float)num(vehicle, "drag", 0.5);
+            it->vehicle.brake = (float)num(vehicle, "brake", 10.0);
+            if (it->vehicle.accel <= 0.0f || it->vehicle.climb < 0.0f || it->vehicle.gravity < 0.0f || it->vehicle.drag < 0.0f || it->vehicle.brake <= 0.0f)
+                return fail(r, "item \"%s\": a vehicle's \"accel\" and \"brake\" are above nothing, and nothing else about how it goes is below it", it->name);
             copy_name(it->vehicle.texture, sizeof it->vehicle.texture, str(vehicle, "texture"));
             if (it->vehicle.width != 1 && it->vehicle.width != 3)
                 return fail(r, "item \"%s\": a vehicle is 1 or 3 squares long", it->name);

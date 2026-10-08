@@ -5,7 +5,7 @@
 
 Everything is drawn 16 pixels to the block and written out double (three times
 over for the icons), as the rest of the art is. A vehicle is three blocks long
-and two tall (the handcar one by one); the bottom five rows of each are left
+and two tall (the handcar one by one); (all of them); the bottom five rows of each are left
 clear, so that its wheels stand on the rail and not on the ground under it.
 The openings in the cab and the carriage are clear too: whoever is riding is
 drawn first and seen through them. Rerunning draws the same again.
@@ -152,12 +152,18 @@ def freight():
 
 
 def handcar():
-    p = Pic(16, 16)
-    base = 10
-    p.wheel(3, base, 2); p.wheel(12, base, 2)
-    p.box(0, 5, 15, 6, WOOD_D); p.box(0, 5, 15, 5, WOOD)
-    p.box(7, 0, 8, 4, DARK)                      # the post, and the beam pumped up and down across it
-    p.box(2, 0, 13, 0, STEEL); p.px(2, 1, STEEL); p.px(13, 1, STEEL)
+    """A deck on four wheels, three blocks long, with the pump in the middle: whoever works it stands at one end."""
+    p = Pic(48, 32)
+    for cx in (7, 15, 32, 40): p.wheel(cx, BASE, 3)
+    p.box(2, 19, 45, 21, WOOD_D); p.box(2, 19, 45, 19, WOOD_L); p.box(2, 20, 45, 20, WOOD)
+    p.box(1, 20, 1, 22, STEEL); p.box(46, 20, 46, 22, STEEL)
+    for x in range(8, 46, 7): p.px(x, 20, WOOD_D)
+    # the post, the beam that is pumped up and down across it, and a handle at each end of that
+    p.frame(22, 8, 26, 19, DARK); p.box(23, 9, 23, 18, MID)
+    p.box(21, 17, 27, 19, IRON)
+    for x in range(12, 37): p.px(x, 6 + (x - 12) // 6, STEEL); p.px(x, 7 + (x - 12) // 6, MID)
+    p.box(11, 4, 12, 9, IRON); p.box(36, 8, 37, 13, IRON)
+    p.px(24, 8, BRASS); p.px(24, 9, BRASS)
     return p
 
 
@@ -189,6 +195,13 @@ def small(what):
         for x in (4, 11): p.box(x, 9, x, 13, BOARD_D)
         p.box(1, 3, 14, 8, BOARD); p.box(1, 3, 14, 3, BOARD_L); p.box(1, 8, 14, 8, BOARD_D)
         p.box(4, 5, 11, 5, BOARD_D); p.box(5, 6, 10, 6, BOARD_D)
+        return p
+    if what == 'handcar':
+        for cx in (3, 11): p.box(cx, 10, cx + 2, 12, IRON); p.px(cx + 1, 11, RED)
+        p.box(1, 8, 14, 9, WOOD); p.box(1, 8, 14, 8, WOOD_L)
+        p.box(7, 3, 8, 7, DARK)
+        for x in range(3, 13): p.px(x, 2 + (x - 3) // 4, STEEL)
+        p.box(3, 1, 3, 4, IRON); p.box(12, 3, 12, 6, IRON)
         return p
     for cx in ((3, 7, 11) if what == 'engine' else (3, 5, 10, 12)):
         p.px(cx, 12, IRON); p.px(cx, 13, IRON); p.px(cx + 1, 12, IRON); p.px(cx + 1, 13, IRON); p.px(cx, 12, RED)
@@ -229,7 +242,7 @@ freight().save('vehicles/freight_car.png')
 handcar().save('vehicles/handcar.png')
 icon(rail()).save('items/rail.png', 3)
 wheel_icon().save('items/train_wheel.png', 3)
-icon(handcar()).save('items/handcar.png', 3)
+icon(small('handcar')).save('items/handcar.png', 3)
 icon(small('engine')).save('items/steam_locomotive.png', 3)
 icon(small('carriage')).save('items/passenger_car.png', 3)
 icon(small('wagon')).save('items/freight_car.png', 3)
