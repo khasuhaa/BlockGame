@@ -279,6 +279,20 @@ static void draw_mod_icon(const ModInfo *mod, Rectangle r)
     DrawRectangleLinesEx(r, 2.0f, edge_color);
 }
 
+/* How many rows the wheel has been turned since this was last asked. A slow turn - a finger drawn gently over a
+ * trackpad - comes as a little at a time, less than a row: it is kept until it adds up to one, not thrown away. */
+static int wheel_rows(void)
+{
+    static float turned;
+    float now = GetMouseWheelMove();
+    /* (Turned back the other way, what was kept of the first way is forgotten.) */
+    if ((now > 0.0f && turned < 0.0f) || (now < 0.0f && turned > 0.0f)) turned = 0.0f;
+    turned += now;
+    int rows = (int)turned;
+    turned -= (float)rows;
+    return rows;
+}
+
 /* One playset: its name, to be typed over, and every mod with a switch that puts it in or takes it out. */
 static void playset_edit_screen(MainMenu *m)
 {
@@ -335,7 +349,7 @@ static void playset_edit_screen(MainMenu *m)
     int rows = (int)(((float)GetScreenHeight() - y - 90.0f) / 56.0f);
     if (rows < 1) rows = 1;
     int most = shown_count > rows ? shown_count - rows : 0;
-    m->set_scroll -= (int)GetMouseWheelMove();
+    m->set_scroll -= wheel_rows();
     if (m->set_scroll > most) m->set_scroll = most;
     if (m->set_scroll < 0) m->set_scroll = 0;
     for (int n = m->set_scroll; n < shown_count && n < m->set_scroll + rows; n++) {
@@ -374,7 +388,7 @@ static MainMenuResult mods_screen(MainMenu *m)
     int rows = (int)(((float)GetScreenHeight() - y - 150.0f) / 54.0f);
     if (rows < 1) rows = 1;
     int most = sets->count > rows ? sets->count - rows : 0;
-    m->set_scroll -= (int)GetMouseWheelMove();
+    m->set_scroll -= wheel_rows();
     if (m->set_scroll > most) m->set_scroll = most;
     if (m->set_scroll < 0) m->set_scroll = 0;
     for (int i = m->set_scroll; i < sets->count && i < m->set_scroll + rows; i++) {
