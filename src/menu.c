@@ -284,36 +284,62 @@ static void playset_edit_screen(MainMenu *m)
 {
     Playset *set = &m->playsets.sets[m->playsets.active];
     title("Playset", 60, 40);
+    /* Two places to type: the name, and under it a search that narrows the mods down. A click says which. */
+    float wide = 520.0f, x = ((float)GetScreenWidth() - wide) / 2.0f, y = 112.0f;
+    Rectangle box = { x, y, wide, 44 }, find = { x, y + 52.0f, wide, 36 };
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        if (CheckCollisionPointRec(GetMousePosition(), find)) m->set_searching = true;
+        else if (CheckCollisionPointRec(GetMousePosition(), box)) m->set_searching = false;
+    }
     char name[PLAYSET_NAME_MAX + 1];
     snprintf(name, sizeof name, "%s", set->name);
-    size_t len = strlen(name);
+    size_t len = strlen(name), sought = strlen(m->set_search);
     for (int c = GetCharPressed(); c > 0; c = GetCharPressed()) {
-        bool ok = c >= 32 && c < 127 && c != '|' && !(c == ' ' && len == 0);
-        if (ok && len < PLAYSET_NAME_MAX) {
+        bool ok = c >= 32 && c < 127 && c != '|';
+        if (m->set_searching) {
+            if (ok && sought + 1 < sizeof m->set_search && !(c == ' ' && sought == 0)) m->set_search[sought++] = (char)c, m->set_search[sought] = '\0', m->set_scroll = 0;
+        } else if (ok && !(c == ' ' && len == 0) && len < PLAYSET_NAME_MAX) {
             name[len++] = (char)c;
             name[len] = '\0';
         }
     }
-    if ((IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) && len > 1) name[--len] = '\0';
+    if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) {
+        if (m->set_searching && sought > 0) m->set_search[--sought] = '\0', m->set_scroll = 0;
+        else if (!m->set_searching && len > 1) name[--len] = '\0';
+    }
     if (strcmp(name, set->name) != 0) snprintf(set->name, sizeof set->name, "%s", name);
 
-    float wide = 520.0f, x = ((float)GetScreenWidth() - wide) / 2.0f, y = 120.0f;
-    Rectangle box = { x, y, wide, 44 };
-    DrawRectangleRec(box, (Color){ 18, 19, 24, 255 });
-    DrawRectangleLinesEx(box, 2.0f, RAYWHITE);
     bool blink = (int)(GetTime() * 2.0) % 2 == 0;
-    DrawText(TextFormat("%s%s", set->name, blink ? "_" : ""), (int)box.x + 12, (int)box.y + 11, 22, RAYWHITE);
-    y += 60.0f;
+    DrawRectangleRec(box, (Color){ 18, 19, 24, 255 });
+    DrawRectangleLinesEx(box, 2.0f, m->set_searching ? (Color){ 90, 92, 102, 255 } : RAYWHITE);
+    DrawText(TextFormat("%s%s", set->name, blink && !m->set_searching ? "_" : ""), (int)box.x + 12, (int)box.y + 11, 22, RAYWHITE);
+    DrawRectangleRec(find, (Color){ 18, 19, 24, 255 });
+    DrawRectangleLinesEx(find, 2.0f, m->set_searching ? RAYWHITE : (Color){ 90, 92, 102, 255 });
+    if (m->set_search[0] || m->set_searching) DrawText(TextFormat("%s%s", m->set_search, blink && m->set_searching ? "_" : ""), (int)find.x + 12, (int)find.y + 9, 18, RAYWHITE);
+    else DrawText("Search mods", (int)find.x + 12, (int)find.y + 9, 18, (Color){ 120, 122, 134, 255 });
+    y += 100.0f;
+    /* The mods the search leaves: those with what was typed anywhere in their name, whatever its case. */
+    int shown[MAX_MODS], shown_count = 0;
+    for (int i = 0; i < m->mods.count && shown_count < MAX_MODS; i++) {
+        bool has = m->set_search[0] == '\0';
+        for (const char *at = m->mods.mods[i].label; *at && !has; at++) {
+            size_t k = 0;
+            while (m->set_search[k] && at[k] && tolower((unsigned char)at[k]) == tolower((unsigned char)m->set_search[k])) k++;
+            has = m->set_search[k] == '\0';
+        }
+        if (has) shown[shown_count++] = i;
+    }
     if (m->mods.count == 0) title("No mods found.", y + 10, 20);
+    else if (shown_count == 0) title("No mods by that name.", y + 10, 20);
     /* (As many as fit; the wheel brings the rest up.) */
     int rows = (int)(((float)GetScreenHeight() - y - 90.0f) / 56.0f);
     if (rows < 1) rows = 1;
-    int most = m->mods.count > rows ? m->mods.count - rows : 0;
+    int most = shown_count > rows ? shown_count - rows : 0;
     m->set_scroll -= (int)GetMouseWheelMove();
     if (m->set_scroll > most) m->set_scroll = most;
     if (m->set_scroll < 0) m->set_scroll = 0;
-    for (int i = m->set_scroll; i < m->mods.count && i < m->set_scroll + rows; i++) {
-        const ModInfo *mod = &m->mods.mods[i];
+    for (int n = m->set_scroll; n < shown_count && n < m->set_scroll + rows; n++) {
+        const ModInfo *mod = &m->mods.mods[shown[n]];
         Rectangle row = { x, y, wide, 50 };
         bool in = playset_has(set, mod->id);
         DrawRectangleRec(row, (Color){ 30, 33, 46, 255 });
@@ -329,6 +355,8 @@ static void playset_edit_screen(MainMenu *m)
     if (button(column_button((float)GetScreenHeight() - 76.0f, 0), "Done", true) || IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_ENTER)) {
         m->set_editing = false;
         m->set_scroll = 0;
+        m->set_search[0] = '\0';
+        m->set_searching = false;
     }
 }
 

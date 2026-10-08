@@ -64,6 +64,8 @@ typedef struct {
     PlaysetList playsets;
     bool set_editing;
     int set_scroll;
+    char set_search[32];  /* what is typed to narrow the list of mods down */
+    bool set_searching;   /* the typing goes there, not into the name */
     char name[WORLD_NAME_MAX + 1];
     char error[96];
     char path[256];

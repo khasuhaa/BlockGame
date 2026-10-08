@@ -40,7 +40,7 @@ The game opens on a main menu with the saved worlds side by side. Each is shown 
 **Playsets** opens the list of playsets. A playset is a name, a set of mods, and worlds of its own: it is made and named by the player, so that a world is found by what its playset is called rather than by remembering which mods it was made with.
 
 - The list shows each playset's name and its mods as icons; the one in use is marked, and a click on another puts that one in use. **No mods** is always there: the game by itself.
-- **New** makes one, and opens it to be named and filled. **Edit** opens the one in use: type to change its name, and each mod has a switch, On or Off, that puts it in or takes it out. **Remove** takes the one in use off the list; its worlds stay on the disk.
+- **New** makes one, and opens it to be named and filled. **Edit** opens the one in use: type to change its name, and each mod has a switch, On or Off, that puts it in or takes it out. Under the name is a **search**: click it and type, and only the mods with that anywhere in their name are listed (a click on the name goes back to typing there). **Remove** takes the one in use off the list; its worlds stay on the disk.
 - **Done** goes back; if anything was changed, the game's data and textures are loaded afresh with the mods of the playset now in use. Its name, and its mods as icons, show in the top right corner of the main menu.
 - Worlds made before playsets had names are not lost: the first time, a playset is made for each set of mods that had worlds, named for those mods.
 
@@ -437,7 +437,7 @@ An open bench shows a menu beside it in the world:
 - a row of the items it can make, lowest tier first, which scrolls sideways (wheel or drag) only when there are more than fit;
 - for the selected item, its recipe and output, a slider from 1 to 99 that stops at what the inventory can pay for, and a Craft button or "Not enough items".
 
-Each recipe says how long one takes to craft, and under its name sets out what it takes - each thing with how many are held against how many are needed, red where there are too few - four to a row, in as many rows as the recipe needs: the menu grows taller for a big one. Output that does not fit in the inventory is dropped at the player's feet. The menu closes when the world is clicked or a movement key is pressed, and that ends any crafting still running; so does the player moving out of reach, though the menu itself then stays up.
+Each recipe says how long one takes to craft, and under its name sets out what it takes - each thing with how many are held against how many are needed, red where there are too few - four to a row, in as many rows as the recipe needs: the menu grows taller for a big one. Holding the cursor over any of them, or over what is being made, shows its name beside the cursor. Output that does not fit in the inventory is dropped at the player's feet. The menu closes when the world is clicked or a movement key is pressed, and that ends any crafting still running; so does the player moving out of reach, though the menu itself then stays up.
 
 A bench can have tiers. Its menu shows its tier and, if it can go higher, an Upgrade button with the cost; upgrading happens in place and keeps the menu open. A recipe that needs a higher tier is still shown in the row, darkened with a padlock and the tier it needs, and cannot be selected. A bench that is removed comes back at the tier it had reached.
 

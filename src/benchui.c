@@ -42,6 +42,8 @@ static TileType open_bench(const Game *g)
 #define INPUT_COLUMNS 4
 #define INPUT_ROW 30.0f
 static int extra_rows;
+/* The name of whatever of a recipe the cursor is over, to be shown by it; NULL for nothing. */
+static const char *hover_name;
 
 static void note_rows(const Recipe *r)
 {
@@ -612,6 +614,8 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
      * rows as it takes. (A number too long for its place is drawn smaller.) */
     float cell = room / (float)INPUT_COLUMNS, icon = 26.0f;
     int cells = r->input_count + (r->crystals > 0 ? 1 : 0);
+    const char *named = NULL;
+    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){ left, y - 30, 180, 24 })) named = item_def(r->output.id)->label;
     for (int i = 0; i < cells; i++) {
         bool crystal = i >= r->input_count;
         int have = crystal ? g->crystals : recipe_input_held(&g->inventory, r->inputs[i]);
@@ -625,7 +629,10 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
         int font = 14;
         while (font > 8 && (float)MeasureText(text, font) > cell - icon - 6) font--;
         DrawText(text, (int)(x + icon + 3), (int)(row_y + (icon - (float)font) / 2), font, have >= need ? RAYWHITE : (Color){ 235, 90, 90, 255 });
+        if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){ x, row_y - 2, cell, INPUT_ROW })) named = crystal ? "Time crystals" : item_def(r->inputs[i].id)->label;
     }
+    /* What the thing under the cursor is called, beside the cursor: drawn last of all, over everything (see benchui_draw). */
+    hover_name = named;
 
     /* Slider over 1..99; the part past what can be afforded is greyed out. */
     Rectangle s = slider_rect(menu);
@@ -782,8 +789,19 @@ void benchui_draw(const BenchUi *ui, const Game *g, const View *v)
     draw_list(ui, g, recipes, count, list_rect(menu));
     /* Until input has caught up with a newly opened bench, show no selection. */
     bool current = ui->was_open && ui->shown.x == g->bench_pos.x && ui->shown.y == g->bench_pos.y;
+    hover_name = NULL;
     if (current && ui->selected >= 0 && ui->selected < count) {
         draw_recipe(ui, g, recipes[ui->selected], menu);
+        if (hover_name) {
+            /* (Kept on the screen: to the left of the cursor if there is no room to the right.) */
+            Vector2 at = GetMousePosition();
+            float wide = (float)MeasureText(hover_name, 16) + 14.0f, x = at.x + 14.0f;
+            if (x + wide > (float)GetScreenWidth() - 4.0f) x = at.x - wide - 6.0f;
+            Rectangle tip = { x, at.y - 28.0f, wide, 24.0f };
+            DrawRectangleRec(tip, (Color){ 16, 17, 22, 245 });
+            DrawRectangleLinesEx(tip, 1.0f, edge_color);
+            DrawText(hover_name, (int)tip.x + 7, (int)tip.y + 4, 16, RAYWHITE);
+        }
     } else {
         float top = MENU_HEADER + 72;
         Rectangle rest = { menu.x, menu.y + top, menu.width, menu.height - top };
