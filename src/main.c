@@ -689,8 +689,11 @@ static void block_depth(const Game *g, int layer, const TileDef *def, int x, int
         world3d_solid(-0.1f * TILE_SIZE, -0.66f * TILE_SIZE, sides, W3D_FRAME);
     } else if (def->window) {
         world3d_solid(Z_BACK + 0.12f * TILE_SIZE, Z_BACK, sides, W3D_PANEL); /* a window is in the backwall */
+    } else if (model == W3D_PANEL && def->climbable) {
+        world3d_solid(Z_BACK + 0.3f * TILE_SIZE, Z_BACK + 0.04f * TILE_SIZE, sides, W3D_PANEL); /* something climbed is against the back */
     } else if (model == W3D_PANEL) {
-        world3d_solid(Z_BACK + 0.3f * TILE_SIZE, Z_BACK + 0.04f * TILE_SIZE, sides, W3D_PANEL); /* flat things are against the back */
+        /* Any other flat thing stands where the flat things of the foreground do: just behind whoever walks past. */
+        world3d_solid(-0.72f * TILE_SIZE, -0.96f * TILE_SIZE, sides, W3D_PANEL);
     } else {
         /* The background layer: the back half. */
         world3d_solid(Z_MID - 0.02f * TILE_SIZE, Z_BACK + 0.02f * TILE_SIZE, sides, model);

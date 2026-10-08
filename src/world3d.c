@@ -339,7 +339,8 @@ void world3d_texture(Texture2D tex, Rectangle src, Rectangle dst, Color tint)
     }
     if (mode == 2 && model == W3D_PANEL) {
         /* Flat, with a little thickness, in the middle of the room it has. */
-        float mid = (front + back) / 2.0f, half = fminf((front - back) / 2.0f, 2.0f * px);
+        /* (A pixel of the picture deep - as the art has pixels: two of the file's.) */
+        float mid = (front + back) / 2.0f, half = fminf((front - back) / 2.0f, 1.0f * px);
         front = mid + half, back = mid - half;
     }
     /* The face of it. */
