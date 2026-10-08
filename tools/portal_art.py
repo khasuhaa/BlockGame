@@ -161,4 +161,9 @@ for name, frame, tones, gem in (('trade_portal', GOLD, GREEN, (h('ffe9a0'), GOLD
     save_tile(whole, 16, name + '_body.png')
     save_tile(whole, 32, name + '_plinth.png')
     icon(frame, tones, gem, 'plinth').save(os.path.join(ITEMS, name + '.png'))
+# The trade portal as it is raised: the same, with the stone it took in the keystone.
+for tier in range(1, 7):
+    gem = (h('ffe9a0'), GOLD[3]) if tier == 1 else GEMS[tier - 1]
+    save_tile(gate(GOLD, GREEN, gem, 3, 'plinth'), 0, 'trade_portal_top_%d.png' % tier)
+    if tier > 1: icon(GOLD, GREEN, gem, 'plinth').save(os.path.join(ITEMS, 'trade_portal_%d.png' % tier))
 print('drew the portals')

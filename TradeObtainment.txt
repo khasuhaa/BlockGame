@@ -2,17 +2,23 @@ TRADE OBTAINMENT
 The game's items (data/items.json, the game without mods) set against TradeTiers.txt.
 Written by tools/trade_obtain.py; how each entry of the document was read is at the end.
 
-415 items in the game. 288 are in the document. 127 are not (list A).
+420 items in the game. 291 are in the document. 129 are not (list A).
 9 things in the document are not in the game (list B).
 
 ==============================================================================
-A. IN THE GAME, NOT IN THE DOCUMENT  (127)
+A. IN THE GAME, NOT IN THE DOCUMENT  (129)
 ==============================================================================
-Grouped by the category each is in today. The name the data uses follows in brackets where it differs.
+All of these are in the category Special, at the dev portal only. Grouped by what they are; the name the data uses
+follows in brackets where it differs.
 
-Blocks  (12)
+Portals  (14)
     Portal
     Trade portal
+    Trade portal II  [trade_portal_2]
+    Trade portal III  [trade_portal_3]
+    Trade portal IV  [trade_portal_4]
+    Trade portal V  [trade_portal_5]
+    Trade portal VI  [trade_portal_6]
     Dev portal
     Portal II  [portal_2]
     Portal III  [portal_3]
@@ -20,9 +26,6 @@ Blocks  (12)
     Portal V  [portal_5]
     Portal VI  [portal_6]
     Portal chest
-    Cactus
-    Shark head
-    Platinum block
 
 Benches  (46)
     Workbench
@@ -72,25 +75,33 @@ Benches  (46)
     Craft bench III  [craft_bench_3]
     Craft bench IV  [craft_bench_4]
 
-Materials  (6)
-    Coral
-    Carbon
-    Paint stripper
-    Tulip seed
-    Tulip bulb
-    Paint
+Caged creatures  (24)
+    Caged dodo
+    Caged stone dodo
+    Caged dirt dodo
+    Caged wood dodo
+    Caged flint dodo
+    Caged copper dodo
+    Caged tin dodo
+    Caged iron dodo
+    Caged gold dodo
+    Caged titanium dodo
+    Caged platinum dodo
+    Caged amethyst dodo
+    Caged sapphire dodo
+    Caged emerald dodo
+    Caged ruby dodo
+    Caged diamond dodo
+    Caged dropbear
+    Caged scorpion
+    Caged yak
+    Caged limestone dodo
+    Caged sandstone dodo
+    Caged marble dodo
+    Caged lapis dodo
+    Caged red marble dodo
 
-Tools  (7)
-    Wooden pickaxe
-    Wooden spade  [wooden_shovel]
-    Amethyst pickaxe
-    Sapphire pickaxe
-    Emerald pickaxe
-    Ruby pickaxe
-    Diamond pickaxe
-
-Food  (21)
-    Acorn
+Eggs  (20)
     Stone dodo egg
     Dirt dodo egg
     Wood dodo egg
@@ -118,37 +129,27 @@ Clothing  (4)
     Grass skirt
     Cornucopia hat
 
-Building  (2)
-    Platinum column
-    Platinum stairs
+Tools  (7)
+    Wooden pickaxe
+    Wooden spade  [wooden_shovel]
+    Amethyst pickaxe
+    Sapphire pickaxe
+    Emerald pickaxe
+    Ruby pickaxe
+    Diamond pickaxe
 
-Animals  (24)
-    Caged dodo
-    Caged stone dodo
-    Caged dirt dodo
-    Caged wood dodo
-    Caged flint dodo
-    Caged copper dodo
-    Caged tin dodo
-    Caged iron dodo
-    Caged gold dodo
-    Caged titanium dodo
-    Caged platinum dodo
-    Caged amethyst dodo
-    Caged sapphire dodo
-    Caged emerald dodo
-    Caged ruby dodo
-    Caged diamond dodo
-    Caged dropbear
-    Caged scorpion
-    Caged yak
-    Caged limestone dodo
-    Caged sandstone dodo
-    Caged marble dodo
-    Caged lapis dodo
-    Caged red marble dodo
+Other  (9)
+    Acorn
+    Cactus
+    Coral
+    Shark head
+    Carbon
+    Paint stripper
+    Tulip seed
+    Tulip bulb
+    Paint
 
-No category: coins, and things that are never held  (5)
+No category at all: coins, and things that are never held  (5)
     Copper coin
     Gold coin
     Platinum coin
@@ -198,23 +199,21 @@ HOW THE DOCUMENT WAS READ
     spade, machete, spear); Stone (pickaxe, axe, spade); Bronze/Tin (bronze pickaxe, axe,
     machete and sword, tin spade); Iron (pickaxe, axe, machete, sword); Steel (pickaxe - the
     only steel tool); Gold/Titanium (gold pickaxe and spade, titanium pickaxe, axe and sword).
-  - Steam generator, Solar panel and Flywheel (Energy VI) are in the game's Benches category
-    today, which no ordinary trade portal deals in.
-  - The document has no category for the game's Benches or Animals, and its seven categories
-    (Blocks, Nature, Tools, Clothing, Ores, Crafted, and Energy, which starts at tier V) do not
-    match the nine the game has now (Blocks, Benches, Materials, Tools, Food, Gems, Clothing,
-    Building, Animals).
+  - The Platinum block with its column and stairs, which the document left out, is in Blocks VI
+    after titanium (the owner said Building VI; the document has no Building, and columns and
+    stairs are with their blocks).
+  - Everything in list A is in the category Special, which only the dev portal has.
   - What the upgrades cost is all in the game already: the five gems, Gold and Platinum coins,
     and crystals.
 
-In the document, tier by tier (288 items):
+In the document, tier by tier (291 items):
 
   Blocks I      Dirt, Wood, Wood column, Wood stairs, Stone, Stone column, Stone stairs, Sand
   Blocks II     Limestone, Limestone column, Limestone stairs, Sandstone, Sandstone column, Sandstone stairs, Marble, Marble column, Marble stairs, Red brick, Brick column, Brick stairs
   Blocks III    Gravel, Black sand, Compost, Plaster, Plaster column, Plaster stairs, Glass, Glass column, Glass stairs, Black glass, Black glass column, Black glass stairs, Ice, Ice column, Ice stairs, Reinforced platform
   Blocks IV     Lapis lazuli, Lapis lazuli column, Lapis lazuli stairs, Red marble, Red marble column, Red marble stairs, Basalt, Basalt column, Basalt stairs
   Blocks V      Copper block, Copper column, Copper stairs, Tin block, Tin column, Tin stairs, Bronze block, Bronze column, Bronze stairs
-  Blocks VI     Iron block, Iron column, Iron stairs, Steel block, Steel column, Steel stairs, Gold block, Gold column, Gold stairs, Carbon fiber block, Carbon fiber column, Carbon fiber stairs, Titanium block, Titanium column, Titanium stairs, Amethyst block, Amethyst column, Amethyst stairs, Sapphire block, Sapphire column, Sapphire stairs, Emerald block, Emerald column, Emerald stairs, Ruby block, Ruby column, Ruby stairs, Diamond block, Diamond column, Diamond stairs, Luminous plaster
+  Blocks VI     Iron block, Iron column, Iron stairs, Steel block, Steel column, Steel stairs, Gold block, Gold column, Gold stairs, Carbon fiber block, Carbon fiber column, Carbon fiber stairs, Titanium block, Titanium column, Titanium stairs, Platinum block, Platinum column, Platinum stairs, Amethyst block, Amethyst column, Amethyst stairs, Sapphire block, Sapphire column, Sapphire stairs, Emerald block, Emerald column, Emerald stairs, Ruby block, Ruby column, Ruby stairs, Diamond block, Diamond column, Diamond stairs, Luminous plaster
   Nature I      Stick, Worms, Pine cone
   Nature II     Apple, Mango, Maple seed, Prickly pear, Coconut, Flax seeds, Orange, Sunflower seed, Corn, Carrot, Cherry, Chilli, Wheat, Tomato
   Nature III    Kelp, Flax, Vine, Dodo egg, Dodo feather, Raw dodo meat, Raw fish

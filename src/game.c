@@ -2064,7 +2064,7 @@ static bool upgrade_now(Game *g)
     if (!g->bench_open) return false;
     int layer = LAYER_FOREGROUND;
     const TileDef *def = tile_def(usable_at(&g->world, g->bench_pos.x, g->bench_pos.y, &layer));
-    if (def->upgrade_to == TILE_AIR ||
+    if (def->upgrade_to == TILE_AIR || g->crystals < def->upgrade_crystals ||
         !inventory_has_all(&g->inventory, def->upgrade_cost, def->upgrade_cost_count))
         return false;
     if (def->upgrade_time > 0.0f) {
@@ -2075,6 +2075,7 @@ static bool upgrade_now(Game *g)
         return true;
     }
     inventory_remove_all(&g->inventory, def->upgrade_cost, def->upgrade_cost_count);
+    g->crystals -= def->upgrade_crystals;
     replace_block(&g->world, layer, g->bench_pos, def->upgrade_to);
     return true;
 }
@@ -2322,8 +2323,9 @@ static void update_bench(Game *g, float dt)
             g->upgrading = false;
         } else if (g->upgrade_timer >= def->upgrade_time) {
             g->upgrading = false;
-            if (inventory_has_all(&g->inventory, def->upgrade_cost, def->upgrade_cost_count)) {
+            if (g->crystals >= def->upgrade_crystals && inventory_has_all(&g->inventory, def->upgrade_cost, def->upgrade_cost_count)) {
                 inventory_remove_all(&g->inventory, def->upgrade_cost, def->upgrade_cost_count);
+                g->crystals -= def->upgrade_crystals;
                 replace_block(&g->world, layer, g->bench_pos, def->upgrade_to);
             }
         }

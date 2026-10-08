@@ -711,8 +711,8 @@ static void test_inventory(void)
     Inventory *inv = &g.inventory;
     SlotRef bar0 = { SLOT_BAR, 0, 0 }, bar1 = { SLOT_BAR, 1, 0 }, bar2 = { SLOT_BAR, 2, 0 };
 
-    /* Starts with a basket, item 1, and nothing else. */
-    CHECK(ITEM_BASKET == 1);
+    /* Starts with a basket and nothing else. */
+    CHECK(ITEM_BASKET > ITEM_NONE);
     CHECK(inv->slots[0].id == ITEM_BASKET && inv->slots[0].count == 1);
     CHECK(count_item(&g, ITEM_DIRT) == 0);
     CHECK(inventory_selected(inv)->id == ITEM_BASKET);
@@ -4811,7 +4811,8 @@ static void test_trade_rules(void)
 
     /* Benches, things to trade at, and whatever takes crystals to make are not dealt in. */
     CHECK(trade_barred(item_id("workbench")) && trade_barred(item_id("furnace")) && trade_barred(item_id("trade_portal")) && trade_barred(item_id("dev_portal")));
-    CHECK(trade_barred(item_id("portal_chest")) && trade_barred(item_id("flywheel")));
+    /* (A bench the trade tiers name is dealt in like anything else: the others are in the category kept for the dev portal.) */
+    CHECK(trade_barred(item_id("portal_chest")) && !trade_barred(item_id("flywheel")) && item_def(item_id("flywheel"))->trade_tier == 6);
     CHECK(!trade_barred(ITEM_DIRT) && !trade_barred(item_id("chest")) && !trade_barred(item_id("iron_sword")) && !trade_barred(item_id("marble_column")));
     CHECK(strcmp(tile_def(tile_id("trade_portal"))->label, "Trade portal") == 0 && !tile_def(tile_id("trade_portal"))->trade_free);
 
@@ -4840,7 +4841,8 @@ static void test_trade_rules(void)
         if (before[i] == ITEM_DIRT) dirt_at = i;
         if (before[i] == ITEM_STONE) stone_at = i;
         CHECK(had[i] == game_trade_deals(&g, before[i]) && !trade_barred(before[i]));
-        CHECK(i == 0 || before[i] > before[i - 1]);
+        int tier = item_def(before[i])->trade_tier, last = i ? item_def(before[i - 1])->trade_tier : 0;
+        CHECK(i == 0 || tier > last || (tier == last && before[i] > before[i - 1]));
     }
     CHECK(item_def(ITEM_STONE)->category == item_def(ITEM_DIRT)->category);
     CHECK(dirt_at >= 0 && stone_at >= 0 && had[dirt_at] && !had[stone_at]);
@@ -4877,6 +4879,14 @@ static void test_trade_rules(void)
     clear_inventory(&g);
     CHECK(game_trade_deals(&g, item_id("iron_sword")) && game_trade_deals(&g, item_id("workbench")) && game_trade_deals(&g, item_id("portal_chest")));
     CHECK(game_trade_deals(&g, item_id("trade_portal")) && game_trade_deals(&g, copper));
+    {
+        /* It wants no raising, and has the category the others have not. */
+        static ItemId all[1024];
+        static bool can[1024];
+        int special = item_def(item_id("workbench"))->category, n = game_trade_listing(&g, special, all, can, 1024);
+        CHECK(game_trade_level(&g) == 0 && n > 100 && game_trade_deals(&g, item_id("iron_block")) && game_trade_deals(&g, item_id("north_hat")));
+        for (int i = 0; i < n; i++) CHECK(can[i]);
+    }
     CHECK(!game_trade_deals(&g, item_id("new_player")) && !game_trade_deals(&g, item_id("time_crystal")));
     CHECK(game_trade_buy(&g, item_id("iron_sword"), 1) && game_trade_buy(&g, item_id("furnace"), 2));
     CHECK(count_item(&g, item_id("iron_sword")) == 1 && count_item(&g, item_id("furnace")) == 2 && trade_wallet(inv) == 0);
@@ -8656,7 +8666,7 @@ static void test_content(void)
 
     /* The shipped data, found by name. */
     CHECK(tile_id("air") == TILE_AIR && item_id("none") == ITEM_NONE);
-    CHECK(ITEM_BASKET == 1 && tile_id("no_such_tile") == -1 && item_id("no_such_item") == -1);
+    CHECK(ITEM_BASKET > ITEM_NONE && tile_id("no_such_tile") == -1 && item_id("no_such_item") == -1);
     CHECK(tile_def(TILE_STONE)->solid && tile_def(TILE_STONE)->mine_time > tile_def(TILE_DIRT)->mine_time);
     CHECK(!tile_def(TILE_OAK_LOG)->solid && tile_def(TILE_OAK_LOG)->climbable);
     CHECK(content.trees[TREE_OAK].layer == LAYER_BACKGROUND && content.feature_count == 3);
@@ -8684,7 +8694,8 @@ static void test_content(void)
     CHECK(item_def(item_id("gem"))->max_stack == 20 && item_def(item_id("gem"))->places == tile_id("gem_block"));
     CHECK(content.rules.day_ticks == 500 && content.rules.night_ticks == 800);
     /* The new item is on sale at once, at its own price. */
-    CHECK(item_def(item_id("gem"))->category == item_def(ITEM_STICK)->category && trade_price(item_id("gem")) == 7);
+    /* ("materials" is a name the category Crafted also goes by.) */
+    CHECK(strcmp(content.trade.categories[item_def(item_id("gem"))->category].name, "crafted") == 0 && trade_price(item_id("gem")) == 7);
 
     /* The new content works in the game with no code written for it. */
     Game g;
@@ -10417,6 +10428,72 @@ static void test_worn(void)
     CHECK(strcmp(item_def(item_id("north_hat"))->worn, item_def(item_id("iron_helmet"))->worn) != 0);
 }
 
+/* The trade tiers, against the game as it ships. */
+static void test_trade_tiers(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    Game g;
+    game_init(&g, 64, 48, 47, WORLD_FLAT);
+    Inventory *inv = &g.inventory;
+    g.tick_rate = 0;
+    int x = g.player.feet.x - 1;
+    memset(g.discovered, 0, sizeof g.discovered);
+    /* Tiers. A trade portal deals in nothing above the tier it has been raised to, found or not. */
+    {
+        ItemId lime = item_id("limestone"), iron = item_id("iron_block"), gold = item_id("gold_coin"), amethyst = item_id("amethyst");
+        CHECK(place_and_open(&g, "trade_portal", x + 3) && game_trade_level(&g) == 1);
+        clear_inventory(&g);
+        CHECK(item_def(ITEM_DIRT)->trade_tier == 1 && item_def(lime)->trade_tier == 2 && item_def(iron)->trade_tier == 6);
+        CHECK(item_def(item_id("platinum_block"))->trade_tier == 6 && item_def(item_id("platinum_block"))->category == item_def(ITEM_DIRT)->category);
+        g.discovered[lime] = g.discovered[iron] = g.discovered[ITEM_DIRT] = 1;
+        CHECK(game_trade_deals(&g, ITEM_DIRT) && !game_trade_deals(&g, lime) && !game_trade_deals(&g, iron));
+        /* The list has them all the same, lowest tier first, in the order the tiers give. */
+        static ItemId all[1024];
+        static bool can[1024];
+        int n = game_trade_listing(&g, item_def(ITEM_DIRT)->category, all, can, 1024), lime_at = -1;
+        CHECK(n > 60 && all[0] == ITEM_DIRT && can[0] && all[1] == item_id("wood") && all[2] == item_id("wood_column") && all[3] == item_id("wood_stairs"));
+        for (int i = 0; i < n; i++) {
+            if (all[i] == lime) lime_at = i;
+            CHECK(i == 0 || item_def(all[i])->trade_tier >= item_def(all[i - 1])->trade_tier);
+        }
+        CHECK(lime_at == 8 && !can[lime_at]);
+        /* Raising it takes a gem, coins and crystals, and none of it goes without all of it. */
+        const TileDef *def = tile_def(tile_id("trade_portal"));
+        CHECK(def->upgrade_to == tile_id("trade_portal_2") && def->upgrade_crystals == 10 && def->upgrade_cost_count == 2);
+        int crystals = g.crystals = 15;
+        inventory_add(inv, amethyst, 1);
+        inventory_add(inv, gold, 9);
+        game_upgrade_bench(&g);
+        run(&g, 0.5f);
+        CHECK(game_trade_level(&g) == 1 && g.crystals == crystals && count_item(&g, amethyst) == 1);
+        inventory_add(inv, gold, 1);
+        g.crystals = 9;
+        game_upgrade_bench(&g);
+        run(&g, 0.5f);
+        CHECK(game_trade_level(&g) == 1 && count_item(&g, gold) == 10);
+        g.crystals = 15;
+        game_upgrade_bench(&g);
+        run(&g, 0.5f);
+        CHECK(game_trade_open(&g) && game_trade_level(&g) == 2 && g.crystals == 5 && count_item(&g, amethyst) == 0 && count_item(&g, gold) == 0);
+        CHECK(game_trade_deals(&g, lime) && !game_trade_deals(&g, iron));
+        CHECK(game_trade_listing(&g, item_def(ITEM_DIRT)->category, all, can, 1024) == n && all[lime_at] == lime && can[lime_at]);
+        /* Six tiers, each dearer, and the last has nowhere further to go. */
+        int levels = 1;
+        for (TileType t = tile_id("trade_portal"); tile_def(t)->upgrade_to != TILE_AIR; t = tile_def(t)->upgrade_to, levels++)
+            CHECK(tile_def(tile_def(t)->upgrade_to)->trade_level == tile_def(t)->trade_level + 1 && tile_def(tile_def(t)->upgrade_to)->trade &&
+                  item_def(tile_def(tile_def(t)->upgrade_to)->drop)->places == tile_def(t)->upgrade_to);
+        CHECK(levels == 6 && tile_def(tile_id("trade_portal_6"))->upgrade_to == TILE_AIR && tile_def(tile_id("trade_portal_5"))->upgrade_crystals == 200);
+        /* What the tiers leave out is in a category of its own, which only a block that gives everything away has. */
+        int special = item_def(item_id("workbench"))->category;
+        CHECK(content.trade.categories[special].free_only && item_def(item_id("caged_dodo"))->category == special && item_def(item_id("north_hat"))->category == special);
+        CHECK(game_trade_listing(&g, special, all, can, 1024) == 0);
+        game_close_bench(&g);
+    }
+    game_free(&g);
+}
+
 int main(void)
 {
     char err[256];
@@ -10544,6 +10621,7 @@ int main(void)
     test_culinary_mod();
     test_explorers_mod();
     test_worn();
+    test_trade_tiers();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;

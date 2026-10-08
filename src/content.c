@@ -261,6 +261,7 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->bench = flag(e, "bench", false);
         t->trade = flag(e, "trade", false);
         t->trade_free = flag(e, "trade_free", false);
+        t->trade_level = (int)num(e, "trade_level", 0);
         t->removable = flag(e, "removable", false);
         t->climbable = flag(e, "climbable", false);
         t->mine_time = (float)num(e, "mine_time", 0.35);
@@ -475,6 +476,7 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->upgrade_to = TILE_AIR;
         t->upgrade_cost_count = 0;
         t->upgrade_time = 0.0f;
+        t->upgrade_crystals = 0;
         const cJSON *upgrade = field(e, "upgrade"), *cost;
         if (upgrade) {
             if (!str(upgrade, "to") || !tile_ref(r, upgrade, "to", &t->upgrade_to))
@@ -485,6 +487,7 @@ static bool read_tiles(Reader *r, const cJSON *root)
                 if (!stack_ref(r, cost, &t->upgrade_cost[t->upgrade_cost_count++])) return false;
             }
             t->upgrade_time = (float)num(upgrade, "time", 0.0);
+            t->upgrade_crystals = (int)num(upgrade, "crystals", 0);
         }
 
         /* "texture" is one file, or a list to vary between. */
@@ -547,6 +550,8 @@ static bool read_items(Reader *r, const cJSON *root)
         /* The category is matched to the trade file once that has been read. */
         copy_name(it->category_name, sizeof it->category_name, str(e, "category"));
         it->price = (int)num(e, "price", 0);
+        it->tier = (int)num(e, "tier", 0);
+        if (it->tier < 0) return fail(r, "item \"%s\": a \"tier\" is 1 or more", it->name);
         /* "tool": what kind it is, and how much faster it makes mining. */
         const cJSON *tool = field(e, "tool");
         if (!tool_class_ref(r, str(tool, "class"), &it->tool_class)) return false;
@@ -1534,6 +1539,18 @@ static bool read_trade(Reader *r, const cJSON *root)
         }
         copy_name(t->categories[id].name, CONTENT_NAME_LEN, name);
         copy_name(t->categories[id].label, CONTENT_NAME_LEN, str(e, "label") ? str(e, "label") : name);
+        t->categories[id].free_only = flag(e, "free_only", t->categories[id].free_only);
+        const cJSON *also;
+        cJSON_ArrayForEach(also, field(e, "also")) {
+            if (!cJSON_IsString(also)) continue;
+            if (t->categories[id].also_count >= MAX_CATEGORY_NAMES) return fail(r, "category \"%s\" goes by too many names", name);
+            copy_name(t->categories[id].also[t->categories[id].also_count++], CONTENT_NAME_LEN, also->valuestring);
+        }
+    }
+    if (field(root, "tier_prices")) t->tier_count = 0;
+    cJSON_ArrayForEach(e, field(root, "tier_prices")) {
+        if (t->tier_count >= MAX_TRADE_TIERS) return fail(r, "too many tiers");
+        t->tier_prices[t->tier_count++] = (int)e->valuedouble;
     }
     if (field(root, "currencies")) t->currency_count = 0;
     cJSON_ArrayForEach(e, field(root, "currencies")) {
@@ -1601,6 +1618,14 @@ static bool validate(Reader *r)
         it->category = -1;
         for (int c = 0; c < content.trade.category_count; c++)
             if (strcmp(content.trade.categories[c].name, it->category_name) == 0) it->category = c;
+        /* (Failing that, a category that also goes by the name.) */
+        for (int c = 0; c < content.trade.category_count && it->category < 0 && it->category_name[0]; c++)
+            for (int a = 0; a < content.trade.categories[c].also_count; a++)
+                if (strcmp(content.trade.categories[c].also[a], it->category_name) == 0) it->category = c;
+        /* With no tier of its own, the highest whose price it reaches. */
+        it->trade_tier = it->tier > 0 ? it->tier : 1;
+        for (int k = 0; it->tier == 0 && k < content.trade.tier_count; k++)
+            if ((it->price > 0 ? it->price : content.trade.default_price) >= content.trade.tier_prices[k]) it->trade_tier = k + 1;
         if (it->category_name[0] && it->category < 0)
             return fail(r, "item \"%s\" is in category \"%s\", which does not exist", it->name,
                         it->category_name);

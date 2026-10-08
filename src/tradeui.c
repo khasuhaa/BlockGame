@@ -33,9 +33,15 @@ static Rectangle panel_rect(const Game *g, const View *v)
                         PANEL_WIDTH, PANEL_HEIGHT };
 }
 
+/* The tabs: one for each category, then converting coins, then raising the block itself. */
 static int tab_count(void)
 {
-    return content.trade.category_count + 1;
+    return content.trade.category_count + 2;
+}
+
+static const TileDef *open_block(const Game *g)
+{
+    return tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y));
 }
 
 static int listed_items(const Game *g, int category, ItemId *out, bool *found);
@@ -45,7 +51,8 @@ static int listed_items(const Game *g, int category, ItemId *out, bool *found);
 static bool tab_shown(const Game *g, int tab)
 {
     static ItemId scratch[MAX_LISTED];
-    if (tab >= content.trade.category_count) return !game_trade_free(g);
+    if (tab > content.trade.category_count) return open_block(g)->upgrade_to != TILE_AIR;
+    if (tab == content.trade.category_count) return !game_trade_free(g);
     return listed_items(g, tab, scratch, NULL) > 0;
 }
 
@@ -60,7 +67,7 @@ static int tab_place(const Game *g, int tab)
 
 static const char *tab_label(int tab)
 {
-    return tab < content.trade.category_count ? content.trade.categories[tab].label : "Convert";
+    return tab < content.trade.category_count ? content.trade.categories[tab].label : tab == content.trade.category_count ? "Convert" : "Upgrade";
 }
 
 /* The categories are a list down the left side, one to a row, each with room for its whole name. */
@@ -120,6 +127,11 @@ static int listed_items(const Game *g, int category, ItemId *out, bool *found)
     return game_trade_listing(g, category, out, found, MAX_LISTED);
 }
 
+static Rectangle upgrade_rect(Rectangle panel)
+{
+    return (Rectangle){ left_edge(panel), panel.y + panel.height - PAD - 34, panel.x + panel.width - PAD - left_edge(panel), 34 };
+}
+
 static float max_scroll(int count)
 {
     int rows = (count + GRID_COLUMNS - 1) / GRID_COLUMNS;
@@ -176,6 +188,10 @@ bool tradeui_handle_input(TradeUi *ui, Game *g, const View *v)
         ui->tab = i;
         ui->selected = ITEM_NONE;
         ui->scroll = 0.0f;
+        return true;
+    }
+    if (ui->tab > content.trade.category_count) {
+        if (CheckCollisionPointRec(m, upgrade_rect(panel))) game_upgrade_bench(g);
         return true;
     }
     if (!on_items) {
@@ -243,7 +259,16 @@ static void draw_items(const TradeUi *ui, const Game *g, Rectangle panel)
             /* Not found in this world yet: its place is kept, and says no more than that. */
             DrawRectangleRec(cell, unknown_color);
             DrawRectangleLinesEx(cell, 2.0f, button_off);
-            draw_centered("?", cell, 30, (Color){ 96, 100, 116, 255 });
+            int tier = item_def(items[i])->trade_tier;
+            if (g->discovered[items[i]] && tier > game_trade_level(g) && tier <= 10) {
+                /* Found, but more than this block deals in until it is raised: the thing itself, dimmed, and the tier it wants. */
+                static const char *numerals[11] = { "", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X" };
+                assets_draw_item_tones(items[i], cell, 0);
+                DrawRectangleRec(cell, Fade(unknown_color, 0.72f));
+                DrawText(numerals[tier], (int)(cell.x + cell.width - 4 - MeasureText(numerals[tier], 14)), (int)(cell.y + cell.height - 17), 14, (Color){ 226, 196, 102, 255 });
+            } else {
+                draw_centered("?", cell, 30, (Color){ 96, 100, 116, 255 });
+            }
             continue;
         }
         DrawRectangleRec(cell, cell_color);
@@ -309,6 +334,34 @@ static void draw_exchanges(const Game *g, Rectangle panel)
     }
 }
 
+/* What raising the block takes, with how many of each are held, and the button that does it. */
+static void draw_upgrade(const Game *g, Rectangle panel)
+{
+    const TileDef *def = open_block(g);
+    float left = left_edge(panel), right = panel.x + panel.width - PAD, y = panel.y + HEADER + 4;
+    bool can = g->crystals >= def->upgrade_crystals;
+    DrawText(tile_def(def->upgrade_to)->label, (int)left, (int)y, 16, RAYWHITE);
+    if (tile_def(def->upgrade_to)->trade_level > 0)
+        DrawText(TextFormat("Tier %d", tile_def(def->upgrade_to)->trade_level), (int)right - MeasureText(TextFormat("Tier %d", tile_def(def->upgrade_to)->trade_level), 16), (int)y, 16, LIGHTGRAY);
+    y += 30;
+    for (int i = 0; i <= def->upgrade_cost_count; i++) {
+        bool crystals = i == def->upgrade_cost_count;
+        if (crystals && def->upgrade_crystals <= 0) break;
+        int need = crystals ? def->upgrade_crystals : def->upgrade_cost[i].count;
+        int have = crystals ? g->crystals : inventory_count(&g->inventory, def->upgrade_cost[i].id);
+        Rectangle row = { left, y, right - left, ROW_HEIGHT };
+        DrawRectangleRec(row, cell_color);
+        if (crystals) assets_draw_image(content.trade.crystal_icon, (Rectangle){ row.x + 6, row.y + 5, 30, 30 });
+        else assets_draw_item((ItemId)def->upgrade_cost[i].id, (Rectangle){ row.x + 6, row.y + 5, 30, 30 });
+        DrawText(crystals ? "Crystals" : item_def((ItemId)def->upgrade_cost[i].id)->label, (int)row.x + 44, (int)row.y + 12, 16, RAYWHITE);
+        const char *n = TextFormat("%d / %d", have, need);
+        DrawText(n, (int)(row.x + row.width - 8 - MeasureText(n, 16)), (int)row.y + 12, 16, have >= need ? (Color){ 140, 226, 140, 255 } : (Color){ 226, 120, 120, 255 });
+        can = can && have >= need;
+        y += ROW_HEIGHT + 6;
+    }
+    draw_button(upgrade_rect(panel), "Upgrade", can);
+}
+
 void tradeui_draw(const TradeUi *ui, const Game *g, const View *v)
 {
     if (!game_trade_open(g)) return;
@@ -348,5 +401,6 @@ void tradeui_draw(const TradeUi *ui, const Game *g, const View *v)
     }
 
     if (ui->tab < t->category_count) draw_items(ui, g, panel);
-    else draw_exchanges(g, panel);
+    else if (ui->tab == t->category_count) draw_exchanges(g, panel);
+    else draw_upgrade(g, panel);
 }

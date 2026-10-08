@@ -8,36 +8,47 @@
       "label": "Blocks"
     },
     {
-      "name": "benches",
-      "label": "Benches"
-    },
-    {
-      "name": "materials",
-      "label": "Materials"
+      "name": "nature",
+      "label": "Nature",
+      "also": [
+        "food"
+      ]
     },
     {
       "name": "tools",
       "label": "Tools"
     },
     {
-      "name": "food",
-      "label": "Food"
-    },
-    {
-      "name": "gems",
-      "label": "Gems"
-    },
-    {
       "name": "clothing",
       "label": "Clothing"
     },
     {
-      "name": "building",
-      "label": "Building"
+      "name": "ores",
+      "label": "Ores",
+      "also": [
+        "gems"
+      ]
     },
     {
-      "name": "animals",
-      "label": "Animals"
+      "name": "crafted",
+      "label": "Crafted",
+      "also": [
+        "materials",
+        "building"
+      ]
+    },
+    {
+      "name": "energy",
+      "label": "Energy"
+    },
+    {
+      "name": "special",
+      "label": "Special",
+      "free_only": true,
+      "also": [
+        "benches",
+        "animals"
+      ]
     }
   ],
   "currencies": [
@@ -57,5 +68,6 @@
   "crystals": {
     "start": 1000,
     "icon": "ui/crystal.png"
-  }
+  },
+  "tier_prices": [0, 50, 150, 500, 1500, 5000]
 }

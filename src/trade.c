@@ -22,6 +22,11 @@ bool game_trade_free(const Game *g)
     return game_trade_open(g) && tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y))->trade_free;
 }
 
+int game_trade_level(const Game *g)
+{
+    return game_trade_open(g) ? tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y))->trade_level : 0;
+}
+
 bool trade_barred(ItemId item)
 {
     /* Worked out once for the content as it stands, and again if it changes. */
@@ -34,7 +39,7 @@ bool trade_barred(ItemId item)
         for (ItemId i = 0; i < content.item_count; i++) {
             const ItemDef *def = &content.items[i];
             const TileDef *puts = tile_def(def->places);
-            barred[i] = def->places != TILE_AIR && (puts->bench || puts->trade);
+            barred[i] = (def->places != TILE_AIR && puts->trade) || (def->category >= 0 && content.trade.categories[def->category].free_only);
         }
         for (int r = 0; r < content.recipe_count; r++)
             if (content.recipes[r].crystals > 0 && content.recipes[r].output.id < MAX_ITEMS) barred[content.recipes[r].output.id] = 1;
@@ -48,6 +53,8 @@ bool game_trade_deals(const Game *g, ItemId item)
     const ItemDef *def = &content.items[item];
     if (game_trade_free(g)) return def->crystals == 0 && !def->becomes_player;
     if (trade_price(item) <= 0 || trade_barred(item)) return false;
+    int level = game_trade_level(g);
+    if (level > 0 && def->trade_tier > level) return false;
     return !content.trade.discover || g->discovered[item];
 }
 
@@ -64,15 +71,20 @@ int game_trade_listing(const Game *g, int category, ItemId *out, bool *found, in
 {
     int n = 0, last = content.trade.category_count - 1;
     bool free = game_trade_free(g);
-    for (int i = 1; i < content.item_count && n < max; i++) {
-        int in = content.items[i].category;
-        if (in < 0 && free) in = last;
-        if (in != category) continue;
-        bool deals = game_trade_deals(g, (ItemId)i);
-        /* (What it will never deal in has no place kept for it.) */
-        if (!deals && (trade_price((ItemId)i) <= 0 || trade_barred((ItemId)i))) continue;
-        if (found) found[n] = deals;
-        out[n++] = (ItemId)i;
+    int top = 1;
+    for (int i = 1; i < content.item_count; i++)
+        if (content.items[i].trade_tier > top) top = content.items[i].trade_tier;
+    for (int tier = 1; tier <= top; tier++) {
+        for (int i = 1; i < content.item_count && n < max; i++) {
+            int in = content.items[i].category;
+            if (in < 0 && free) in = last;
+            if (in != category || content.items[i].trade_tier != tier) continue;
+            bool deals = game_trade_deals(g, (ItemId)i);
+            /* (What it will never deal in has no place kept for it.) */
+            if (!deals && (trade_price((ItemId)i) <= 0 || trade_barred((ItemId)i))) continue;
+            if (found) found[n] = deals;
+            out[n++] = (ItemId)i;
+        }
     }
     return n;
 }

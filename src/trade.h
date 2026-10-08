@@ -15,17 +15,21 @@ int trade_price(ItemId item);
 int trade_sell_price(ItemId item);
 /* Whether the block that is open gives everything away. */
 bool game_trade_free(const Game *g);
-/* Things no trade portal deals in: benches and other things to trade at, and
- * whatever takes crystals to make. (One that gives everything away has them all the same.) */
+/* How far the block that is open has been raised: it deals in nothing of a
+ * higher tier. 0 if it deals in every tier. */
+int game_trade_level(const Game *g);
+/* Things no trade portal deals in: things to trade at, whatever takes crystals
+ * to make, and what is in a category kept for where everything is given away. (One that gives everything away has them all the same.) */
 bool trade_barred(ItemId item);
 /* Whether an item can be bought and sold at the block that is open. At an
- * ordinary one that is anything with a price that is not barred and that
- * somebody in this world has had in their hands; at one that gives
+ * ordinary one that is anything with a price that is not barred, of a tier
+ * the block has been raised to, that somebody in this world has had in
+ * their hands; at one that gives
  * everything away, anything that can be held at all. */
 bool game_trade_deals(const Game *g, ItemId item);
 /* The items of a category that the open block deals in or will, in the order
- * they are defined: each keeps its place whether or not it has been found in
- * this world yet, and `found`, if wanted, says which have (only those can be
+ * they are defined within each tier, lowest tier first: each keeps its place
+ * whether or not it can be had yet, and `found`, if wanted, says which have (only those can be
  * bought and sold). Where everything is given away, things with no category
  * of their own - the coins - are in the last one. Returns how many, at most `max`. */
 int game_trade_listing(const Game *g, int category, ItemId *out, bool *found, int max);

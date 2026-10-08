@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
-"""Writes TradeObtainment.txt: the game's items set against TradeTiers.txt.
+"""Puts the game's items into the categories, tiers and order of TradeTiers.txt.
 
-    python3 tools/trade_obtain.py .
+    python3 tools/trade_tiers.py .
 
 TradeTiers.txt is written for people, so how each of its entries is read is
 set down by hand in READ below: the items an entry stands for, or nothing at
 all where the game has no such item. Change READ when that document changes;
 an item named here that the game does not have stops the script.
+
+It rewrites data/items.json: every item READ names gets its "category" and
+"tier" and is moved to its place in the document's order (a trade portal lists
+a category tier by tier, and within a tier in the order items are defined);
+every other item goes to the category "special", which only the dev portal
+has. Then it writes TradeObtainment.txt: what the document leaves out, and
+what it names that the game has not got. Rerunning changes nothing.
 """
 import json, os, sys
 
@@ -27,6 +34,8 @@ def suit(metal):
 
 
 GEMS = ['amethyst', 'sapphire', 'emerald', 'ruby', 'diamond']
+# (The trains, once the game has them.)
+TRAIN = [n if n in BY else None for n in ('rail', 'train_wheel', 'handcar', 'steam_locomotive', 'freight_car', 'passenger_car')]
 # tier: [(as the document has it, the items that is read as)]
 READ = {
     'Blocks I': [('Dirt', ['dirt']), ('Wood, Wood Column/Stairs', cs('wood')), ('Stone, Column/Stairs', cs('stone')), ('Sand', ['sand'])],
@@ -38,7 +47,7 @@ READ = {
     'Blocks IV': [('Lapis, Column/Stairs', cs('lapis_lazuli')), ('Red Marble, Column/Stairs', cs('red_marble')), ('Basalt, Column/Stairs', cs('basalt'))],
     'Blocks V': [('Copper Block, Column/Stairs', cs('copper_block')), ('Tin Block, Column/Stairs', cs('tin_block')), ('Bronze Block, Column/Stairs', cs('bronze_block'))],
     'Blocks VI': [('Iron Block, Column/Stairs', cs('iron_block')), ('Steel Block, Column/Stairs', cs('steel_block')), ('Gold Block, Column/Stairs', cs('gold_block')),
-                  ('Carbon Fiber Block, Column/Stairs', cs('carbon_fiber_block')), ('Titanium Block, Column/Stairs', cs('titanium_block')),
+                  ('Carbon Fiber Block, Column/Stairs', cs('carbon_fiber_block')), ('Titanium Block, Column/Stairs', cs('titanium_block')), ('Platinum Block, Column/Stairs', cs('platinum_block')),
                   ('Amethyst Block, Column/Stairs', cs('amethyst_block')), ('Rest of gem blocks in order', cs(*[g + '_block' for g in GEMS[1:]])),
                   ('Luminous Plaster', ['luminous_plaster'])],
     'Nature I': [('Stick', ['stick']), ('Worm', ['worms']), ('Pinecone', ['pine_cone'])],
@@ -92,8 +101,8 @@ READ = {
     'Crafted VI': [('Chandeliers', [g + '_chandelier' for g in GEMS])],
     'Energy V': [('Copper boiler', ['copper_boiler']), ('magnet', ['magnet']), ('electric motor', ['electric_motor']), ('copper wire', ['copper_wire'])],
     'Energy VI': [('Steam engine', ['steam_engine']), ('steam generator', ['steam_generator']), ('solar panel', ['solar_panel']), ('flywheel', ['flywheel']),
-                  ('elevator shaft', ['elevator_shaft']), ('elevator motor', ['electric_elevator_motor']), ('rail', []), ('train wheel', []), ('handcar', []),
-                  ('steam locomotive', []), ('freight cart', []), ('passenger car', []), ('fuel', ['fuel']), ('epoxy', ['epoxy']), ('resin', ['raw_resin']),
+                  ('elevator shaft', ['elevator_shaft']), ('elevator motor', ['electric_elevator_motor']), ('rail', TRAIN[0:1]), ('train wheel', TRAIN[1:2]),
+                  ('handcar', TRAIN[2:3]), ('steam locomotive', TRAIN[3:4]), ('freight cart', TRAIN[4:5]), ('passenger car', TRAIN[5:6]), ('fuel', ['fuel']), ('epoxy', ['epoxy']), ('resin', ['raw_resin']),
                   ('carbon fiber', ['carbon_fibers']), ('carbon fiber sheets', ['carbon_fiber_sheet']), ('carbon fiber wing', ['carbon_fiber_wing']),
                   ('jetpack chassis', ['jetpack_chassis']), ('jet engine', ['jet_engine']), ('jetpack', ['jetpack'])],
 }
@@ -111,33 +120,63 @@ NOTES = [
     'The toolsets are read as every tool of that material the game has: Flint (pickaxe, axe, spade, machete, spear); Stone (pickaxe, axe, spade); '
     'Bronze/Tin (bronze pickaxe, axe, machete and sword, tin spade); Iron (pickaxe, axe, machete, sword); Steel (pickaxe - the only steel tool); '
     'Gold/Titanium (gold pickaxe and spade, titanium pickaxe, axe and sword).',
-    'Steam generator, Solar panel and Flywheel (Energy VI) are in the game\'s Benches category today, which no ordinary trade portal deals in.',
-    'The document has no category for the game\'s Benches or Animals, and its seven categories (Blocks, Nature, Tools, Clothing, Ores, Crafted, and Energy, '
-    'which starts at tier V) do not match the nine the game has now (Blocks, Benches, Materials, Tools, Food, Gems, Clothing, Building, Animals).',
+    'The Platinum block with its column and stairs, which the document left out, is in Blocks VI after titanium (the owner said Building VI; the document has '
+    'no Building, and columns and stairs are with their blocks).',
+    'Everything in list A is in the category Special, which only the dev portal has.',
     'What the upgrades cost is all in the game already: the five gems, Gold and Platinum coins, and crystals.',
 ]
 
 covered, missing = {}, []
 for tier, entries in READ.items():
-    for said, names in entries:
+    for k, (said, names) in enumerate(entries):
+        names = entries[k] = (said, [n for n in names if n])[1]
+        entries[k] = (said, names)
         if not names: missing.append((tier, said))
         for n in names:
             if n not in BY: sys.exit('READ names "%s" (%s), which the game does not have' % (n, tier))
             if n in covered: sys.exit('"%s" is read into both %s and %s' % (n, covered[n], tier))
             covered[n] = tier
 
-cats = [c['name'] if isinstance(c, dict) else c for c in json.load(open(os.path.join(ROOT, 'data/trade.json')))['categories']]
 left = [i for i in ITEMS if i['name'] not in covered]
+TILES = {t['name']: t for t in json.load(open(os.path.join(ROOT, 'data/tiles.json')))['tiles']}
+KINDS = ['Portals', 'Benches', 'Caged creatures', 'Eggs', 'Clothing', 'Tools', 'Other']
+
+
+def kind(i):
+    """What sort of thing an item the document leaves out is, for listing."""
+    if 'category' not in i and i['name'] not in covered: return None
+    put = i.get('places', '')
+    put = TILES.get(put if isinstance(put, str) else '', {})
+    if 'portal' in i['name']: return 'Portals'
+    if put.get('bench'): return 'Benches'
+    if 'releases' in i or i['name'].startswith('caged_'): return 'Caged creatures'
+    if i['name'].endswith('_egg'): return 'Eggs'
+    if 'equip' in i: return 'Clothing'
+    if 'tool' in i: return 'Tools'
+    return 'Other'
+
+
+# Into the data: the document's items first, in its order, then the rest as they were.
+order = [n for entries in READ.values() for _, names in entries for n in names]
+for n in order:
+    BY[n]['category'] = covered[n].split(' ')[0].lower()
+    BY[n]['tier'] = ['I', 'II', 'III', 'IV', 'V', 'VI'].index(covered[n].split(' ')[1]) + 1
+for i in left:
+    i.pop('tier', None)
+    if 'category' in i: i['category'] = 'special'
+ITEMS[:] = [BY[n] for n in order] + left
+open(os.path.join(ROOT, 'data/items.json'), 'w').write('{\n  "items": [\n' + ',\n'.join('    ' + json.dumps(i) for i in ITEMS) + '\n  ]\n}\n')
 out = ['TRADE OBTAINMENT', 'The game\'s items (data/items.json, the game without mods) set against TradeTiers.txt.',
-       'Written by tools/trade_obtain.py; how each entry of the document was read is at the end.', '',
+       'Written by tools/trade_tiers.py; how each entry of the document was read is at the end.', '',
        '%d items in the game. %d are in the document. %d are not (list A).' % (len(ITEMS), len(covered), len(left)),
        '%d things in the document are not in the game (list B).' % len(missing), '',
        '=' * 78, 'A. IN THE GAME, NOT IN THE DOCUMENT  (%d)' % len(left), '=' * 78,
-       'Grouped by the category each is in today. The name the data uses follows in brackets where it differs.', '']
-for cat in cats + [None]:
-    group = [i for i in left if i.get('category') == cat]
+       'All of these are in the category Special, at the dev portal only. Grouped by what they are; the name the data uses',
+       'follows in brackets where it differs.', '']
+for cat in KINDS + [None]:
+    group = [i for i in left if kind(i) == cat]
     if not group: continue
-    out.append('%s  (%d)' % (cat.capitalize() if cat else 'No category: coins, and things that are never held', len(group)))
+    out.append('%s  (%d)' % (cat if cat else 'No category at all: coins, and things that are never held', len(group)))
     for i in group:
         plain = i['label'].lower().replace(' ', '_').replace("'", '')
         out.append('    %s%s' % (i['label'], '' if plain == i['name'] else '  [%s]' % i['name']))

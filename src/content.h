@@ -36,6 +36,8 @@
 #define MAX_ROW_CELLS 16
 #define MAX_TOOL_CLASSES 64
 #define MAX_CATEGORIES 64
+#define MAX_CATEGORY_NAMES 8
+#define MAX_TRADE_TIERS 16
 #define MAX_CURRENCIES 32
 #define MAX_VEIN_HOSTS 16
 #define MAX_VEIN_SIZE 256
@@ -160,6 +162,7 @@ typedef struct {
     bool bench;      /* a workbench: can be opened to craft */
     bool trade;      /* can be opened to buy and sell */
     bool trade_free; /* at this one everything there is can be had for nothing, found or not */
+    int trade_level; /* it deals in nothing of a higher tier than this; 0 for any */
     bool removable;  /* can be mined */
     bool climbable;  /* can be held on to by a player in front of it */
     bool wall;       /* leaves a backwall of itself behind where it stands */
@@ -313,6 +316,7 @@ typedef struct {
     RecipeItem upgrade_cost[RECIPE_MAX_INPUTS];
     int upgrade_cost_count;
     float upgrade_time; /* seconds the upgrade takes; 0 for at once */
+    int upgrade_crystals; /* and crystals it takes besides */
 
     /* Looks. Textures are 32 pixels to the tile; a larger one overhangs its
      * tile, centred and resting on the tile's bottom edge. */
@@ -390,6 +394,8 @@ typedef struct {
     int poison_every;  /* ticks between those points */
     int category;    /* where it is listed for trading, or -1 if it is not traded */
     char category_name[CONTENT_NAME_LEN];
+    int tier;        /* the tier the data gives it, or 0 for none given */
+    int trade_tier;  /* how far a trade block must have been raised to deal in it: 1 and up */
     int price;       /* what one costs, in the smallest currency; 0 for the default */
     int tool_class;  /* the kind of tool it is, or -1 */
     float tool_speed; /* how many times faster it mines blocks of its class */
@@ -865,8 +871,15 @@ typedef struct {
     struct {
         char name[CONTENT_NAME_LEN];
         char label[CONTENT_NAME_LEN];
+        bool free_only; /* listed only where everything is given away: what no trade portal deals in */
+        /* Other names items may give for it: categories there used to be, which mods still name. */
+        char also[MAX_CATEGORY_NAMES][CONTENT_NAME_LEN];
+        int also_count;
     } categories[MAX_CATEGORIES];
     int category_count;
+    /* An item that names no tier is of the highest one whose price it reaches: these are those prices, lowest tier first. */
+    int tier_prices[MAX_TRADE_TIERS];
+    int tier_count;
     /* Coins, smallest first. Each is an item worth so many of the smallest. */
     struct {
         ItemId item;
