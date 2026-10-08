@@ -2098,6 +2098,8 @@ bool game_craft(Game *g, const Recipe *r, int count)
 static bool craft_now(Game *g, const Recipe *r, int count)
 {
     if (!g->bench_open || g->craft_remaining > 0 || count < 1) return false;
+    /* Nobody makes anything with no energy left to do it on. */
+    if (g->vitals.energy <= 0.0f) return false;
     /* Only what this bench makes, at the level it has reached. */
     TileType bench = game_bench_at(g, g->bench_pos.x, g->bench_pos.y);
     if (strcmp(r->bench, tile_def(bench)->bench_kind) != 0 || recipe_locked(bench, r)) return false;
@@ -2449,7 +2451,9 @@ static void update_bench(Game *g, float dt)
         st->power -= g->craft_power;
         g->craft_power = 0;
     }
-    g->craft_timer += dt;
+    /* Worn out, the work waits for them; as happy as can be, it goes that much the quicker. */
+    if (g->vitals.energy <= 0.0f) return;
+    g->craft_timer += dt * (game_pace(g) > 1.0f ? game_pace(g) : 1.0f);
     float each = game_craft_seconds(g, g->craft_recipe);
     while (g->craft_remaining > 0 && g->craft_timer >= each) {
         g->craft_timer -= each;
@@ -3020,6 +3024,8 @@ bool game_can_eat(const Game *g, ItemId id)
     if (item_def(id)->food_oxygen > 0.0f && g->vitals.oxygen < 1.0f) return true;
     /* And something that takes energy past full, while there is further to take it. */
     if (item_def(id)->energy_over && g->vitals.energy < 1.0f + content.rules.energy_over - 0.001f) return true;
+    /* On a full stomach only cooked food does anything: it keeps the bar full a while. */
+    if (game_bar_full(g->vitals.hunger) && !item_def(id)->cooked) return false;
     return !game_saturated(g);
 }
 
@@ -3035,7 +3041,7 @@ bool game_eat(Game *g)
 
     v->oxygen = clamp01(v->oxygen + def->food_oxygen);
     /* On a full stomach it does not fill the bar; it keeps it full. */
-    if (game_bar_full(v->hunger)) v->saturation += def->food * (float)content.rules.saturation_ticks;
+    if (game_bar_full(v->hunger) && def->cooked) v->saturation += def->food * (float)content.rules.saturation_ticks;
     v->hunger = clamp01(v->hunger + def->food);
     float mend = def->food_health >= 0.0f ? def->food_health : def->food * content.rules.food_health;
     heal(g, mend);
@@ -3514,24 +3520,46 @@ float game_character_environment(const Game *g, int c)
 }
 
 /* How someone is doing, from how they are fed, how the weather has left them, and how much health they have. */
-static float happiness_of(const Vitals *v, float chill)
+static bool sheltered(const ItemStack *armor)
+{
+    for (int i = 0; i < ARMOR_SLOTS; i++)
+        if (armor[i].count > 0 && item_def((ItemId)armor[i].id)->shelters) return true;
+    return false;
+}
+
+/* How someone is doing: the average of how rested and how well fed they are and how the weather has left them,
+ * and never more than their health. Past 1 - "saturated" - only when they are whole and all three of those are
+ * themselves kept past full: energy from a soft bed, hunger by cooked food, the weather by what they have on. */
+static float happiness_of(const Vitals *v, float chill, const ItemStack *armor)
 {
     if (v->respawn > 0) return 0.0f;
-    float hunger = v->hunger < 0.0f ? 0.0f : v->hunger > 1.0f ? 1.0f : v->hunger;
-    float health = v->health < 0.0f ? 0.0f : v->health > 1.0f ? 1.0f : v->health;
-    float made = (hunger + (1.0f - chill)) / 2.0f;
+    float hunger = clamp01(v->hunger), health = clamp01(v->health), energy = clamp01(v->energy);
+    if (v->health >= 1.0f - content.rules.full_margin && v->energy > 1.0f && v->saturation > 0.0f && chill <= 0.0f && sheltered(armor))
+        return 1.0f + content.rules.happy_boost;
+    float made = (energy + hunger + (1.0f - chill)) / 3.0f;
     return made < health ? made : health;
 }
 
 float game_happiness(const Game *g)
 {
-    return happiness_of(&g->vitals, g->chill);
+    return happiness_of(&g->vitals, g->chill, g->inventory.armor);
 }
 
 float game_character_happiness(const Game *g, int c)
 {
     if (c < 0 || c >= g->character_count) return 1.0f;
-    return c == g->live ? game_happiness(g) : happiness_of(&g->characters[c].vitals, g->characters[c].chill);
+    return c == g->live ? game_happiness(g) : happiness_of(&g->characters[c].vitals, g->characters[c].chill, g->characters[c].armor);
+}
+
+bool game_environment_saturated(const Game *g)
+{
+    return g->chill <= 0.0f && sheltered(g->inventory.armor);
+}
+
+bool game_character_environment_saturated(const Game *g, int c)
+{
+    if (c < 0 || c >= g->character_count) return false;
+    return c == g->live ? game_environment_saturated(g) : g->characters[c].chill <= 0.0f && sheltered(g->characters[c].armor);
 }
 
 float game_environment_floor(const Game *g)
@@ -3566,7 +3594,9 @@ bool game_exposed(const Game *g)
 
 float game_pace(const Game *g)
 {
-    return 1.0f - content.rules.happy_slow * (1.0f - game_happiness(g));
+    /* (Past full, the little over is all speed; short of it, each part short costs its share.) */
+    float happy = game_happiness(g);
+    return happy > 1.0f ? happy : 1.0f - content.rules.happy_slow * (1.0f - happy);
 }
 
 float game_walk_speed(const Game *g)

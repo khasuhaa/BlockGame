@@ -35,15 +35,15 @@
  * were written before the weather could touch them: so it is switched off as the content is loaded, and the test
  * of the weather itself (test_environment) puts back what the data says. */
 static int shipped_env_fall_ticks, shipped_max_drop;
-static float shipped_walk_time, shipped_climb_time, shipped_crawl_time, shipped_happy_slow;
+static float shipped_walk_time, shipped_climb_time, shipped_crawl_time, shipped_happy_slow, shipped_happy_boost;
 static bool calm_content_load(const char *dir, char *err, size_t size)
 {
     bool ok = content_load(dir, err, size);
     if (content.rules.env_fall_ticks > 0) shipped_env_fall_ticks = content.rules.env_fall_ticks;
     content.rules.env_fall_ticks = 0;
     /* Nor did being hungry or hurt slow anybody: happiness is left out of their pace, and is test_environment's business too. */
-    if (content.rules.happy_slow > 0.0f) shipped_happy_slow = content.rules.happy_slow;
-    content.rules.happy_slow = 0.0f;
+    if (content.rules.happy_slow > 0.0f) shipped_happy_slow = content.rules.happy_slow, shipped_happy_boost = content.rules.happy_boost;
+    content.rules.happy_slow = content.rules.happy_boost = 0.0f;
     /* They were timed, too, against the pace characters went at then - a step in 0.12 seconds, a climb in 0.16, a
      * crawl in 0.22 - and are kept at it: how fast the game ships is test_pace_and_flight's business. */
     if (content.rules.walk_time == 0.24f) {
@@ -6213,8 +6213,19 @@ static void test_vitals(void)
     /* Eating up to full just fills the bar; eating again when full turns it
      * gold: nothing more can be eaten, and hunger holds off for a while. */
     v->hunger = 0.95f;
-    CHECK(game_eat(&g) && v->hunger == 1.0f && !game_saturated(&g) && game_can_eat(&g, apple));
-    CHECK(game_eat(&g) && game_saturated(&g) && !game_can_eat(&g, apple) && !game_eat(&g));
+    CHECK(game_eat(&g) && v->hunger == 1.0f && !game_saturated(&g));
+    /* (Only with cooked food, though. Fruit off the tree does nothing on a full stomach, and is not eaten.) */
+    CHECK(!item_def(apple)->cooked && !game_can_eat(&g, apple) && !game_eat(&g) && inventory_count(inv, apple) == 3);
+    inventory_add(inv, meat, 2);
+    for (int i = 0; i < INVENTORY_SLOTS; i++)
+        if (inv->slots[i].id == meat) inventory_select(inv, i, -1);
+    CHECK(item_def(meat)->cooked && game_can_eat(&g, meat));
+    CHECK(game_eat(&g) && game_saturated(&g) && !game_can_eat(&g, meat) && !game_can_eat(&g, apple) && !game_eat(&g));
+    CHECK(inventory_count(inv, meat) == 1);
+    inventory_remove(inv, meat, 1);
+    inventory_remove(inv, apple, 1);
+    for (int i = 0; i < INVENTORY_SLOTS; i++)
+        if (inv->slots[i].id == apple) inventory_select(inv, i, -1);
     CHECK(inventory_count(inv, apple) == 2);
     int held_off = 0;
     while (game_saturated(&g) && held_off < 100000) {
@@ -6223,7 +6234,12 @@ static void test_vitals(void)
     }
     CHECK(held_off > 100 && v->hunger == 1.0f);
     game_tick(&g);
-    CHECK(v->hunger < 1.0f && game_can_eat(&g, apple));
+    /* (Still as good as full, a moment after: fruit waits till there is room for it.) */
+    CHECK(v->hunger < 1.0f && !game_can_eat(&g, apple) && game_can_eat(&g, meat));
+    float was_hungry = v->hunger;
+    v->hunger = 0.9f;
+    CHECK(game_can_eat(&g, apple));
+    v->hunger = was_hungry;
     /* A bigger meal holds it off for longer. */
     CHECK(item_def(meat)->food > item_def(apple)->food);
 
@@ -10632,8 +10648,9 @@ static void test_environment(void)
     content.rules.env_fall_ticks = shipped_env_fall_ticks; /* (the weather, as the game has it) */
     RulesDef *u = &content.rules;
     u->happy_slow = shipped_happy_slow;
-    CHECK(u->env_fall_ticks == 1200 && u->env_rise_ticks == 300 && u->happy_slow == 0.5f && u->env_harm_ticks == 1200 && u->env_clothed == 0.1f);
-    u->hunger_ticks = 0; /* (nobody gets hungry here: what the weather does is looked at by itself, and hunger after) */
+    u->happy_boost = shipped_happy_boost;
+    CHECK(u->env_fall_ticks == 1200 && u->env_rise_ticks == 300 && u->happy_slow == 0.5f && u->happy_boost == 0.2f && u->env_harm_ticks == 1200 && u->env_clothed == 0.1f);
+    u->hunger_ticks = u->energy_ticks = 0; /* (nobody gets hungry or tired here: what the weather does is looked at by itself, and those after) */
     static Game g;
     game_init(&g, 128, 64, 4, WORLD_FLAT);
     g.tick_rate = 0;
@@ -10663,18 +10680,18 @@ static void test_environment(void)
     g.tick = winter;
 
     /* With nothing on it runs all the way down, and then it is health that goes. It does not slow them of itself:
-     * it goes into their happiness - the average of it and how well fed they are - and that is what does. */
+     * it goes into their happiness - the average of it, how well fed and how rested they are - and that is what does. */
     g.vitals.hunger = 1.0f;
     for (int t = 0; t < 600; t++) game_tick(&g);
-    CHECK(near(game_environment(&g), 0.5f) && near(game_happiness(&g), 0.75f) && near(game_pace(&g), 0.875f) && g.vitals.health == 1.0f);
+    CHECK(near(game_environment(&g), 0.5f) && near(game_happiness(&g), 5.0f / 6.0f) && near(game_pace(&g), 11.0f / 12.0f) && g.vitals.health == 1.0f);
     game_set_move_input(&g, 1, 0);
     game_update(&g, 0.001f);
-    CHECK(g.player.activity == ACTIVITY_STEPPING && near(g.player.duration, WALK_TIME / 0.875f));
+    CHECK(g.player.activity == ACTIVITY_STEPPING && near(g.player.duration, WALK_TIME / (11.0f / 12.0f)));
     game_set_move_input(&g, 0, 0);
     run(&g, 1.0f);
     g.tick = winter;
     for (int t = 0; t < 700; t++) game_tick(&g);
-    CHECK(game_environment(&g) < 0.001f && near(game_happiness(&g), 0.5f) && near(game_pace(&g), 0.75f) && g.vitals.health < 0.95f && game_alive(&g));
+    CHECK(game_environment(&g) < 0.001f && near(game_happiness(&g), 2.0f / 3.0f) && near(game_pace(&g), 5.0f / 6.0f) && g.vitals.health < 0.95f && game_alive(&g));
     /* Working is as slow as walking. */
     inventory_add(&g.inventory, ITEM_DIRT, 1);
     inventory_select(&g.inventory, 0, -1);
@@ -10695,7 +10712,7 @@ static void test_environment(void)
     g.tick = winter;
     g.vitals.hunger = 1.0f;
     for (int t = 0; t < 1300; t++) game_tick(&g);
-    CHECK(near(game_environment(&g), 0.1f) && near(game_happiness(&g), 0.55f) && near(game_pace(&g), 0.775f) && g.vitals.health == 1.0f);
+    CHECK(near(game_environment(&g), 0.1f) && near(game_happiness(&g), 0.7f) && near(game_pace(&g), 0.85f) && g.vitals.health == 1.0f);
     /* What each suit keeps. */
     wear(&g, "linen_cap", "linen_shirt", "linen_pants", NULL);
     CHECK(near(game_environment_floor(&g), 0.15f));
@@ -10724,15 +10741,18 @@ static void test_environment(void)
     for (int t = 0; t < 600; t++) game_tick(&g);
     CHECK(near(game_environment(&g), 0.8f));
 
-    /* Happiness. Hunger is the other half of it: with the weather doing nothing, an empty stomach halves it. */
+    /* Happiness. Hunger is a third of it, and energy another: with the weather doing nothing, an empty stomach takes a third off. */
     wear(&g, NULL, NULL, "grass_skirt", NULL);
     for (int t = 0; t < 400; t++) game_tick(&g);
     g.vitals.health = g.vitals.hunger = 1.0f;
     CHECK(game_environment(&g) == 1.0f && game_happiness(&g) == 1.0f && game_pace(&g) == 1.0f);
     g.vitals.hunger = 0.4f;
-    CHECK(near(game_happiness(&g), 0.7f) && near(game_pace(&g), 0.85f));
+    CHECK(near(game_happiness(&g), 0.8f) && near(game_pace(&g), 0.9f));
     g.vitals.hunger = 0.0f;
-    CHECK(near(game_happiness(&g), 0.5f) && near(game_pace(&g), 0.75f));
+    CHECK(near(game_happiness(&g), 2.0f / 3.0f) && near(game_pace(&g), 5.0f / 6.0f));
+    g.vitals.energy = 0.25f;
+    CHECK(near(game_happiness(&g), 1.25f / 3.0f));
+    g.vitals.energy = 1.0f;
     /* Health is the most it can be: fed and warm but hurt, they are as happy as they are whole... */
     g.vitals.hunger = 1.0f;
     g.vitals.health = 0.8f;
@@ -10747,9 +10767,77 @@ static void test_environment(void)
     /* ...and no happier for being whole than hunger and the weather leave them. */
     g.vitals.health = 0.8f;
     g.vitals.hunger = 0.2f;
-    CHECK(near(game_happiness(&g), 0.6f));
+    CHECK(near(game_happiness(&g), 2.2f / 3.0f));
     g.vitals.health = g.vitals.hunger = 1.0f;
     CHECK(game_character_happiness(&g, g.live) == 1.0f && game_character_happiness(&g, 7) == 1.0f);
+    /* Past full. Each of the three can be kept past full - it shows gold: energy by a soft bed, hunger by cooked food
+     * eaten on a full stomach, the weather by the grass skirt. With all three so, and whole, they are happier than
+     * happy, and a fifth faster for it. */
+    CHECK(item_def(item_id("grass_skirt"))->shelters && game_environment_saturated(&g) && game_character_environment_saturated(&g, g.live));
+    g.vitals.energy = 1.3f;
+    g.vitals.saturation = 500.0f;
+    CHECK(near(game_happiness(&g), 1.2f) && near(game_pace(&g), 1.2f));
+    game_set_move_input(&g, 1, 0);
+    game_update(&g, 0.001f);
+    CHECK(g.player.activity == ACTIVITY_STEPPING && near(g.player.duration, WALK_TIME / 1.2f));
+    game_set_move_input(&g, 0, 0);
+    run(&g, 1.0f);
+    /* Any one of them short of that, or a scratch, and it is plain happiness again. */
+    g.vitals.energy = 1.0f;
+    CHECK(game_happiness(&g) == 1.0f && game_pace(&g) == 1.0f);
+    g.vitals.energy = 1.3f;
+    g.vitals.saturation = 0.0f;
+    CHECK(game_happiness(&g) == 1.0f);
+    g.vitals.saturation = 500.0f;
+    g.vitals.health = 0.9f;
+    CHECK(near(game_happiness(&g), 0.9f));
+    g.vitals.health = 1.0f;
+    wear(&g, "titanium_helmet", "titanium_chestplate", "titanium_leggings", "titanium_boots"); /* as warm as can be, but not the skirt */
+    CHECK(game_environment(&g) == 1.0f && !game_environment_saturated(&g) && game_happiness(&g) == 1.0f);
+    wear(&g, NULL, NULL, "grass_skirt", NULL);
+    CHECK(near(game_happiness(&g), 1.2f));
+
+    /* Work at a bench goes the quicker for it too; and with no energy at all nothing is made, nor begun. */
+    {
+        int bx = g.player.feet.x + 2;
+        CHECK(place_and_open(&g, "workbench", bx));
+        wear(&g, NULL, NULL, "grass_skirt", NULL); /* (placing emptied their hands, not what they have on - but to be sure) */
+        const Recipe *r = NULL;
+        for (int i = 0; i < content.recipe_count && !r; i++)
+            if (strcmp(content.recipes[i].bench, "workbench") == 0 && content.recipes[i].level <= 1 && content.recipes[i].crystals == 0 &&
+                !item_def(content.recipes[i].output.id)->becomes_player) r = &content.recipes[i];
+        CHECK(r != NULL);
+        if (r) {
+            ItemId made = r->output.id;
+            for (int i = 0; i < r->input_count; i++) inventory_add(&g.inventory, r->inputs[i].id, r->inputs[i].count * 3);
+            float each = game_craft_seconds(&g, r);
+            int had = count_item(&g, made);
+            g.vitals.energy = 0.0f;
+            CHECK(!game_craft(&g, r, 1) && g.craft_remaining == 0);
+            /* As happy as can be: done in five sixths of the time. */
+            g.vitals.energy = 1.3f;
+            g.vitals.saturation = 500.0f;
+            g.vitals.health = 1.0f;
+            CHECK(near(game_pace(&g), 1.2f) && game_craft(&g, r, 1));
+            run(&g, each / 1.2f + 0.2f);
+            CHECK(count_item(&g, made) == had + r->output.count && g.craft_remaining == 0);
+            /* Plainly happy: not yet done by then, and done in the whole of it. */
+            g.vitals.energy = 1.0f;
+            CHECK(game_pace(&g) == 1.0f && game_craft(&g, r, 1));
+            run(&g, each / 1.2f + 0.2f);
+            CHECK(each < 3.0f || (count_item(&g, made) == had + r->output.count && g.craft_remaining == 1));
+            /* Worn right out part way through, the work waits; rested, it is finished. */
+            g.vitals.energy = 0.0f;
+            run(&g, each + 1.0f);
+            CHECK(each < 3.0f || g.craft_remaining == 1);
+            g.vitals.energy = 1.0f;
+            run(&g, each + 1.0f);
+            CHECK(g.craft_remaining == 0 && count_item(&g, made) == had + 2 * r->output.count);
+        }
+        game_close_bench(&g);
+    }
+    g.vitals.health = g.vitals.hunger = g.vitals.energy = 1.0f;
+    g.vitals.saturation = 0.0f;
     wear(&g, NULL, "leather_jacket", "leather_pants", "leather_boots");
     g.tick = winter;
     for (int t = 0; t < 600; t++) game_tick(&g);

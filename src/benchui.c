@@ -645,6 +645,8 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
     Rectangle b = craft_rect(menu);
     if (game_bench_fuel(g, NULL) == 0) {
         draw_centered("Needs fuel", b, 18, (Color){ 240, 150, 60, 255 });
+    } else if (g->vitals.energy <= 0.0f && g->craft_remaining <= 0) {
+        draw_centered("Too tired", b, 18, (Color){ 240, 150, 60, 255 });
     } else if (game_craft_power(g, NULL) > 0) {
         /* An electric bench, waiting for what it needs to come down the wire. */
         int arrived, needs = game_craft_power(g, &arrived);

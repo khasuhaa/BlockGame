@@ -634,11 +634,16 @@ float game_character_environment(const Game *g, int c);
 float game_environment_floor(const Game *g);
 /* Whether the weather is getting at the character where they are. */
 bool game_exposed(const Game *g);
-/* Happiness: how the character is doing all told, 0 to 1. It is the average of
- * how well fed they are and their environment score, and never more than
- * their health. */
+/* Happiness: how the character is doing all told, 0 to 1 - or past 1, by the
+ * rules' boost, when they are whole and energy, hunger and environment are
+ * all kept past full. Short of that it is the average of how rested and how
+ * well fed they are and their environment score, and never more than their
+ * health. */
 float game_happiness(const Game *g);
 float game_character_happiness(const Game *g, int c);
+/* Whether what they have on keeps their environment score past full. */
+bool game_environment_saturated(const Game *g);
+bool game_character_environment_saturated(const Game *g, int c);
 /* How fast they walk and work, as a share of their usual speed: the less happy, the slower. */
 float game_pace(const Game *g);
 /* Whether the character has something on that lets them fly, and whether they are in the air on it now. */

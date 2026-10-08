@@ -317,8 +317,9 @@ void playerui_draw(const PlayerUi *ui, const Game *g)
         /* Nor what the weather has left them, unless it has taken some. */
         int row = 2 + (v->oxygen < 1.0f);
         if (game_character_environment(g, c) < 1.0f) playerui_draw_bar(small_bar(c, row++), game_character_environment(g, c), BAR_BLUE);
-        /* And how they are doing all told, which is what slows them. */
-        if (game_character_happiness(g, c) < 1.0f) playerui_draw_bar(small_bar(c, row++), game_character_happiness(g, c), BAR_GREEN);
+        /* And how they are doing all told, which is what slows them - or, gold and past full, quickens them. */
+        float happy = game_character_happiness(g, c);
+        if (happy < 1.0f || happy > 1.0f) playerui_draw_bar(small_bar(c, row++), happy > 1.0f ? 1.0f : happy, happy > 1.0f ? BAR_GOLD : BAR_GREEN);
     }
     for (int c = 0; c < g->character_count; c++)
         if (death_showing(ui, g, c, 0)) draw_death(ui, g, c, death_rect(g, c, 0), false);
@@ -338,8 +339,9 @@ void playerui_draw(const PlayerUi *ui, const Game *g)
     /* (Past full - from a soft bed, or coffee - it shows gold until it has run back down to full.) */
     draw_row(p, 2, "Energy", v->energy > 1.0f ? 1.0f : v->energy, v->energy > 1.0f ? BAR_GOLD : BAR_GREEN);
     draw_row(p, 3, "Oxygen", v->oxygen, BAR_BLUE);
-    draw_row(p, 4, "Environment", game_environment(g), BAR_BLUE);
-    draw_row(p, 5, "Happiness", game_happiness(g), BAR_GREEN);
+    /* (Kept past full by what they have on, it shows gold as the others do.) */
+    draw_row(p, 4, "Environment", game_environment(g), game_environment_saturated(g) ? BAR_GOLD : BAR_BLUE);
+    draw_row(p, 5, "Happiness", game_happiness(g) > 1.0f ? 1.0f : game_happiness(g), game_happiness(g) > 1.0f ? BAR_GOLD : BAR_GREEN);
     draw_action(action_rect(0), v->rest == REST_SLEEP ? "Wake up" : "Sleep", can_sleep(g), v->rest == REST_SLEEP);
     draw_action(action_rect(1), v->rest == REST_MEDITATE ? "Stop" : "Meditate", true, v->rest == REST_MEDITATE);
 }

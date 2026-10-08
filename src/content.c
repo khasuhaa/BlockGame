@@ -551,6 +551,8 @@ static bool read_items(Reader *r, const cJSON *root)
         it->food_health = (float)num(food, "health", -1.0);
         it->food_energy = (float)num(food, "energy", 0.0);
         it->energy_over = flag(food, "energy_over", false);
+        it->cooked_said = (int8_t)(field(e, "cooked") ? flag(e, "cooked", false) : -1);
+        it->cooked = it->cooked_said == 1;
         it->food_oxygen = (float)num(food, "oxygen", 0.0);
         if (it->food < 0.0f || it->food > 1.0f)
             return fail(r, "item \"%s\": \"food\" is a share of the hunger bar, 0 to 1", it->name);
@@ -661,6 +663,7 @@ static bool read_items(Reader *r, const cJSON *root)
         copy_name(it->worn, sizeof it->worn, str(e, "worn"));
         it->walk_speed = (float)num(e, "walk_speed", 0.0);
         it->lifts = flag(e, "lifts", false);
+        it->shelters = flag(e, "shelters", false);
         const cJSON *vehicle = field(e, "vehicle");
         memset(&it->vehicle, 0, sizeof it->vehicle);
         if (vehicle) {
@@ -1283,6 +1286,8 @@ static bool read_rules(Reader *r, const cJSON *root)
     }
     if (field(root, "happiness")) {
         u->happy_slow = (float)num(field(root, "happiness"), "slow", u->happy_slow);
+        u->happy_boost = (float)num(field(root, "happiness"), "boost", u->happy_boost);
+        if (u->happy_boost < 0.0f) return fail(r, "\"happiness\": \"boost\" is a share of speed gained: not less than nothing");
         if (u->happy_slow < 0.0f || u->happy_slow >= 1.0f) return fail(r, "\"happiness\": \"slow\" is a share of speed lost, 0 up to but not 1");
     }
     const cJSON *weather = field(root, "weather");
@@ -1691,10 +1696,16 @@ static bool validate(Reader *r)
             content.trade.category_count > 0)
             return fail(r, "item \"%s\" has no \"category\", so it could not be bought or sold; "
                            "give it one from trade.json", it->name);
+        it->cooked = it->cooked_said == 1;
         it->plants = it->plants_name[0] ? tree_id(it->plants_name) : -1;
         if (it->plants_name[0] && it->plants < 0)
             return fail(r, "item \"%s\" plants a tree called \"%s\", which does not exist", it->name,
                         it->plants_name);
+    }
+    /* Food that some recipe makes is cooked, unless the data has said otherwise of it. */
+    for (int i = 0; i < content.recipe_count; i++) {
+        ItemDef *made = &content.items[content.recipes[i].output.id];
+        if (content.recipes[i].output.id > 0 && content.recipes[i].output.id < content.item_count && made->cooked_said < 0 && made->food > 0.0f) made->cooked = true;
     }
     for (int i = 0; i < content.tile_count; i++) {
         TileDef *egg = &content.tiles[i];

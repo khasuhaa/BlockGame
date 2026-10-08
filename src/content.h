@@ -368,6 +368,10 @@ typedef struct {
     float food_health; /* share of the health bar it mends; below 0 for the usual share of `food` */
     float food_energy; /* share of the energy bar it gives back */
     bool energy_over;  /* what it gives can take the energy bar past full */
+    /* Cooked food, eaten on a full stomach, keeps the hunger bar full for a while; anything else only fills it.
+     * Unless the data says, food is cooked if some recipe makes it. */
+    bool cooked;
+    int8_t cooked_said; /* what the data said of that: 1, 0, or -1 for nothing */
     float food_oxygen; /* share of the oxygen bar it gives back */
     /* A meter: a number each single item carries, shown as a bar under it -
      * how much water a bucket holds, how much use a tool has left. Items of
@@ -427,6 +431,7 @@ typedef struct {
     /* Worn: walking goes so many times as fast (0 or 1 for no faster); energy does not run down; hunger does not run down. */
     float walk_speed;
     bool tireless, sated;
+    bool shelters;         /* worn, the weather is nothing to them: their environment score is kept past full */
     bool lifts;            /* worn, it lets them fly: the air holds them up wherever they go in it */
     /* Something that runs on rails: put down on them, it is not a block but a vehicle (see train.h). */
     struct {
@@ -777,6 +782,7 @@ typedef struct {
     float env_clothed;     /* the least it can fall to with anything on at all */
     /* Happiness: how they are doing, all told. It is what slows them. */
     float happy_slow;      /* with none, they walk and work with this share of their speed gone: 0.5 is half as fast */
+    float happy_boost;     /* past full - whole, and energy, hunger and environment all kept past full - they are this much faster */
 
     /* Fog of war: the world is dark until the player has been near it. */
     bool fog_enabled; /* whether a new world starts with it */

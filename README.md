@@ -195,11 +195,14 @@ Every tick, ten random blocks in each 16-column chunk get a random event (the nu
 
 **Seasons.** A year is four seasons of 10 days each - spring, summer, autumn, winter - 40 days in all. The leaves of the trees that shed follow it: oak and apple are pale green in spring (the apple in blossom), full in summer, gold and russet in autumn and bare twigs in winter; the cherry is in blossom in spring and green in summer; the maple is green until autumn turns it; pines keep their needles and carry snow in winter; the trees of the tropics do not change. A block's `"texture_seasons"` lists its pictures season by season.
 
-**Happiness** is a sixth bar, green, in the player's panel, and shows under the player's button whenever it is not full. It is how a character is doing, all told, and it is the one thing that slows them.
+**Happiness** is a sixth bar, green, in the player's panel, and shows under the player's button whenever it is not exactly full. It is how a character is doing, all told, and it is the one thing that changes how fast they go.
 
-- **What it is.** The average of how well fed they are (the hunger bar) and their environment score - and never more than their health: at 80% health, happiness is at most 80%. So a character fed and warm but hurt is as happy as they are whole; one whole and warm but starving is half happy.
-- **What it does.** The less happy, the slower a character walks, climbs, crawls, swims, flies, digs, builds and strikes: half as fast with none at all, three quarters as fast at half. Nothing else slows them - not the weather by itself, nor hunger by itself.
-- It is not kept: it is worked out each moment from the other three. How much speed it costs is `"slow"` under `"happiness"` in `rules.json`.
+- **What it is.** The average of three bars - energy, hunger and the environment score - and never more than health: at 80% health, happiness is at most 80%. So a character rested, fed and warm but hurt is as happy as they are whole; one whole and warm and rested but starving is two thirds happy.
+- **What it does.** The less happy, the slower a character walks, climbs, crawls, swims, flies, digs, builds and strikes: half as fast with none at all, three quarters as fast at half. Nothing else slows them.
+- **Past full.** Each of the three bars can be kept past full, and shows gold while it is: **energy** by sleeping in a soft bed (or coffee); **hunger** by eating cooked food on a full stomach; the **environment** score by wearing the grass skirt. With all three gold and health full, happiness is past full too - gold - and the character does everything **20% faster**: all of the above, and work at a bench as well.
+- **Cooked food** is any food a recipe makes - cooked meat and fish, bread, flatbread, pizza, mozzarella, the stews, coffee, rainbow cake - unless its data says otherwise with `"cooked"`. Fruit, eggs, milk and raw meat are not: they fill the bar, and on a full stomach cannot be eaten at all.
+- **With a bar empty.** With no energy a character cannot make anything at a bench - the button says so - and work under way waits until they have rested. With no hunger left, or no environment score, health runs down.
+- It is not kept: it is worked out each moment from the others. `"slow"` and `"boost"` under `"happiness"` in `rules.json` are how much speed it costs and gives; an item that keeps the environment score past full has `"shelters": true`.
 
 **Environment** is a fifth bar, blue, in the player's panel, and shows under the player's button whenever it is not full. It is how well a character is standing up to the weather.
 
@@ -392,7 +395,7 @@ Whoever is not being played carries on with whatever they were told to do - walk
 
 The button in the top left corner, under the readout, is the player. Under it are two small bars, health and hunger. Clicking it flies a panel out beside it with those two and a third, energy, and two buttons: **Sleep** and **Meditate**. Bars are green on dark red.
 
-- **Hunger** runs down all the time: a full bar lasts 36,000 ticks. Selecting a food in the inventory puts an **Eat** button above it; eating one fills some of the bar, a cooked meal much more than a berry. Eating to full and then eating again turns the bar golden: nothing more can be eaten (the button reads "Full"), and hunger holds off until that wears off - longer the bigger the meal.
+- **Hunger** runs down all the time: a full bar lasts 36,000 ticks. Selecting a food in the inventory puts an **Eat** button above it; eating one fills some of the bar, a cooked meal much more than a berry. Eating to full and then eating cooked food again turns the bar golden: nothing more can be eaten (the button reads "Full"), and hunger holds off until that wears off - longer the bigger the meal. Only cooked food does it; anything else cannot be eaten on a full stomach.
 - **Health** mends by itself, slowly, and a little with everything eaten - much less than the food does for hunger. With hunger at nothing it runs down instead, though never below a tenth.
 - **Energy** runs down while awake: a full bar lasts 1800 ticks. It has no golden state.
 - **Sleeping** lays the player on the ground and brings energy back; they wake by themselves when it is full. The button is greyed out while energy is full.
