@@ -21,7 +21,7 @@ static bool in_range(const Game *g, int x, int y)
     return dx * dx + dy * dy <= r * r;
 }
 
-static bool spawns_in(const World *w, const MobDef *def, int x);
+static bool spawns_in(const World *w, const MobDef *def, int x, int y);
 
 /* Creatures of the land and of the water are counted apart: each has its own cap. */
 static int count_near(const Game *g, bool swimmers)
@@ -127,7 +127,7 @@ static bool try_spawn_in_sky(Game *g, int x, int y)
     for (int kind = 0; kind < content.mob_count; kind++) {
         const MobDef *def = &content.mobs[kind];
         if (!def->flies || !def->spawn_sky || def->spawn_chance <= 0.0f) continue;
-        if (!spawns_in(w, def, x) || !spawns_now(g, def)) continue;
+        if (!spawns_in(w, def, x, y) || !spawns_now(g, def)) continue;
         if (!in_range(g, x, y) || mobs_near_player(g) >= content.mob_cap) return false;
         if (def->cap > 0 && kind_near_player(g, kind) >= def->cap) continue;
         if (chance(g) >= def->spawn_chance) continue;
@@ -144,7 +144,7 @@ static bool try_spawn_in_water(Game *g, int x, int y)
     for (int kind = 0; kind < content.mob_count; kind++) {
         const MobDef *def = &content.mobs[kind];
         if (!def->swims || !def->spawn_water) continue;
-        if (!spawns_in(w, def, x) || !spawns_now(g, def)) continue;
+        if (!spawns_in(w, def, x, y) || !spawns_now(g, def)) continue;
         if (!in_range(g, x, y) || mobs_near_player_in_water(g) >= content.mob_water_cap) return false;
         if (def->cap > 0 && kind_near_player(g, kind) >= def->cap) continue;
         if (chance(g) >= def->spawn_chance) continue;
@@ -168,7 +168,7 @@ bool mobs_try_spawn(Game *g, int x, int y)
         const MobDef *def = &content.mobs[kind];
         bool here = false;
         for (int i = 0; i < def->spawn_above_count; i++) here = here || def->spawn_above[i] == ground;
-        if (!here || def->perches || def->swims || def->flies || def->spawn_chance <= 0.0f || !spawns_in(w, def, x)) continue;
+        if (!here || def->perches || def->swims || def->flies || def->spawn_chance <= 0.0f || !spawns_in(w, def, x, y)) continue;
         if (!spawns_now(g, def) || (def->spawn_cave && world_get_at(w, LAYER_WALL, x, y) == TILE_AIR)) continue;
         /* Only near the player, and only while there is room for more. */
         if (!in_range(g, x, y) || mobs_near_player(g) >= content.mob_cap) return false;
@@ -241,11 +241,11 @@ bool mob_milk(Game *g, int mob)
 }
 
 /* Whether a kind of creature turns up in a column's biome. */
-static bool spawns_in(const World *w, const MobDef *def, int x)
+static bool spawns_in(const World *w, const MobDef *def, int x, int y)
 {
     if (def->spawn_biome_count == 0) return true;
     for (int i = 0; i < def->spawn_biome_count; i++)
-        if (def->spawn_biomes[i] == world_biome(w, x)) return true;
+        if (def->spawn_biomes[i] == world_biome_at(w, x, y)) return true;
     return false;
 }
 

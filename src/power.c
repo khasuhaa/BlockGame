@@ -74,9 +74,27 @@ static int generate(const Game *g, const TileDef *def, const Storage *st)
         bool day;
         game_day_phase(g, &day);
         if (!day) return 0;
-        for (int y = st->y - 1; y >= 0; y--)
+        int top = world_sky_top(w, st->y);
+        if (top < 0) return 0;
+        for (int y = st->y - 1; y >= top; y--)
             if (world_is_solid(w, st->x, y)) return 0;
         return (int)((float)def->gen_power * game_daylight(g) + 0.5f);
+    }
+    if (def->gen_needs == POWER_NEEDS_SKY) {
+        /* Open sky straight over it, by day or by night: and the more the higher it stands in its place. */
+        int top = world_sky_top(w, st->y), y0, y1;
+        if (top < 0) return 0;
+        for (int y = st->y - 1; y >= top; y--)
+            if (world_is_solid(w, st->x, y)) return 0;
+        world_region_rows(w, world_region_at(w, st->y), &y0, &y1);
+        return def->gen_power / 2 + def->gen_power / 2 * (y1 - st->y) / (y1 - y0);
+    }
+    if (def->gen_needs == POWER_NEEDS_HEAT) {
+        /* Something that burns beside it, or under it. */
+        static const int round[4][2] = { { 0, 1 }, { -1, 0 }, { 1, 0 }, { 0, -1 } };
+        for (int i = 0; i < 4; i++)
+            if (tile_def(world_get(w, st->x + round[i][0], st->y + round[i][1]))->harm > 0.0f) return def->gen_power;
+        return 0;
     }
     return def->gen_power;
 }

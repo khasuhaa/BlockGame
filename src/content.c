@@ -361,6 +361,20 @@ static bool read_tiles(Reader *r, const cJSON *root)
         }
         copy_name(t->texture_ramp, sizeof t->texture_ramp, str(e, "texture_ramp"));
         t->needs_tool = flag(e, "needs_tool", false);
+        copy_name(t->leads_to, sizeof t->leads_to, str(e, "leads_to"));
+        t->leads_dim = -1;
+        t->opens_above = (int)num(e, "opens_above", 0);
+        t->opens_below = (int)num(e, "opens_below", 0);
+        t->hardness = (int)num(e, "hardness", 0);
+        t->harm = (float)num(e, "harm", 0.0);
+        const cJSON *extends = field(e, "extends"), *ext_cost;
+        t->extends = extends != NULL;
+        t->extend_cost_count = 0;
+        t->extend_crystals = (int)num(extends, "crystals", 0);
+        cJSON_ArrayForEach(ext_cost, field(extends, "cost")) {
+            if (t->extend_cost_count >= RECIPE_MAX_INPUTS) return fail(r, "tile \"%s\": raising to it costs too many kinds of item", t->name);
+            if (!stack_ref(r, ext_cost, &t->extend_cost[t->extend_cost_count++])) return false;
+        }
         t->on_floor = flag(e, "on_floor", false);
         t->station = flag(e, "station", false);
         t->lays = TILE_AIR;
@@ -374,8 +388,9 @@ static bool read_tiles(Reader *r, const cJSON *root)
         const cJSON *gen = field(e, "generator");
         const char *needs = str(gen, "needs");
         t->gen_power = (int)num(gen, "power", 0);
-        t->gen_needs = !needs ? POWER_NEEDS_NOTHING : strcmp(needs, "sun") == 0 ? POWER_NEEDS_SUN : strcmp(needs, "fuel") == 0 ? POWER_NEEDS_FUEL : -1;
-        if (t->gen_needs < 0) return fail(r, "tile \"%s\": a generator \"needs\" \"sun\" or \"fuel\"", t->name);
+        t->gen_needs = !needs ? POWER_NEEDS_NOTHING : strcmp(needs, "sun") == 0 ? POWER_NEEDS_SUN : strcmp(needs, "fuel") == 0 ? POWER_NEEDS_FUEL :
+                       strcmp(needs, "sky") == 0 ? POWER_NEEDS_SKY : strcmp(needs, "heat") == 0 ? POWER_NEEDS_HEAT : -1;
+        if (t->gen_needs < 0) return fail(r, "tile \"%s\": a generator \"needs\" \"sun\", \"fuel\", \"sky\" or \"heat\"", t->name);
         t->battery = (int)num(e, "battery", 0);
         t->wire = flag(e, "wire", false);
         t->electric = (int)num(field(e, "electric"), "per_second", 0);
@@ -694,6 +709,9 @@ static bool read_items(Reader *r, const cJSON *root)
         copy_name(it->worn, sizeof it->worn, str(e, "worn"));
         it->walk_speed = (float)num(e, "walk_speed", 0.0);
         it->lifts = flag(e, "lifts", false);
+        it->glides = flag(e, "glides", false);
+        it->power = (int)num(e, "power", 0);
+        it->cooling = (float)num(e, "cooling", 0.0);
         it->reveals_all = flag(e, "reveals_all", false);
         it->identifies = flag(e, "identifies", false);
         it->relic = flag(e, "relic", false);
@@ -843,6 +861,7 @@ static bool read_recipes(Reader *r, const cJSON *root)
 
         /* "bench" is one kind of bench, or a list of kinds that all offer the recipe. */
         recipe.level = (int)num(e, "level", 1);
+        copy_name(recipe.at, sizeof recipe.at, str(e, "at"));
         recipe.crystals = (int)num(e, "crystals", 0);
         recipe.characters = (int)num(e, "characters", 0);
         recipe.time = (float)num(e, "time", 0.0);
@@ -1003,6 +1022,9 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         memset(b, 0, sizeof *b);
         copy_name(b->name, sizeof b->name, name);
         b->cold = flag(e, "cold", b->cold);
+        b->hot = flag(e, "hot", false);
+        copy_name(b->dimension_name, sizeof b->dimension_name, str(e, "dimension"));
+        b->dimension = -1;
         copy_name(b->label, sizeof b->label, str(e, "label") ? str(e, "label") : name);
         if (!tile_ref(r, e, "surface", &b->surface) || !tile_ref(r, e, "soil", &b->soil)) return false;
         if (b->surface == TILE_AIR || b->soil == TILE_AIR)
@@ -1121,6 +1143,8 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         }
         DecorDef *d = &content.decor[id];
         memset(d, 0, sizeof *d);
+        copy_name(d->dimension_name, sizeof d->dimension_name, str(e, "dimension"));
+        d->dimension = -1;
         copy_name(d->name, sizeof d->name, name);
         if (!tile_ref(r, e, "tile", &d->tile)) return false;
         if (d->tile == TILE_AIR) return fail(r, "cave decoration \"%s\" needs a \"tile\"", name);
@@ -1144,6 +1168,8 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         }
         VeinDef *v = &content.veins[id];
         memset(v, 0, sizeof *v);
+        copy_name(v->dimension_name, sizeof v->dimension_name, str(e, "dimension"));
+        v->dimension = -1;
         copy_name(v->name, sizeof v->name, name);
         if (!tile_ref(r, e, "tile", &v->tile)) return false;
         if (v->tile == TILE_AIR) return fail(r, "vein \"%s\" needs a \"tile\"", name);
@@ -1271,6 +1297,53 @@ static bool read_worldgen(Reader *r, const cJSON *root)
                 return false;
             g->portal_height = (int)num(portal, "height", 3);
         }
+    }
+
+    cJSON_ArrayForEach(e, field(root, "dimensions")) {
+        const char *name = str(e, "name"), *kind = str(e, "generator");
+        if (!name) return fail(r, "a dimension has no \"name\"");
+        int id = -1;
+        for (int i = 0; i < content.dimension_count; i++)
+            if (strcmp(content.dimensions[i].name, name) == 0) id = i;
+        if (id < 0) {
+            if (content.dimension_count >= MAX_DIMENSIONS) return fail(r, "too many dimensions");
+            id = content.dimension_count++;
+        }
+        DimensionDef *d = &content.dimensions[id];
+        memset(d, 0, sizeof *d);
+        copy_name(d->name, sizeof d->name, name);
+        copy_name(d->label, sizeof d->label, str(e, "label") ? str(e, "label") : name);
+        d->generator = !kind || strcmp(kind, "islands") == 0 ? DIM_ISLANDS : strcmp(kind, "caverns") == 0 ? DIM_CAVERNS : strcmp(kind, "void") == 0 ? DIM_VOID : -1;
+        if (d->generator < 0) return fail(r, "dimension \"%s\": its \"generator\" is \"islands\", \"caverns\" or \"void\"", name);
+        d->width = (int)num(e, "width", 0);
+        d->height = (int)num(e, "height", 200);
+        if (d->height < 32 || d->width < 0) return fail(r, "dimension \"%s\" is at least 32 rows tall", name);
+        d->sky = flag(e, "sky", d->generator != DIM_CAVERNS);
+        d->falls_home = flag(e, "falls_home", false);
+        d->climate_wavelength = (int)num(e, "climate_wavelength", 160);
+        if (!tile_ref(r, e, "rock", &d->rock) || !tile_ref(r, e, "edge", &d->edge) || !tile_ref(r, e, "platform", &d->platform) ||
+            !tile_ref(r, e, "cloud", &d->cloud) || !tile_ref(r, e, "magma", &d->magma)) return false;
+        if (d->rock == TILE_AIR || d->edge == TILE_AIR) return fail(r, "dimension \"%s\" needs a \"rock\" and an \"edge\"", name);
+        if (d->platform == TILE_AIR) d->platform = d->rock;
+        const cJSON *isl = field(e, "islands"), *cav = field(e, "caverns"), *layer;
+        d->island_rate = (float)num(isl, "per_100_columns", 6.0);
+        d->island_min_length = 6; d->island_max_length = 40; d->island_min_depth = 4; d->island_max_depth = 16;
+        pair(isl, "length", &d->island_min_length, &d->island_max_length);
+        pair(isl, "depth", &d->island_min_depth, &d->island_max_depth);
+        d->cavern_rate = (float)num(cav, "per_100_columns", 5.0);
+        d->cavern_min_length = 40; d->cavern_max_length = 160;
+        pair(cav, "length", &d->cavern_min_length, &d->cavern_max_length);
+        d->cavern_min_radius = (float)num(cav, "radius_min", 5.0);
+        d->cavern_max_radius = (float)num(cav, "radius_max", 14.0);
+        d->lake_share = (float)num(cav, "lakes", 0.2);
+        d->magma_rows = (int)num(e, "magma_rows", 0);
+        cJSON_ArrayForEach(layer, field(e, "strata")) {
+            if (d->strata_count >= MAX_STRATA) return fail(r, "dimension \"%s\" has too many strata", name);
+            if (!tile_ref(r, layer, "tile", &d->strata[d->strata_count].tile)) return false;
+            d->strata[d->strata_count++].from = (float)num(layer, "from", 0.5);
+        }
+        copy_name(d->tree_name, sizeof d->tree_name, str(e, "tree"));
+        d->tree = -1;
     }
 
     /* (Islands name trees, which are read after this: the names are kept and matched up at the end.) */
@@ -1757,11 +1830,82 @@ static cJSON *parse_file(Reader *r, const char *dir, const char *file)
 
 /* Ties up references that could not be settled while reading, then checks
  * for what the game cannot run without. */
+/* Which dimension a name is: -1 for none given. False if it names one there is not. */
+static bool dimension_named(const char *name, int *out)
+{
+    *out = -1;
+    if (!name[0]) return true;
+    for (int i = 0; i < content.dimension_count; i++)
+        if (strcmp(content.dimensions[i].name, name) == 0) *out = i;
+    return *out >= 0;
+}
+
+/* The levels mods put on the end of a kind of bench: each is hung on whatever is highest when its turn comes. */
+static bool extend_benches(Reader *r)
+{
+    for (int i = 1; i < content.tile_count; i++) {
+        TileDef *t = &content.tiles[i];
+        if (!t->extends) continue;
+        if (!t->bench && !t->trade) return fail(r, "tile \"%s\" extends nothing: it is neither a bench nor a block to trade at", t->name);
+        /* (Undoing what an earlier pass over the same tables did.) */
+        for (int k = 1; k < content.tile_count; k++)
+            if (content.tiles[k].upgrade_to == i) {
+                content.tiles[k].upgrade_to = TILE_AIR;
+                content.tiles[k].upgrade_cost_count = 0;
+                content.tiles[k].upgrade_crystals = 0;
+            }
+        int top = -1;
+        for (int k = 1; k < content.tile_count; k++) {
+            const TileDef *o = &content.tiles[k];
+            if (k == i || (o->extends && k > i) || o->upgrade_to != TILE_AIR) continue;
+            if (t->bench ? !(o->bench && strcmp(o->bench_kind, t->bench_kind) == 0) : !(o->trade && !o->trade_free && !o->bench)) continue;
+            int level = t->bench ? o->bench_level : o->trade_level;
+            if (top < 0 || level > (t->bench ? content.tiles[top].bench_level : content.tiles[top].trade_level)) top = k;
+        }
+        if (top < 0) return fail(r, "tile \"%s\" extends a kind of bench there is none of", t->name);
+        TileDef *under = &content.tiles[top];
+        under->upgrade_to = (TileType)i;
+        under->upgrade_cost_count = t->extend_cost_count;
+        memcpy(under->upgrade_cost, t->extend_cost, sizeof t->extend_cost);
+        under->upgrade_crystals = t->extend_crystals;
+        if (t->bench) t->bench_level = under->bench_level + 1;
+        else t->trade_level = under->trade_level + 1;
+    }
+    for (int i = 0; i < content.recipe_count; i++) {
+        Recipe *rc = &content.recipes[i];
+        if (!rc->at[0]) continue;
+        TileType at = tile_id(rc->at);
+        if (at <= 0 || !tile_def(at)->bench) return fail(r, "a recipe is made at \"%s\", which is not a bench", rc->at);
+        copy_name(rc->bench, sizeof rc->bench, tile_def(at)->bench_kind);
+        rc->level = tile_def(at)->bench_level;
+    }
+    return true;
+}
+
 static bool validate(Reader *r)
 {
     const WorldGenDef *g = &content.worldgen;
     const RulesDef *u = &content.rules;
     r->file = "data";
+
+    if (!extend_benches(r)) return false;
+    for (int i = 0; i < content.biome_count; i++)
+        if (!dimension_named(content.biomes[i].dimension_name, &content.biomes[i].dimension))
+            return fail(r, "biome \"%s\" is of the dimension \"%s\", which does not exist", content.biomes[i].name, content.biomes[i].dimension_name);
+    for (int i = 0; i < content.vein_count; i++)
+        if (!dimension_named(content.veins[i].dimension_name, &content.veins[i].dimension))
+            return fail(r, "vein \"%s\" is of a dimension that does not exist", content.veins[i].name);
+    for (int i = 0; i < content.decor_count; i++)
+        if (!dimension_named(content.decor[i].dimension_name, &content.decor[i].dimension))
+            return fail(r, "cave decoration \"%s\" is of a dimension that does not exist", content.decor[i].name);
+    for (int i = 0; i < content.tile_count; i++)
+        if (!dimension_named(content.tiles[i].leads_to, &content.tiles[i].leads_dim))
+            return fail(r, "tile \"%s\" leads to \"%s\", which is not a dimension", content.tiles[i].name, content.tiles[i].leads_to);
+    for (int i = 0; i < content.dimension_count; i++) {
+        DimensionDef *d = &content.dimensions[i];
+        d->tree = d->tree_name[0] ? tree_id(d->tree_name) : -1;
+        if (d->tree_name[0] && d->tree < 0) return fail(r, "dimension \"%s\" grows \"%s\", which is not a tree", d->name, d->tree_name);
+    }
 
     for (int i = 0; i < content.item_count; i++) {
         ItemDef *it = &content.items[i];

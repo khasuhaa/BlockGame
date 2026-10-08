@@ -16,6 +16,16 @@ typedef struct {
     float mountains, valleys, veins;
 } WorldOptions;
 
+#define MAX_REGIONS 8
+
+/* Another place the world has, under the rows it began with: a dimension (see DimensionDef). Its first row is
+ * a floor of the dimension's edge, which is the roof over it and the ground under whatever is above. */
+typedef struct {
+    char name[CONTENT_NAME_LEN]; /* the dimension's, as a save keeps it */
+    int dim;                     /* which of content.dimensions; -1 for one the game has not got */
+    int y0, height;              /* its rows: y0 to y0 + height - 1 */
+} Region;
+
 /* Tile grid that wraps around horizontally: column `width` is column 0 again.
  * Tile coordinates have x growing right and y growing down from the top row.
  * World "Y" is height: it grows upward and is 0 at the spawn point's feet.
@@ -49,6 +59,12 @@ typedef struct {
     /* Whoever is being moved about in it just now can fly: the air holds them up as water does a swimmer.
      * (Set by the game for the character in hand; not part of the world, and not saved.) */
     bool aloft;
+    bool glide;       /* and, the same way, whether a drop of any height is a step to them */
+    /* The other places it has (see Region), in the order they were made: each lies under the last. `biome`
+     * has a row of columns for each after the world's own. */
+    Region regions[MAX_REGIONS];
+    int region_count;
+    int home_height;  /* the rows it began with */
 } World;
 
 /* How wide a WORLD_DEBUG world has to be to hold everything that is set out in it. */
@@ -58,6 +74,22 @@ bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind);
 /* The same, with options: NULL for everything as usual. */
 bool world_init_with(World *w, int width, int height, uint32_t seed, WorldKind kind, const WorldOptions *options);
 void world_free(World *w);
+
+/* Which region a row is in: -1 for the world as it began. */
+int world_region_at(const World *w, int y);
+/* The region that is a dimension (one of content.dimensions), or -1 if the world has not got it yet. */
+int world_region_of(const World *w, int dim);
+/* The dimension a row is in, or -1. */
+int world_dimension_at(const World *w, int y);
+/* The rows of a region (-1 for the world as it began): the first, and one past the last. */
+void world_region_rows(const World *w, int region, int *y0, int *y1);
+/* The row the sky starts at over a square: the top of the place it is in, or -1 if that place has no sky. */
+int world_sky_top(const World *w, int y);
+/* Adds a dimension to the world, under everything it has: made from the world's seed, or left empty to be
+ * filled in from a save (`height` is then how tall; otherwise it is the dimension's own). The index of the region, or -1. */
+int world_add_region(World *w, int dim, const char *name, int height, bool generate);
+/* The kind of country a square is: the column's, in the place the row is in. */
+int world_biome_at(const World *w, int x, int y);
 
 /* The column a pole stands in (which of content.worldgen.poles): a fixed way round from where the world begins. */
 int world_pole_x(const World *w, int pole);

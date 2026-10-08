@@ -408,6 +408,9 @@ typedef struct {
 
     /* Scratch space for planning. */
     World sim;
+    /* Where the character in hand last went from into a place that is only so wide: where they come back out. Not saved. */
+    TilePos gate_from;
+    bool gate_from_set;
     int32_t *bfs_parent;
     uint32_t *bfs_seen; /* poses reached in search number bfs_gen */
     uint32_t bfs_gen;
@@ -531,6 +534,16 @@ int game_teleport_cost(const Game *g);
  * does not offer it, they cannot pay, they are already there, or there is no
  * room to stand. */
 bool game_teleport(Game *g);
+/* Dimensions. Whether the block in a square is a way to another place that works where it stands; going
+ * through it (the place is made, the first time, and a way back put up where they come out); and making sure
+ * the world has a dimension: the region it is, or -1. */
+bool game_gate_open(const Game *g, int x, int y);
+bool game_travel(Game *g, int x, int y);
+int game_enter_dimension(Game *g, int dim);
+/* Makes the game's own room for a world that has just been given more rows. False if there was not the memory. */
+bool game_world_grew(Game *g);
+/* Whether what is in hand can dig a block at all: some are too hard for a lesser tool. */
+bool game_can_dig(const Game *g, TileType t);
 
 /* Starts crafting `count` of a recipe at the open bench, one every
  * CRAFT_TIME. Anything that does not fit in the inventory is dropped. */

@@ -21,6 +21,8 @@
 #define MAX_VEINS 192
 #define MAX_DECOR 64
 #define MAX_POLES 16
+#define MAX_DIMENSIONS 8
+#define MAX_STRATA 4
 #define MAX_CAVE_BIOMES 16
 #define MAX_CAVE_GROWTH 8 /* kinds of thing on the floor, or hanging from the roof, of one kind of cave */
 #define MAX_BIOMES 64
@@ -64,7 +66,7 @@
 /* Ids are positions in the tables below, fixed only for one run of the game.
  * 0 is always "nothing": empty space, or no item. */
 enum { MIMIC_NONE = 0, MIMIC_UPRIGHT, MIMIC_FLAT };
-enum { POWER_NEEDS_NOTHING = 0, POWER_NEEDS_SUN, POWER_NEEDS_FUEL };
+enum { POWER_NEEDS_NOTHING = 0, POWER_NEEDS_SUN, POWER_NEEDS_FUEL, POWER_NEEDS_SKY, POWER_NEEDS_HEAT };
 /* What something in the background is fixed to (see world_mount). */
 /* What a block is in a storage network. */
 enum {
@@ -267,6 +269,19 @@ typedef struct {
      * body, panel, cross - see world3d.h, whose kinds these are, in the same order. */
     int8_t model;
     char texture_ramp[CONTENT_PATH_LEN]; /* how it looks where it climbs to the next piece, drawn rising to the right */
+    /* A way to another place: used, it takes whoever uses it to the dimension it names - or, from there, back
+     * to where the world began. In the world's first place it only works so far above the ground the world
+     * began on, or so near the bottom of the world (0 for anywhere). */
+    char leads_to[CONTENT_NAME_LEN];
+    int leads_dim;     /* which of content.dimensions that is; -1 for none */
+    int opens_above, opens_below;
+    /* One more level of a kind of bench (or of the blocks to trade at), put on after the highest there is,
+     * whatever mod that came from: that one is raised into this for `extend_cost`. Its level is worked out. */
+    bool extends;
+    RecipeItem extend_cost[RECIPE_MAX_INPUTS];
+    int extend_cost_count, extend_crystals;
+    int hardness;      /* nothing with less `power` than this digs it; 0 for anything */
+    float harm;        /* the share of a health bar it takes, each second, from whoever stands on it or against it */
     bool needs_tool;   /* it is only taken up with its tool in hand: otherwise a click on it is a click on the square */
     bool on_floor;     /* it can only be put down on a block: one directly beneath */
     /* A station: where a train sent that way stops, and what it is called is what is written on it. */
@@ -491,6 +506,9 @@ typedef struct {
     char set_name[CONTENT_NAME_LEN];
     bool reveals_all;      /* carried, everything there is counts as found: a trade block deals in all of it */
     bool identifies;       /* carried, what a thing does for whoever has it on can be read off it */
+    int power;             /* a tool: what `hardness` of block it can dig */
+    bool glides;           /* worn, a drop of any height is a step like another: they come down slowly */
+    float cooling;         /* worn, how much of the environment score it keeps where it is hot: a share, 0 to 1 */
     bool lifts;            /* worn, it lets them fly: the air holds them up wherever they go in it */
     /* Something that runs on rails: put down on them, it is not a block but a vehicle (see train.h). */
     struct {
@@ -520,6 +538,7 @@ typedef struct {
 
 typedef struct {
     char bench[CONTENT_NAME_LEN]; /* the kind of bench that makes it */
+    char at[CONTENT_NAME_LEN];    /* or the block that does, by name: the kind and the level are then that block's */
     int level;                    /* lowest bench level that can */
     RecipeItem output;
     RecipeItem inputs[RECIPE_MAX_INPUTS];
@@ -608,6 +627,8 @@ typedef struct {
     bool buried;              /* never touches open air */
     VeinShape shape;
     int min_thick, max_thick; /* VEIN_SCAR: how thick at its middle; its size is its length */
+    char dimension_name[CONTENT_NAME_LEN]; /* as a biome's: there, depths are rows below the top of the place */
+    int dimension;
     /* Now and then a block of it is something else instead: one in so many. TILE_AIR for never. */
     TileType rare;
     int rare_one_in;
@@ -620,6 +641,8 @@ typedef struct {
     float per_100_columns;
     int min_depth, max_depth;
     bool on_floor; /* only where there is a block directly beneath */
+    char dimension_name[CONTENT_NAME_LEN];
+    int dimension;
     /* Something that hangs: it starts under a block and reaches down this many of itself. */
     int hang_min, hang_max;
 } DecorDef;
@@ -667,6 +690,9 @@ typedef struct {
     TileType surface, soil;
     float soil_depth;  /* a fixed depth of soil, or 0 for the usual rule */
     bool cold;         /* out of doors here wears the environment score down whatever the season */
+    bool hot;          /* here wears it down indoors and out, and it is what cools that keeps it, not what warms */
+    char dimension_name[CONTENT_NAME_LEN]; /* the dimension it is country of; empty for the world as it began */
+    int dimension;     /* which of content.dimensions; -1 for none */
     int tree_one_in, tree_spacing;
     struct {
         int tree, weight;
@@ -683,6 +709,44 @@ typedef struct {
     float amplitude;
     int wavelength;
 } Swell;
+
+enum { DIM_ISLANDS, DIM_CAVERNS, DIM_VOID };
+
+/* Another place the same world has: made the first time somebody goes there, as wide as the world (unless it
+ * says how wide) and so many rows tall, and kept with it. Its biomes, veins and cave decorations are the ones
+ * that name it. */
+typedef struct {
+    char name[CONTENT_NAME_LEN];
+    char label[CONTENT_NAME_LEN];
+    int generator;       /* DIM_ISLANDS: islands in open sky. DIM_CAVERNS: rock, with great caves. DIM_VOID: nothing but one island. */
+    int width, height;   /* width 0 for the world's own */
+    bool sky;            /* the sun and the weather reach it */
+    TileType rock;       /* what it is made of */
+    TileType edge;       /* what bounds it: something nobody can dig */
+    TileType platform;   /* what is put under whoever arrives where there is nothing to stand on */
+    bool falls_home;     /* whoever falls out of the bottom of it comes down out of the sky where the world began */
+    int climate_wavelength; /* how long a stretch of one biome runs */
+    /* Islands: so many to every 100 columns, so long and so deep. Banks of `cloud` drift along the bottom. */
+    float island_rate;
+    int island_min_length, island_max_length, island_min_depth, island_max_depth;
+    TileType cloud;
+    /* Caverns: so many to every 100 columns, each a hall that wanders so far and is so high; water lies in so
+     * many of them; `magma` lies in the lowest so many rows; and the rock changes with depth (each from a share of the way down). */
+    float cavern_rate;
+    int cavern_min_length, cavern_max_length;
+    float cavern_min_radius, cavern_max_radius;
+    float lake_share;
+    TileType magma;
+    int magma_rows;
+    struct {
+        TileType tile;
+        float from;
+    } strata[MAX_STRATA];
+    int strata_count;
+    /* The void: what grows on its one island. */
+    char tree_name[CONTENT_NAME_LEN];
+    int tree;
+} DimensionDef;
 
 typedef struct {
     int width, height;
@@ -1036,6 +1100,8 @@ typedef struct {
     char tool_classes[MAX_TOOL_CLASSES][CONTENT_NAME_LEN];
     int tool_class_count;
     WorldGenDef worldgen;
+    DimensionDef dimensions[MAX_DIMENSIONS];
+    int dimension_count;
     RulesDef rules;
     SetDef sets[MAX_SETS];
     int set_count;

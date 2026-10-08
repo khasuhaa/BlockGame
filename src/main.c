@@ -564,6 +564,8 @@ static void update_camera(const Game *g, MapCamera *cam, float dt)
     if (cam->follow) {
         Vector2 target = player_center(g);
         float k = fminf(1.0f, dt * CAMERA_FOLLOW_SPEED);
+        /* (Gone to another place altogether, the view goes with them at once.) */
+        if (fabsf(target.y - cam->center.y) > 80.0f * TILE_SIZE) k = 1.0f;
         cam->center.x += (target.x - cam->center.x) * k;
         cam->center.y += (target.y - cam->center.y) * k;
     }
@@ -587,6 +589,15 @@ static Color mix(Color a, Color b, float t)
 }
 
 /* Sky, with the sun crossing it by day and the moon by night. */
+/* Only the place the middle of the view is in is drawn: the others the world has are not to be seen from it. */
+static void view_rows(const World *w, int *y0, int *y1)
+{
+    int mid = (*y0 + *y1) / 2, r0, r1;
+    world_region_rows(w, world_region_at(w, mid < 0 ? 0 : mid >= w->height ? w->height - 1 : mid), &r0, &r1);
+    if (*y0 < r0) *y0 = r0;
+    if (*y1 >= r1) *y1 = r1 - 1;
+}
+
 static void draw_sky(const Game *g, Vector2 origin)
 {
     const World *w = &g->world;
@@ -594,6 +605,11 @@ static void draw_sky(const Game *g, Vector2 origin)
     Color sky = mix((Color){ 12, 16, 40, 255 }, (Color){ 135, 190, 235, 255 }, light);
     /* (Drawn straight to the screen, not through the zoom.) */
     DrawRectangle(0, (int)(origin.y * zoom), GetScreenWidth(), (int)(w->height * TILE_SIZE * zoom) + 1, sky);
+    /* (A place with no sky has the dark behind it.) */
+    for (int i = 0; i < w->region_count; i++)
+        if (world_sky_top(w, w->regions[i].y0) < 0)
+            DrawRectangle(0, (int)((origin.y + (float)w->regions[i].y0 * TILE_SIZE) * zoom), GetScreenWidth(),
+                          (int)((float)w->regions[i].height * TILE_SIZE * zoom) + 1, (Color){ 10, 9, 14, 255 });
 
     bool day;
     float phase = game_day_phase(g, &day);
@@ -789,6 +805,7 @@ static void draw_world(const Game *g, Vector2 origin)
     x0 -= more_x, x1 += more_x, y0 -= more_y, y1 += more_y;
     if (y0 < 0) y0 = 0;
     if (y1 >= w->height) y1 = w->height - 1;
+    view_rows(w, &y0, &y1);
 
     for (int y = y0; y <= y1; y++) {
         for (int x = x0; x <= x1; x++) {
@@ -1501,6 +1518,7 @@ static void draw_stations(const Game *g, Vector2 origin)
     int x1 = x0 + (int)((float)GetScreenWidth() / zoom / TILE_SIZE) + 5, y1 = y0 + (int)((float)GetScreenHeight() / zoom / TILE_SIZE) + 3;
     if (y0 < 0) y0 = 0;
     if (y1 >= w->height) y1 = w->height - 1;
+    view_rows(w, &y0, &y1);
     for (int y = y0; y <= y1; y++) {
         for (int x = x0; x <= x1; x++) {
             TileType t = world_get(w, x, y);
@@ -1925,7 +1943,7 @@ static void draw_hud(const Game *g, const MapCamera *cam)
     int at_x = g->character_count > 0 ? g->player.feet.x : world_wrap_x(w, (int)floorf(cam->center.x / TILE_SIZE));
     int at_y = g->character_count > 0 ? g->player.feet.y : (int)floorf(cam->center.y / TILE_SIZE);
     draw_readout_line(row++, TextFormat("XY: %d / %d", at_x, world_row_to_y(w, at_y)));
-    draw_readout_line(row++, TextFormat("Biome: %s", content.biomes[world_biome(w, at_x)].label));
+    draw_readout_line(row++, TextFormat("Biome: %s", content.biomes[world_biome_at(w, at_x, at_y)].label));
     draw_readout_line(row++, TextFormat("Mobs: %d / %d land, %d / %d water", mobs_near_player(g), content.mob_cap,
                                         mobs_near_player_in_water(g), content.mob_water_cap));
     /* The date: the season, and the time passed as years, days and the ticks of today. */

@@ -212,6 +212,7 @@ static void popup_labels(const BenchUi *ui, const Game *g, char labels[2][2 * CO
     if (t == TILE_AIR) t = bed;
     const char *name = tile_def(t)->popup_name;
     if (game_bench_at(g, ui->popup_tile.x, ui->popup_tile.y) == TILE_AIR && bed != TILE_AIR) snprintf(labels[0], 2 * CONTENT_NAME_LEN, "Sleep");
+    else if (tile_def(t)->leads_dim >= 0) snprintf(labels[0], 2 * CONTENT_NAME_LEN, "Enter %s", name);
     else snprintf(labels[0], 2 * CONTENT_NAME_LEN, "Open %s", name);
     snprintf(labels[1], 2 * CONTENT_NAME_LEN, "Remove %s", name);
 }

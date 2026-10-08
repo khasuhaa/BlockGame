@@ -11560,6 +11560,265 @@ static void test_playsets(void)
     remove(path);
 }
 
+static int biome_named(const char *name)
+{
+    for (int i = 0; i < content.biome_count; i++)
+        if (strcmp(content.biomes[i].name, name) == 0) return i;
+    return 0;
+}
+
+/* How many of a block a stretch of rows has, in either of the layers things stand in. */
+static int count_in_rows(const World *w, TileType t, int y0, int y1)
+{
+    int n = 0;
+    for (int y = y0; y < y1; y++)
+        for (int x = 0; x < w->width; x++) n += world_get(w, x, y) == t || world_get_at(w, LAYER_BACKGROUND, x, y) == t;
+    return n;
+}
+
+/* Puts one thing in the first slot of the bar, in hand, and nothing else in it. */
+static void in_hand(Game *g, const char *item)
+{
+    for (int i = 0; i < INVENTORY_SLOTS; i++) g->inventory.slots[i] = (ItemStack){ 0 };
+    g->inventory.slots[0] = (ItemStack){ .id = (uint16_t)item_id(item), .count = 1 };
+    inventory_select(&g->inventory, 0, -1);
+}
+
+/* Goes through the way to another place that stands in a square, from beside it. */
+static bool go_through(Game *g, int x, int y)
+{
+    g->player.feet = g->player.step_to = (TilePos){ x - 1, y };
+    game_cancel_actions(g);
+    if (!game_queue_action(g, ACTION_USE, x, y)) return false;
+    run(g, 2.0f);
+    return true;
+}
+
+/* Dimensions: other places a world has, the ways into them, more levels of benches hung on the end of the game's, and blocks too hard for a lesser tool. */
+static void test_dimensions_mod(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count, biomes = content.biome_count, kinds = content.mob_count;
+    /* The game by itself has no other places, and its benches end where they did. */
+    CHECK(content.dimension_count == 0 && tile_def(tile_id("workbench_4"))->upgrade_to == TILE_AIR && tile_def(tile_id("portal_6"))->upgrade_to == TILE_AIR);
+    if (!content_load("mods/dimensions", err, sizeof err)) {
+        printf("FAIL dimensions does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    CHECK(content.tile_count == tiles + 338 && content.item_count == items + 475 && content.recipe_count == recipes + 317);
+    CHECK(content.biome_count == biomes + 18 && content.mob_count == kinds + 27 && content.dimension_count == 3 && content.tree_count == 32);
+    for (int i = items; i < content.item_count; i++) {
+        const ItemDef *d = item_def((ItemId)i);
+        CHECK(d->becomes_player || (d->category >= 0 && d->price >= 10));
+        if (d->category >= 0 && !content.trade.categories[d->category].free_only) CHECK(strcmp(content.trade.categories[d->category].name, "dimensions") == 0 && d->trade_tier >= 6);
+    }
+
+    /* More levels, hung on the end of what the game has: each raised to from the one before, for what the new one costs. */
+    const TileDef *aw = tile_def(tile_id("aether_workbench")), *dw = tile_def(tile_id("deep_workbench"));
+    CHECK(tile_def(tile_id("workbench_4"))->upgrade_to == tile_id("aether_workbench") && aw->bench_level == 5 && aw->upgrade_to == tile_id("deep_workbench") && dw->bench_level == 6);
+    CHECK(tile_def(tile_id("workbench_4"))->upgrade_cost_count == 2 && tile_def(tile_id("workbench_4"))->upgrade_cost[0].id == item_id("skysteel_ingot"));
+    TileType portal = tile_id("portal_6"), trade = tile_id("trade_portal_6");
+    for (int level = 7; level <= 10; level++) {
+        portal = tile_def(portal)->upgrade_to;
+        trade = tile_def(trade)->upgrade_to;
+        CHECK(portal != TILE_AIR && tile_def(portal)->bench_level == level && strcmp(tile_def(portal)->bench_kind, "portal") == 0);
+        CHECK(trade != TILE_AIR && tile_def(trade)->trade && tile_def(trade)->trade_level == level && item_def(tile_def(trade)->drop)->places == trade);
+    }
+    CHECK(tile_def(portal)->upgrade_to == TILE_AIR && tile_def(trade)->upgrade_to == TILE_AIR && tile_def(tile_id("trade_portal_6"))->upgrade_crystals == 400);
+    CHECK(tile_def(tile_id("tool_bench_7"))->upgrade_to == tile_id("skysteel_tool_bench") && tile_def(tile_id("adamant_tool_bench"))->bench_level == 12);
+    CHECK(tile_def(tile_id("sky_campfire"))->bench_level == 2 && tile_def(tile_id("deep_campfire"))->bench_level == 3 && tile_def(tile_id("cinder_furnace"))->bench_level == 5);
+    /* A recipe made at one of them wants that level, whatever number it turns out to be. */
+    const Recipe *pick = find_recipe(tile_id("skysteel_tool_bench"), "skysteel_pickaxe");
+    CHECK(pick && pick->level == 8 && strcmp(pick->bench, "tool_bench") == 0);
+    CHECK(find_recipe(tile_id("dim_portal_10"), "third_blockhead") && find_recipe(tile_id("dim_portal_10"), "third_blockhead")->characters == 2 && content.rules.max_players == 3);
+    CHECK(find_recipe(tile_id("dim_portal_9"), "world_seed") && find_recipe(tile_id("dim_portal_8"), "deep_portal") && find_recipe(tile_id("portal_6"), "aether_portal"));
+    CHECK(item_def(item_id("glider"))->glides && item_def(item_id("glider"))->equip == EQUIP_CHEST && item_def(item_id("heat_suit"))->cooling > 0.0f);
+    /* The long trees: a thing ten and more makings deep. */
+    {
+        static int deep[MAX_ITEMS];
+        memset(deep, 0, sizeof deep);
+        for (int pass = 0; pass < 20; pass++)
+            for (int r = 0; r < content.recipe_count; r++) {
+                const Recipe *rc = &content.recipes[r];
+                int most = 0;
+                for (int i = 0; i < rc->input_count; i++)
+                    if (deep[rc->inputs[i].id] > most) most = deep[rc->inputs[i].id];
+                if (deep[rc->output.id] == 0 || most + 1 < deep[rc->output.id]) deep[rc->output.id] = most + 1;
+            }
+        CHECK(deep[item_id("aether_portal")] >= 10 && deep[item_id("deep_portal")] >= 10 && deep[item_id("world_seed")] >= 10 && deep[item_id("third_blockhead")] >= 10);
+    }
+
+    static Game g;
+    game_init(&g, 256, 400, 7, WORLD_FLAT);
+    World *w = &g.world;
+    g.tick_rate = 20;
+    int x = w->spawn_x + 8, ground = w->surface_y - 1;
+    int aether = -1, deep = -1, pocket = -1;
+    for (int d = 0; d < content.dimension_count; d++) {
+        if (strcmp(content.dimensions[d].name, "aether") == 0) aether = d;
+        if (strcmp(content.dimensions[d].name, "deep") == 0) deep = d;
+        if (strcmp(content.dimensions[d].name, "pocket") == 0) pocket = d;
+    }
+    CHECK(aether >= 0 && deep >= 0 && pocket >= 0 && w->region_count == 0 && world_region_at(w, ground) == -1 && world_sky_top(w, ground) == 0);
+
+    /* Too hard for a lesser pick: the click does nothing; with the right one it digs. */
+    world_set(w, x + 1, ground, tile_id("skysteel_ore"));
+    g.player.feet = g.player.step_to = (TilePos){ x, ground };
+    in_hand(&g, "iron_pickaxe");
+    CHECK(!game_can_dig(&g, tile_id("skysteel_ore")) && !game_click_tile(&g, x + 1, ground) && game_can_dig(&g, tile_id("aetherstone")));
+    in_hand(&g, "featherweight_pickaxe");
+    CHECK(game_can_dig(&g, tile_id("skysteel_ore")) && !game_can_dig(&g, tile_id("moonsilver_ore")) && game_click_tile(&g, x + 1, ground));
+    run(&g, 6.0f);
+    CHECK(world_get(w, x + 1, ground) == TILE_AIR);
+    clear_inventory(&g);
+
+    /* The Aether portal does nothing on the ground: it has to stand high. */
+    for (int k = 0; k < 3; k++) world_set_at(w, LAYER_BACKGROUND, x + 4, ground - k, tile_id("aether_portal"));
+    CHECK(!game_gate_open(&g, x + 4, ground) && go_through(&g, x + 4, ground) && w->region_count == 0 && !g.bench_open);
+    int high = world_y_to_row(w, 100);
+    for (int dx = -2; dx <= 2; dx++) world_set(w, x + dx, high + 1, tile_id("stone"));
+    for (int k = 0; k < 3; k++) world_set_at(w, LAYER_BACKGROUND, x + 1, high - k, tile_id("aether_portal"));
+    uint16_t before = (uint16_t)world_get(w, x + 30, ground + 1);
+    CHECK(game_gate_open(&g, x + 1, high) && go_through(&g, x + 1, high));
+    /* There is another place now, under the world's own rows, and they are in it, with a way back beside them. */
+    CHECK(w->region_count == 1 && w->home_height == 400 && w->height == 700 && g.sim.height == 700 && g.sim.region_count == 1);
+    int in = world_region_at(w, g.player.feet.y);
+    CHECK(in == 0 && world_dimension_at(w, g.player.feet.y) == aether && world_sky_top(w, g.player.feet.y) == 401 && world_get(w, 3, 400) == tile_id("void_wall"));
+    CHECK(content.biomes[world_biome_at(w, g.player.feet.x, g.player.feet.y)].dimension == aether && world_biome(w, g.player.feet.x) == 0);
+    CHECK(world_get(w, x + 30, ground + 1) == before && abs(world_dx(w, x, g.player.feet.x)) <= 81);
+    TilePos back = { -1, -1 };
+    for (int dx = -3; dx <= 3; dx++)
+        if (world_get_at(w, LAYER_BACKGROUND, g.player.feet.x + dx, g.player.feet.y) == tile_id("aether_portal")) back = (TilePos){ world_wrap_x(w, g.player.feet.x + dx), g.player.feet.y };
+    CHECK(back.x >= 0 && game_gate_open(&g, back.x, back.y));
+    /* Islands, with their country on them and their ores in them; the sun reaches them; and nothing of the Deep. */
+    CHECK(count_in_rows(w, tile_id("cloud_grass"), 400, 700) > 50 && count_in_rows(w, tile_id("skysteel_ore"), 400, 700) > 20 && count_in_rows(w, tile_id("zephyrite"), 400, 700) > 0);
+    CHECK(count_in_rows(w, tile_id("windwood_log"), 400, 700) > 0 && count_in_rows(w, tile_id("dense_cloud"), 400, 700) > 0 && count_in_rows(w, tile_id("deepiron_ore"), 0, 700) == 0);
+    int open = 0;
+    for (int y = 400; y < 700; y++)
+        for (int c = 0; c < w->width; c++) open += world_get(w, c, y) == TILE_AIR;
+    CHECK(open > 256 * 300 * 3 / 4);
+    int gates = count_in_rows(w, tile_id("aether_portal"), 400, 700);
+    /* Back through it, to where the world began; and again, to the same way back and no new one. */
+    TilePos there = g.player.feet;
+    CHECK(go_through(&g, back.x, back.y) && world_region_at(w, g.player.feet.y) == -1 && abs(world_dx(w, x, g.player.feet.x)) <= 90);
+    CHECK(go_through(&g, x + 1, high) && world_region_at(w, g.player.feet.y) == 0 && count_in_rows(w, tile_id("aether_portal"), 400, 700) == gates && w->region_count == 1);
+    CHECK(abs(world_dx(w, there.x, g.player.feet.x)) <= 3);
+    /* Whoever comes to the bottom of it falls out, into the sky over where the world began. */
+    for (int k = 0; k < 4; k++) world_set(w, there.x + 40, 696 - k, TILE_AIR);
+    g.player.feet = g.player.step_to = (TilePos){ there.x + 40, 697 };
+    game_tick(&g);
+    CHECK(world_region_at(w, g.player.feet.y) == -1 && g.player.feet.y < 20);
+    g.player.feet = g.player.step_to = (TilePos){ x, ground };
+
+    /* The Deep portal works only at the bottom of the world; the Deep is rock, with great caves, and has no sky. */
+    for (int k = 0; k < 3; k++) world_set_at(w, LAYER_BACKGROUND, x + 12, ground - k, tile_id("deep_portal"));
+    CHECK(!game_gate_open(&g, x + 12, ground));
+    for (int dx = -1; dx <= 1; dx++)
+        for (int k = 0; k < 3; k++) world_set(w, x + dx, 390 - k, TILE_AIR);
+    for (int k = 0; k < 3; k++) world_set_at(w, LAYER_BACKGROUND, x + 1, 390 - k, tile_id("deep_portal"));
+    CHECK(game_gate_open(&g, x + 1, 390) && go_through(&g, x + 1, 390));
+    CHECK(w->region_count == 2 && w->height == 1020 && world_dimension_at(w, g.player.feet.y) == deep && world_sky_top(w, g.player.feet.y) == -1);
+    CHECK(count_in_rows(w, tile_id("deepiron_ore"), 700, 1020) > 50 && count_in_rows(w, tile_id("magma"), 1000, 1020) > 0 && count_in_rows(w, tile_id("lumite"), 700, 1020) > 0);
+    CHECK(count_in_rows(w, tile_id("bluecap_log"), 700, 1020) + count_in_rows(w, tile_id("rootwood_log"), 700, 1020) + count_in_rows(w, tile_id("lantern_fungus_log"), 700, 1020) > 0);
+    open = 0;
+    for (int y = 700; y < 1020; y++)
+        for (int c = 0; c < w->width; c++) open += world_get(w, c, y) == TILE_AIR;
+    /* (Much bigger caves than the world's own: a third of it and more is open.) */
+    CHECK(open > 256 * 320 / 3 && open < 256 * 320 * 3 / 4);
+    /* (Dark, where nothing glows: put in a sealed room of plain rock.) */
+    for (int dy = -3; dy <= 3; dy++)
+        for (int dx = -12; dx <= 12; dx++) {
+            world_set(w, 60 + dx, 800 + dy, tile_id("deepslate"));
+            world_set_at(w, LAYER_BACKGROUND, 60 + dx, 800 + dy, TILE_AIR);
+        }
+    world_set(w, 60, 800, TILE_AIR);
+    world_set(w, 60, 799, TILE_AIR);
+    CHECK(light_at(&g, 60, 800) <= content.rules.light_minimum + 1 && light_at(&g, x, ground) > 8);
+    /* What burns takes health from whoever stands on it. */
+    world_set(w, 60, 801, tile_id("magma"));
+    g.player.feet = g.player.step_to = (TilePos){ 60, 800 };
+    g.vitals.health = 1.0f;
+    for (int i = 0; i < 20; i++) game_tick(&g);
+    CHECK(g.vitals.health < 0.9f && g.vitals.health > 0.5f);
+    world_set(w, 60, 801, tile_id("deepslate"));
+    g.vitals.health = 1.0f;
+    /* Where it is hot there is no shelter, and it is what cools that helps. */
+    w->biome[(size_t)2 * w->width + 60] = (uint8_t)biome_named("magma_fields");
+    CHECK(content.biomes[world_biome_at(w, 60, 800)].hot && game_exposed(&g) && game_environment_floor(&g) == 0.0f);
+    g.inventory.armor[EQUIP_CHEST] = (ItemStack){ .id = (uint16_t)item_id("heat_suit"), .count = 1 };
+    CHECK(game_environment_floor(&g) > 0.3f);
+    g.inventory.armor[EQUIP_CHEST] = (ItemStack){ 0 };
+    w->biome[(size_t)2 * w->width + 60] = (uint8_t)biome_named("fungal_forest");
+    CHECK(!game_exposed(&g));
+    /* A glider on, and a drop is a step like another. */
+    g.inventory.armor[EQUIP_CHEST] = (ItemStack){ .id = (uint16_t)item_id("glider"), .count = 1 };
+    run(&g, 0.1f);
+    CHECK(g.world.glide && g.sim.glide);
+    g.inventory.armor[EQUIP_CHEST] = (ItemStack){ 0 };
+    run(&g, 0.1f);
+    CHECK(!g.world.glide);
+
+    /* The World Seed: a place of one's own, so wide and no wider, with one island and a tree on it. */
+    g.player.feet = g.player.step_to = (TilePos){ x, ground };
+    for (int k = 0; k < 3; k++) world_set_at(w, LAYER_BACKGROUND, x + 20, ground - k, tile_id("world_seed"));
+    CHECK(game_gate_open(&g, x + 20, ground) && go_through(&g, x + 20, ground));
+    CHECK(w->region_count == 3 && w->height == 1148 && world_dimension_at(w, g.player.feet.y) == pocket && abs(world_dx(w, w->spawn_x, g.player.feet.x)) <= 10);
+    CHECK(world_get(w, w->spawn_x + 70, 1100) == tile_id("void_wall") && world_get(w, w->spawn_x - 70, 1100) == tile_id("void_wall") && world_get(w, w->spawn_x + 50, 1040) == TILE_AIR);
+    CHECK(count_in_rows(w, tile_id("diamond_tree_log"), 1020, 1148) > 0 && count_in_rows(w, tile_id("grass"), 1020, 1148) > 5);
+    /* And out of it again, by where they went in. */
+    TilePos seed = { -1, -1 };
+    for (int dx = -3; dx <= 3; dx++)
+        if (world_get_at(w, LAYER_BACKGROUND, g.player.feet.x + dx, g.player.feet.y) == tile_id("world_seed")) seed = (TilePos){ world_wrap_x(w, g.player.feet.x + dx), g.player.feet.y };
+    CHECK(seed.x >= 0 && go_through(&g, seed.x, seed.y) && world_region_at(w, g.player.feet.y) == -1 && abs(world_dx(w, x + 20, g.player.feet.x)) <= 3);
+
+    /* Every place gets its share of what happens by chance, and the world goes on. */
+    for (int i = 0; i < 40; i++) game_tick(&g);
+    /* Saved and loaded, the places are all there, as they were. */
+    CHECK(save_game(&g, "build/test_dimensions.world"));
+    static Game loaded;
+    CHECK(load_game(&loaded, "build/test_dimensions.world"));
+    CHECK(loaded.world.region_count == 3 && loaded.world.height == 1148 && loaded.world.home_height == 400 && loaded.sim.region_count == 3);
+    bool same = true;
+    for (int i = 0; i < 3; i++) same = same && loaded.world.regions[i].dim == w->regions[i].dim && loaded.world.regions[i].y0 == w->regions[i].y0;
+    for (size_t i = 0; same && i < (size_t)w->width * w->height; i++)
+        same = w->layers[LAYER_FOREGROUND][i] == loaded.world.layers[LAYER_FOREGROUND][i] && w->layers[LAYER_BACKGROUND][i] == loaded.world.layers[LAYER_BACKGROUND][i];
+    for (int px = 0; same && px < w->width; px++) same = world_biome_at(w, px, 500) == world_biome_at(&loaded.world, px, 500) && world_biome_at(w, px, 800) == world_biome_at(&loaded.world, px, 800);
+    CHECK(same);
+    for (int i = 0; i < 10; i++) game_tick(&loaded);
+    game_free(&loaded);
+    game_free(&g);
+
+    /* A world saved before there were any has none, and can be given one. */
+    static Game old;
+    CHECK(load_game(&old, "tests/fixtures/v34_plain.world"));
+    CHECK(old.world.region_count == 0 && old.world.height == 48 && world_get(&old.world, 42, 21) == tile_id("marble") && count_item(&old, item_id("diamond")) == 7);
+    CHECK(game_enter_dimension(&old, deep) == 0 && old.world.height == 368 && world_get(&old.world, 42, 21) == tile_id("marble") && world_dimension_at(&old.world, 100) == deep);
+    for (int i = 0; i < 10; i++) game_tick(&old);
+    game_free(&old);
+
+    /* With a mod that puts levels of its own on the workbench, these go on after those. */
+    CHECK(content_load("mods/industry", err, sizeof err));
+    CHECK(tile_def(tile_id("workbench_6"))->upgrade_to == tile_id("aether_workbench") && tile_def(tile_id("aether_workbench"))->bench_level == 7 &&
+          tile_def(tile_id("deep_workbench"))->bench_level == 8 && tile_def(tile_id("workbench_4"))->upgrade_to == tile_id("workbench_5"));
+    CHECK(find_recipe(tile_id("aether_workbench"), "cloud_loom") && find_recipe(tile_id("aether_workbench"), "cloud_loom")->level == 7);
+    /* It is no trouble to any of the other mods. */
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/settest/saves");
+    const ModInfo *mine = NULL;
+    for (int i = 0; i < mods.count; i++)
+        if (strcmp(mods.mods[i].id, "dimensions") == 0) mine = &mods.mods[i];
+    CHECK(mine != NULL && strcmp(mine->label, "Dimensions") == 0);
+    for (int i = 0; mine && i < mods.count; i++) {
+        char what[64];
+        if (&mods.mods[i] != mine) CHECK(!mods_conflict(mine, &mods.mods[i], what, sizeof what));
+    }
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+}
+
 /* A mod's things are in a section of the trade that is its own. */
 static void test_mod_sections(void)
 {
@@ -12122,6 +12381,7 @@ int main(void)
     test_discovery_mod();
     test_alchemie_mod();
     test_mod_sections();
+    test_dimensions_mod();
     test_worn();
     test_trade_tiers();
     test_environment();

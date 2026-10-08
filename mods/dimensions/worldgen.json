@@ -1,0 +1,52 @@
+{
+  "dimensions": [
+    {"name": "aether", "label": "The Aether", "generator": "islands", "height": 300, "rock": "aetherstone", "edge": "void_wall", "platform": "cloudstone", "cloud": "dense_cloud", "falls_home": true, "climate_wavelength": 150, "islands": {"per_100_columns": 7, "length": [8, 76], "depth": [4, 20]}},
+    {"name": "deep", "label": "The Deep", "generator": "caverns", "height": 320, "sky": false, "rock": "deepslate", "edge": "void_wall", "platform": "deepslate", "magma": "magma", "magma_rows": 7, "climate_wavelength": 170, "strata": [{"tile": "obsidian_rock", "from": 0.62}, {"tile": "magmarock", "from": 0.88}], "caverns": {"per_100_columns": 4.5, "length": [50, 170], "radius_min": 6, "radius_max": 15, "lakes": 0.22}},
+    {"name": "pocket", "label": "A world of your own", "generator": "void", "width": 128, "height": 128, "rock": "stone", "edge": "void_wall", "platform": "stone", "tree": "diamond_tree"}
+  ],
+  "biomes": [
+    {"name": "cloudmeadow", "label": "Cloudmeadow", "dimension": "aether", "surface": "cloud_grass", "soil": "sky_soil", "under": {"tile": "aetherstone", "depth": 40}, "tree_one_in": 14, "trees": [{"tree": "windwood", "weight": 3}, {"tree": "cloud_oak", "weight": 1}], "plants": [{"tile": "skyberry_0", "one_in": 14}, {"tile": "windwheat_0", "one_in": 12}, {"tile": "moon_lily_0", "one_in": 16}, {"tile": "aether_cotton_0", "one_in": 18}]},
+    {"name": "skywood", "label": "Skywood", "dimension": "aether", "surface": "cloud_grass", "soil": "sky_soil", "under": {"tile": "aetherstone", "depth": 40}, "tree_one_in": 4, "trees": [{"tree": "windwood", "weight": 3}, {"tree": "sky_willow", "weight": 3}, {"tree": "cloud_oak", "weight": 2}, {"tree": "amberleaf", "weight": 1}], "plants": [{"tile": "cloud_reed_0", "one_in": 14}, {"tile": "skyberry_0", "one_in": 20}]},
+    {"name": "stormreach", "label": "Stormreach", "dimension": "aether", "surface": "storm_slate", "soil": "storm_slate", "under": {"tile": "storm_slate", "depth": 40}, "tree_one_in": 10, "trees": [{"tree": "storm_birch", "weight": 1}], "plants": [{"tile": "thunder_pepper_0", "one_in": 12}]},
+    {"name": "crystal_spires", "label": "Crystal spires", "dimension": "aether", "surface": "skymarble", "soil": "skymarble", "under": {"tile": "skymarble", "depth": 40}},
+    {"name": "sunpetal_gardens", "label": "Sunpetal gardens", "dimension": "aether", "surface": "sun_grass", "soil": "sky_soil", "under": {"tile": "cloudstone", "depth": 40}, "tree_one_in": 6, "trees": [{"tree": "sunpetal", "weight": 3}, {"tree": "star_apple", "weight": 1}, {"tree": "amberleaf", "weight": 1}], "plants": [{"tile": "sun_corn_0", "one_in": 10}, {"tile": "moon_lily_0", "one_in": 12}]},
+    {"name": "frostveil", "label": "Frostveil", "dimension": "aether", "surface": "cloud_grass", "soil": "moonrock", "under": {"tile": "moonrock", "depth": 40}, "cold": true, "tree_one_in": 9, "trees": [{"tree": "frostpine", "weight": 1}], "plants": [{"tile": "frost_mint_0", "one_in": 8}]},
+    {"name": "sky_ruins", "label": "The ruins", "dimension": "aether", "surface": "ruin_brick", "soil": "ruin_brick", "under": {"tile": "aetherstone", "depth": 40}},
+    {"name": "cloud_shoals", "label": "Cloud shoals", "dimension": "aether", "surface": "dense_cloud", "soil": "cloudstone", "under": {"tile": "cloudstone", "depth": 40}},
+    {"name": "fungal_forest", "label": "Fungal forest", "dimension": "deep", "surface": "deep_mycelium", "soil": "deepslate", "under": {"tile": "deepslate", "depth": 40}, "tree_one_in": 5, "trees": [{"tree": "bluecap", "weight": 3}, {"tree": "pale_giant", "weight": 2}, {"tree": "ink_morel", "weight": 1}, {"tree": "lantern_fungus", "weight": 1}], "plants": [{"tile": "glowcap_0", "one_in": 10}, {"tile": "spore_pod_0", "one_in": 12}, {"tile": "blindroot_0", "one_in": 14}]},
+    {"name": "glowmoss_grotto", "label": "Glowmoss grotto", "dimension": "deep", "surface": "glowmoss", "soil": "deep_mycelium", "under": {"tile": "deepslate", "depth": 40}, "tree_one_in": 9, "trees": [{"tree": "lantern_fungus", "weight": 2}, {"tree": "bluecap", "weight": 1}], "plants": [{"tile": "cave_rice_0", "one_in": 8}, {"tile": "moss_melon_0", "one_in": 10}, {"tile": "glowcap_0", "one_in": 10}]},
+    {"name": "crystal_cathedral", "label": "Crystal cathedral", "dimension": "deep", "surface": "lumerock", "soil": "lumerock", "under": {"tile": "deepslate", "depth": 40}},
+    {"name": "bone_hollows", "label": "Bone hollows", "dimension": "deep", "surface": "bone_gravel", "soil": "bonestone", "under": {"tile": "bonestone", "depth": 40}, "tree_one_in": 8, "trees": [{"tree": "bonewood", "weight": 1}], "plants": [{"tile": "stoneberry_0", "one_in": 12}]},
+    {"name": "sunken_lake", "label": "Sunken lake", "dimension": "deep", "surface": "ashstone", "soil": "ashstone", "under": {"tile": "deepslate", "depth": 40}, "tree_one_in": 12, "trees": [{"tree": "shelf_wood", "weight": 1}], "plants": [{"tile": "deep_lichen_0", "one_in": 8}]},
+    {"name": "obsidian_flats", "label": "Obsidian flats", "dimension": "deep", "surface": "obsidian_glass", "soil": "obsidian_rock", "under": {"tile": "obsidian_rock", "depth": 40}},
+    {"name": "magma_fields", "label": "Magma fields", "dimension": "deep", "surface": "magmarock", "soil": "magmarock", "under": {"tile": "magmarock", "depth": 40}, "tree_one_in": 10, "trees": [{"tree": "emberstool", "weight": 1}], "plants": [{"tile": "ember_pepper_0", "one_in": 8}], "hot": true},
+    {"name": "the_roots", "label": "The Roots", "dimension": "deep", "surface": "rootsoil", "soil": "rootsoil", "under": {"tile": "deepslate", "depth": 40}, "tree_one_in": 4, "trees": [{"tree": "rootwood", "weight": 3}, {"tree": "shelf_wood", "weight": 1}], "plants": [{"tile": "blindroot_0", "one_in": 8}, {"tile": "deep_lichen_0", "one_in": 10}]},
+    {"name": "the_abyss", "label": "The abyss", "dimension": "deep", "surface": "ashstone", "soil": "obsidian_rock", "under": {"tile": "obsidian_rock", "depth": 40}, "hot": true},
+    {"name": "pocket_isle", "label": "A world of your own", "dimension": "pocket", "surface": "grass", "soil": "dirt", "under": {"tile": "stone", "depth": 40}}
+  ],
+  "veins": [
+    {"name": "skysteel", "tile": "skysteel_ore", "dimension": "aether", "in": ["aetherstone", "cloudstone", "skymarble", "moonrock", "storm_slate"], "size": [3, 7], "per_100_columns": 26, "depth": [0, 300]},
+    {"name": "galvanite", "tile": "galvanite_ore", "dimension": "aether", "in": ["aetherstone", "cloudstone", "skymarble", "moonrock", "storm_slate"], "size": [2, 6], "per_100_columns": 16, "depth": [0, 300]},
+    {"name": "aerite", "tile": "aerite_ore", "dimension": "aether", "in": ["aetherstone", "cloudstone", "skymarble", "moonrock", "storm_slate"], "size": [2, 5], "per_100_columns": 14, "depth": [0, 300]},
+    {"name": "moonsilver", "tile": "moonsilver_ore", "dimension": "aether", "in": ["aetherstone", "cloudstone", "skymarble", "moonrock", "storm_slate"], "size": [2, 5], "per_100_columns": 10, "depth": [0, 160]},
+    {"name": "sky_marble_seam", "tile": "skymarble", "dimension": "aether", "in": ["aetherstone"], "size": [6, 16], "per_100_columns": 8, "depth": [0, 300]},
+    {"name": "sky_moonrock_seam", "tile": "moonrock", "dimension": "aether", "in": ["aetherstone", "cloudstone"], "size": [6, 16], "per_100_columns": 8, "depth": [0, 160]},
+    {"name": "deepiron", "tile": "deepiron_ore", "dimension": "deep", "in": ["deepslate", "obsidian_rock", "magmarock", "lumerock", "bonestone", "ashstone"], "size": [3, 8], "per_100_columns": 70, "depth": [0, 240]},
+    {"name": "cinderite", "tile": "cinderite_ore", "dimension": "deep", "in": ["deepslate", "obsidian_rock", "magmarock", "lumerock", "bonestone", "ashstone"], "size": [2, 6], "per_100_columns": 40, "depth": [140, 320]},
+    {"name": "adamant", "tile": "adamant_ore", "dimension": "deep", "in": ["deepslate", "obsidian_rock", "magmarock", "lumerock", "bonestone", "ashstone"], "size": [2, 4], "per_100_columns": 14, "depth": [250, 320]},
+    {"name": "deep_bone_seam", "tile": "bonestone", "dimension": "deep", "in": ["deepslate"], "size": [8, 20], "per_100_columns": 20, "depth": [0, 200]},
+    {"name": "deep_ash_seam", "tile": "ashstone", "dimension": "deep", "in": ["deepslate", "obsidian_rock"], "size": [8, 20], "per_100_columns": 20, "depth": [100, 320]},
+    {"name": "deep_fossil", "tile": "bone_gravel", "dimension": "deep", "in": ["deepslate", "bonestone"], "size": [3, 8], "per_100_columns": 16, "depth": [0, 320]}
+  ],
+  "cave_decor": [
+    {"name": "zephyrite", "tile": "zephyrite", "dimension": "aether", "per_100_columns": 5, "depth": [0, 300]},
+    {"name": "heliodor", "tile": "heliodor", "dimension": "aether", "per_100_columns": 2.5, "depth": [0, 110]},
+    {"name": "sky_vine", "tile": "sky_vine", "dimension": "aether", "per_100_columns": 12, "depth": [0, 300], "hang": [2, 7]},
+    {"name": "sky_time_crystal", "tile": "time_crystal", "dimension": "aether", "per_100_columns": 3, "depth": [0, 300]},
+    {"name": "lumite", "tile": "lumite", "dimension": "deep", "per_100_columns": 14, "depth": [0, 320]},
+    {"name": "umbrite", "tile": "umbrite", "dimension": "deep", "per_100_columns": 6, "depth": [120, 320]},
+    {"name": "emberheart", "tile": "emberheart", "dimension": "deep", "per_100_columns": 2.5, "depth": [260, 320]},
+    {"name": "lumen_vine", "tile": "lumen_vine", "dimension": "deep", "per_100_columns": 60, "depth": [0, 260], "hang": [2, 9]},
+    {"name": "deep_time_crystal", "tile": "time_crystal", "dimension": "deep", "per_100_columns": 6, "depth": [0, 320]}
+  ]
+}

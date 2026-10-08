@@ -93,6 +93,7 @@ static int lift_stops(const World *w, TilePos feet, int16_t *out)
 }
 
 static void set_aloft(Game *g);
+static bool portal_standing(const Game *g, TilePos portal, TilePos *out);
 
 /* A wall on side `d` that a player at `feet` can hold on to. */
 static bool can_cling_side(const World *w, TilePos feet, int d)
@@ -294,7 +295,7 @@ static int every_move(const World *w, Pose p, Step *out)
 static bool drops_too_far(const World *w, Pose p, Step s)
 {
     int most = content.rules.max_drop;
-    if (most <= 0) return false; /* (no limit set) */
+    if (most <= 0 || w->glide) return false; /* (no limit set, or nothing to fear from one) */
     TilePos to = { p.feet.x + s.dx, p.feet.y + s.dy };
     for (int k = 0; k <= most; k++) {
         TilePos at = { to.x, to.y + k };
@@ -489,7 +490,7 @@ static TileType usable_at(const World *w, int x, int y, int *layer)
 {
     for (int l = 0; l < BLOCK_LAYERS; l++) {
         TileType t = world_get_at(w, l, x, y);
-        if (!tile_def(t)->bench && !tile_def(t)->trade && tile_def(t)->storage_columns == 0) continue;
+        if (!tile_def(t)->bench && !tile_def(t)->trade && tile_def(t)->storage_columns == 0 && tile_def(t)->leads_dim < 0) continue;
         /* (Not one that is out of sight and out of reach behind a block: something buried, till it is dug out.) */
         if (l != LAYER_FOREGROUND && tile_def(world_get(w, x, y))->solid && !tile_def(world_get(w, x, y))->see_through) continue;
         if (layer) *layer = l;
@@ -1068,6 +1069,15 @@ bool game_identifies(const Game *g)
     return false;
 }
 
+bool game_can_dig(const Game *g, TileType t)
+{
+    const TileDef *def = tile_def(t);
+    if (def->hardness <= 0) return true;
+    const ItemStack *held = inventory_selected(&g->inventory);
+    const ItemDef *tool = item_def((ItemId)held->id);
+    return held->count > 0 && tool->tool_class >= 0 && tool->tool_class == def->tool_class && tool->power >= def->hardness;
+}
+
 float game_mine_time(const Game *g, TileType t)
 {
     const TileDef *def = tile_def(t);
@@ -1265,6 +1275,10 @@ bool game_click_tile(Game *g, int tx, int ty)
                 train_at(g, tx, ty) >= 0)) {
         /* Something that only comes up with its tool, and that not in hand - or track with something standing on it:
          * the click is a click on the square, and they go to it. */
+    } else if (world_in_bounds(&g->world, tx, ty) && mine_layer(&g->sim, a.target) >= 0 &&
+               !game_can_dig(g, world_get_at(&g->sim, mine_layer(&g->sim, a.target), tx, ty))) {
+        /* Too hard for what is in hand: nothing comes of it. */
+        return false;
     } else if (world_in_bounds(&g->world, tx, ty) && mine_layer(&g->sim, a.target) >= 0) {
         /* A block here, in front or behind, is mined - or, with fire in hand and the block one that burns, burnt down. */
         a.type = ACTION_MINE;
@@ -1457,7 +1471,7 @@ static void container_put(Inventory *inv, uint16_t c, ItemId item, int count)
 int game_area_pools(const Game *g, int x, int y, int *out)
 {
     const World *w = &g->world;
-    int n = 0, biome = world_biome(w, x), height = world_row_to_y(w, y);
+    int n = 0, biome = world_biome_at(w, x, y), height = world_row_to_y(w, y);
     for (int i = 0; i < content.pool_count; i++) {
         const PoolDef *pool = &content.pools[i];
         bool here = pool->any_biome;
@@ -2222,6 +2236,13 @@ static bool start_next_activity(Game *g)
                     game_rest(g, REST_SLEEP);
                     continue;
                 case ACTION_USE:
+                    /* A way to another place is gone through, not opened. */
+                    if (tile_def(game_bench_at(g, g->current.target.x, g->current.target.y))->leads_dim >= 0) {
+                        TilePos gate = g->current.target;
+                        g->has_current = false;
+                        game_travel(g, gate.x, gate.y);
+                        continue;
+                    }
                     game_close_bench(g);
                     g->bench_open = true;
                     g->bench_pos = g->current.target;
@@ -2540,6 +2561,172 @@ bool game_teleport(Game *g)
     if (!found) return false;
     g->crystals -= cost;
     game_cancel_actions(g);
+    game_wake(g);
+    p->feet = p->step_to = to;
+    p->activity = ACTIVITY_IDLE;
+    p->climbing = false;
+    game_reveal(g, to.x, to.y - 1);
+    return true;
+}
+
+bool game_world_grew(Game *g)
+{
+    World *w = &g->world;
+    size_t cells = (size_t)w->width * w->height, had = (size_t)g->sim.width * g->sim.height;
+    /* The copy that plans are tried out in is the same size, and knows the same places. */
+    world_free(&g->sim);
+    if (!world_init(&g->sim, w->width, w->height, w->seed, WORLD_BLANK)) return false;
+    memcpy(g->sim.regions, w->regions, sizeof w->regions);
+    g->sim.region_count = w->region_count;
+    g->sim.home_height = w->home_height;
+    g->sim.y_top = w->y_top;
+    Step *steps = realloc(g->steps, sizeof(Step) * cells);
+    if (!steps) return false;
+    g->steps = steps;
+    for (int c = 0; c < g->character_count && c < MAX_CHARACTERS; c++) {
+        if (c == g->live) {
+            g->characters[c].steps = g->steps;
+            continue;
+        }
+        Step *more = realloc(g->characters[c].steps, sizeof(Step) * cells);
+        if (!more) return false;
+        g->characters[c].steps = more;
+    }
+    Step *bfs_step = realloc(g->bfs_step, sizeof(Step) * cells * 2);
+    if (bfs_step) g->bfs_step = bfs_step;
+    int32_t *parent = realloc(g->bfs_parent, sizeof(int32_t) * cells * 2);
+    if (parent) g->bfs_parent = parent;
+    int32_t *queue = realloc(g->bfs_queue, sizeof(int32_t) * cells * 2);
+    if (queue) g->bfs_queue = queue;
+    uint32_t *seen = realloc(g->bfs_seen, sizeof(uint32_t) * cells * 2);
+    if (seen) g->bfs_seen = seen;
+    uint8_t *explored = realloc(g->explored, cells);
+    if (explored) g->explored = explored;
+    if (!bfs_step || !parent || !queue || !seen || !explored) return false;
+    memset(g->bfs_seen, 0, sizeof(uint32_t) * cells * 2);
+    if (cells > had) memset(g->explored + had, 0, cells - had);
+    return true;
+}
+
+int game_enter_dimension(Game *g, int dim)
+{
+    int region = world_region_of(&g->world, dim);
+    if (region >= 0 || dim < 0 || dim >= content.dimension_count) return region;
+    region = world_add_region(&g->world, dim, NULL, 0, true);
+    if (region < 0 || !game_world_grew(g)) return -1;
+    return region;
+}
+
+/* The foot of the way to another place in a square, and what it is: TILE_AIR if there is none. */
+static TileType gate_at(const World *w, int x, int y, int *bottom)
+{
+    int layer = LAYER_FOREGROUND;
+    TileType t = usable_at(w, x, y, &layer);
+    if (t == TILE_AIR || tile_def(t)->leads_dim < 0) return TILE_AIR;
+    *bottom = y;
+    world_structure(w, layer, x, y, bottom);
+    return t;
+}
+
+bool game_gate_open(const Game *g, int x, int y)
+{
+    const World *w = &g->world;
+    int bottom = y;
+    TileType t = gate_at(w, x, y, &bottom);
+    if (t == TILE_AIR) return false;
+    const TileDef *def = tile_def(t);
+    /* Anywhere but where the world began, it works where it stands. */
+    if (world_region_at(w, bottom) >= 0) return true;
+    int rows = w->region_count > 0 ? w->home_height : w->height;
+    if (def->opens_above > 0 && world_row_to_y(w, bottom) < def->opens_above) return false;
+    if (def->opens_below > 0 && bottom < rows - def->opens_below) return false;
+    return true;
+}
+
+/* Somewhere to stand in a column, between two rows: the highest there is where there is sky, and otherwise
+ * the nearest to the middle. Not on anything that harms. */
+static bool standing_in(const World *w, int x, int y0, int y1, bool from_top, TilePos *out)
+{
+    int mid = (y0 + y1) / 2, span = y1 - y0;
+    for (int i = 0; i < span; i++) {
+        int y = from_top ? y0 + i : mid + ((i & 1) ? -(i + 1) / 2 : i / 2);
+        if (y <= y0 + 2 || y >= y1 - 3) continue;
+        TilePos at = { world_wrap_x(w, x), y };
+        if (!body_fits(w, at.x, at.y) || !is_supported(w, at) || world_is_water(w, at.x, at.y)) continue;
+        if (tile_def(world_get(w, at.x, at.y + 1))->harm > 0.0f) continue;
+        *out = at;
+        return true;
+    }
+    return false;
+}
+
+bool game_travel(Game *g, int x, int y)
+{
+    World *w = &g->world;
+    Player *p = &g->player;
+    int bottom = y;
+    TileType gate = gate_at(w, x, y, &bottom);
+    if (gate == TILE_AIR || !game_alive(g) || !game_gate_open(g, x, y)) return false;
+    const TileDef *def = tile_def(gate);
+    int here = world_dimension_at(w, bottom);
+    /* From anywhere else, to the place it leads; from there, back to where the world began. */
+    int target = here == def->leads_dim ? -1 : game_enter_dimension(g, def->leads_dim);
+    if (here != def->leads_dim && target < 0) return false;
+    const DimensionDef *there = target >= 0 ? &content.dimensions[w->regions[target].dim] : NULL;
+    const DimensionDef *left = here >= 0 ? &content.dimensions[here] : NULL;
+    int y0, y1;
+    world_region_rows(w, target, &y0, &y1);
+    /* Over the same column - but a place that is only so wide is come into at its middle, and left for where they came from. */
+    int column = world_wrap_x(w, x);
+    if (there && there->width > 0) {
+        g->gate_from = (TilePos){ column, bottom };
+        g->gate_from_set = true;
+        column = w->spawn_x;
+    } else if (left && left->width > 0 && g->gate_from_set && world_region_at(w, g->gate_from.y) < 0) {
+        column = g->gate_from.x;
+    }
+    /* By a way back that is already there, if one is near. */
+    TilePos to = { column, 0 };
+    bool found = false, made = false;
+    for (int d = 0; d <= 24 && !found; d++) {
+        for (int side = -1; side <= 1 && !found; side += 2) {
+            if (d == 0 && side > 0) continue;
+            for (int row = y0 + 1; row < y1 - 1 && !found; row++) {
+                TilePos at = { world_wrap_x(w, column + side * d), row };
+                if (world_get_at(w, def->layer, at.x, at.y) != gate || world_get_at(w, def->layer, at.x, at.y + 1) == gate) continue;
+                found = portal_standing(g, at, &to);
+            }
+        }
+    }
+    made = found;
+    bool from_top = !there || there->sky;
+    for (int d = 0; d <= 80 && !found; d++)
+        for (int side = -1; side <= 1 && !found; side += 2)
+            found = !(d == 0 && side > 0) && standing_in(w, column + side * d, y0, y1, from_top, &to);
+    if (!found) {
+        /* Nowhere at all: something to stand on is put there. */
+        to = (TilePos){ column, (y0 + y1) / 2 };
+        TileType floor = there ? there->platform : left ? left->platform : TILE_AIR;
+        if (floor == TILE_AIR) return false;
+        for (int dx = -2; dx <= 2; dx++) {
+            world_set(w, to.x + dx, to.y + 1, floor);
+            for (int k = 0; k < 3; k++)
+                if (world_is_solid(w, to.x + dx, to.y - k)) world_set(w, to.x + dx, to.y - k, TILE_AIR);
+        }
+    }
+    /* The way back: beside where they come out, where there is room for it. */
+    static const int beside[5] = { 1, -1, 2, -2, 0 };
+    for (int i = 0; i < 5 && !made; i++) {
+        TilePos at = { world_wrap_x(w, to.x + beside[i]), to.y };
+        bool room = world_is_solid(w, at.x, at.y + 1);
+        for (int k = 0; k < def->height; k++)
+            room = room && world_get_at(w, def->layer, at.x, at.y - k) == TILE_AIR && !world_is_solid(w, at.x, at.y - k);
+        if (!room) continue;
+        place_tile(w, at, gate);
+        made = true;
+    }
+    game_cancel_actions(g);
+    game_close_bench(g);
     game_wake(g);
     p->feet = p->step_to = to;
     p->activity = ACTIVITY_IDLE;
@@ -3180,6 +3367,10 @@ bool game_lifted(const Game *g)
 static void set_aloft(Game *g)
 {
     g->world.aloft = g->sim.aloft = game_lifted(g) && game_alive(g);
+    bool glides = false;
+    for (int i = 0; i < ARMOR_SLOTS; i++)
+        glides = glides || (g->inventory.armor[i].count > 0 && item_def((ItemId)g->inventory.armor[i].id)->glides);
+    g->world.glide = g->sim.glide = glides && game_alive(g);
 }
 
 bool game_player_flying(const Game *g)
@@ -3473,6 +3664,32 @@ static void vitals_tick(Game *g)
         v->oxygen = u->oxygen_refill_ticks > 0 ? clamp01(v->oxygen + 1.0f / (float)u->oxygen_refill_ticks) : 1.0f;
     }
 
+    /* What burns: standing on it or against it takes health for as long as they do. And whoever comes to the
+     * bottom of a place that opens on the sky below falls out of it, into the sky over where the world began. */
+    {
+        World *w = &g->world;
+        TilePos at = g->player.feet;
+        float harm = 0.0f;
+        static const int round[5][2] = { { 0, 1 }, { 0, 0 }, { 0, -1 }, { -1, 0 }, { 1, 0 } };
+        for (int i = 0; i < 5; i++) {
+            float h = tile_def(world_get(w, at.x + round[i][0], at.y + round[i][1]))->harm;
+            if (h > harm) harm = h;
+        }
+        if (harm > 0.0f && game_alive(g)) {
+            game_wake(g);
+            game_hurt(g, harm / (float)(g->tick_rate > 0 ? g->tick_rate : 20));
+        }
+        int region = world_region_at(w, at.y);
+        if (region >= 0 && w->regions[region].dim >= 0 && content.dimensions[w->regions[region].dim].falls_home &&
+            at.y >= w->regions[region].y0 + w->regions[region].height - 3) {
+            game_cancel_actions(g);
+            g->player.feet = g->player.step_to = (TilePos){ at.x, 2 };
+            g->player.activity = ACTIVITY_IDLE;
+            g->player.climbing = false;
+            game_reveal(g, at.x, 2);
+        }
+    }
+
     /* The weather: out in the rain or the cold it gets to them, as far as what they have on lets it; under cover it
      * wears off. With nothing on, and nothing left, it is health that goes. */
     if (u->env_fall_ticks > 0) {
@@ -3522,11 +3739,15 @@ void game_tick(Game *g)
      * always did, so that setting the number higher hurries the one and not the other. */
     int base = content.rules.random_event_base;
     for (int chunk = 0; chunk * CHUNK_WIDTH < w->width; chunk++) {
-        for (int n = 0; n < g->random_events; n++) {
+        for (int n = 0; n < g->random_events * (w->region_count + 1); n++) {
+            int place = n / (g->random_events > 0 ? g->random_events : 1) - 1;
             uint32_t r = game_random(g);
-            int x = chunk * CHUNK_WIDTH + (int)(r % (uint32_t)CHUNK_WIDTH), y = (int)((r >> 8) % (uint32_t)w->height);
+            /* (Each place the world has gets as many as the world did by itself: place -1 is where it began.) */
+            int y0, y1;
+            world_region_rows(w, place, &y0, &y1);
+            int x = chunk * CHUNK_WIDTH + (int)(r % (uint32_t)CHUNK_WIDTH), y = y0 + (int)((r >> 8) % (uint32_t)(y1 - y0));
             if (x >= w->width) continue;
-            game_weather_event(g, x, y);
+            if (place < 0) game_weather_event(g, x, y);
             /* A plant on rich ground gets more than its share of them: that many times over. */
             int share = base;
             float rich = tile_def(world_get(w, x, y + 1))->fertile;
@@ -3749,6 +3970,12 @@ float game_environment_floor(const Game *g)
 {
     float kept = 0.0f;
     bool anything = false;
+    /* Where it is hot it is what cools that counts, and being dressed is no help by itself. */
+    if (content.biomes[world_biome_at(&g->world, g->player.feet.x, g->player.feet.y)].hot) {
+        for (int i = 0; i < ARMOR_SLOTS; i++)
+            if (g->inventory.armor[i].count > 0) kept += item_def((ItemId)g->inventory.armor[i].id)->cooling;
+        return kept > 1.0f ? 1.0f : kept;
+    }
     for (int i = 0; i < ARMOR_SLOTS; i++) {
         if (g->inventory.armor[i].count <= 0) continue;
         anything = true;
@@ -3765,15 +3992,20 @@ bool game_exposed(const Game *g)
     const RulesDef *u = &content.rules;
     const World *w = &g->world;
     TilePos at = g->player.feet;
-    /* Indoors is anywhere with a block overhead; and nothing falls on what is under water. */
-    for (int y = at.y - 1; y >= 0; y--)
+    int biome = world_biome_at(w, at.x, at.y), top = world_sky_top(w, at.y);
+    /* Where it is hot it is hot under a roof as well: only water is any help. */
+    if (content.biomes[biome].hot) return !world_is_water(w, at.x, at.y - 1);
+    /* Indoors is anywhere with a block overhead; and nothing falls on what is under water. A place with no sky is all indoors. */
+    if (top < 0) return false;
+    for (int y = at.y - 1; y >= top; y--)
         if (world_is_solid(w, at.x, y)) return false;
     if (world_is_water(w, at.x, at.y - 1)) return false;
+    if (content.biomes[biome].cold) return true;
+    /* (The weather and the seasons are of the world as it began.) */
+    if (world_region_at(w, at.y) >= 0) return false;
     if (game_rain(g) > 0.0f) return true;
     if (u->season_count > 0 && u->seasons[game_season(g)].cold) return true;
-    if (u->snow_line > 0 && world_row_to_y(w, at.y) > u->snow_line) return true;
-    int biome = world_biome(w, at.x);
-    return biome >= 0 && biome < content.biome_count && content.biomes[biome].cold;
+    return u->snow_line > 0 && world_row_to_y(w, at.y) > u->snow_line;
 }
 
 float game_pace(const Game *g)

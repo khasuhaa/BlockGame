@@ -63,14 +63,21 @@ void light_compute(const Game *g, int x0, int y0, int width, int height, uint8_t
     int sky = light_sky(g);
 
     for (int cx = 0; cx < bw; cx++) {
-        /* The beam: lit from the top of the world down to the first block. */
-        int stop = 0;
-        while (stop < w->height && !world_is_solid(w, bx + cx, stop)) stop++;
+        /* The beam: lit from the top of the place down to the first block. (A place under another has a sky of
+         * its own or none: worked out again whenever the rows pass from one into the next.) */
+        int stop = 0, top = 0, place = -2;
         for (int cy = 0; cy < bh; cy++) {
             int x = bx + cx, y = by + cy;
             int v = 0;
-            if (y < 0 || y < stop) v = sky;
-            else if (y < w->height && !world_is_solid(w, x, y) &&
+            int in = y < 0 ? -1 : world_region_at(w, y);
+            if (in != place) {
+                place = in;
+                top = y < 0 ? 0 : world_sky_top(w, y);
+                stop = top < 0 ? 0 : top;
+                while (top >= 0 && stop < w->height && !world_is_solid(w, bx + cx, stop)) stop++;
+            }
+            if (top >= 0 && (y < 0 || y < stop)) v = sky;
+            else if (top >= 0 && y < w->height && !world_is_solid(w, x, y) &&
                      (world_get_at(w, LAYER_WALL, x, y) == TILE_AIR ||
                       /* (or a window in what is behind it, if its glass is clear) */
                       (tile_def(world_get_at(w, LAYER_BACKGROUND, x, y))->window && !tile_def(world_get_at(w, LAYER_BACKGROUND, x, y))->window_dark)))

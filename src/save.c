@@ -7,7 +7,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 34u
+#define SAVE_VERSION 35u
 
 /* Up to version 28 a world had room for a quarter as many of these, and they
  * were written out whole: every reader of an older version goes by these. */
@@ -517,6 +517,16 @@ bool save_game(const Game *g, const char *path)
     ok = ok && fwrite(&vehicles, sizeof vehicles, 1, f) == 1 && fwrite(&vehicle_size, sizeof vehicle_size, 1, f) == 1 &&
          fwrite(g->vehicles, sizeof g->vehicles, 1, f) == 1 && fwrite(rides, sizeof rides, 1, f) == 1 &&
          fwrite(relic_boxes, sizeof relic_boxes, 1, f) == 1;
+    /* The other places the world has: each by the name of its dimension, with its rows; and what country every column of each is. */
+    uint32_t regions = (uint32_t)w->region_count;
+    ok = ok && fwrite(&regions, sizeof regions, 1, f) == 1;
+    for (int i = 0; ok && i < w->region_count; i++) {
+        int32_t rows[2] = { w->regions[i].y0, w->regions[i].height };
+        ok = fwrite(w->regions[i].name, CONTENT_NAME_LEN, 1, f) == 1 && fwrite(rows, sizeof rows, 1, f) == 1;
+    }
+    if (w->region_count > 0)
+        ok = ok && write_names(f, content.biome_count, content.biomes[0].name, sizeof content.biomes[0]) &&
+             fwrite(w->biome + w->width, (size_t)w->width, (size_t)w->region_count, f) == (size_t)w->region_count;
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
         remove(tmp);
@@ -812,6 +822,39 @@ bool load_game(Game *g, const char *path)
                 uint16_t box = relic_boxes[c] < MAX_CONTAINERS && g->inventory.containers[relic_boxes[c]].used == CONTAINER_RELICS ? relic_boxes[c] : 0;
                 if (c == g->live) g->relic_box = box;
                 else g->characters[c].relic_box = box;
+            }
+        }
+        /* From version 35: the other places the world has. (Their rows are in the grid already: it was read whole.) */
+        if (ok && h.version >= 35) {
+            uint32_t regions = 0;
+            ok = fread(&regions, sizeof regions, 1, f) == 1 && regions <= MAX_REGIONS;
+            for (uint32_t i = 0; ok && i < regions; i++) {
+                Region *r = &w->regions[i];
+                int32_t rows[2];
+                ok = fread(r->name, CONTENT_NAME_LEN, 1, f) == 1 && fread(rows, sizeof rows, 1, f) == 1;
+                if (!ok) break;
+                r->name[CONTENT_NAME_LEN - 1] = '\0';
+                r->y0 = rows[0];
+                r->height = rows[1];
+                r->dim = -1;
+                for (int d = 0; d < content.dimension_count; d++)
+                    if (strcmp(content.dimensions[d].name, r->name) == 0) r->dim = d;
+                ok = r->y0 > 0 && r->height > 0 && r->y0 + r->height <= w->height;
+            }
+            if (ok && regions > 0) {
+                uint8_t kinds[256];
+                uint8_t *biome = realloc(w->biome, (size_t)w->width * (regions + 1));
+                ok = biome != NULL;
+                if (ok) {
+                    w->biome = biome;
+                    ok = read_names(f, kinds, biome_id) && fread(w->biome + w->width, (size_t)w->width, regions, f) == regions;
+                    for (size_t x = 0; ok && x < (size_t)w->width * regions; x++) w->biome[w->width + x] = kinds[w->biome[w->width + x]];
+                }
+                w->region_count = ok ? (int)regions : 0;
+                w->home_height = w->regions[0].y0;
+                memcpy(g->sim.regions, w->regions, sizeof w->regions);
+                g->sim.region_count = w->region_count;
+                g->sim.home_height = w->home_height;
             }
         }
         bool nobody = ok && h.version >= 15 && people[0] == 0;
