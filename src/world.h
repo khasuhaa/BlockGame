@@ -46,6 +46,9 @@ typedef struct {
     /* Paint: which of content.tints, plus one, the block in the foreground
      * of each square has been painted, and the backwall of it; 0 for unpainted. */
     uint8_t *paint[2];
+    /* Whoever is being moved about in it just now can fly: the air holds them up as water does a swimmer.
+     * (Set by the game for the character in hand; not part of the world, and not saved.) */
+    bool aloft;
 } World;
 
 /* How wide a WORLD_DEBUG world has to be to hold everything that is set out in it. */

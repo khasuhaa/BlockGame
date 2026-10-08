@@ -427,6 +427,7 @@ typedef struct {
     /* Worn: walking goes so many times as fast (0 or 1 for no faster); energy does not run down; hunger does not run down. */
     float walk_speed;
     bool tireless, sated;
+    bool lifts;            /* worn, it lets them fly: the air holds them up wherever they go in it */
     /* Something that runs on rails: put down on them, it is not a block but a vehicle (see train.h). */
     struct {
         bool is;
@@ -765,6 +766,7 @@ typedef struct {
     int water_color[4];    /* red, green, blue, alpha of the tint drawn over water */
     int water_flow;        /* eighths of water a level stretch moves sideways in one tick */
     float swim_time;       /* seconds per step, swimming */
+    float fly_time;        /* and flying */
     int oxygen_ticks;      /* ticks under water for a full oxygen bar to run out; 0 to need no air */
     int oxygen_refill_ticks; /* ticks in the air for it to fill again */
     int drown_ticks;       /* ticks for health to run down with no oxygen left */

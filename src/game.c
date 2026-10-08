@@ -92,6 +92,8 @@ static int lift_stops(const World *w, TilePos feet, int16_t *out)
     return n;
 }
 
+static void set_aloft(Game *g);
+
 /* A wall on side `d` that a player at `feet` can hold on to. */
 static bool can_cling_side(const World *w, TilePos feet, int d)
 {
@@ -104,11 +106,18 @@ static bool in_water(const World *w, TilePos feet)
     return world_is_water(w, feet.x, feet.y) || world_is_water(w, feet.x, feet.y - 1);
 }
 
+/* Held up wherever they are: by water deep enough to swim in, or - for someone who can fly - by the air. */
+static bool buoyed(const World *w, TilePos feet)
+{
+    if (in_water(w, feet)) return true;
+    return w->aloft && world_in_bounds(w, feet.x, feet.y - 1) && !world_is_solid(w, feet.x, feet.y) && !world_is_solid(w, feet.x, feet.y - 1);
+}
+
 /* Something climbable behind the player's body, such as a tree - or water,
  * which holds a swimmer up the same way wherever they are in it. */
 static bool can_hold(const World *w, TilePos feet)
 {
-    if (in_water(w, feet)) return true;
+    if (buoyed(w, feet)) return true;
     for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
         if (tile_def(world_get_at(w, layer, feet.x, feet.y))->climbable ||
             tile_def(world_get_at(w, layer, feet.x, feet.y - 1))->climbable)
@@ -230,10 +239,10 @@ static int list_moves(const World *w, Pose p, Step *out)
         }
         /* In water there is nothing to go round: a swimmer goes on the slant
          * too, wherever the squares either side of the slant are clear. */
-        for (int d = -1; in_water(w, p.feet) && d <= 1; d += 2) {
+        for (int d = -1; buoyed(w, p.feet) && d <= 1; d += 2) {
             for (int v = -1; v <= 1 && n < MAX_MOVES; v += 2) {
                 TilePos to = { x + d, y + v };
-                if (in_water(w, to) && body_fits(w, to.x, to.y) && body_fits(w, x + d, y) && body_fits(w, x, y + v))
+                if (buoyed(w, to) && body_fits(w, to.x, to.y) && body_fits(w, x + d, y) && body_fits(w, x, y + v))
                     out[n++] = (Step){ (int8_t)d, (int8_t)v, true };
             }
         }
@@ -241,6 +250,15 @@ static int list_moves(const World *w, Pose p, Step *out)
     }
 
     bool upright = !is_crawling(w, p.feet);
+    /* Someone who can fly takes off from where they stand, straight up or on the slant: these come first, so that
+     * of two ways as short as each other the one through the air is the one taken. */
+    if (w->aloft && buoyed(w, p.feet)) {
+        if (buoyed(w, (TilePos){ x, y - 1 })) out[n++] = (Step){ 0, -1, true };
+        for (int d = -1; d <= 1; d += 2) {
+            TilePos to = { x + d, y - 1 };
+            if (buoyed(w, to) && body_fits(w, to.x, to.y) && body_fits(w, x + d, y) && body_fits(w, x, y - 1)) out[n++] = (Step){ (int8_t)d, -1, true };
+        }
+    }
     for (int d = -1; d <= 1; d += 2) {
         /* (Walking past steps comes before going up them: a way that only passes them does not climb them.) */
         if (!low_fits(w, x + d, y)) {
@@ -260,7 +278,7 @@ static int list_moves(const World *w, Pose p, Step *out)
         if (can_step_up(w, p.feet, d)) out[n++] = (Step){ (int8_t)d, -1, false };
     }
     /* Jump and catch a wall too tall to step onto, or something overhead. */
-    if (can_climb_up(w, p.feet)) out[n++] = (Step){ 0, -1, true };
+    if (can_climb_up(w, p.feet) && !(w->aloft && buoyed(w, p.feet) && buoyed(w, (TilePos){ x, y - 1 }))) out[n++] = (Step){ 0, -1, true };
     /* Down through a trapdoor in the floor. */
     if (hatch_below(w, p.feet)) out[n++] = (Step){ 0, 1, true };
     /* A lift, to any of its floors. */
@@ -679,7 +697,7 @@ static Pose pose_at_index(const World *w, int idx)
 /* Afloat: in water, held up by it and by nothing else. */
 static bool pose_afloat(const World *w, Pose p)
 {
-    return p.climbing && in_water(w, p.feet) && !is_supported(w, p.feet);
+    return p.climbing && buoyed(w, p.feet) && !is_supported(w, p.feet);
 }
 
 /* The straight line through the water from one pose to another, as steps:
@@ -730,10 +748,11 @@ static void straighten_swim(const World *w, Pose start, Step *steps, int *count)
     for (int i = 0; i < n;) {
         Step line[SWIM_LOOKAHEAD];
         int length = 0, reach = -1;
-        if (pose_afloat(w, at[i])) {
+        /* (Someone who can fly goes straight from where they stand, too, if the way starts upward.) */
+        if (pose_afloat(w, at[i]) || (w->aloft && buoyed(w, at[i].feet))) {
             int far = i + SWIM_LOOKAHEAD < n ? i + SWIM_LOOKAHEAD : n;
             for (int j = far; j > i + 1 && reach < 0; j--)
-                if (in_water(w, at[j].feet) && swim_line(w, at[i], at[j], j - i, line, &length)) reach = j;
+                if (buoyed(w, at[j].feet) && swim_line(w, at[i], at[j], j - i, line, &length)) reach = j;
         }
         if (reach < 0) {
             made[kept++] = steps[i++];
@@ -887,6 +906,7 @@ static bool queue_checked(Game *g, Pose pos, Action a)
 bool game_queue_action(Game *g, ActionType type, int tx, int ty)
 {
     if (g->ride) return false;
+    set_aloft(g);
     Action a = { .type = type, .target = { world_wrap_x(&g->world, tx), ty } };
     if (uses_item(a)) a.item = inventory_selected(&g->inventory)->id;
     return queue_checked(g, sim_pending(g), a);
@@ -1024,6 +1044,9 @@ bool game_click_tile(Game *g, int tx, int ty)
 {
     /* Riding, there is nowhere to go and nothing in reach: getting out comes first. */
     if (g->ride) return false;
+    /* Nor is anything to be done with what has not been seen. */
+    if (game_explored(g, tx, ty) == 0) return false;
+    set_aloft(g);
     if (game_unqueue_tile(g, tx, ty)) return true;
     /* Something that runs on rails, in hand, and track here near enough to reach: it is put on it. */
     if (inventory_selected(&g->inventory)->count > 0 && item_def((ItemId)inventory_selected(&g->inventory)->id)->vehicle.is &&
@@ -1456,7 +1479,9 @@ static void begin_step(Game *g, Step s)
     p->timer = 0.0f;
     bool swim = in_water(&g->world, p->feet) && in_water(&g->world, to) && !is_supported(&g->world, to) &&
                 content.rules.swim_time > 0.0f;
-    p->step_swim = swim;
+    /* Flying is the same through the air, and quicker. */
+    bool fly = !swim && g->world.aloft && buoyed(&g->world, p->feet) && buoyed(&g->world, to) && !is_supported(&g->world, to) && content.rules.fly_time > 0.0f;
+    p->step_swim = swim || fly;
     /* (A ride in a lift: quick, and so much a block.) */
     bool ride = s.dx == 0 && !s.climb && !p->climbing && (s.dy < -1 || s.dy > 1 || (s.dy != 0 && world_is_shaft(&g->world, to.x, to.y)));
     /* In a boat, across the top of the water: quicker than swimming, and the boat comes too. */
@@ -1466,6 +1491,7 @@ static void begin_step(Game *g, Step s)
     if (boat) p->duration = content.rules.swim_time / (content.rules.boat_speed > 0.0f ? content.rules.boat_speed : 2.0f);
     else if (ride) p->duration = (content.rules.lift_time > 0.0f ? content.rules.lift_time : 0.04f) * (float)abs(s.dy);
     else if (hop) p->duration = HOP_TIME / game_walk_speed(g) / game_pace(g);
+    else if (fly) p->duration = content.rules.fly_time * (s.dx != 0 && s.dy != 0 ? 1.4142f : 1.0f) / game_pace(g);
     else if (swim) p->duration = content.rules.swim_time * (s.dx != 0 && s.dy != 0 ? 1.4142f : 1.0f) / game_pace(g);
     else if (s.climb || p->climbing) p->duration = CLIMB_TIME / game_pace(g);
     else if (s.dy > 0) p->duration = FALL_TIME;
@@ -2917,6 +2943,26 @@ bool game_player_underwater(const Game *g)
     return world_is_water(&g->world, p->feet.x, low ? p->feet.y : p->feet.y - 1);
 }
 
+bool game_lifted(const Game *g)
+{
+    for (int i = 0; i < ARMOR_SLOTS; i++)
+        if (g->inventory.armor[i].count > 0 && item_def((ItemId)g->inventory.armor[i].id)->lifts) return true;
+    return false;
+}
+
+/* Says, for everything that moves the character in hand about, whether the air holds them up. */
+static void set_aloft(Game *g)
+{
+    g->world.aloft = g->sim.aloft = game_lifted(g) && game_alive(g);
+}
+
+bool game_player_flying(const Game *g)
+{
+    const Player *p = &g->player;
+    return game_lifted(g) && game_alive(g) && !in_water(&g->world, p->feet) && !is_supported(&g->world, p->feet) &&
+           !can_cling_side(&g->world, p->feet, -1) && !can_cling_side(&g->world, p->feet, 1) && !g->ride;
+}
+
 bool game_player_swimming(const Game *g)
 {
     const Player *p = &g->player;
@@ -3534,6 +3580,7 @@ void game_update(Game *g, float dt)
     /* Every character gets on with what they are doing, each in turn. */
     for (int c = 0; c < g->character_count; c++) {
         game_use_character(g, c);
+        set_aloft(g);
         Player *p = &g->player;
         float left = frame;
         for (;;) {
@@ -3552,6 +3599,7 @@ void game_update(Game *g, float dt)
         update_bench(g, frame);
     }
     game_use_character(g, g->controlled);
+    set_aloft(g);
     train_update(g, frame);
 }
 

@@ -660,6 +660,7 @@ static bool read_items(Reader *r, const cJSON *root)
         }
         copy_name(it->worn, sizeof it->worn, str(e, "worn"));
         it->walk_speed = (float)num(e, "walk_speed", 0.0);
+        it->lifts = flag(e, "lifts", false);
         const cJSON *vehicle = field(e, "vehicle");
         memset(&it->vehicle, 0, sizeof it->vehicle);
         if (vehicle) {
@@ -1302,6 +1303,7 @@ static bool read_rules(Reader *r, const cJSON *root)
     if (field(root, "crafting")) u->rush_seconds = (float)num(field(root, "crafting"), "rush_seconds_per_crystal", u->rush_seconds);
     if (player) {
         u->walk_time = (float)num(player, "walk_time", u->walk_time);
+        u->fly_time = (float)num(player, "fly_time", u->fly_time > 0.0f ? u->fly_time : 0.1);
         u->fall_time = (float)num(player, "fall_time", u->fall_time);
         u->climb_time = (float)num(player, "climb_time", u->climb_time);
         u->hop_time = (float)num(player, "hop_time", u->hop_time);

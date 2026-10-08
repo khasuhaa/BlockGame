@@ -484,7 +484,9 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
              * otherwise it just opens. */
             int mob = game_mob_at(g, (mouse.x / zoom - view.origin.x) / TILE_SIZE,
                                   (mouse.y / zoom - view.origin.y) / TILE_SIZE);
-            if (drop >= 0) game_click_drop(g, drop);
+            /* What has not been uncovered cannot be clicked on: nothing in it, and not the square. */
+            if (game_explored(g, t.x, t.y) == 0) {}
+            else if (drop >= 0) game_click_drop(g, drop);
             /* A creature under the cursor is hunted. */
             else if (mob >= 0) game_click_mob(g, mob);
             /* A second click on a square with something queued takes it back. */
@@ -1450,7 +1452,7 @@ static void draw_player(const Game *g, Vector2 origin)
     float t = p->activity != ACTIVITY_IDLE && p->duration > 0.0f ? p->timer / p->duration : 0.0f;
     bool stepping = p->activity == ACTIVITY_STEPPING, crawling = game_player_crawling(g);
     bool swimming = game_player_swimming(g) && grip == 0 && !crawling;
-    bool holding = !crawling && (p->climbing || grip != 0);
+    bool holding = !crawling && (p->climbing || grip != 0) && !game_player_flying(g);
     bool walking = stepping && p->step.dx != 0 && !holding && !p->step.climb && !p->step_hop && !crawling && !swimming;
     /* The stride keeps its own time: it quickens with the pace, but only so far, and does not start again at each block. */
     float moved = fabsf(x - e->last_x) + fabsf(y - e->last_y);
@@ -1461,6 +1463,7 @@ static void draw_player(const Game *g, Vector2 origin)
     float swing = sinf(e->phase);
     /* Stood doing nothing, they turn to face out of the screen; to go anywhere or do anything, to the side. */
     e->idle = p->activity == ACTIVITY_IDLE && !holding && !crawling && !swimming ? e->idle + dt : 0.0f;
+    if (game_player_flying(g)) swimming = false;
     int facing = grip != 0 ? grip : p->facing;
     BodyPose to = { .tint = WHITE };
     float side = e->idle > 0.18f ? 0.0f : (float)facing * PLAYERMODEL_SIDE, shift = 0.0f, bob = 0.0f;
@@ -1470,6 +1473,21 @@ static void draw_player(const Game *g, Vector2 origin)
         to.lean = 90.0f, to.head = 65.0f, to.sink = 6.0f, shift = -(float)p->facing * 4.0f;
         to.arm[0] = 150.0f + shuffle * 20.0f, to.arm[1] = 150.0f - shuffle * 20.0f;
         to.leg[0] = -60.0f - shuffle * 12.0f, to.leg[1] = -60.0f + shuffle * 12.0f;
+    } else if (game_player_flying(g)) {
+        /* In the air on a jetpack: upright and hanging from it while it hovers, leant into the way it is going when it goes. */
+        bool going = stepping && p->step.dx != 0;
+        to.lean = going ? 32.0f : 4.0f, to.head = going ? 18.0f : 0.0f;
+        to.arm[0] = to.arm[1] = going ? -18.0f : 10.0f;
+        to.leg[0] = going ? -14.0f : 6.0f, to.leg[1] = going ? -24.0f : -6.0f;
+        bob = sinf(now * 5.0f) * 1.2f;
+        if (!going && !stepping) side = 0.0f;
+        /* (What is holding them up: two jets of flame from the pack.) */
+        float flick = 6.0f + 4.0f * sinf(now * 31.0f), back = cx - (float)facing * (fabsf(e->side) / PLAYERMODEL_SIDE) * 8.0f;
+        for (int k = -1; k <= 1; k += 2) {
+            float fx = back + (float)k * 4.0f * (1.0f - fabsf(e->side) / PLAYERMODEL_SIDE) - 2.0f, fy = ground - 34.0f;
+            DrawRectangleRec((Rectangle){ fx, fy, 4.0f, flick + 4.0f }, (Color){ 240, 120, 40, 255 });
+            DrawRectangleRec((Rectangle){ fx + 1.0f, fy, 2.0f, flick }, (Color){ 255, 220, 110, 255 });
+        }
     } else if (swimming) {
         /* Afloat: leaning into it, kicking, and riding up and down a little. */
         float kick = sinf(now * 5.0f);

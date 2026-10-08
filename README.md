@@ -611,11 +611,19 @@ The character is made of six boxes - a cube for the head, and a block each for t
 
 Stood doing nothing, they face straight out of the screen. To walk, climb, crawl, swim, dig, build or strike they turn square to the side they are going or working toward, so that they face the way they walk, and turn back to the front a moment after they stop. The arms and legs swing from the shoulder and the hip, and every change - of pose, and of which way they are turned - is eased into rather than jumped to. The stride keeps time of its own, a little under two a second at a walk, whatever the pace over the ground; digging is a quick chop, the arm drawn back and brought down between two and three times a second.
 
-The **jetpack** is worn on the body, in the slot a breastplate goes in: straps over the shoulders, the tanks and burners on the back. Wearing it does nothing yet.
+The **jetpack** is worn on the body, in the slot a breastplate goes in: straps over the shoulders, the tanks and burners on the back. Wearing it lets them fly (see Pace, and flying).
 
 Whatever is in the four armour slots is drawn on them, each piece a shell a little larger than the part it covers, so a coat goes over the undershirt and a helmet over the hair: a helmet leaves the face open, a breastplate has a guard on each shoulder, a coat has sleeves to the wrist, leggings stop at the shin and boots cover the foot.
 
 The skin is one picture, 64 by 32, with each box opened out flat: the head's faces start at the top left corner (8 by 8 by 8), a leg at (0, 16), the body at (16, 16) and an arm at (40, 16), each laid out as right side, front, left side, back, with the top and the underside in the row above. The other arm and leg use the same part of the picture, turned about. Which picture is the skin is `"skin"` under `"players"` in `rules.json`; what an item looks like worn is its `"worn"` in `items.json`, a picture of the same shape with nothing drawn where the thing does not cover. A mod's clothes carry their own.
+
+### Pace, and flying
+
+A step on foot takes 0.24 seconds - about four blocks a second. Climbing and crawling go at half that: 0.48 seconds a block. (Hopping, falling and swimming are as they were.) These are `"walk_time"`, `"climb_time"` and `"crawl_time"` under `"player"` in `rules.json`.
+
+With a **jetpack** on - in the chest slot, not just carried - the air holds a character up as water holds a swimmer. A click anywhere in the open sky sends them there, straight, on the slant if that is the way; they hover where they stop, and go on from there to anywhere else or back to the ground. The movement keys fly them too. It is quick: a tenth of a second a block (`"fly_time"`). It burns nothing. Taken off in the air, they fall. An item that does this has `"lifts": true`.
+
+Nothing in the **fog of war** can be clicked: not a square that has never been uncovered, nor anything in one. To get into it, walk or fly with the keys, or click as far as has been seen.
 
 ### The railway
 

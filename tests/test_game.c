@@ -35,14 +35,32 @@
  * were written before the weather could touch them: so it is switched off as the content is loaded, and the test
  * of the weather itself (test_environment) puts back what the data says. */
 static int shipped_env_fall_ticks;
+static float shipped_walk_time, shipped_climb_time, shipped_crawl_time;
 static bool calm_content_load(const char *dir, char *err, size_t size)
 {
     bool ok = content_load(dir, err, size);
     if (content.rules.env_fall_ticks > 0) shipped_env_fall_ticks = content.rules.env_fall_ticks;
     content.rules.env_fall_ticks = 0;
+    /* They were timed, too, against the pace characters went at then - a step in 0.12 seconds, a climb in 0.16, a
+     * crawl in 0.22 - and are kept at it: how fast the game ships is test_pace_and_flight's business. */
+    if (content.rules.walk_time == 0.24f) {
+        shipped_walk_time = content.rules.walk_time, shipped_climb_time = content.rules.climb_time, shipped_crawl_time = content.rules.crawl_time;
+        content.rules.walk_time = 0.12f, content.rules.climb_time = 0.16f, content.rules.crawl_time = 0.22f;
+    }
     return ok;
 }
 #define content_load calm_content_load
+
+/* And they put characters down wherever the test wants them, and click where nothing has been uncovered: so the
+ * fog of war is off in a world a test makes, unless the test is of the fog (which makes its world with
+ * `(game_init)`, the game's own). */
+static bool clear_game_init(Game *g, int width, int height, uint32_t seed, WorldKind kind)
+{
+    bool ok = game_init(g, width, height, seed, kind);
+    g->fog = false;
+    return ok;
+}
+#define game_init(g, ...) clear_game_init(g, __VA_ARGS__)
 
 #define ITEM_DIRT item_id("dirt")
 #define ITEM_WORKBENCH item_id("workbench")
@@ -6081,7 +6099,7 @@ static void test_mobs(void)
 static void test_fog(void)
 {
     Game g;
-    game_init(&g, 256, 96, 39, WORLD_FLAT);
+    (game_init)(&g, 256, 96, 39, WORLD_FLAT);
     World *w = &g.world;
     TilePos start = g.player.feet;
     int s = w->surface_y, radius = content.rules.fog_radius, fade = content.rules.fog_fade;
@@ -6105,10 +6123,21 @@ static void test_fog(void)
     }
     CHECK(steepest > 0 && steepest < 110);
 
+    /* A click on what has not been uncovered is no click at all; one on what has been is. */
+    CHECK(!game_click_tile(&g, start.x + 40, start.y) && g.queue_count == 0 && is_idle(&g));
+    CHECK(!game_click_tile(&g, start.x + radius + 1, start.y - 1) && !game_click_tile(&g, start.x, start.y - 1 - radius - 1));
+    CHECK(game_click_tile(&g, start.x + 10, start.y));
+    run(&g, 4.0f);
+    CHECK(g.player.feet.x == start.x + 10 && game_click_tile(&g, start.x + 10 + radius - 2, start.y)); /* (what that walk uncovered) */
+    game_cancel_actions(&g);
+    run(&g, 1.0f);
     /* Walking uncovers more, and what was uncovered stays so behind. */
-    CHECK(game_click_tile(&g, start.x + 40, start.y));
-    run(&g, 8.0f);
-    CHECK(g.player.feet.x == start.x + 40);
+    game_set_move_input(&g, 1, 0);
+    for (int i = 0; i < 20 * 60 && g.player.feet.x < start.x + 40; i++) game_update(&g, 1.0f / 60.0f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 1.0f);
+    CHECK(g.player.feet.x >= start.x + 40 && g.player.feet.x <= start.x + 42);
+    start.x = g.player.feet.x - 40;
     CHECK(game_explored(&g, start.x + 40, start.y) == 255 && game_explored(&g, start.x + 50, start.y) == 255);
     CHECK(game_explored(&g, start.x, start.y) == 255 && game_explored(&g, start.x - 10, start.y) == 255);
     CHECK(game_explored(&g, start.x + 20, start.y - 6) == 255); /* the whole way along, not only the ends */
@@ -10942,6 +10971,118 @@ static void test_trains(void)
     game_free(&g);
 }
 
+/* How fast characters go as the game ships, and flying. */
+static void test_pace_and_flight(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    RulesDef *u = &content.rules;
+    u->walk_time = shipped_walk_time, u->climb_time = shipped_climb_time, u->crawl_time = shipped_crawl_time; /* (as the game has them) */
+    /* A step takes twice what it did; climbing and crawling go at half that pace again. */
+    CHECK(u->walk_time == 0.24f && u->climb_time == 2.0f * u->walk_time && u->crawl_time == 2.0f * u->walk_time && u->fly_time == 0.1f);
+    static Game g;
+    game_init(&g, 128, 64, 4, WORLD_FLAT);
+    g.tick_rate = 0;
+    clear_mobs(&g);
+    clear_inventory(&g);
+    World *w = &g.world;
+    int s = w->surface_y, row = s - 1;
+    TilePos start = g.player.feet;
+    game_set_move_input(&g, 1, 0);
+    game_update(&g, 0.001f);
+    CHECK(g.player.activity == ACTIVITY_STEPPING && g.player.duration == 0.24f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 1.0f);
+    /* Ten blocks on foot take ten steps' time, and no less. */
+    int from = g.player.feet.x;
+    CHECK(game_queue_action(&g, ACTION_MOVE, from + 10, row));
+    run(&g, 2.0f);
+    CHECK(g.player.feet.x < from + 10 && g.player.feet.x >= from + 7);
+    run(&g, 1.0f);
+    CHECK(g.player.feet.x == from + 10 && is_idle(&g));
+    /* Up a wall: each block of the climb takes twice a step. */
+    int wall = g.player.feet.x + 1;
+    for (int k = 0; k < 6; k++) world_set(w, wall, row - k, TILE_STONE);
+    game_set_move_input(&g, 0, -1);
+    game_update(&g, 0.001f);
+    run(&g, 0.2f);
+    game_update(&g, 0.001f);
+    CHECK(g.player.activity == ACTIVITY_STEPPING && g.player.duration == 0.48f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 3.0f);
+    for (int k = 0; k < 6; k++) world_set(w, wall, row - k, TILE_AIR);
+    run(&g, 3.0f);
+    CHECK(is_idle(&g) && g.player.feet.y == row);
+    /* Through a gap one block high: crawling, at the same half pace. */
+    int gap = g.player.feet.x + 2;
+    for (int k = 0; k < 3; k++) world_set(w, gap + k, row - 1, TILE_STONE);
+    CHECK(game_queue_action(&g, ACTION_MOVE, gap + 1, row));
+    float slowest = 0.0f;
+    for (int i = 0; i < 4 * 60; i++) {
+        game_update(&g, 1.0f / 60.0f);
+        if (g.player.activity == ACTIVITY_STEPPING && g.player.duration > slowest) slowest = g.player.duration;
+    }
+    CHECK(g.player.feet.x == gap + 1 && game_player_crawling(&g) && slowest == 0.48f);
+    CHECK(game_queue_action(&g, ACTION_MOVE, gap + 5, row));
+    run(&g, 4.0f);
+    for (int k = 0; k < 3; k++) world_set(w, gap + k, row - 1, TILE_AIR);
+
+    /* Flying. With nothing to fly on, a place in the open sky is nowhere they can get to. */
+    ItemId jetpack = item_id("jetpack");
+    CHECK(item_def(jetpack)->lifts && item_def(jetpack)->equip == EQUIP_CHEST && !game_lifted(&g) && !game_player_flying(&g));
+    start = g.player.feet;
+    game_click_tile(&g, start.x + 8, row - 12);
+    run(&g, 4.0f);
+    CHECK(g.player.feet.y == row && !game_player_flying(&g));
+    game_cancel_actions(&g);
+    run(&g, 1.0f);
+    start = g.player.feet;
+    /* With a jetpack on - worn, not carried - a click there is a way there: straight, on the slant. */
+    inventory_add(&g.inventory, jetpack, 1);
+    CHECK(!game_lifted(&g));
+    clear_inventory(&g);
+    g.inventory.armor[EQUIP_CHEST] = (ItemStack){ .id = (uint16_t)jetpack, .count = 1 };
+    CHECK(game_lifted(&g) && !game_player_flying(&g)); /* (on the ground they are only standing) */
+    CHECK(game_click_tile(&g, start.x + 8, row - 12));
+    int steps = 0, slant = 0;
+    float quickest = 1.0f;
+    TilePos last = g.player.feet;
+    for (int i = 0; i < 6 * 60; i++) {
+        game_update(&g, 1.0f / 60.0f);
+        if (g.player.feet.x == last.x && g.player.feet.y == last.y) continue;
+        steps++;
+        slant += g.player.feet.x != last.x && g.player.feet.y != last.y;
+        if (g.player.duration < quickest) quickest = g.player.duration;
+        last = g.player.feet;
+    }
+    CHECK(is_idle(&g) && g.player.feet.x == start.x + 8 && (g.player.feet.y == row - 12 || g.player.feet.y == row - 11));
+    CHECK(steps <= 14 && slant >= 6 && quickest >= 0.1f && quickest < 0.15f);
+    /* There they stay, held up by it; and go on from there to anywhere else in the air, or back to the ground. */
+    run(&g, 3.0f);
+    CHECK(g.player.feet.x == start.x + 8 && g.player.feet.y <= row - 11 && game_player_flying(&g));
+    CHECK(game_click_tile(&g, start.x - 6, row - 20));
+    run(&g, 5.0f);
+    CHECK(g.player.feet.x == start.x - 6 && g.player.feet.y <= row - 19 && game_player_flying(&g));
+    /* (The keys fly them as well.) */
+    game_set_move_input(&g, 1, 0);
+    run(&g, 1.0f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 0.5f);
+    CHECK(g.player.feet.x > start.x - 2 && g.player.feet.y <= row - 19);
+    CHECK(game_click_tile(&g, start.x + 3, row));
+    run(&g, 6.0f);
+    CHECK(g.player.feet.x == start.x + 3 && g.player.feet.y == row && !game_player_flying(&g) && is_idle(&g));
+    /* Taken off in the air, there is nothing to hold them up. */
+    CHECK(game_click_tile(&g, start.x + 3, row - 9));
+    run(&g, 4.0f);
+    CHECK(g.player.feet.y <= row - 8 && game_player_flying(&g));
+    g.inventory.armor[EQUIP_CHEST] = (ItemStack){ 0 };
+    run(&g, 3.0f);
+    CHECK(g.player.feet.y == row && !game_player_flying(&g));
+    game_free(&g);
+}
+
 int main(void)
 {
     char err[256];
@@ -11072,6 +11213,7 @@ int main(void)
     test_trade_tiers();
     test_environment();
     test_trains();
+    test_pace_and_flight();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;

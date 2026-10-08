@@ -635,6 +635,9 @@ float game_environment_floor(const Game *g);
 bool game_exposed(const Game *g);
 /* How fast they walk and work for it, as a share of their usual speed. */
 float game_pace(const Game *g);
+/* Whether the character has something on that lets them fly, and whether they are in the air on it now. */
+bool game_lifted(const Game *g);
+bool game_player_flying(const Game *g);
 /* How hard it is raining - or, in a season that snows, snowing - from 0 for
  * not at all to 1; it comes on and eases off at the ends of a spell. */
 float game_rain(const Game *g);
