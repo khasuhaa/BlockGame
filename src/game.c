@@ -2948,6 +2948,92 @@ static TileType gate_at(const World *w, int x, int y, int *bottom)
     return t;
 }
 
+bool game_rocket_report(const Game *g, int x, int y, int *fuel, int *thrust, float *reliability, bool *escape, int *need_fuel, int *need_thrust)
+{
+    const World *w = &g->world;
+    int bottom = y;
+    TileType t = gate_at(w, x, y, &bottom);
+    *fuel = *thrust = *need_fuel = *need_thrust = 0;
+    *reliability = 1.0f;
+    *escape = false;
+    if (t == TILE_AIR || tile_def(t)->launch_fuel <= 0) return false;
+    *need_fuel = tile_def(t)->launch_fuel;
+    *need_thrust = tile_def(t)->launch_thrust;
+    /* The rocket: the parts straight under the capsule, down to the pad it stands on - and whatever stands on the
+     * ground either side of it, as high as it goes. An engine is only as sure as the least sure of them. */
+    int px = world_wrap_x(w, x), py = bottom + 1;
+    while (py < w->height && tile_def(world_get(w, px, py))->rocket_fuel + tile_def(world_get(w, px, py))->rocket_thrust + (tile_def(world_get(w, px, py))->rocket_escape ? 1 : 0) > 0) py++;
+    if (py >= w->height || !tile_def(world_get(w, px, py))->pad) return true;
+    for (int dx = -1; dx <= 1; dx++) {
+        for (int ry = py - 1; ry > bottom - 64 && ry >= 0; ry--) {
+            const TileDef *part = tile_def(world_get(w, px + dx, ry));
+            if (part->rocket_fuel + part->rocket_thrust == 0 && !part->rocket_escape) {
+                if (dx == 0 && ry > bottom) continue;
+                break;
+            }
+            *fuel += part->rocket_fuel;
+            *thrust += part->rocket_thrust;
+            if (part->rocket_thrust > 0 && part->rocket_reliability < *reliability) *reliability = part->rocket_reliability;
+            *escape = *escape || part->rocket_escape;
+        }
+    }
+    return true;
+}
+
+bool game_aired(const Game *g, int x, int y)
+{
+    const World *w = &g->world;
+    int place = world_dimension_at(w, y);
+    if (place < 0 || !content.dimensions[place].airless) return true;
+    /* The room this square is in: everything that can be got to from it without going through a block. It is sealed
+     * if that comes to an end - and has a wall behind every square of it - and aired if something in it gives air. */
+    enum { ROOM = 700, SPAN = 48 };
+    static uint8_t seen[SPAN * 2 + 1][SPAN * 2 + 1];
+    static int16_t todo[ROOM + 8][2];
+    memset(seen, 0, sizeof seen);
+    int count = 0, head = 0;
+    bool air = false;
+    x = world_wrap_x(w, x);
+    if (!world_in_bounds(w, x, y) || tile_def(world_get(w, x, y))->solid) y--;
+    todo[count][0] = 0, todo[count++][1] = 0;
+    seen[SPAN][SPAN] = 1;
+    while (head < count) {
+        int dx = todo[head][0], dy = todo[head][1], cx = x + dx, cy = y + dy;
+        head++;
+        if (!world_in_bounds(w, cx, cy) || world_get_at(w, LAYER_WALL, cx, cy) == TILE_AIR) return false;
+        for (int layer = 0; layer < BLOCK_LAYERS && !air; layer++) {
+            const TileDef *def = tile_def(world_get_at(w, layer, cx, cy));
+            if (!def->gives_air) continue;
+            for (int i = 0; i < MAX_STORAGES; i++)
+                if (g->storages[i].used && g->storages[i].x == world_wrap_x(w, cx) && g->storages[i].y == cy && g->storages[i].fuel > 0) air = true;
+        }
+        static const int side[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
+        for (int k = 0; k < 4; k++) {
+            int nx = dx + side[k][0], ny = dy + side[k][1];
+            if (abs(nx) > SPAN || abs(ny) > SPAN) return false;
+            if (seen[ny + SPAN][nx + SPAN]) continue;
+            seen[ny + SPAN][nx + SPAN] = 1;
+            if (world_in_bounds(w, x + nx, y + ny) && tile_def(world_get(w, x + nx, y + ny))->solid) continue;
+            if (count >= ROOM) return false;
+            todo[count][0] = (int16_t)nx, todo[count++][1] = (int16_t)ny;
+        }
+    }
+    return air;
+}
+
+bool game_airless(const Game *g)
+{
+    int place = world_dimension_at(&g->world, g->player.feet.y);
+    if (place < 0 || !content.dimensions[place].airless || !game_alive(g)) return false;
+    /* (Worked out every so often, not every tick: it is a lot of looking.) */
+    Game *mine = (Game *)g;
+    if (g->tick < (uint64_t)g->air_tick || g->tick - (uint64_t)g->air_tick >= 10 || g->air_tick == 0) {
+        mine->air_ok = game_aired(g, g->player.feet.x, g->player.feet.y - 1);
+        mine->air_tick = (int)(g->tick > 0 ? g->tick : 1);
+    }
+    return !g->air_ok;
+}
+
 bool game_gate_open(const Game *g, int x, int y)
 {
     const World *w = &g->world;
@@ -2955,6 +3041,13 @@ bool game_gate_open(const Game *g, int x, int y)
     TileType t = gate_at(w, x, y, &bottom);
     if (t == TILE_AIR) return false;
     const TileDef *def = tile_def(t);
+    /* One that is launched: from anywhere but the place it leads to, it wants a rocket under it that can get there. */
+    if (def->launch_fuel > 0 && world_dimension_at(w, bottom) != def->leads_dim) {
+        int fuel, thrust, need_fuel, need_thrust;
+        float sure;
+        bool escape;
+        return game_rocket_report(g, x, y, &fuel, &thrust, &sure, &escape, &need_fuel, &need_thrust) && fuel >= need_fuel && thrust >= need_thrust;
+    }
     /* Anywhere but where the world began, it works where it stands. */
     if (world_region_at(w, bottom) >= 0) return true;
     int rows = w->region_count > 0 ? w->home_height : w->height;
@@ -2989,6 +3082,34 @@ bool game_travel(Game *g, int x, int y)
     if (gate == TILE_AIR || !game_alive(g) || !game_gate_open(g, x, y)) return false;
     const TileDef *def = tile_def(gate);
     int here = world_dimension_at(w, bottom);
+    if (def->launch_fuel > 0 && here != def->leads_dim) {
+        /* A launch: the rocket is spent whatever happens - and sometimes what happens is that it does not go. */
+        int fuel, thrust, need_fuel, need_thrust;
+        float sure;
+        bool escape;
+        game_rocket_report(g, x, y, &fuel, &thrust, &sure, &escape, &need_fuel, &need_thrust);
+        int px = world_wrap_x(w, x), py = bottom + 1;
+        while (py < w->height && tile_def(world_get(w, px, py))->rocket_fuel + tile_def(world_get(w, px, py))->rocket_thrust + (tile_def(world_get(w, px, py))->rocket_escape ? 1 : 0) > 0) py++;
+        for (int dx = -1; dx <= 1; dx++)
+            for (int ry = py - 1; ry > bottom - 64 && ry >= 0; ry--) {
+                const TileDef *part = tile_def(world_get(w, px + dx, ry));
+                if (part->rocket_fuel + part->rocket_thrust == 0 && !part->rocket_escape) {
+                    if (dx == 0 && ry > bottom) continue;
+                    break;
+                }
+                world_set(w, px + dx, ry, TILE_AIR);
+            }
+        g->lightning = 6;
+        g->lightning_x = px;
+        if ((float)(game_random(g) % 10000u) / 10000.0f >= sure) {
+            if (!escape) {
+                game_blast(g, px, py - 2, 3);
+                game_hurt(g, 0.6f);
+            }
+            game_cancel_actions(g);
+            return false;
+        }
+    }
     /* From anywhere else, to the place it leads; from there, back to where the world began. */
     int target = here == def->leads_dim ? -1 : game_enter_dimension(g, def->leads_dim);
     if (here != def->leads_dim && target < 0) return false;
@@ -3255,6 +3376,8 @@ void game_random_event(Game *g, int x, int y)
         if (def->grows_into == TILE_AIR) continue;
         /* (Some take their time over it.) */
         if (def->grow_one_in > 1 && game_random(g) % (uint32_t)def->grow_one_in != 0) return;
+        /* (And some only where there is air.) */
+        if (def->needs_air && !game_aired(g, x, y)) return;
         world_grow_plant(w, layer, x, y);
         return;
     }
@@ -3768,6 +3891,10 @@ static void set_aloft(Game *g)
     bool glides = taken.glide > 0.0f;
     for (int i = 0; i < ARMOR_SLOTS; i++)
         glides = glides || (g->inventory.armor[i].count > 0 && item_def((ItemId)g->inventory.armor[i].id)->glides);
+    /* Where things weigh nothing, everybody floats; where they weigh little, no fall is a fall. */
+    int place = world_dimension_at(&g->world, g->player.feet.y);
+    if (place >= 0 && content.dimensions[place].gravity <= 0.0f) g->world.aloft = g->sim.aloft = game_alive(g);
+    if (place >= 0 && content.dimensions[place].gravity < 0.9f) glides = true;
     g->world.glide = g->sim.glide = glides && game_alive(g);
 }
 
@@ -4068,7 +4195,7 @@ static void vitals_tick(Game *g)
 
     /* Breath: it runs down with the head under water and comes back in the
      * air. With none left, health goes instead. */
-    if (u->oxygen_ticks > 0 && game_player_underwater(g)) {
+    if (u->oxygen_ticks > 0 && (game_player_underwater(g) || game_airless(g))) {
         v->oxygen = clamp01(v->oxygen - 1.0f / (float)u->oxygen_ticks / game_boons(g).lung);
         if (v->oxygen <= 0.0f && u->drown_ticks > 0) {
             game_wake(g);

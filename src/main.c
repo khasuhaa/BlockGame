@@ -2263,6 +2263,28 @@ static void session_draw(Session *s)
         for (int i = 0; i <= realm && i < content.dao.realm_count; i++) soul = soul || content.dao.realms[i].soul;
         if (soul) game_reveal(g, (int)(s->cam.center.x / TILE_SIZE), (int)(s->cam.center.y / TILE_SIZE));
     }
+    {
+        /* A rocket under the cursor: what it has, against what the way it is for asks. And, somewhere with no air, whether there is any here. */
+        TilePos over = tile_at_screen(&s->cam, GetMousePosition());
+        int fuel, thrust, need_fuel, need_thrust;
+        float sure;
+        bool escape;
+        if (world_in_bounds(&g->world, over.x, over.y) && game_rocket_report(g, over.x, over.y, &fuel, &thrust, &sure, &escape, &need_fuel, &need_thrust)) {
+            const char *line = TextFormat("Fuel %d/%d   Thrust %d/%d   %d%%%s", fuel, need_fuel, thrust, need_thrust, (int)(sure * 100.0f + 0.5f), escape ? "   Escape" : "");
+            Vector2 m = GetMousePosition();
+            DrawRectangle((int)m.x + 14, (int)m.y - 26, MeasureText(line, 16) + 12, 24, (Color){ 20, 22, 30, 230 });
+            DrawText(line, (int)m.x + 20, (int)m.y - 22, 16, fuel >= need_fuel && thrust >= need_thrust ? RAYWHITE : (Color){ 235, 120, 90, 255 });
+        }
+        int place = world_dimension_at(&g->world, g->player.feet.y);
+        if (place >= 0 && content.dimensions[place].airless && g->character_count > 0) {
+            bool air = !game_airless(g);
+            const char *word = air ? "Air" : "No air";
+            DrawRectangle(GetScreenWidth() / 2 - 60, 10, 120, 34, (Color){ 20, 22, 30, 220 });
+            DrawText(word, GetScreenWidth() / 2 - MeasureText(word, 16) / 2, 13, 16, air ? (Color){ 120, 220, 170, 255 } : (Color){ 235, 120, 90, 255 });
+            DrawRectangle(GetScreenWidth() / 2 - 52, 32, 104, 7, (Color){ 40, 42, 54, 255 });
+            DrawRectangle(GetScreenWidth() / 2 - 52, 32, (int)(104.0f * (g->vitals.oxygen < 0.0f ? 0.0f : g->vitals.oxygen > 1.0f ? 1.0f : g->vitals.oxygen)), 7, (Color){ 110, 190, 240, 255 });
+        }
+    }
     daoui_draw(&dao_ui, g);
     if (g->lightning > 0) {
         /* A bolt of a tribulation: down the column it struck, and the whole view white for a moment. */

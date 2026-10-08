@@ -357,6 +357,8 @@ typedef struct {
     int open_vehicle;       /* the vehicle whose slots are open, plus one */
     int open_vehicle_cargo; /* and whether it is what it carries (1) or what it burns (0) */
     Dao dao; /* how far the live character has got in cultivation */
+    int air_tick; /* when it was last worked out whether the character in hand has air, and what was found. Not saved. */
+    bool air_ok;
     int mount; /* the creature they are riding: which of mobs, plus one; 0 for none. Not saved. */
     int lightning, lightning_x; /* a bolt has just struck: ticks it is still to be seen for, and the column. Not saved. */
     Effect effects[MAX_EFFECTS]; /* what the live character is under the effect of (see Effect) */
@@ -591,6 +593,13 @@ bool game_teleport(Game *g);
 bool game_gate_open(const Game *g, int x, int y);
 bool game_travel(Game *g, int x, int y);
 int game_enter_dimension(Game *g, int dim);
+/* Whether there is air to breathe in a square of a place that has none of its own: it is in a sealed room (walls, and
+ * a wall behind) with something lit in it that gives air. Always true where the place has air. */
+bool game_aired(const Game *g, int x, int y);
+/* Whether the character in hand is somewhere with nothing to breathe. */
+bool game_airless(const Game *g);
+/* A way to another place that is launched: what the rocket under it has, and what the way asks. False if it is not one. */
+bool game_rocket_report(const Game *g, int x, int y, int *fuel, int *thrust, float *reliability, bool *escape, int *need_fuel, int *need_thrust);
 /* Whether a recipe that wants a formula found can be made in this world yet. */
 bool game_recipe_known(const Game *g, const Recipe *r);
 /* Makes the game's own room for a world that has just been given more rows. False if there was not the memory. */

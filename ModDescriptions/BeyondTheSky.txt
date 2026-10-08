@@ -1,0 +1,77 @@
+BEYOND THE SKY - WHAT WAS ASKED FOR, AND WHAT WAS BUILT
+
+The proposal is ModDescriptions/Proposal2.txt. The owner asked for it built in one sitting, without the questions
+being put first, and said:
+
+  - Aim for video-game mechanics (not for realism).
+  - NO ending: progression up to the red planet and through it. (So: no derelict, no last launch.)
+  - Five more portal tiers: two for the Moon (VII, VIII), one for the asteroid belt (IX), two for the red planet
+    (X, XI).
+  - A LOT more exploration content in the places, and lots of content altogether.
+
+So the proposal's questions were answered by that and by me:
+  Q1 how real        Not at all. A rocket has FUEL and THRUST, added up from its parts; a way to a place asks for
+                     so much of each; the cursor over the capsule says what there is against what is wanted.
+  Q2 what a rocket is  Blocks on a pad, as proposed - but one column (with boosters standing either side), not
+                     five wide, and it does not fly: at launch the stack is spent and whoever launched is there.
+  Q3 air             As proposed, simply: a place with no air; a room is sealed if it is closed in by blocks and
+                     has a wall behind every square of it; an air vent burning oxygen fills it. Outside one,
+                     breath runs down as it does under water, and a suit is many times the breath.
+  Q4 gravity         Two kinds only: none (orbit, the Belt: everybody floats, as in water) and low (the Moon, the
+                     red planet: no fall is a fall). Nobody jumps higher.
+  Q5 the places      Four, stacked under the world as Dimensions' are: orbit, the Moon, the Belt, the red planet.
+  Q6 power           Its own (solar array, radioisotope generator, fission reactor, power cell, cable), on the
+                     fields the base game already has.
+  Q7 an ending       None, as told.
+
+WHAT WAS BUILT (368 blocks, 644 items, 497 recipes, 46 creatures, 29 biomes, 4 places, 64 structures, 14 sets)
+
+  Rocketry. A launch pad; five engines (and each "proven" on a test stand, which makes it surer); four tanks and
+    their long kinds; an interstage; a launch escape tower (a failed launch then hurts nobody); a gantry to climb.
+    Four capsules - orbital capsule, lunar lander, belt hauler, Mars lander - each made with the one before in
+    it, each needing its chart from the observatory. An engine can fail: the rocket is lost and, with no tower,
+    the pad is blown up and the crew hurt. The lander left at the far end is the way home, and asks for nothing.
+  Knowledge. Charts are drawn at the observatory (the first from a sounding rocket's sample); surveys are made at
+    the sample lab from samples of a place, and nothing of the next tier can be made until its survey has been.
+    Eight precursor glyphs, found only in caskets, each unlock one piece of their technology.
+  Air and bases. Hull, deck, viewports, habitat wall, dome glass, airlock doors, the air vent, an oxygen plant
+    (electric), bunks, lights, consoles, lockers and about thirty other furnishings. Hydroponic trays and ten
+    crops that grow only in air.
+  Suits. Six, of four pieces, from the flight suit to the explorer exosuit; a thruster pack.
+  Long makings. Each metal is refined in one to four stages before it is any use; electronics are five tiers,
+    each built on a doped wafer of its place's crystal and on the tier before; every finished thing is built
+    round a MODULE or an ASSEMBLY of its tier, each with the last tier's in it; and tier XI has the precursors'
+    four-step making on top. Fewest makings to a finished thing: tier VI 4-5, VII 5-7, VIII 7-8, IX 8-9, X 10-12,
+    XI 15.
+  Portals and trade to XI, as asked: lunite block (VII), moon crystal (VIII), star sapphire (IX), martian steel
+    block (X), Mars opal (XI); each new portal level makes one relic of its own.
+  The places.
+    ORBIT  Wreckage adrift: 12 kinds of thing to find (dead satellites, a station wreck, a lost lab, pods).
+    THE MOON  A new "surface" generator: terraced ground under a black sky, craters, lava tubes whose floors are
+      the country above; 8 kinds of country (mare, highlands, polar craters with ice, crystal fields, glass
+      plains, a precursor site, rayed craters, lava plain); 16 structures (an old lander, a sealed outpost with
+      a vent still in it, a precursor vault, a mass driver's ruin...).
+    THE BELT  Asteroids of five kinds, a wreck field, a living garden, a precursor shell; 15 structures.
+    THE RED PLANET  The same generator with a canyon sixty-four deep in it; 10 kinds of country (rust plains,
+      dunes, the polar cap, canyon lands, a volcanic rise, salt flats, colony ruins, living ground, pyramid
+      fields, a glass forest); 20 structures (colony domes with crops still in them, a crashed ship, pyramids,
+      a sphinx, a great ring).
+  To find: five kinds of cache; 12 mission logs; 16 relics in four sets, and each restorable into a better one;
+    18 mineral specimens (a rock gives one now and then) and 8 fossils, each of which can be mounted; samples
+    from the ground itself; 22 wild plants and four giant fungi; three great beasts (the Lunar colossus, the
+    Belt leviathan, the Red wyrm) and a Pyramid guardian, each carrying a glyph.
+
+WHAT WAS NOT BUILT, of the proposal
+  - Rockets do not fly: there is no flight to watch, no stage falling back, nothing recovered. Only one column.
+  - Engines do not get surer by flying; the test stand does that in one step.
+  - No probes, no landing sites to map: a lander comes down wherever the engine puts it.
+  - Satellites are things to set down and look at. They do nothing.
+  - Weightlessness is floating, as in water: no pushing off walls, no thrusters needed, nothing drifts.
+  - Air does not go bad, has no quantity, and does not leak slowly: a room has it or has not. No scrubbers,
+    no hoses, no alarm.
+  - Heat, cold and radiation do not kill; nights are not two weeks long.
+  - No rovers to drive, no mining ship, no mass driver that works, no 3D printing of a base (the matter printer
+    is a bench).
+  - A station is built block by block; there are no modules to launch and dock.
+  - The derelict and the ending were left out as told.
+  - Nothing has been played. Every number - fuel, thrust, reliability, breath - is a first guess.

@@ -26,7 +26,7 @@
 #define MAX_DAO_STAGES 96
 #define DAO_ELEMENTS 5
 #define DAO_MERIDIANS 12
-#define MAX_STRUCTURES 48
+#define MAX_STRUCTURES 128
 #define STRUCTURE_MAX_WIDTH 32
 #define STRUCTURE_MAX_HEIGHT 20
 #define MAX_VILLAGE_KINDS 8
@@ -355,6 +355,13 @@ typedef struct {
     /* "grow_one_in": it grows on only one time in so many that its turn comes (0 or 1: every time). "insight": what
      * using it gives somebody who cultivates (with "use_becomes", once). */
     int grow_one_in, insight;
+    /* Rocketry. "rocket": a part of one - the fuel it holds, the thrust it gives, how likely it is to work, whether it
+     * saves the crew when one does not. "pad": what a rocket stands on. "launch": on a way to another place - it is gone
+     * through only from on top of a rocket with so much fuel and thrust. "air": lit, it fills the sealed room it is in
+     * with air. "needs_air": it grows only in air. */
+    int rocket_fuel, rocket_thrust, launch_fuel, launch_thrust;
+    float rocket_reliability;
+    bool rocket_escape, pad, gives_air, needs_air;
     bool formation, formation_gate, formation_bars, formation_wanders;
     TileType formation_flags;
     int formation_pattern, formation_min, formation_max; /* 0 a cross: four, level and plumb; 1 a square: four, at the corners; 2 a ring: all eight */
@@ -870,7 +877,7 @@ typedef struct {
     TileType street, ground;
 } VillageDef;
 
-enum { DIM_ISLANDS, DIM_CAVERNS, DIM_VOID, DIM_GROVE };
+enum { DIM_ISLANDS, DIM_CAVERNS, DIM_VOID, DIM_GROVE, DIM_SURFACE };
 
 /* A realm of cultivation: so many stages, the first holding so much qi and each after it so many times the last. */
 typedef struct {
@@ -954,11 +961,19 @@ typedef struct {
     int ambient;         /* it is never darker there than this, 0..15 */
     bool has_sky_color;  /* its sky is of its own colours: by day, and by night */
     bool stars;          /* "stars": there are stars in it at every hour */
+    /* "gravity": 1 as where the world began; less, and any drop is a step; 0, and everybody floats. "airless": nobody
+     * breathes there but in a sealed room with air let into it. */
+    float gravity;
+    bool airless;
+    /* "surface": ground with a sky over it - how far down the place it lies (a share), how much it rises and falls,
+     * craters to 100 columns and how wide, lava tubes to 100 columns, and a canyon so wide and so deep. */
+    float surface_level, crater_rate, tube_rate;
+    int surface_relief, crater_min, crater_max, canyon_width, canyon_depth;
     unsigned char sky_day[3], sky_night[3];
     float qi;            /* how rich in qi the whole of it is, beside the usual: 0 for no different */
     /* Things built that stand on its islands: so many islands in a hundred have one, chosen from these. And
      * between islands that are near and level, a bridge of `bridge`, broken here and there. */
-    int structures[8];
+    int structures[24];
     int structure_count;
     float structure_share;
     TileType bridge;

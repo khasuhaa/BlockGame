@@ -1085,6 +1085,33 @@ A bench with more than 60 recipes shows them two rows deep, and one with more th
 
 In the data: `"tame"` and `"companion"` on creatures and `"tames"` on items; `"grow_one_in"` and `"insight"` (with `"use_becomes"`) on blocks; `"insight"` and `"meridian"` on items; `"insight"` in a technique and in a stage's `"needs"`; `"scorch"` in `"cultivation"`. And: `"cultivation"` in `rules.json` (realms with `"stages"`, `"qi"`, `"growth"`, `"boons"`, `"pill"`, `"bolts"`, `"bolt"`, `"revives"`; `"needs"` by stage; `"called"`; `"immortal_boons"`); on items `"manual"`, `"technique"`, `"qi"`, `"toxin"`, `"opens_meridian"`, `"washes_roots"`, `"calls_tribulation"`, `"needs_stage"`, and the boons `"qi"`, `"breakthrough"`, `"ward"`; on blocks `"qi"`, `"qi_reach"`, `"needs_qi"`, `"formation"`; on biomes and dimensions `"qi"`; and for dimensions the `"grove"` generator, `"structures"`, `"structure_share"`, `"bridge"` and `"void"` (the size of a void's island).
 
+### Beyond the Sky
+
+A mod of rockets and the places they reach: orbit, the Moon, the asteroid belt and the red planet. What it set out to be and what it is are in `ModDescriptions/BeyondTheSky.txt`.
+
+**A rocket** is built of blocks: a **launch pad**, then **engines** and **tanks** stacked on it (and boosters may stand on the ground either side), and a **capsule** on top, reached by a **gantry**. Each part adds fuel or thrust; each capsule is for one place and asks for so much of both - put the cursor on the capsule to see what the stack has against what is wanted. Use the capsule to launch. The rocket is spent whatever happens, and sometimes an engine fails: the least sure engine in the stack decides how often, an engine **proven** on the test stand is surer, and a **launch escape tower** in the stack means a failure hurts nobody (without one the pad goes up and so does the crew's health). The capsule is found beside you where you land: using it there is the way home, and asks for no rocket.
+
+| Capsule | Goes to | Fuel | Thrust |
+| --- | --- | --- | --- |
+| Orbital capsule | Orbit | 60 | 2 |
+| Lunar lander | The Moon | 150 | 4 |
+| Belt hauler | The Belt | 320 | 8 |
+| Mars lander | The red planet | 600 | 14 |
+
+**Knowing the way.** A capsule cannot be made until its **chart** has been drawn at the **observatory** (the first needs samples brought down by a **sounding rocket**). Nothing of the Moon's tier can be made until a **lunar survey** has been made at the **sample lab** from lunar samples, and so on for the Belt and the red planet. Samples come out of the ground itself now and then, from creatures, from caches and from mineral specimens.
+
+**No air.** Out there breath runs down as it does under water - the bar at the top of the screen - and a suit is breath to last: the six suits are 6 to 120 times a bare head's when all four pieces are on. An **oxygen canister** is a full breath at once. A room has air if it is **sealed** - closed in by blocks, with a wall behind every square of it (set a block and dig it out again to leave one) - and has an **air vent** in it burning canisters or liquid oxygen. Crops in **hydroponic trays** grow only in air. Break the wall and the air is gone.
+
+**Weight.** In orbit and in the Belt nothing has any: everybody floats, as in water. On the Moon and the red planet a fall of any height is a step.
+
+**Long makings.** Each metal - lunite and tranquillium on the Moon, meteoric iron and iridium in the Belt, martian steel, tharsium and uranium on the red planet - is refined in up to four stages before it is plate; electronics are five tiers, each on a wafer of its place's crystal and the tier before; and everything finished is built round its tier's **module** or **assembly**. The last tier takes the precursors' own making on top.
+
+**Portals and trade** go on to XI: two levels for the Moon, one for the Belt, two for the red planet.
+
+**To find.** In all four places: wrecks, outposts, colonies and the works of whoever was there first (64 kinds of structure); caches; twelve mission logs; sixteen relics, each of which can be **restored** into a better one; eighteen mineral specimens and eight fossils to mount; **precursor glyphs**, each of which unlocks one thing of theirs (a phase drill, a gravity lens, a stasis projector, a shield, a plasma lance, a recall beacon, a serum, a matter printer); wild plants and giant fungi; and four great beasts.
+
+In the data: on a dimension `"generator": "surface"` with `"surface"` (`"level"`, `"relief"`, `"craters"`, `"crater_radius"`, `"tubes"`, `"canyon_width"`, `"canyon_depth"`), `"gravity"`, `"airless"`; on a block `"rocket"` (`"fuel"`, `"thrust"`, `"reliability"`, `"escape"`), `"pad"`, `"launch"` (on a block that `"leads_to"` a place), `"air"`, `"needs_air"`.
+
 ### Golden chests
 
 Under a beach, quite often - about one column in six, a dozen or more to a world - a golden chest lies buried at the bottom of the sand: behind the sand, in the background, so it is not seen or opened until the sand in front of it is dug away. (Golden chests and portal chests are things of the background: they are walked past, not into.) A golden chest is what a portal chest is made from (with 100 crystals, at a tier 6 portal), and a tier 2 metalwork bench melts one down into a gold coin. It opens and is carried off like any chest. The first time it is opened or dug up it holds 1 to 5 gold coins, up to 3 gold ore, up to 3 iron ingots, perhaps a titanium ingot, and one gem shard: of amethyst most often, then sapphire, emerald, and ruby least. What a block is found holding is its `"loot"` in `tiles.json`, and where it is buried is `"buried"` on a biome in `worldgen.json`; a golden chest the player puts down, or buys, holds only what they put in it.

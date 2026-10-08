@@ -1764,6 +1764,79 @@ static void region_grove(World *w, int region, uint32_t *rng)
     }
 }
 
+/* Ground with a sky over it: a line of hills by the seed, craters knocked out of it, a canyon if the place has one,
+ * each country's own ground on top - and under it lava tubes, whose floors are that country's ground too, so that
+ * what grows and what is left lying there is found below as well as above. */
+static void region_surface(World *w, int region, uint32_t *rng)
+{
+    const Region *g = &w->regions[region];
+    const DimensionDef *d = &content.dimensions[g->dim];
+    int base = g->y0 + (int)((float)g->height * d->surface_level), bottom = g->y0 + g->height - 2;
+    int *top = malloc(sizeof(int) * (size_t)w->width);
+    if (!top) return;
+    /* (In terraces: level stretches of this length and that, a step between - so that there is somewhere to stand, and to build.) */
+    for (int x = 0, from = 0, level = base; x < w->width; x++) {
+        if (x >= from) {
+            level = base + (int)(ring_noise(w->seed ^ 0x5F0Bu, x, w->width, 90) * (float)d->surface_relief + ring_noise(w->seed ^ 0x77A1u, x, w->width, 17) * (float)d->surface_relief * 0.25f);
+            from = x + 8 + (int)(hash01(w->seed ^ 0x7E44u, x) * 26.0f);
+        }
+        top[x] = level;
+    }
+    /* Craters: bowls with a raised rim. */
+    int craters = (int)(d->crater_rate * (float)w->width / 100.0f);
+    for (int n = 0; n < craters; n++) {
+        int cx = rng_range(rng, 0, w->width - 1), rad = rng_range(rng, d->crater_min, d->crater_max);
+        if (abs(world_dx(w, cx, w->spawn_x)) < rad + 6) continue;
+        for (int dx = -rad - 2; dx <= rad + 2; dx++) {
+            int x = world_wrap_x(w, cx + dx);
+            float t = (float)abs(dx) / (float)rad;
+            if (t <= 1.0f) top[x] += (int)((1.0f - t * t) * (float)rad * 0.55f);
+            else top[x] -= 1;
+        }
+    }
+    /* A canyon: one, a long way from where the place is come into, cut in steps. */
+    if (d->canyon_width > 0 && d->canyon_depth > 0) {
+        int cx = world_wrap_x(w, w->spawn_x + w->width / 3), half = d->canyon_width / 2;
+        for (int dx = -half; dx <= half; dx++) {
+            float t = 1.0f - (float)abs(dx) / (float)half;
+            int step = (int)(t * 5.0f);
+            top[world_wrap_x(w, cx + dx)] += (int)((float)d->canyon_depth * (float)(step > 4 ? 4 : step) / 4.0f) + (int)(ring_noise(w->seed ^ 0xCA41u, cx + dx, w->width, 9) * 2.0f);
+        }
+    }
+    for (int x = 0; x < w->width; x++) {
+        const BiomeDef *b = &content.biomes[world_biome_at(w, x, g->y0 + 1)];
+        bool mine = b->dimension == g->dim;
+        if (top[x] < g->y0 + 12) top[x] = g->y0 + 12;
+        if (top[x] > bottom - 12) top[x] = bottom - 12;
+        int soil = 3 + (int)(hash01(w->seed ^ 0x5011u, x) * 3.0f);
+        for (int y = top[x]; y <= bottom; y++) {
+            int k = y - top[x];
+            TileType tile = !mine ? d->rock : k == 0 ? b->surface : k <= soil ? b->soil : (b->under != TILE_AIR && k <= b->under_depth) ? b->under : d->rock;
+            float share = (float)(y - g->y0) / (float)g->height;
+            for (int s = 0; s < d->strata_count && k > soil; s++)
+                if (share >= d->strata[s].from) tile = d->strata[s].tile;
+            put_rock(w, x, y, tile);
+        }
+    }
+    /* Lava tubes, and a few great chambers. */
+    int tubes = (int)(d->tube_rate * (float)w->width / 100.0f);
+    for (int n = 0; n < tubes; n++) {
+        int x = rng_range(rng, 0, w->width - 1), y = top[x] + rng_range(rng, 10, (bottom - top[x]) - 8 > 12 ? (bottom - top[x]) - 8 : 12);
+        if (y > bottom - 6) continue;
+        bool great = rng_range(rng, 0, 5) == 0;
+        region_hall(w, region, rng, x, y, great ? 5.0f : 2.0f, great ? 10.0f : 4.0f, rng_range(rng, great ? 30 : 50, great ? 70 : 180));
+    }
+    /* The floors below are their country's ground. */
+    for (int x = 0; x < w->width; x++) {
+        const BiomeDef *b = &content.biomes[world_biome_at(w, x, g->y0 + 1)];
+        if (b->dimension != g->dim) continue;
+        for (int y = top[x] + 4; y < bottom; y++)
+            if (world_get(w, x, y) == TILE_AIR && world_get(w, x, y + 1) != TILE_AIR && world_get(w, x, y - 1) == TILE_AIR && world_get(w, x, y - 2) == TILE_AIR)
+                w->layers[LAYER_FOREGROUND][(size_t)(y + 1) * w->width + x] = (uint16_t)b->surface;
+    }
+    free(top);
+}
+
 /* What has been built on a dimension's islands: on so many of the level stretches wide enough, a structure;
  * and between islands that are near and level with each other, what is left of a bridge. */
 static void region_built(World *w, int region, uint32_t *rng)
@@ -1869,6 +1942,7 @@ int world_add_region(World *w, int dim, const char *name, int height, bool gener
     if (d->generator == DIM_ISLANDS) region_islands(w, region, &rng);
     else if (d->generator == DIM_CAVERNS) region_caverns(w, region, &rng);
     else if (d->generator == DIM_GROVE) region_grove(w, region, &rng);
+    else if (d->generator == DIM_SURFACE) region_surface(w, region, &rng);
     else region_void(w, region, &rng);
     region_built(w, region, &rng);
     region_geodes(w, region, &rng);

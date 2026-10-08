@@ -381,6 +381,15 @@ static bool read_tiles(Reader *r, const cJSON *root)
             t->qi_reach = (int)num(e, "qi_reach", 6);
             t->needs_qi = (float)num(e, "needs_qi", 0.0);
             t->grow_one_in = (int)num(e, "grow_one_in", 0);
+            t->rocket_fuel = (int)num(field(e, "rocket"), "fuel", 0);
+            t->rocket_thrust = (int)num(field(e, "rocket"), "thrust", 0);
+            t->rocket_reliability = (float)num(field(e, "rocket"), "reliability", 1.0);
+            t->rocket_escape = flag(field(e, "rocket"), "escape", false);
+            t->launch_fuel = (int)num(field(e, "launch"), "fuel", 0);
+            t->launch_thrust = (int)num(field(e, "launch"), "thrust", 0);
+            t->pad = flag(e, "pad", false);
+            t->gives_air = flag(e, "air", false);
+            t->needs_air = flag(e, "needs_air", false);
             t->insight = (int)num(e, "insight", 0);
             t->formation = form != NULL;
             t->formation_gate = flag(form, "gate", false);
@@ -1546,8 +1555,21 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         copy_name(d->name, sizeof d->name, name);
         copy_name(d->label, sizeof d->label, str(e, "label") ? str(e, "label") : name);
         d->generator = !kind || strcmp(kind, "islands") == 0 ? DIM_ISLANDS : strcmp(kind, "caverns") == 0 ? DIM_CAVERNS : strcmp(kind, "void") == 0 ? DIM_VOID :
-                       strcmp(kind, "grove") == 0 ? DIM_GROVE : -1;
-        if (d->generator < 0) return fail(r, "dimension \"%s\": its \"generator\" is \"islands\", \"caverns\", \"void\" or \"grove\"", name);
+                       strcmp(kind, "grove") == 0 ? DIM_GROVE : strcmp(kind, "surface") == 0 ? DIM_SURFACE : -1;
+        if (d->generator < 0) return fail(r, "dimension \"%s\": its \"generator\" is \"islands\", \"caverns\", \"void\", \"grove\" or \"surface\"", name);
+        {
+            const cJSON *land = field(e, "surface");
+            d->gravity = (float)num(e, "gravity", 1.0);
+            d->airless = flag(e, "airless", false);
+            d->surface_level = (float)num(land, "level", 0.4);
+            d->surface_relief = (int)num(land, "relief", 10);
+            d->crater_rate = (float)num(land, "craters", 0.0);
+            d->tube_rate = (float)num(land, "tubes", 0.0);
+            d->crater_min = 4, d->crater_max = 14;
+            pair(land, "crater_radius", &d->crater_min, &d->crater_max);
+            d->canyon_width = (int)num(land, "canyon_width", 0);
+            d->canyon_depth = (int)num(land, "canyon_depth", 0);
+        }
         d->qi = (float)num(e, "qi", 0.0);
         {
             const cJSON *grove = field(e, "grove"), *built = field(e, "structures"), *one;
@@ -1563,7 +1585,7 @@ static bool read_worldgen(Reader *r, const cJSON *root)
                 int found = -1;
                 for (int i = 0; cJSON_IsString(one) && i < content.structure_count; i++)
                     if (strcmp(content.structures[i].name, one->valuestring) == 0) found = i;
-                if (found < 0 || d->structure_count >= 8) return fail(r, "dimension \"%s\" lists at most 8 structures that exist", name);
+                if (found < 0 || d->structure_count >= 24) return fail(r, "dimension \"%s\" lists at most 24 structures that exist", name);
                 d->structures[d->structure_count++] = found;
             }
             if (d->generator == DIM_GROVE && (d->trunk == TILE_AIR || d->bough == TILE_AIR)) return fail(r, "dimension \"%s\": a grove needs a \"trunk\" and a \"bough\"", name);

@@ -12791,6 +12791,221 @@ static void test_seeker_mod(void)
         if (&mods.mods[i] != mine) CHECK(!mods_conflict(mine, &mods.mods[i], what, sizeof what));
 }
 
+/* Beyond the Sky: rockets, places with no air and little weight, and what is found there. */
+static void test_sky_mod(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count, mobs = content.mob_count, biomes = content.biome_count;
+    if (!content_load("mods/beyond_the_sky", err, sizeof err)) {
+        printf("FAIL beyond the sky does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    if (content.tile_count != tiles + 368 || content.item_count != items + 644 || content.recipe_count != recipes + 497 || content.mob_count != mobs + 46 || content.biome_count != biomes + 29)
+        printf("sky counts: %d tiles %d items %d recipes %d mobs %d biomes\n", content.tile_count - tiles, content.item_count - items, content.recipe_count - recipes, content.mob_count - mobs, content.biome_count - biomes);
+    CHECK(content.tile_count == tiles + 368 && content.item_count == items + 644 && content.recipe_count == recipes + 497 && content.mob_count == mobs + 46 && content.biome_count == biomes + 29);
+    /* Five more levels of portal and of trade: two for the Moon, one for the Belt, two for the red planet. */
+    CHECK(tile_def(tile_id("portal_6"))->upgrade_to == tile_id("sky_portal_7") && tile_def(tile_id("sky_portal_11"))->bench_level == 11 && tile_def(tile_id("sky_trade_portal_11"))->trade_level == 11);
+    CHECK(item_def(item_id("lunite_pickaxe"))->tier == 7 && item_def(item_id("tranquillium_pickaxe"))->tier == 8 && item_def(item_id("meteoric_iron_pickaxe"))->tier == 9 &&
+          item_def(item_id("martian_steel_pickaxe"))->tier == 10 && item_def(item_id("tharsium_pickaxe"))->tier == 11);
+    int orbit = -1, moon = -1, belt = -1, mars = -1;
+    for (int d = 0; d < content.dimension_count; d++) {
+        if (strcmp(content.dimensions[d].name, "orbit") == 0) orbit = d;
+        if (strcmp(content.dimensions[d].name, "moon") == 0) moon = d;
+        if (strcmp(content.dimensions[d].name, "belt") == 0) belt = d;
+        if (strcmp(content.dimensions[d].name, "mars") == 0) mars = d;
+    }
+    CHECK(orbit >= 0 && moon >= 0 && belt >= 0 && mars >= 0);
+    CHECK(content.dimensions[orbit].gravity == 0.0f && content.dimensions[orbit].airless && content.dimensions[moon].gravity < 0.2f && content.dimensions[mars].airless &&
+          content.dimensions[moon].generator == DIM_SURFACE && content.dimensions[mars].canyon_depth == 64);
+    /* What must be known before a thing can be made: a survey of the place its stuff is from. */
+    const Recipe *chip = NULL;
+    for (int i = 0; i < content.recipe_count; i++)
+        if (content.recipes[i].output.id == item_id("processor")) chip = &content.recipes[i];
+    CHECK(chip && chip->formula == item_id("lunar_survey") && tile_def(tile_id("space_lettuce_0"))->needs_air && tile_def(tile_id("air_vent"))->gives_air);
+
+    static Game g;
+    game_init(&g, 256, 80, 31, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    g.tick_rate = 20;
+    int x = w->spawn_x + 10, r = w->surface_y - 1;
+    g.player.feet = g.player.step_to = (TilePos){ x - 1, r };
+    clear_inventory(&g);
+
+    /* A rocket: a pad, engines and tanks on it, and the capsule on top. What it has is read from the stack. */
+    int fuel, thrust, need_fuel, need_thrust;
+    float sure;
+    bool escape;
+    world_set(w, x, r, tile_id("launch_pad"));
+    world_set(w, x, r - 1, tile_id("proven_kerosene_engine"));
+    world_set(w, x, r - 2, tile_id("kerosene_tank"));
+    put(&g, "orbital_capsule", x, r - 3);
+    CHECK(game_rocket_report(&g, x, r - 3, &fuel, &thrust, &sure, &escape, &need_fuel, &need_thrust));
+    CHECK(fuel == 30 && thrust == 2 && need_fuel == 60 && need_thrust == 2 && !escape && sure > 0.95f && !game_gate_open(&g, x, r - 3));
+    /* Not enough to get there: another tank under the capsule, and a tower to save the crew - and then it is. */
+    world_set_at(w, BG, x, r - 3, TILE_AIR);
+    world_set(w, x, r - 3, tile_id("kerosene_tank"));
+    world_set(w, x, r - 4, tile_id("escape_tower"));
+    put(&g, "orbital_capsule", x, r - 5);
+    CHECK(game_rocket_report(&g, x, r - 5, &fuel, &thrust, &sure, &escape, &need_fuel, &need_thrust) && fuel == 60 && thrust == 2 && escape && game_gate_open(&g, x, r - 5));
+    /* (A booster standing beside it counts as well.) */
+    world_set(w, x + 1, r - 1, tile_id("solid_booster"));
+    CHECK(game_rocket_report(&g, x, r - 5, &fuel, &thrust, &sure, &escape, &need_fuel, &need_thrust) && fuel == 70 && thrust == 3 && sure < 0.9f);
+    world_set(w, x + 1, r - 1, TILE_AIR);
+    /* Without a pad under it, it is nothing. */
+    world_set(w, x, r, tile_id("stone"));
+    CHECK(!game_gate_open(&g, x, r - 5));
+    world_set(w, x, r, tile_id("launch_pad"));
+    /* The launch: the rocket is spent - and, unless an engine fails, they are in orbit, where nothing has weight and there is nothing to breathe. */
+    g.player.feet = g.player.step_to = (TilePos){ x - 1, r };
+    bool went = game_travel(&g, x, r - 5);
+    CHECK(world_get(w, x, r - 1) == TILE_AIR && world_get(w, x, r - 2) == TILE_AIR && world_get(w, x, r - 4) == TILE_AIR && world_get(w, x, r) == tile_id("launch_pad") && is_block(&g, "orbital_capsule", x, r - 5));
+    if (!went) {
+        /* (It failed, and the tower saved them: nobody was hurt. Another, with nothing to fail.) */
+        CHECK(g.vitals.health == 1.0f && world_dimension_at(w, g.player.feet.y) < 0);
+        for (int tries = 0; tries < 20 && !went; tries++) {
+            world_set(w, x, r - 1, tile_id("proven_kerosene_engine"));
+            world_set(w, x, r - 2, tile_id("kerosene_tank"));
+            world_set(w, x, r - 3, tile_id("kerosene_tank"));
+            world_set(w, x, r - 4, tile_id("escape_tower"));
+            went = game_travel(&g, x, r - 5);
+        }
+    }
+    CHECK(went && world_dimension_at(w, g.player.feet.y) == orbit && w->region_count == 1);
+    game_click_tile(&g, g.player.feet.x + 1, g.player.feet.y);
+    game_cancel_actions(&g);
+    CHECK(w->aloft);
+    CHECK(game_airless(&g) && !game_aired(&g, g.player.feet.x, g.player.feet.y - 1));
+    float breath = g.vitals.oxygen;
+    ticks(&g, 100);
+    CHECK(g.vitals.oxygen < breath);
+    /* A suit is breath to last: all four pieces of one, many times a bare head's. */
+    float bare = breath - g.vitals.oxygen;
+    const char *suit[4] = { "eva_suit_helmet", "eva_suit_torso", "eva_suit_legs", "eva_suit_boots" };
+    for (int i = 0; i < 4; i++) {
+        in_hand(&g, suit[i]);
+        CHECK(inventory_equip_selected(inv));
+    }
+    CHECK(game_boons(&g).lung > 27.0f && game_boons(&g).lung < 29.0f);
+    breath = g.vitals.oxygen;
+    ticks(&g, 100);
+    CHECK(breath - g.vitals.oxygen < bare / 20.0f && breath - g.vitals.oxygen > 0.0f);
+    /* A can of oxygen is breath at once. */
+    g.vitals.oxygen = 0.3f;
+    in_hand(&g, "oxygen_canister");
+    CHECK(game_can_eat(&g, item_id("oxygen_canister")) && game_eat(&g) && g.vitals.oxygen == 1.0f);
+
+    /* A room: walls all round and a wall behind, and a vent with oxygen to burn. Then there is air in it - and not when it is holed. */
+    int y0, y1;
+    world_region_rows(w, world_region_of(w, orbit), &y0, &y1);
+    int bx = 40, by = y0 + 30;
+    for (int dy = -1; dy <= 4; dy++)
+        for (int dx = -1; dx <= 6; dx++) {
+            bool edge = dy == -1 || dy == 4 || dx == -1 || dx == 6;
+            world_set(w, bx + dx, by + dy, edge ? tile_id("hull_panel") : TILE_AIR);
+            world_set_at(w, BG, bx + dx, by + dy, TILE_AIR);
+            world_set_at(w, LAYER_WALL, bx + dx, by + dy, tile_id("hull_panel"));
+        }
+    g.player.feet = g.player.step_to = (TilePos){ bx + 1, by + 3 };
+    g.air_tick = 0;
+    CHECK(!game_aired(&g, bx + 1, by + 2) && game_airless(&g));
+    clear_inventory(&g);
+    inventory_add(inv, item_id("air_vent"), 1);
+    inventory_select(inv, 0, -1);
+    CHECK(game_click_tile(&g, bx + 2, by + 3));
+    run(&g, 2.0f);
+    CHECK(is_block(&g, "air_vent", bx + 2, by + 3) && !game_aired(&g, bx + 1, by + 2));
+    CHECK(game_queue_action(&g, ACTION_USE, bx + 2, by + 3));
+    run(&g, 2.0f);
+    inventory_add(inv, item_id("oxygen_canister"), 2);
+    CHECK(g.bench_open && game_add_fuel(&g, item_id("oxygen_canister")) && game_bench_fuel(&g, NULL) == 6000);
+    game_close_bench(&g);
+    g.air_tick = 0;
+    CHECK(game_aired(&g, bx + 1, by + 2) && game_aired(&g, bx + 5, by) && !game_airless(&g));
+    g.vitals.oxygen = 0.5f;
+    ticks(&g, 30);
+    CHECK(g.vitals.oxygen > 0.5f);
+    /* What is sown in a tray grows in air, and nowhere else out here. */
+    world_set(w, bx + 4, by + 3, tile_id("hydroponic_tray"));
+    put(&g, "space_lettuce_0", bx + 4, by + 2);
+    CHECK(game_aired(&g, bx + 4, by + 2));
+    world_set(w, bx + 6, by + 1, TILE_AIR);
+    world_set_at(w, LAYER_WALL, bx + 6, by + 1, TILE_AIR);
+    g.air_tick = 0;
+    CHECK(!game_aired(&g, bx + 1, by + 2) && game_airless(&g));
+    /* (Nor is a room with no wall behind it a room.) */
+    world_set(w, bx + 6, by + 1, tile_id("hull_panel"));
+    world_set_at(w, LAYER_WALL, bx + 6, by + 1, tile_id("hull_panel"));
+    CHECK(game_aired(&g, bx + 1, by + 2));
+    world_set_at(w, LAYER_WALL, bx + 3, by + 1, TILE_AIR);
+    CHECK(!game_aired(&g, bx + 1, by + 2));
+    world_set_at(w, LAYER_WALL, bx + 3, by + 1, tile_id("hull_panel"));
+
+    /* The Moon: ground under a black sky, craters and tubes in it, things left on it; and a sixth of the weight. */
+    int luna = game_enter_dimension(&g, moon);
+    CHECK(luna == 1);
+    world_region_rows(w, luna, &y0, &y1);
+    CHECK(count_tile(w, 0, tile_id("regolith")) + count_tile(w, 0, tile_id("dark_regolith")) > 300 && count_tile(w, 0, tile_id("mare_basalt")) > 2000 && count_tile(w, 0, tile_id("lunite_ore")) > 10);
+    int sky_rows = 0, open_below = 0;
+    for (int y = y0 + 2; y < y1 - 2; y++) {
+        sky_rows += world_get(w, 5, y) == TILE_AIR && y < y0 + 40;
+        for (int cx = 0; cx < w->width; cx += 8) open_below += y > y0 + 140 && world_get(w, cx, y) == TILE_AIR;
+    }
+    CHECK(sky_rows > 20 && open_below > 10);
+    TilePos stand = { 0, 0 };
+    for (int cx = 20; cx < w->width && stand.y == 0; cx++)
+        for (int y = y0 + 4; y < y1 - 4; y++)
+            if (world_get(w, cx, y) == TILE_AIR && world_get(w, cx, y - 1) == TILE_AIR && world_is_solid(w, cx, y + 1)) {
+                stand = (TilePos){ cx, y };
+                break;
+            }
+    g.player.feet = g.player.step_to = stand;
+    g.air_tick = 0;
+    game_click_tile(&g, stand.x + 1, stand.y);
+    game_cancel_actions(&g);
+    CHECK(stand.y > 0 && w->glide && !w->aloft);
+    CHECK(game_airless(&g));
+    /* The Belt and the red planet: rocks adrift; and a planet, with a canyon in it. */
+    int rocks = game_enter_dimension(&g, belt), red = game_enter_dimension(&g, mars);
+    CHECK(rocks == 2 && red == 3 && w->region_count == 4);
+    CHECK(count_tile(w, 0, tile_id("asteroid_rock")) > 500 && count_tile(w, 0, tile_id("meteoric_iron_ore")) > 10 && count_tile(w, 0, tile_id("mars_rock")) > 3000 && count_tile(w, 0, tile_id("martian_steel_ore")) > 10);
+    world_region_rows(w, red, &y0, &y1);
+    int highest = y1, lowest = y0;
+    for (int cx = 0; cx < w->width; cx++)
+        for (int y = y0 + 2; y < y1; y++)
+            if (world_get(w, cx, y) != TILE_AIR) {
+                if (y < highest) highest = y;
+                if (y > lowest) lowest = y;
+                break;
+            }
+    CHECK(lowest - highest > 50);
+    /* Things were left out there: a place of this size has some of them. */
+    int found = count_tile(w, BG, tile_id("lunar_cache")) + count_tile(w, BG, tile_id("colony_locker")) + count_tile(w, BG, tile_id("belt_strongbox")) + count_tile(w, BG, tile_id("supply_pod")) + count_tile(w, BG, tile_id("precursor_casket"));
+    CHECK(found >= 3);
+    /* The way home from anywhere is the lander one came by: it asks for no rocket there. */
+    put(&g, "orbital_capsule", bx + 1, by + 3);
+    CHECK(game_gate_open(&g, bx + 1, by + 3));
+    ticks(&g, 20);
+    CHECK(save_game(&g, "build/test_sky.world"));
+    static Game back;
+    CHECK(load_game(&back, "build/test_sky.world") && back.world.region_count == 4 && world_get(&back.world, bx - 1, by) == tile_id("hull_panel"));
+    game_free(&back);
+    game_free(&g);
+
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/settest/saves");
+    const ModInfo *mine = NULL;
+    for (int i = 0; i < mods.count; i++)
+        if (strcmp(mods.mods[i].id, "beyond_the_sky") == 0) mine = &mods.mods[i];
+    CHECK(mine != NULL);
+    char what[64];
+    for (int i = 0; mine && i < mods.count; i++)
+        if (&mods.mods[i] != mine) CHECK(!mods_conflict(mine, &mods.mods[i], what, sizeof what));
+}
+
 static void test_recipe_shown(void)
 {
     const Recipe *sluice = NULL, *plain = NULL;
@@ -13636,6 +13851,7 @@ int main(void)
     test_basket_slots();
     test_recipe_shown();
     test_seeker_mod();
+    test_sky_mod();
     test_equip_selected();
     test_worn();
     test_trade_tiers();
