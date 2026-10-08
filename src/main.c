@@ -1979,6 +1979,8 @@ static void session_draw(Session *s)
          * leaves no mark on the depth of things: what glows is drawn again through it, where it stands.) */
         rlDrawRenderBatchActive();
         rlDisableDepthMask();
+        /* (A hair in front of the front: laid exactly on the faces of the blocks, it loses to them as often as not.) */
+        world3d_push(1.0f);
         draw_light(g, origin);
         draw_fog(g, origin);
         /* What each of them has queued. */
@@ -1992,6 +1994,7 @@ static void session_draw(Session *s)
             !tradeui_mouse_over(&s->trade, g, &ui_view))
             DrawRectangleLinesEx(tile_rect(origin, tile_at_screen(&s->cam, GetMousePosition())), 1.0f,
                                  Fade(WHITE, 0.5f));
+        world3d_pop();
         rlDrawRenderBatchActive();
         rlEnableDepthMask();
         world3d_end();
