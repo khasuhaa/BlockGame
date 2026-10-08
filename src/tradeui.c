@@ -255,25 +255,32 @@ static void draw_items(const TradeUi *ui, const Game *g, Rectangle panel)
         Rectangle cell = cell_rect(grid, i, ui->scroll);
         if (cell.y + cell.height < grid.y || cell.y > grid.y + grid.height) continue;
         bool chosen = items[i] == ui->selected;
+        /* Every place says what tier its thing is, found or not: gold where this block has yet to be raised to it. */
+        static const char *numerals[11] = { "", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X" };
+        int tier = item_def(items[i])->trade_tier, level = game_trade_level(g);
+        const char *numeral = tier >= 1 && tier <= 10 ? numerals[tier] : "";
+        bool beyond = level > 0 && tier > level;
+        Color tier_color = beyond ? (Color){ 226, 196, 102, 255 } : (Color){ 150, 154, 170, 255 };
         if (!found[i]) {
-            /* Not found in this world yet: its place is kept, and says no more than that. */
             DrawRectangleRec(cell, unknown_color);
             DrawRectangleLinesEx(cell, 2.0f, button_off);
-            int tier = item_def(items[i])->trade_tier;
-            if (g->discovered[items[i]] && tier > game_trade_level(g) && tier <= 10) {
-                /* Found, but more than this block deals in until it is raised: the thing itself, dimmed, and the tier it wants. */
-                static const char *numerals[11] = { "", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X" };
+            if (g->discovered[items[i]] && beyond) {
+                /* Found, but more than this block deals in until it is raised: the thing itself, dimmed. */
                 assets_draw_item_tones(items[i], cell, 0);
                 DrawRectangleRec(cell, Fade(unknown_color, 0.72f));
-                DrawText(numerals[tier], (int)(cell.x + cell.width - 4 - MeasureText(numerals[tier], 14)), (int)(cell.y + cell.height - 17), 14, (Color){ 226, 196, 102, 255 });
             } else {
+                /* Not found in this world yet: its place is kept, and says no more than its tier. */
                 draw_centered("?", cell, 30, (Color){ 96, 100, 116, 255 });
             }
-            continue;
+        } else {
+            DrawRectangleRec(cell, cell_color);
+            DrawRectangleLinesEx(cell, chosen ? 3.0f : 2.0f, chosen ? RAYWHITE : edge_color);
+            assets_draw_item_tones(items[i], cell, 0);
         }
-        DrawRectangleRec(cell, cell_color);
-        DrawRectangleLinesEx(cell, chosen ? 3.0f : 2.0f, chosen ? RAYWHITE : edge_color);
-        assets_draw_item_tones(items[i], cell, 0);
+        /* (On a dark patch of its own, so that it reads over whatever is drawn there.) */
+        int wide = MeasureText(numeral, 10);
+        DrawRectangle((int)(cell.x + cell.width) - wide - 6, (int)(cell.y + cell.height) - 14, wide + 4, 12, Fade(unknown_color, 0.85f));
+        DrawText(numeral, (int)(cell.x + cell.width) - wide - 4, (int)(cell.y + cell.height) - 13, 10, tier_color);
     }
     EndScissorMode();
     if (max_scroll(count) > 0.0f) {
