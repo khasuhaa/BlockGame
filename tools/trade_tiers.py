@@ -122,7 +122,7 @@ NOTES = [
     'Gold/Titanium (gold pickaxe and spade, titanium pickaxe, axe and sword).',
     'The Platinum block with its column and stairs, which the document left out, is in Blocks VI after titanium (the owner said Building VI; the document has '
     'no Building, and columns and stairs are with their blocks).',
-    'Everything in list A is in the category Special, which only the dev portal has.',
+    'Everything in list A is in one of four categories only the dev portal has: Benches, Portals, Creatures (caged ones and eggs) and Special (the rest).',
     'The Train station, which the document does not name, is put with the rail in Energy VI: it is three pieces of rail and a sign.',
     'What the upgrades cost is all in the game already: the five gems, Gold and Platinum coins, and crystals.',
 ]
@@ -141,6 +141,9 @@ for tier, entries in READ.items():
 left = [i for i in ITEMS if i['name'] not in covered]
 TILES = {t['name']: t for t in json.load(open(os.path.join(ROOT, 'data/tiles.json')))['tiles']}
 KINDS = ['Portals', 'Benches', 'Caged creatures', 'Eggs', 'Clothing', 'Tools', 'Other']
+# Which of the dev portal's own categories each kind is listed under.
+FREE = {'Portals': 'portals', 'Benches': 'benches', 'Caged creatures': 'creatures', 'Eggs': 'creatures',
+        'Clothing': 'special', 'Tools': 'special', 'Other': 'special'}
 
 
 def kind(i):
@@ -164,7 +167,7 @@ for n in order:
     BY[n]['tier'] = ['I', 'II', 'III', 'IV', 'V', 'VI'].index(covered[n].split(' ')[1]) + 1
 for i in left:
     i.pop('tier', None)
-    if 'category' in i: i['category'] = 'special'
+    if 'category' in i: i['category'] = FREE[kind(i)]
 ITEMS[:] = [BY[n] for n in order] + left
 open(os.path.join(ROOT, 'data/items.json'), 'w').write('{\n  "items": [\n' + ',\n'.join('    ' + json.dumps(i) for i in ITEMS) + '\n  ]\n}\n')
 out = ['TRADE OBTAINMENT', 'The game\'s items (data/items.json, the game without mods) set against TradeTiers.txt.',
@@ -172,7 +175,7 @@ out = ['TRADE OBTAINMENT', 'The game\'s items (data/items.json, the game without
        '%d items in the game. %d are in the document. %d are not (list A).' % (len(ITEMS), len(covered), len(left)),
        '%d things in the document are not in the game (list B).' % len(missing), '',
        '=' * 78, 'A. IN THE GAME, NOT IN THE DOCUMENT  (%d)' % len(left), '=' * 78,
-       'All of these are in the category Special, at the dev portal only. Grouped by what they are; the name the data uses',
+       'All of these are in categories only the dev portal has (Benches, Portals, Creatures and Special). Grouped by what they are; the name the data uses',
        'follows in brackets where it differs.', '']
 for cat in KINDS + [None]:
     group = [i for i in left if kind(i) == cat]

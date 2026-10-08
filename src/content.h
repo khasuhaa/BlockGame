@@ -455,6 +455,8 @@ typedef struct {
     int poison_every;  /* ticks between those points */
     int category;    /* where it is listed for trading, or -1 if it is not traded */
     char category_name[CONTENT_NAME_LEN];
+    /* The section of the directory that defined it, if that has one (see TradeDef). */
+    char section_name[CONTENT_NAME_LEN];
     int tier;        /* the tier the data gives it, or 0 for none given */
     int trade_tier;  /* how far a trade block must have been raised to deal in it: 1 and up */
     int price;       /* what one costs, in the smallest currency; 0 for the default */
@@ -974,6 +976,9 @@ typedef struct {
         char name[CONTENT_NAME_LEN];
         char label[CONTENT_NAME_LEN];
         bool free_only; /* listed only where everything is given away: what no trade portal deals in */
+        /* (A directory's trade file may name one category as its "section": everything
+         * that directory defines is listed there instead of where it says, unless
+         * where it says is one of these.) */
         /* Other names items may give for it: categories there used to be, which mods still name. */
         char also[MAX_CATEGORY_NAMES][CONTENT_NAME_LEN];
         int also_count;

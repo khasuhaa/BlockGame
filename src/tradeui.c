@@ -3,7 +3,7 @@
 #include "assets.h"
 #include "trade.h"
 
-#define SIDE 112.0f /* the list of categories down the left */
+#define SIDE 150.0f /* the list of categories down the left */
 #define PANEL_WIDTH (404.0f + SIDE)
 #define PANEL_HEIGHT 364.0f
 #define PAD 10.0f
@@ -29,8 +29,10 @@ static const Color unknown_color = { 34, 36, 45, 255 };
 static Rectangle panel_rect(const Game *g, const View *v)
 {
     Vector2 tile = view_tile_pos(v, (float)g->bench_pos.x, (float)g->bench_pos.y);
-    return (Rectangle){ tile.x + v->tile_size + 14.0f, tile.y + v->tile_size - PANEL_HEIGHT,
-                        PANEL_WIDTH, PANEL_HEIGHT };
+    float x = tile.x + v->tile_size + 14.0f, edge = (float)GetScreenWidth() - PANEL_WIDTH - 4.0f;
+    /* (Kept on the screen: it is wide, and the block may be near the edge.) */
+    if (x > edge) x = edge;
+    return (Rectangle){ x, tile.y + v->tile_size - PANEL_HEIGHT, PANEL_WIDTH, PANEL_HEIGHT };
 }
 
 /* The tabs: one for each category, then converting coins, then raising the block itself. */
@@ -73,8 +75,9 @@ static const char *tab_label(int tab)
 /* The categories are a list down the left side, one to a row, each with room for its whole name. */
 static Rectangle tab_rect(const Game *g, Rectangle panel, int tab)
 {
-    float room = panel.height - HEADER - PAD, each = room / (float)tab_count();
-    int place = tab_place(g, tab);
+    int place = tab_place(g, tab), shown = 0;
+    for (int i = 0; i < tab_count(); i++) shown += tab_shown(g, i);
+    float room = panel.height - HEADER - PAD, each = room / (float)(shown > 0 ? shown : 1);
     if (each > TAB_HEIGHT + 4.0f) each = TAB_HEIGHT + 4.0f;
     if (place < 0) return (Rectangle){ 0, 0, 0, 0 };
     return (Rectangle){ panel.x + PAD, panel.y + HEADER + (float)place * each, SIDE - PAD, each - 3.0f };

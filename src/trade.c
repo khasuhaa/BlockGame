@@ -70,6 +70,9 @@ long trade_wallet(const Inventory *inv)
 int game_trade_listing(const Game *g, int category, ItemId *out, bool *found, int max)
 {
     int n = 0, last = content.trade.category_count - 1;
+    /* (The last of those kept for where everything is given away, if there is one.) */
+    for (int c = content.trade.category_count - 1; c >= 0; c--)
+        if (content.trade.categories[c].free_only) { last = c; break; }
     bool free = game_trade_free(g);
     int top = 1;
     for (int i = 1; i < content.item_count; i++)

@@ -291,7 +291,7 @@ def dump(name, obj):
         else: json.dump(obj, f, indent=1); f.write('\n')
 dump('tiles.json', {'tiles': tiles}); dump('recipes.json', {'recipes': recipes}); dump('worldgen.json', worldgen)
 dump('items.json', {'items': items, 'sets': sets})
-dump('trade.json', {'categories': [{'name': 'relics', 'label': 'Relics'}]})
+dump('trade.json', {'section': 'discovery_road', 'categories': [{'name': 'discovery_road', 'label': 'Discovery Road', 'also': ['relics']}]})
 dump('mod.json', {'label': 'Discovery Road', 'icon': 'icon.png'})
 # Its icon: a road going off to a chest under a star.
 t = P(c('2a3a5a')); t.r(0, 11, 15, 15, c('3a6a4a'))

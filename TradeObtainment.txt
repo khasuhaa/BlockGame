@@ -8,7 +8,7 @@ Written by tools/trade_tiers.py; how each entry of the document was read is at t
 ==============================================================================
 A. IN THE GAME, NOT IN THE DOCUMENT  (129)
 ==============================================================================
-All of these are in the category Special, at the dev portal only. Grouped by what they are; the name the data uses
+All of these are in categories only the dev portal has (Benches, Portals, Creatures and Special). Grouped by what they are; the name the data uses
 follows in brackets where it differs.
 
 Portals  (14)
@@ -196,7 +196,7 @@ HOW THE DOCUMENT WAS READ
   - The Platinum block with its column and stairs, which the document left out, is in Blocks VI
     after titanium (the owner said Building VI; the document has no Building, and columns and
     stairs are with their blocks).
-  - Everything in list A is in the category Special, which only the dev portal has.
+  - Everything in list A is in one of four categories only the dev portal has: Benches, Portals, Creatures (caged ones and eggs) and Special (the rest).
   - The Train station, which the document does not name, is put with the rail in Energy VI: it
     is three pieces of rail and a sign.
   - What the upgrades cost is all in the game already: the five gems, Gold and Platinum coins,

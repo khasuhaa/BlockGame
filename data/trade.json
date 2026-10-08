@@ -42,13 +42,27 @@
       "label": "Energy"
     },
     {
-      "name": "special",
-      "label": "Special",
+      "name": "benches",
+      "label": "Benches",
+      "free_only": true
+    },
+    {
+      "name": "portals",
+      "label": "Portals",
+      "free_only": true
+    },
+    {
+      "name": "creatures",
+      "label": "Creatures",
       "free_only": true,
       "also": [
-        "benches",
         "animals"
       ]
+    },
+    {
+      "name": "special",
+      "label": "Special",
+      "free_only": true
     }
   ],
   "currencies": [

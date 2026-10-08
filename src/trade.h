@@ -31,7 +31,7 @@ bool game_trade_deals(const Game *g, ItemId item);
  * they are defined within each tier, lowest tier first: each keeps its place
  * whether or not it can be had yet, and `found`, if wanted, says which have (only those can be
  * bought and sold). Where everything is given away, things with no category
- * of their own - the coins - are in the last one. Returns how many, at most `max`. */
+ * of their own - the coins - are in the last one kept for such places. Returns how many, at most `max`. */
 int game_trade_listing(const Game *g, int category, ItemId *out, bool *found, int max);
 /* Everything the player's coins are worth, in the smallest currency. */
 long trade_wallet(const Inventory *inv);

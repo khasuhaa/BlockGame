@@ -309,8 +309,9 @@ Q10. DELIVERY. This is far too much for one sitting. I propose six stages (secti
                                           portal you used, from anywhere in any dimension)
 4.4 Portal X      upgrade: 1 emberheart.  Makes: emberheart pickaxe; and 4.6
 4.5 Trade portal VII-X, each for the tier's gem, coins and crystals on the same rising scale as I-VI. Everything
-    in this mod has a category and a tier VII-X, so the Aether's things are bought and sold at a tier VII or VIII
-    trade portal and the Deep's at IX or X. No new categories.
+    in this mod has a tier VII-X, so the Aether's things are bought and sold at a tier VII or VIII trade portal
+    and the Deep's at IX or X. They are in the mod's own section of the list, Dimensions, as every mod's are;
+    its benches and portals are with the others at the dev portal.
 4.6 THE PORTAL X ITEM - proposal: the POCKET PORTAL.
     Made at Portal X: 1 emberheart, 1 heliodor, 1 portal VI, 1 gravity core. Kept in the bar. Selected and
     clicked, it opens the portal's own menu wherever you stand - crafting at tier X, the portal chest, and
