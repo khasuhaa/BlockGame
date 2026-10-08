@@ -74,7 +74,8 @@ static bool movable(const World *w, int x, int y)
     TileType t = world_get(w, x, y);
     const TileDef *def = tile_def(t);
     if (t == TILE_AIR || !world_in_bounds(w, x, y)) return false;
-    return def->removable && !def->immovable && !def->piston && def->height <= 1 && !def->bench && !def->trade && def->storage_columns == 0 &&
+    /* (A piston that is not out is a block like another: pistons push pistons. One that is out stays where it is.) */
+    return def->removable && !def->immovable && !(def->piston && def->piston_out) && def->height <= 1 && !def->bench && !def->trade && def->storage_columns == 0 &&
            def->pair == TILE_AIR && def->pair_of == TILE_AIR && !def->written && def->fuel_capacity == 0;
 }
 

@@ -362,6 +362,14 @@ static ItemStack add_stack_rest(Inventory *inv, ItemStack stack)
 {
     if (stack.id <= ITEM_NONE || stack.id >= content.item_count) return stack;
 
+    /* A basket goes in the bar if it can, before it goes inside another basket: into an empty slot of the bar,
+     * or failing that into the slot of something that is not a basket, taking that thing inside itself. */
+    if (stack.count == 1 && item_def(stack.id)->opens_in_bar) {
+        fill_empty(inv, inv->slots, INVENTORY_SLOTS, &stack);
+        if (stack.count == 0) return (ItemStack){ 0 };
+        if (take_slot_for_basket(inv, stack)) return (ItemStack){ 0 };
+    }
+
     /* Pass 0 tops up existing stacks, pass 1 starts new ones; within each,
      * the bar comes before the containers open in it. */
     for (int pass = 0; pass < 2; pass++) {

@@ -491,7 +491,7 @@ static TileType usable_at(const World *w, int x, int y, int *layer)
 {
     for (int l = 0; l < BLOCK_LAYERS; l++) {
         TileType t = world_get_at(w, l, x, y);
-        if (!tile_def(t)->bench && !tile_def(t)->trade && tile_def(t)->storage_columns == 0 && tile_def(t)->leads_dim < 0 && tile_def(t)->use_becomes == TILE_AIR && tile_def(t)->turns_to == TILE_AIR) continue;
+        if (!tile_def(t)->bench && !tile_def(t)->trade && tile_def(t)->storage_columns == 0 && tile_def(t)->leads_dim < 0 && tile_def(t)->use_becomes == TILE_AIR) continue;
         /* (Not one that is out of sight and out of reach behind a block: something buried, till it is dug out.) */
         if (l != LAYER_FOREGROUND && tile_def(world_get(w, x, y))->solid && !tile_def(world_get(w, x, y))->see_through) continue;
         if (layer) *layer = l;
@@ -713,7 +713,10 @@ static bool target_valid(const World *w, Action a)
         if (world_is_water(w, a.target.x, a.target.y)) return false;
         return (def && def->flies) || world_is_solid(w, a.target.x, a.target.y + 1);
     }
-    case ACTION_USE: return usable_at(w, a.target.x, a.target.y, NULL) != TILE_AIR;
+    /* (Something to open or to work - or, for whoever has the tool for it, something to turn to face another way.) */
+    case ACTION_USE:
+        return usable_at(w, a.target.x, a.target.y, NULL) != TILE_AIR || tile_def(world_get(w, a.target.x, a.target.y))->turns_to != TILE_AIR ||
+               tile_def(world_get_at(w, LAYER_BACKGROUND, a.target.x, a.target.y))->turns_to != TILE_AIR;
     case ACTION_CAST: return true;
     default: return !tile_def(t)->solid || tile_def(t)->passable; /* (somewhere to go to: a door will do) */
     }
@@ -2366,9 +2369,7 @@ static bool start_next_activity(Game *g)
                         g->has_current = false;
                         continue;
                     }
-                    if (tile_def(game_bench_at(g, g->current.target.x, g->current.target.y))->turns_to != TILE_AIR &&
-                        tile_def(game_bench_at(g, g->current.target.x, g->current.target.y))->use_becomes == TILE_AIR &&
-                        tile_def(game_bench_at(g, g->current.target.x, g->current.target.y))->storage_columns == 0) {
+                    if (game_bench_at(g, g->current.target.x, g->current.target.y) == TILE_AIR) {
                         /* (Without one, there is nothing to do to it by using it.) */
                         g->has_current = false;
                         continue;

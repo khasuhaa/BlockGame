@@ -11933,6 +11933,16 @@ static void test_machinations_mod(void)
     game_use_block(&g, x, r - 1);
     ticks(&g, 2);
     CHECK(world_get(w, x + 1, r) == tile_id("stone") && world_get(w, x + 2, r) == TILE_AIR && is_block(&g, "sticky_piston_right", x, r));
+    /* A piston pushes a piston that is not out, and a sticky one brings it back. */
+    world_set(w, x + 1, r, TILE_AIR);
+    put(&g, "piston_up", x + 1, r);
+    game_use_block(&g, x, r - 1);
+    ticks(&g, 2);
+    CHECK(is_block(&g, "piston_up", x + 2, r) && is_block(&g, "piston_head_right", x + 1, r));
+    game_use_block(&g, x, r - 1);
+    ticks(&g, 2);
+    CHECK(is_block(&g, "piston_up", x + 1, r) && world_get(w, x + 2, r) == TILE_AIR);
+    world_set(w, x + 1, r, tile_id("stone"));
     /* A resin block takes what is beside it along; too long a row does not move at all, nor does anything in front of what cannot be pushed. */
     world_set(w, x + 1, r, tile_id("resin_block"));
     world_set(w, x + 1, r - 1, tile_id("marble"));
@@ -11963,6 +11973,10 @@ static void test_machinations_mod(void)
     CHECK(game_queue_action(&g, ACTION_USE, x, r));
     run(&g, 1.0f);
     CHECK(is_block(&g, "piston_right", x, r) && !g.bench_open && item_def(item_id("wrench"))->turns);
+    /* (A click on it with anything else in hand, or nothing, is a click on a block: it is dug.) */
+    CHECK(game_bench_at(&g, x, r) == TILE_AIR && game_click_tile(&g, x, r) && g.queue_count + (g.has_current ? 1 : 0) > 0 &&
+          (g.has_current ? g.current.type : g.queue[0].type) == ACTION_MINE);
+    game_cancel_actions(&g);
     in_hand(&g, "wrench");
     CHECK(game_queue_action(&g, ACTION_USE, x, r));
     run(&g, 1.0f);
@@ -12130,6 +12144,38 @@ static void test_equip_selected(void)
     /* Not what cannot be worn; and not the bare hand. */
     inventory_select(inv, 2, -1);
     CHECK(!inventory_equip_selected(inv) && inv->slots[2].count == 5 && inv->armor[EQUIP_HEAD].id == item_id("tin_helmet"));
+    game_free(&g);
+}
+
+/* A basket picked up goes in the bar before it goes inside another basket. */
+static void test_basket_slots(void)
+{
+    static Game g;
+    game_init(&g, 64, 48, 5, WORLD_FLAT);
+    Inventory *inv = &g.inventory;
+    clear_inventory(&g);
+    ItemId basket = item_id("basket");
+    CHECK(basket > 0 && item_def(basket)->opens_in_bar);
+    /* A bar of one basket with room in it, and every other slot taken by something that is not one. */
+    CHECK(inventory_add(inv, basket, 1) == 0);
+    int first = -1;
+    for (int i = 0; i < INVENTORY_SLOTS; i++)
+        if (inv->slots[i].id == basket && inv->slots[i].count > 0) first = i;
+    for (int i = 0; i < INVENTORY_SLOTS; i++)
+        if (i != first) inv->slots[i] = (ItemStack){ .id = (uint16_t)item_id("iron_pickaxe"), .count = 1 };
+    CHECK(first >= 0 && inventory_add(inv, basket, 1) == 0);
+    /* The new one has taken a slot of the bar, with what was there inside it; it is not inside the first. */
+    int baskets = 0, inside = 0;
+    for (int i = 0; i < INVENTORY_SLOTS; i++) baskets += inv->slots[i].id == basket && inv->slots[i].count > 0;
+    for (int k = 0; k < BASKET_SLOTS; k++) inside += inv->containers[inv->slots[first].container].slots[k].id == basket && inv->containers[inv->slots[first].container].slots[k].count > 0;
+    CHECK(baskets == 2 && inside == 0 && count_item(&g, item_id("iron_pickaxe")) == INVENTORY_SLOTS - 1);
+    /* With an empty slot in the bar it goes there, and nothing is moved. */
+    clear_inventory(&g);
+    inventory_add(inv, basket, 1);
+    CHECK(inventory_add(inv, basket, 1) == 0);
+    baskets = 0;
+    for (int i = 0; i < INVENTORY_SLOTS; i++) baskets += inv->slots[i].id == basket && inv->slots[i].count > 0;
+    CHECK(baskets == 2);
     game_free(&g);
 }
 
@@ -12923,6 +12969,7 @@ int main(void)
     test_machinations_mod();
     test_workbench_only();
     test_all_caged();
+    test_basket_slots();
     test_equip_selected();
     test_worn();
     test_trade_tiers();
