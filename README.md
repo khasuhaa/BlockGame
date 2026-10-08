@@ -728,6 +728,8 @@ A **cage** in hand, a click on any creature takes it up alive - every creature t
 
 ### Columns and stairs
 
+Columns and stairs look like what they are made of. Stone has a fluted column with a capital and a base, and steps of dressed blocks; plaster is smooth and round; wood is a post under a beam with a brace either side, and board treads; brick is a pier in courses; metal is a lattice girder, and plate treads on an open frame; carbon fibre is a woven tube; a gem is a crystal cut to a point at each end, with faceted steps; glass and ice are clear tubes and clear steps. Kinds of the same stuff differ only in colour.
+
 Every **column** and every flight of **stairs** from the builder's bench is put down in the background layer, in the 27 materials they are made in. Neither is solid: both are walked straight past.
 
 - **Stairs can be walked up.** Steps hold up whoever is on top of them, so from beside a flight a step takes the player up onto it, and from there onto the next one a block higher, and so on; coming down is the same in reverse. Clicking somewhere up a staircase walks the player up it. With the keys, walking into stairs goes up them where they lead on to something - more stairs, or a floor at the top - and with up held as well, always; stairs standing by themselves in the way are walked past, as they are by a route that only passes them. Holding down walks through any of them along the ground. Something that falls onto stairs lands on them. They are drawn rising toward the next flight up, or failing that toward a block beside them.

@@ -738,3 +738,5 @@ print('%d tiles, %d items, %d recipes, %d trees, %d creatures, %d biomes' % (len
 print('stages: ' + ', '.join('%s %d' % (n, depth(n)) for n in ('aether_portal', 'deep_portal', 'world_seed', 'third_blockhead')))
 # (Every creature can be caged: the tool that sees to that for the whole game is run over what was just written.)
 subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'caged_art.py'), repo], check=True)
+# (Its columns and stairs are drawn by the tool that draws all of them, each in the manner of what it is made of.)
+subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stair_column_art.py'), repo], check=True)
