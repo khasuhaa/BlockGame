@@ -626,6 +626,16 @@ Whatever is in the four armour slots is drawn on them, each piece a shell a litt
 
 The skin is one picture, 64 by 32, with each box opened out flat: the head's faces start at the top left corner (8 by 8 by 8), a leg at (0, 16), the body at (16, 16) and an arm at (40, 16), each laid out as right side, front, left side, back, with the top and the underside in the row above. The other arm and leg use the same part of the picture, turned about. Which picture is the skin is `"skin"` under `"players"` in `rules.json`; what an item looks like worn is its `"worn"` in `items.json`, a picture of the same shape with nothing drawn where the thing does not cover. A mod's clothes carry their own.
 
+### The view
+
+The world is drawn in depth. The game itself is still a grid seen from the side - where things are, and what can be done to them, has not changed - but it is looked at through a camera whose eye is in front of the middle of the screen, so everything has perspective: what is left of the middle shows its right side, what is below it shows its top, and as the view moves across the world the sides of things swing round with it.
+
+- **Blocks are blocks.** Anything solid is a block two squares deep, with its face where it always was and its sides and top showing wherever nothing is against them; the top of a block is coloured as the top edge of its picture is, so grass is green on top.
+- **The world has a front half and a back half.** Characters, creatures, things lying on the ground and whatever runs on rails are in the front half. The background layer - trees, benches, chests, ladders - is the back half: a tree stands behind the character on the same ground. The backwall closes the back, so a cave or a room is a space with a floor, a roof, sides and a far wall.
+- **Everything has a shape.** A thing whose picture fills its square is a block; any other picture - a plant, a torch, a creature, a tool lying on the ground, a locomotive - is that picture given thickness, with its edges filled in. The character is the six boxes they always were, now standing in the scene.
+- **Clicking** goes by what is under the cursor in depth: the face of a block; failing that the square the characters are in; failing that what stands in the background behind it.
+- Light and darkness, the fog of war, water and the marks for what is queued are laid over the front of the scene, as before.
+
 ### Not falling, and being hit
 
 **Nobody lets themselves drop.** A step that would leave a character falling more than one block - off the end of a row they are hanging from, down from the underside of a block, off a ledge into the air - is not one they will take, by the keys or on the way to a click: they go over the side and climb down, or stay where they are. One block down is an ordinary step. They still fall when what they stand on or hold is taken away, and when a jetpack is taken off in the air. (How far they will let themselves drop is `"max_drop"` under `"player"` in `rules.json`; 0 is any distance.)
@@ -855,6 +865,7 @@ Under a beach, quite often - about one column in six, a dozen or more to a world
 - `src/tradeui.c` — the trade portal menu
 - `src/train.c` — the railway: track, and what runs on it
 - `src/trainui.c` — the menu over something on the rails, and its slots
+- `src/world3d.c` — the depth of the view: the camera, blocks as blocks, pictures given thickness
 - `src/playerui.c` — the player's button, bars and the sleep and meditate panel
 - `src/playermodel.c` — the character: six boxes with a skin on them, and what is worn over them
 - `src/recipeui.c` — the recipe book

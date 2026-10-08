@@ -1,4 +1,5 @@
 #include "assets.h"
+#include "world3d.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -191,8 +192,8 @@ void assets_draw_tile_joined(TileType t, int x, int y, float px, float py, float
     /* Sixteen pictures, four to a row. */
     float cell = (float)sheet.width / 4.0f;
     unsigned char v = (unsigned char)(255.0f * (dim > 1.0f ? 0.0f : 1.0f - dim));
-    DrawTexturePro(sheet, (Rectangle){ (float)(joined & 3) * cell, (float)((joined >> 2) & 3) * cell, cell, cell },
-                   (Rectangle){ px, py, tile_size, tile_size }, (Vector2){ 0, 0 }, 0.0f, (Color){ v, v, v, 255 });
+    world3d_texture(sheet, (Rectangle){ (float)(joined & 3) * cell, (float)((joined >> 2) & 3) * cell, cell, cell },
+                   (Rectangle){ px, py, tile_size, tile_size }, (Color){ v, v, v, 255 });
 }
 
 void assets_draw_tile_lit(TileType t, int x, int y, float px, float py, float tile_size, float dim, TilePart part,
@@ -229,9 +230,8 @@ void assets_draw_tile_lit(TileType t, int x, int y, float px, float py, float ti
     /* A texture bigger than a tile overhangs it, centred, resting on its bottom edge. */
     float scale = tile_size / TEXTURE_PIXELS_PER_TILE;
     float w = (float)tex.width * scale, hgt = (float)tex.height * scale;
-    DrawTexturePro(tex, (Rectangle){ 0, 0, (float)tex.width, (float)tex.height },
-                   (Rectangle){ px + (tile_size - w) / 2, py + tile_size - hgt, w, hgt },
-                   (Vector2){ 0, 0 }, 0.0f, (Color){ v, v, v, 255 });
+    world3d_texture(tex, (Rectangle){ 0, 0, (float)tex.width, (float)tex.height },
+                   (Rectangle){ px + (tile_size - w) / 2, py + tile_size - hgt, w, hgt }, (Color){ v, v, v, 255 });
 }
 
 void assets_draw_tile_mounted(TileType t, int x, int y, float px, float py, float tile_size, float dim, int mount)
@@ -247,8 +247,8 @@ void assets_draw_tile_mounted(TileType t, int x, int y, float px, float py, floa
     float light = 1.0f - dim;
     if (def->pulse > 0.0f) light *= 1.0f - def->pulse * (0.5f + 0.5f * sinf((float)GetTime() * 2.5f));
     unsigned char v = (unsigned char)(255.0f * (light < 0.0f ? 0.0f : light));
-    DrawTexturePro(tex, (Rectangle){ 0, 0, mount == MOUNT_RIGHT ? -(float)tex.width : (float)tex.width, (float)tex.height },
-                   (Rectangle){ px, py, tile_size, tile_size }, (Vector2){ 0, 0 }, 0.0f, (Color){ v, v, v, 255 });
+    world3d_texture(tex, (Rectangle){ 0, 0, mount == MOUNT_RIGHT ? -(float)tex.width : (float)tex.width, (float)tex.height },
+                   (Rectangle){ px, py, tile_size, tile_size }, (Color){ v, v, v, 255 });
 }
 
 void assets_draw_tile_facing(TileType t, int x, int y, float px, float py, float tile_size, float dim, bool flip)
@@ -262,8 +262,8 @@ void assets_draw_tile_facing(TileType t, int x, int y, float px, float py, float
         return;
     }
     unsigned char v = (unsigned char)(255.0f * (dim > 1.0f ? 0.0f : 1.0f - dim));
-    DrawTexturePro(tex, (Rectangle){ 0, 0, flip ? -(float)tex.width : (float)tex.width, (float)tex.height },
-                   (Rectangle){ px, py, tile_size, tile_size }, (Vector2){ 0, 0 }, 0.0f, (Color){ v, v, v, 255 });
+    world3d_texture(tex, (Rectangle){ 0, 0, flip ? -(float)tex.width : (float)tex.width, (float)tex.height },
+                   (Rectangle){ px, py, tile_size, tile_size }, (Color){ v, v, v, 255 });
 }
 
 void assets_draw_item(ItemId id, Rectangle r)
@@ -282,8 +282,7 @@ void assets_draw_item(ItemId id, Rectangle r)
     float least = 0.72f * (float)(tex.width > tex.height ? tex.width : tex.height);
     float scale = r.width * ITEM_FILL / (longest > least ? longest : least);
     float w = src.width * scale, hgt = src.height * scale;
-    DrawTexturePro(tex, src, (Rectangle){ r.x + (r.width - w) / 2, r.y + (r.height - hgt) / 2, w, hgt },
-                   (Vector2){ 0, 0 }, 0.0f, WHITE);
+    world3d_texture(tex, src, (Rectangle){ r.x + (r.width - w) / 2, r.y + (r.height - hgt) / 2, w, hgt }, WHITE);
 }
 
 /* Any image under the textures directory, loaded the first time it is asked for. */
@@ -325,8 +324,7 @@ void assets_draw_item_tones(ItemId id, Rectangle r, int tones)
     for (int k = 0; k < 2; k++) {
         Texture2D over = def->tone_textures[k][0] ? image_texture(def->tone_textures[k]) : (Texture2D){ 0 };
         if (!over.id) continue;
-        DrawTexturePro(over, src, (Rectangle){ r.x + (r.width - w) / 2, r.y + (r.height - hgt) / 2, w, hgt },
-                       (Vector2){ 0, 0 }, 0.0f, tone_color(part[k], 1.0f));
+        world3d_texture(over, src, (Rectangle){ r.x + (r.width - w) / 2, r.y + (r.height - hgt) / 2, w, hgt }, tone_color(part[k], 1.0f));
     }
 }
 
@@ -342,8 +340,8 @@ void assets_draw_tile_tones(TileType t, float px, float py, float tile_size, flo
         if (!over.id) continue;
         float scale = tile_size / TEXTURE_PIXELS_PER_TILE;
         float w = (float)over.width * scale, hgt = (float)over.height * scale;
-        DrawTexturePro(over, (Rectangle){ 0, 0, (float)over.width, (float)over.height },
-                       (Rectangle){ px + (tile_size - w) / 2, py + tile_size - hgt, w, hgt }, (Vector2){ 0, 0 }, 0.0f,
+        world3d_texture(over, (Rectangle){ 0, 0, (float)over.width, (float)over.height },
+                       (Rectangle){ px + (tile_size - w) / 2, py + tile_size - hgt, w, hgt },
                        tone_color(part[k], 1.0f - dim));
     }
 }
@@ -368,8 +366,7 @@ void assets_draw_sprite(const char *file, Rectangle r, bool flip)
         draw_placeholder(r);
         return;
     }
-    DrawTexturePro(tex, (Rectangle){ 0, 0, flip ? -(float)tex.width : (float)tex.width, (float)tex.height }, r,
-                   (Vector2){ 0, 0 }, 0.0f, WHITE);
+    world3d_texture(tex, (Rectangle){ 0, 0, flip ? -(float)tex.width : (float)tex.width, (float)tex.height }, r, WHITE);
 }
 
 void assets_draw_image(const char *file, Rectangle r)

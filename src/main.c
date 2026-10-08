@@ -15,6 +15,7 @@
 #include "tradeui.h"
 #include "train.h"
 #include "trainui.h"
+#include "world3d.h"
 #include "digital.h"
 #include "view.h"
 
@@ -54,6 +55,14 @@ static float pair_shift(const World *w, int head, int y);
 #define AUTOSAVE_SECONDS 120.0f
 #define BACKGROUND_DIM 0.18f /* how much darker the background layer is drawn */
 #define WALL_DIM 0.5f        /* and the backwall behind that */
+
+/* How deep the world is, back from its front. Ground and anything else solid is a block that goes all the way
+ * back; characters, creatures and what lies about are in the front half, with the thin things of the foreground
+ * behind them; the background layer - trees, benches - is the back half; and the backwall closes the back. */
+#define Z_FRONT 0.0f
+#define Z_MID (-(float)TILE_SIZE)
+#define Z_BACK (-2.0f * (float)TILE_SIZE)
+#define Z_BODY (-0.36f * (float)TILE_SIZE) /* the middle of a character, front to back */
 #define DROP_WARNING 10.0f   /* seconds before it vanishes that a dropped item starts to blink */
 #define MOB_GLIDE 14.0f      /* how closely a creature's picture keeps up with where it is */
 #define ZOOM_SPEED 10.0f     /* how fast the view eases to a new zoom */
@@ -156,11 +165,32 @@ static bool sign_under(const Game *g, float fx, float fy, TilePos *out)
     return false;
 }
 
+/* Where a point of the screen lies in the world, in blocks, at a depth into it. */
+static Vector2 world_at(Vector2 screen, float z)
+{
+    Vector2 p = world3d_at_depth(screen, zoom, z);
+    return (Vector2){ (p.x - view.origin.x) / TILE_SIZE, (p.y - view.origin.y) / TILE_SIZE };
+}
+
+/* The world being looked at, for telling what a point of the screen is on. */
+static const Game *looked_at;
+
+/* The square under a point of the screen: the block whose face is there; failing that, what is there where the
+ * characters are; failing that, what stands in the background behind it. (The view has depth: these are not
+ * all the same square.) */
 static TilePos tile_at_screen(const MapCamera *cam, Vector2 screen)
 {
-    Vector2 origin = view_origin(cam);
-    return (TilePos){ (int)floorf((screen.x / zoom - origin.x) / TILE_SIZE),
-                      (int)floorf((screen.y / zoom - origin.y) / TILE_SIZE) };
+    (void)cam;
+    Vector2 front = world_at(screen, Z_FRONT), body = world_at(screen, Z_BODY), behind = world_at(screen, Z_MID);
+    TilePos face = { (int)floorf(front.x), (int)floorf(front.y) }, mid = { (int)floorf(body.x), (int)floorf(body.y) };
+    TilePos back = { (int)floorf(behind.x), (int)floorf(behind.y) };
+    if (!looked_at) return mid;
+    const World *w = &looked_at->world;
+    if (world_in_bounds(w, 0, face.y) && tile_def(world_get(w, face.x, face.y))->solid) return face;
+    if (world_in_bounds(w, 0, mid.y) && (world_get(w, mid.x, mid.y) != TILE_AIR || world_get_at(w, LAYER_BACKGROUND, mid.x, mid.y) == TILE_AIR)) return mid;
+    if (world_in_bounds(w, 0, back.y) && world_get_at(w, LAYER_BACKGROUND, back.x, back.y) != TILE_AIR && !tile_def(world_get(w, back.x, back.y))->solid)
+        return back;
+    return mid;
 }
 
 static Rectangle tile_rect(Vector2 origin, TilePos t)
@@ -477,13 +507,11 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
             t.x = world_wrap_x(&g->world, t.x);
             const TileDef *def = tile_def(game_bench_at(g, t.x, t.y));
             bool opens = def->bench || def->trade || def->storage_columns > 0;
-            int drop = game_drop_at(g, (mouse.x / zoom - view.origin.x) / TILE_SIZE,
-                                    (mouse.y / zoom - view.origin.y) / TILE_SIZE);
+            int drop = game_drop_at(g, world_at(mouse, Z_BODY).x, world_at(mouse, Z_BODY).y);
             /* An item under the cursor comes before the tile behind it.
              * Something that opens offers a choice if it can also be removed;
              * otherwise it just opens. */
-            int mob = game_mob_at(g, (mouse.x / zoom - view.origin.x) / TILE_SIZE,
-                                  (mouse.y / zoom - view.origin.y) / TILE_SIZE);
+            int mob = game_mob_at(g, world_at(mouse, Z_BODY).x, world_at(mouse, Z_BODY).y);
             /* What has not been uncovered cannot be clicked on: nothing in it, and not the square. */
             if (game_explored(g, t.x, t.y) == 0) {}
             else if (drop >= 0) game_click_drop(g, drop);
@@ -510,7 +538,7 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
             else if (opens && game_open_bench(g, t.x, t.y)) {}
             else if (opens) game_queue_action(g, ACTION_USE, t.x, t.y);
             /* A sign is read and written on, not dug at. */
-            else if (sign_under(g, (mouse.x / zoom - view.origin.x) / TILE_SIZE, (mouse.y / zoom - view.origin.y) / TILE_SIZE, &sign))
+            else if (sign_under(g, world_at(mouse, Z_BODY).x, world_at(mouse, Z_BODY).y, &sign))
                 sign_open(g, sign);
             /* So is a station's board, which is three squares wide. */
             else if (station_under(g, t, &sign)) sign_open(g, sign);
@@ -610,6 +638,36 @@ static float pair_shift(const World *w, int head, int y)
 /* Set while those are being drawn: they go on after the rest of the blocks, since they lie across the squares. */
 static bool drawing_pairs;
 
+/* How a block of a layer stands in the depth of the world, for whatever is drawn of it next. */
+static void block_depth(const Game *g, int layer, const TileDef *def, int x, int y, float px, float py)
+{
+    const World *w = &g->world;
+    if (!world3d_active()) return;
+    Vector2 mid = world3d_center();
+    /* Only the sides that are turned toward the middle of the view, and not ones that are against another block. */
+    int sides = (px > mid.x ? W3D_LEFT : 0) | (px + TILE_SIZE < mid.x ? W3D_RIGHT : 0) | (py > mid.y ? W3D_TOP : 0) | (py + TILE_SIZE < mid.y ? W3D_BOTTOM : 0);
+    if (layer == LAYER_FOREGROUND && def->solid) {
+        /* Something solid goes all the way back. */
+        static const int beside[4][3] = { { -1, 0, W3D_LEFT }, { 1, 0, W3D_RIGHT }, { 0, -1, W3D_TOP }, { 0, 1, W3D_BOTTOM } };
+        for (int i = 0; i < 4; i++) {
+            const TileDef *next = tile_def(world_get(w, x + beside[i][0], y + beside[i][1]));
+            if (next->solid && !next->see_through && world_in_bounds(w, 0, y + beside[i][1])) sides &= ~beside[i][2];
+        }
+        world3d_solid(Z_FRONT, Z_BACK, sides, false);
+    } else if (layer == LAYER_FOREGROUND) {
+        /* A thing of the foreground that can be walked through: behind whoever walks through it. */
+        world3d_solid(-0.72f * TILE_SIZE, -0.96f * TILE_SIZE, sides, false);
+    } else if (def->wire && tile_def(world_get(w, x, y))->solid && !tile_def(world_get(w, x, y))->see_through) {
+        world3d_plane(Z_FRONT); /* wire over the face of a block */
+    } else if (def->rail) {
+        /* Track lies where what runs on it runs: under the characters' feet, not back among the trees. */
+        world3d_solid(-0.1f * TILE_SIZE, -0.66f * TILE_SIZE, sides, false);
+    } else {
+        /* The background layer: the back half. */
+        world3d_solid(Z_MID, Z_BACK, sides, true);
+    }
+}
+
 /* One block of a layer, in whichever of its looks applies. */
 static void draw_block(const Game *g, int layer, TileType t, int x, int y, float px, float py, float dim)
 {
@@ -617,6 +675,7 @@ static void draw_block(const Game *g, int layer, TileType t, int x, int y, float
     if (tile_def(t)->mimics != MIMIC_NONE && layer == LAYER_FOREGROUND) t = world_looks_like(&g->world, x, y);
     const TileDef *def = tile_def(t);
     int wx = world_wrap_x(&g->world, x);
+    block_depth(g, layer, def, x, y, px, py);
     if (def->steps) {
         /* Steps rise toward the next flight up or away from the next one
          * down; failing either, toward a block beside them. As drawn they rise to the right. */
@@ -675,6 +734,7 @@ static void draw_block(const Game *g, int layer, TileType t, int x, int y, float
     }
     /* A two-tone flower, in the colours this one is. */
     if (def->two_tone) assets_draw_tile_tones(t, px, py, TILE_SIZE, dim, world_meta(&g->world, wx, y));
+    world3d_flat();
 }
 
 static void draw_world(const Game *g, Vector2 origin)
@@ -683,6 +743,9 @@ static void draw_world(const Game *g, Vector2 origin)
     /* Columns run past either end of the world: reads wrap round it. */
     int x0 = (int)floorf(-origin.x / TILE_SIZE), y0 = (int)floorf(-origin.y / TILE_SIZE);
     int x1 = x0 + (int)seen.x / TILE_SIZE + 1, y1 = y0 + (int)seen.y / TILE_SIZE + 1;
+    /* (What is further back is seen smaller: there is more of it round the edges of the view.) */
+    int more_x = (x1 - x0) / 8 + 2, more_y = (y1 - y0) / 8 + 2;
+    x0 -= more_x, x1 += more_x, y0 -= more_y, y1 += more_y;
     if (y0 < 0) y0 = 0;
     if (y1 >= w->height) y1 = w->height - 1;
 
@@ -696,14 +759,19 @@ static void draw_world(const Game *g, Vector2 origin)
             if (!tile_def(t)->solid || tile_def(t)->see_through) {
                 /* (A window is a hole in the backwall: there, what is behind the wall shows, and the wall does not.) */
                 bool hole = tile_def(behind)->window;
+                /* (The backwall is the back of the world.) */
+                world3d_plane(Z_BACK);
                 if (!hole)
                     assets_draw_tile(world_get_at(w, LAYER_WALL, x, y), wx, y, px, py, TILE_SIZE, WALL_DIM,
                                      TILE_PART_BODY);
+                world3d_flat();
                 if (!hole && wall_paint > 0 && wall_paint <= content.tint_count && world_get_at(w, LAYER_WALL, x, y) != TILE_AIR) {
                     const unsigned char *c = content.tints[wall_paint - 1];
                     float lit = 1.0f - WALL_DIM;
+                    world3d_push(Z_BACK);
                     DrawRectangleRec((Rectangle){ px, py, TILE_SIZE, TILE_SIZE },
                                      (Color){ (unsigned char)(c[0] * lit), (unsigned char)(c[1] * lit), (unsigned char)(c[2] * lit), 170 });
+                    world3d_pop();
                 }
                 /* (Something giving light is not dimmed for being behind.) */
                 bool shining = (tile_def(behind)->light > 0 || tile_def(behind)->beam_light > 0) && light_glow(g, x, y) > 0;
@@ -826,10 +894,12 @@ static void draw_world(const Game *g, Vector2 origin)
                 TileType t = world_get_at(w, layer, x, y);
                 if (!tile_def(t)->front) continue;
                 if (layer == LAYER_BACKGROUND && tile_def(world_get(w, x, y))->solid) continue;
+                block_depth(g, layer, tile_def(t), x, y, px, py);
                 assets_draw_tile(t, world_wrap_x(w, x), y, px, py, TILE_SIZE,
                                  layer == LAYER_BACKGROUND ? BACKGROUND_DIM : 0.0f,
                                  assets_tile_part(t, world_get_at(w, layer, x, y - 1),
                                                   world_get_at(w, layer, x, y + 1)));
+                world3d_flat();
             }
         }
     }
@@ -1234,7 +1304,10 @@ static void draw_mobs(const Game *g, Vector2 origin)
             float side = (float)m->size * TILE_SIZE;
             r = (Rectangle){ r.x + TILE_SIZE / 2.0f - side / 2, r.y + TILE_SIZE / 2.0f - side / 2, side, side };
         }
+        /* (A creature has some body to it, and is in among the characters.) */
+        world3d_solid(Z_BODY + 0.2f * TILE_SIZE, Z_BODY - 0.2f * TILE_SIZE, W3D_ALL, false);
         assets_draw_sprite(file, r, m->dir < 0);
+        world3d_flat();
         /* One that has been hurt shows how much it has left. */
         if (def->health > 1 && m->hp > 0 && m->hp < def->health) {
             Rectangle bar = { r.x + r.width / 2 - 14, r.y + r.height / 2 - (m->size > 1 ? r.height / 4 : TILE_SIZE / 2.0f) - 7, 28, 4 };
@@ -1267,9 +1340,13 @@ static void draw_drops(const Game *g, Vector2 origin)
         Rectangle at = { p.x - size / 2, p.y - size / 2, size, size };
         if (item_def((ItemId)d->item)->two_tone) {
             ItemStack one = { d->item, 1, d->container };
+            world3d_solid(Z_BODY + 0.07f * TILE_SIZE, Z_BODY - 0.07f * TILE_SIZE, W3D_ALL, false);
             assets_draw_item_tones((ItemId)d->item, at, inventory_meter(&g->inventory, &one));
+            world3d_flat();
         } else {
+            world3d_solid(Z_BODY + 0.07f * TILE_SIZE, Z_BODY - 0.07f * TILE_SIZE, W3D_ALL, false);
             hud_draw_item_icon((ItemId)d->item, at);
+            world3d_flat();
         }
     }
 }
@@ -1287,7 +1364,10 @@ static void draw_body(const Game *g, float x, float ground, BodyPose pose)
         const ItemStack *on = &g->inventory.armor[order[i]];
         if (on->count > 0 && item_def((ItemId)on->id)->worn[0]) worn[count++] = item_def((ItemId)on->id)->worn;
     }
+    /* (In the world they have depth, and stand at their place in it.) */
+    playermodel_depth(world3d_active(), Z_BODY);
     playermodel_draw((Vector2){ x, ground }, TILE_SIZE / 16.0f, &pose, content.rules.player_skin, worn, count);
+    playermodel_depth(false, 0.0f);
 }
 
 /* Which side a sleeper lies down toward: wherever there is room, behind them for choice; 0 for nowhere. */
@@ -1359,7 +1439,10 @@ static void draw_vehicles(const Game *g, Vector2 origin)
         /* (Drawn at the size it was drawn at, standing on the bottom of its square of track, about the middle of it.) */
         float wide = tex.id ? (float)tex.width : (float)(def->vehicle.width * TILE_SIZE), tall = tex.id ? (float)tex.height : 2.0f * TILE_SIZE;
         float px = origin.x + view_near_x(&view, x) * TILE_SIZE + TILE_SIZE / 2.0f - wide / 2.0f, py = origin.y + (y + 1.0f) * TILE_SIZE - tall;
+        /* (As deep as the room there is for it; whoever rides is inside.) */
+        world3d_solid(-0.08f * TILE_SIZE, -0.66f * TILE_SIZE, W3D_ALL, false);
         assets_draw_sprite(def->vehicle.texture, (Rectangle){ px, py, wide, tall }, false);
+        world3d_flat();
         /* An engine with its fire lit: a glow at the firebox. */
         if (def->vehicle.engine && v->dir != 0 && v->burn > 0)
             DrawRectangleRec((Rectangle){ px + 6.0f, py + tall - 28.0f, 6.0f, 4.0f }, (Color){ 240, 120, 40, 255 });
@@ -1862,7 +1945,8 @@ static void session_draw(Session *s)
     draw_sky(g, origin);
     if (s->cam.scale > MAP_FADE_TO) {
         /* The world itself, scaled by the zoom. */
-        BeginMode2D((Camera2D){ .zoom = zoom });
+        looked_at = g;
+        world3d_begin(zoom);
         assets_set_season(game_season(g));
         draw_world(g, origin);
         draw_mobs(g, origin);
@@ -1891,7 +1975,10 @@ static void session_draw(Session *s)
             Vector2 tail = { a.x + (b.x - a.x) * fmaxf(0.0f, t * 2.0f - 0.35f), a.y + (b.y - a.y) * fmaxf(0.0f, t * 2.0f - 0.35f) };
             if (t < 0.6f) DrawLineEx(tail, head, 2.0f, (Color){ 240, 232, 200, 255 });
         }
-        /* Darkness falls over the world, but not over the interface. */
+        /* Darkness falls over the world, but not over the interface. (It is laid over the front of everything, and
+         * leaves no mark on the depth of things: what glows is drawn again through it, where it stands.) */
+        rlDrawRenderBatchActive();
+        rlDisableDepthMask();
         draw_light(g, origin);
         draw_fog(g, origin);
         /* What each of them has queued. */
@@ -1905,7 +1992,9 @@ static void session_draw(Session *s)
             !tradeui_mouse_over(&s->trade, g, &ui_view))
             DrawRectangleLinesEx(tile_rect(origin, tile_at_screen(&s->cam, GetMousePosition())), 1.0f,
                                  Fade(WHITE, 0.5f));
-        EndMode2D();
+        rlDrawRenderBatchActive();
+        rlEnableDepthMask();
+        world3d_end();
     }
     /* Zoomed far enough out, the world map fades in over it. */
     if (s->cam.scale < MAP_FADE_FROM) {

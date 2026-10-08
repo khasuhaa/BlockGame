@@ -23,11 +23,20 @@ typedef struct {
 
 typedef struct {
     Vector2 p[4], uv[4];
+    float z[4];
     float depth, shade;
     unsigned int texture;
 } Quad;
 
 static Quad quads[MAX_QUADS];
+static bool deep;
+static float deep_z;
+
+void playermodel_depth(bool on, float z)
+{
+    deep = on;
+    deep_z = z;
+}
 static int quad_count;
 
 static V3 rot_x(V3 v, float degrees)
@@ -80,11 +89,12 @@ static void add_quad(const Part *part, const BodyPose *pose, const V3 corner[4],
     for (int i = 0; i < 4; i++) {
         at[i] = place(part, pose, corner[i]);
         q->p[i] = (Vector2){ at[i].x, -at[i].y };
+        q->z[i] = at[i].z;
         depth += at[i].z;
     }
     /* Only a face that is turned toward the viewer. */
     float ax = at[1].x - at[0].x, ay = at[1].y - at[0].y, bx = at[3].x - at[0].x, by = at[3].y - at[0].y;
-    if (ax * by - ay * bx <= 0.0f) return;
+    if (!deep && ax * by - ay * bx <= 0.0f) return;
     float u0 = u / SKIN_W, u1 = (u + w) / SKIN_W, v0 = v / SKIN_H, v1 = (v + h) / SKIN_H;
     if (flip) {
         float swap = u0;
@@ -167,7 +177,9 @@ void playermodel_draw(Vector2 feet, float scale, const BodyPose *pose, const cha
         rlNormal3f(0.0f, 0.0f, 1.0f);
         for (int k = 0; k < 4; k++) {
             rlTexCoord2f(q->uv[k].x, q->uv[k].y);
-            rlVertex2f(feet.x + q->p[k].x * scale, feet.y + q->p[k].y * scale);
+            /* (The viewer is on the side the body's z runs away from: nearer is less of it.) */
+            if (deep) rlVertex3f(feet.x + q->p[k].x * scale, feet.y + q->p[k].y * scale, deep_z - q->z[k] * scale);
+            else rlVertex2f(feet.x + q->p[k].x * scale, feet.y + q->p[k].y * scale);
         }
         rlEnd();
         rlSetTexture(0);

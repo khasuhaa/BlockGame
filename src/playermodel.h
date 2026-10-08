@@ -28,6 +28,10 @@ typedef struct {
 /* Draws them with their feet at a point of the world, `scale` world units to
  * one of the model's (a tile is 16 of those). `skin` is the body; `worn` is
  * what is on over it, inmost first. */
+/* Whether what is drawn next is drawn in depth - each part as far forward or back of `z` as it is in the body -
+ * or flat, as a picture of it. (In depth nothing of it is left out for being turned away: what is behind is
+ * hidden by what is in front.) */
+void playermodel_depth(bool on, float z);
 void playermodel_draw(Vector2 feet, float scale, const BodyPose *pose, const char *skin, const char *const *worn, int worn_count);
 
 #endif
