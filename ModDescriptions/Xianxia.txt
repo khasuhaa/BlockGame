@@ -1,0 +1,302 @@
+PATH OF IMMORTALS - PROPOSAL  (a xianxia mod; for approval - nothing below is built)
+
+A character who meditates on a spirit vein, eats what grows there, takes the right pill at the right moment and
+survives the lightning becomes, a realm at a time, something that is not a mortal any more. Fifty steps:
+
+    QI REFINING I-X  ->  FOUNDATION BUILDING I-X  ->  CORE FORMATION I-X  ->  NASCENT SOUL I-X  ->  DIVINITY I-X
+
+and at the end of the fiftieth, Immortality. Around that road: spirit herbs that are worth more the older they
+are, a pill furnace, formations laid out in blocks on the ground, techniques learned from manuals, spirit beasts
+to fight, tame and ride, spirit food, talismans, flying swords, secret realms, and the heavens' objection to all
+of it.
+
+It is meant to be three or four times the size of the base game (which has 356 blocks, 429 items, 505 recipes).
+Names and numbers are proposals. Anything can be renamed, cut or swapped.
+
+================================================================================================================
+0. QUESTIONS
+================================================================================================================
+
+Q1. HOW QI IS GAINED. Recommended: mostly by MEDITATING (the game already has meditation), at a rate set by where
+    you sit - the qi of the place - times your manual, your spirit roots, and any formation, pill or food at
+    work. A little also comes from fighting spirit beasts and from eating spirit food. So the loop is: find or
+    build a good place to sit, feed it, and go out for what the next breakthrough needs.
+    Alternative: qi from doing things (digging, fighting, crafting) - no sitting, but cultivation is then just
+    a second experience bar.
+
+Q2. HOW STRONG A CULTIVATOR GETS. Each realm should feel like a different creature, but the base game must not
+    become trivial at Qi Refining III. Recommended:
+      - each STAGE: a little more health, qi, and speed at everything (2% or so);
+      - each REALM: a step - Foundation Building halves hunger and doubles breath; Core Formation needs no food
+        and flies on a sword; Nascent Soul survives one death a day; Divinity needs no sword;
+      - and the mod brings its own dangers to match (spirit beasts, tribulations, secret realms), so the power is
+        spent there rather than on dodos.
+    Say if you would rather it were wilder (a Core Formation cultivator one-shots everything in the overworld).
+
+Q3. DEATH. Recommended: dying costs qi (back to the start of the current stage), never a realm. A failed
+    breakthrough or a failed tribulation costs more (see 3). Alternative: no penalty beyond the game's own.
+
+Q4. SPIRIT ROOTS. Each character is born with roots in the five elements (metal, wood, water, fire, earth), set
+    by chance when they are made: fewer roots cultivate faster but learn fewer techniques. Recommended: random,
+    shown from the start, changeable late and at great cost (a Root-Washing Pill). Alternative: chosen at
+    character creation.
+
+Q5. LIFESPAN. The genre's clock: a mortal has 80 years, each realm adds centuries, and running out is death.
+    Recommended: NOT in the first version. It punishes exactly the slow, careful play the rest rewards, and the
+    game's years are short. It can be a world setting later.
+
+Q6. TRIBULATIONS. At each new realm the heavens send lightning: a fight against the sky, in the open, that
+    formations, talismans, pills and armour all help with. Recommended: yes, four of them (into Foundation, Core,
+    Nascent Soul, Divinity) and a ninefold one for Immortality. They are the mod's bosses.
+
+Q7. OTHER PEOPLE. A xianxia world has sects, elders, markets, rivals. This game has no people who talk.
+    Recommended for the first version: places without people - ruined sect halls, sealed caves of dead
+    cultivators, altars - which hold manuals and inheritances, and "rogue cultivators" as hostile creatures.
+    Sects you can join, missions and contribution points would be a second mod's worth of work on top.
+
+Q8. SECRET REALMS. The engine now has other places (the Aether and the Deep are made with it). Recommended:
+    two here - the SPIRIT REALM (reached at Foundation Building; a wild land thick with qi, old herbs and
+    beasts) and the IMMORTAL RUINS (reached at Nascent Soul; floating wreckage of a fallen heaven) - and small
+    TRIAL GROUNDS opened by a token, each a fixed-size place like the World Seed's.
+
+Q9. SWORD FLIGHT. Recommended: from Core Formation, a spirit sword in a new slot is ridden - free flight at
+    several times walking pace for a steady drain of qi. Divinity flies without one. (The jetpack's flying is
+    what it is built on.)
+
+Q10. WITH THE OTHER MODS. It depends on none. Where another is on it meets it half way: Potioncraft's effects
+     engine is what pills run on (that part is in the base game); Dimensions' places can have spirit veins;
+     Rags to Riches villages can sell low-grade spirit stones. All by lists that skip what is not there.
+
+Q11. ART. About 1,500 pictures. You called recolouring a weakness. Recommended: everything a player looks at
+     for long is drawn fresh by script in the game's 16-pixel manner - the furnace, formation flags and cores,
+     pills, talismans, swords, robes, the beasts, the herbs' signature stages, the UI - and recolouring is kept
+     for honest families only (ten grades of the same spirit stone, the same herb at three ages).
+
+Q12. DELIVERY. This cannot be one sitting. Recommended: eight stages (section 9), each playable, tested,
+     documented, committed and pushed, with a word from you between them.
+
+Q13. THE NAME. "Path of Immortals"? "Jade Heaven"? "Dao"? Yours to pick.
+
+================================================================================================================
+1. CULTIVATION
+================================================================================================================
+
+Each character has:
+  REALM and STAGE     one of the fifty.
+  QI                  how much they hold, against how much the stage holds. Full, they may attempt the next.
+  SPIRIT ROOTS        five elements, each 0 to 100 (Q4).
+  FOUNDATION          how well each realm was built: a quality from Flawed to Perfect, set at each breakthrough
+                      by what was used for it. It multiplies everything after. A hurried cultivator gets there
+                      sooner and is weaker for ever; this is the mod's long game.
+  MERIDIANS           twelve, opened one by one in Qi Refining (each needs its own herb or pill): each opened
+                      raises how fast qi moves, and three of them unlock technique slots.
+  DANTIAN / CORE / SOUL   the thing each realm builds (2).
+  COMPREHENSION       insights into each element and into the sword, the body, the pill, the formation:
+                      gained by doing, needed for the higher techniques and for bottlenecks.
+  MANUAL              the cultivation method in use (5).
+  TECHNIQUES          what they know, and which are on the bar (6).
+
+THE QI OF A PLACE. Every square of the world has a qi density, from a map made from the world's seed: thin on
+the plains, richer on mountains, in old forests, deep underground and high in the sky, and richest of all along
+SPIRIT VEINS - seams that run through the world like ore, glow faintly, and can be mined for spirit stones (which
+kills the vein there) or sat on (which does not). The readout shows the qi where you stand. Formations gather
+it; a spirit-stone pile adds to it while it lasts; a tribulation scorches it for days.
+
+================================================================================================================
+2. THE FIVE REALMS
+================================================================================================================
+
+QI REFINING I-X     Drawing qi into the body. Open the twelve meridians; fill the dantian.
+                    Gains: a qi bar; the first techniques; spirit sight (see the qi of things).
+                    Break through to Foundation with a FOUNDATION ESTABLISHMENT PILL - or without, at a third
+                    of the odds and a Flawed foundation.
+
+FOUNDATION          Turning qi to liquid; building the platform everything else stands on.
+BUILDING I-X        Gains: hunger at half pace, twice the breath, a storage ring, a second technique row,
+                    the Spirit Realm (Q8), the first tribulation.
+                    The foundation's quality is fixed here by the grade of the pill, the qi of the place, and
+                    how many of the ten stages were "tempered" (each stage has an optional harder task).
+
+CORE FORMATION I-X  Condensing a golden core. The core has a grade (one to nine patterns), set by the
+                    foundation's quality and by what is fed to it in the forming.
+                    Gains: no need to eat; sword flight (Q9); a natal artifact that grows with you; the furnace
+                    and formations of the third grade.
+
+NASCENT SOUL I-X    The core breaks and a soul is born in it.
+                    Gains: once a day, death is not death - the soul escapes to the last portal and the body
+                    is remade; the soul can leave the body to scout (a free camera that can touch nothing);
+                    the Immortal Ruins; soul techniques.
+
+DIVINITY I-X        A domain of one's own: within a few squares, the cultivator's element rules - fire does not
+                    burn them, water parts, plants grow, ore shows through rock.
+                    Gains: flight without a sword; the domain; the last grades of everything.
+                    X: the Ninefold Tribulation, and IMMORTALITY - an ending, a title, and a small set of
+                    things only an immortal can make.
+
+================================================================================================================
+3. BREAKTHROUGHS, BOTTLENECKS, TRIBULATIONS
+================================================================================================================
+
+A SMALL BREAKTHROUGH (stage to stage) needs a full qi bar and a sitting. It has a chance - high early, lower
+late - raised by pills, by the qi of the place, by formations, by a calm state (fed, rested, unhurt). Failure
+costs a part of the bar and leaves "qi deviation": weakness for a while, cured by rest or a Calming Pill.
+
+A BOTTLENECK is a stage that qi alone will not pass. There are three in every realm (at III, VI and IX), and
+each asks for something that is not sitting still:
+    an insight       comprehension of the right kind at the right level (found by using techniques, reading
+                     steles in ruins, watching a tribulation, sitting through a storm or at a volcano's edge)
+    a trial          kill a spirit beast of your own realm alone; survive a night in a secret realm
+    a treasure       a particular herb of sufficient age, a beast core, a drop of spirit spring water
+    a making         refine a pill, lay a formation, forge an artifact of the realm's grade yourself
+Which three, for which stage, comes from the MANUAL being followed (5): two cultivators on different manuals
+have different roads.
+
+A GREAT BREAKTHROUGH (realm to realm) needs all of that at once - full qi at stage X, the realm's pill, the
+realm's task done - and then the TRIBULATION: so many bolts of lightning over a minute or two, each stronger,
+striking where the cultivator sits. What stands between them and it: a lightning-ward formation, talismans,
+defensive techniques, robes, and health. Live, and the realm is theirs. Die, and it is the game's death with
+the bar emptied and the foundation's quality marked down. The scorched ground left behind grows LIGHTNING HERBS,
+which are worth the trouble by themselves.
+
+================================================================================================================
+4. HERBALISM, ALCHEMY, SPIRIT FOOD
+================================================================================================================
+
+SPIRIT HERBS (about 60 kinds, 12 to a realm). Each grows only where the qi is thick enough for it, and keeps
+growing: a herb has an AGE - ten-year, hundred-year, thousand-year, ten-thousand-year - that it reaches by
+being left alone in good qi (a game year is short; "years" here are a count of growth, and a spirit field
+formation hurries it). Older is the same herb, several times as potent, and some recipes take nothing less.
+Wild ones are found old; planted ones must be waited for. Each has a guardian, sometimes.
+   Qi Refining: spirit grass, bloodvine, meridian root, dew lotus, ironbark fern ...
+   Foundation:  jade ginseng, flame lily, frost orchid, earth-milk mushroom ...
+   Core:        nine-leaf clover of the golden core, dragon's beard, purple cloud reishi ...
+   Nascent:     soul-nurturing lotus, phoenix-tail grass, netherworld blossom ...
+   Divinity:    the nine immortal herbs, each found in one place in a world.
+Also: SPIRIT TREES (a peach that fruits every hundred days), SPIRIT SPRINGS (water that is itself an
+ingredient), and SPIRIT FIELDS (soil that holds qi; a plot of it is the start of every sect).
+
+ALCHEMY. The PILL FURNACE (five grades, each made of the next realm's metal) takes herbs and a flame and gives
+pills. A recipe is known only once its PILL FORMULA has been found or bought. Every pill comes out at a grade -
+low, middle, high, peak - by the alchemist's comprehension, the furnace, the flame and the herbs' ages; higher
+grades are stronger and leave less PILL TOXIN (the reason not to live on pills: toxin slows cultivation until it
+is worked off or a Cleansing Pill is taken). The flame matters: charcoal, then earth fire (a furnace set on a
+magma vent), then a tamed SPIRIT FLAME - a thing caught in the wild and kept, of which there are nine.
+   About 90 pills: qi gathering, meridian opening (12), breakthrough pills (the Foundation Establishment Pill and
+   its four cousins), healing, antidotes, body tempering, comprehension, lifespan (if Q5), beast taming and
+   feeding, root washing, and the poisons.
+
+SPIRIT FOOD. A SPIRIT KITCHEN cooks spirit beasts and spirit crops (spirit rice, tea, peaches, wine) into meals
+that give qi and long, mild effects with no toxin at all - slower than pills, and they stack with them. About 50
+dishes; spirit tea ceremonies that raise comprehension when drunk in a fine place; spirit wine that ages.
+
+================================================================================================================
+5. MANUALS AND TECHNIQUES
+================================================================================================================
+
+A CULTIVATION MANUAL is the method a character cultivates by. One is in use at a time; changing is possible and
+costs a stage. Each has a grade (Mortal, Earth, Heaven, Immortal), an element or two, a rate, a set of
+bottleneck tasks, and things only it gives. About 20, of which a new character can find three or four Mortal
+ones easily and will spend the game looking for better:
+   Five Elements Breathing (plain, no weakness, slow)       Azure Wood Longevity Art (heals, grows things)
+   Blazing Sun Scripture (fast, pill toxin builds faster)   Nine Springs Yin Art (strongest at night, in caves)
+   Vajra Body Refining (cultivates the body, not qi: no spells, immense health)
+   Thunder God Canon (cultivates in storms; tribulations feed it)   Sword Heart Sutra (one sword, nothing else) ...
+
+TECHNIQUES are learned from TECHNIQUE SCROLLS (found, traded, copied at a writing desk if comprehension allows),
+set on a technique bar, and cost qi. Each has a mastery that rises with use. About 120, in five elements and
+four kinds:
+   ATTACK      fire palm, vine lash, sword qi, ice needles, falling star; later, area and summoning arts
+   DEFENCE     golden bell, water curtain, stone skin, the lightning-eating art
+   MOVEMENT    cloud step (walk on air a moment), earth escape (pass through soil), shadow flash, sword flight
+   UTILITY     spirit sight, object control (dig and place at a distance), rain calling, harvesting hand,
+               the Art of the Spirit Farmer, alchemist's true fire, beast speech, sealing
+Higher realms do not only add bigger numbers: earth escape changes how the underground is travelled, object
+control changes building, the domain changes everything near.
+
+Also: TALISMANS (paper, ink of beast blood, a brush: one-use techniques anyone can throw - the mod's flasks) and
+ARTIFACTS (spirit swords, armour, bells, mirrors, banners, forged at a SPIRIT FORGE from spirit ores, each with
+a grade and slots for beast cores; the natal artifact of a Core Formation cultivator is one of these, bound).
+
+================================================================================================================
+6. FORMATIONS
+================================================================================================================
+
+A formation is a pattern laid in the world: FORMATION FLAGS set at its points, a FORMATION CORE at its heart,
+spirit stones in the core for fuel. Laid right, it lights - lines of qi drawn between the flags - and everything
+inside it is under its rule until the stones run out. The pattern is read from a FORMATION DIAGRAM (found or
+bought), which shows where the flags go; bigger and better formations want more flags, further apart, of higher
+grades, in stricter shapes.
+   Spirit Gathering (raises the qi inside: the first one everyone builds)   Spirit Field (herbs age faster)
+   Concealment (creatures do not see what is inside)     Warding (hostile creatures cannot enter)
+   Lightning Ward (takes a share of every bolt)          Five Elements Killing Array (hurts what enters)
+   Illusion Maze (what enters wanders)                   Earth Fire (a furnace flame anywhere)
+   Teleportation Array (two of them are a road; the Great one reaches other realms)
+   Sect Protecting Grand Formation (all of the above, a screen wide, and it eats spirit stones)
+About 25 formations in five grades. A formation master's comprehension lets them lay with fewer flags.
+
+================================================================================================================
+7. SPIRIT BEASTS
+================================================================================================================
+
+About 60 beasts, each of a realm, thicker where qi is thicker and far more dangerous than the game's creatures:
+   Qi Refining: wind wolf, iron-back boar, spirit crane, jade rabbit, flame fox, stone ape ...
+   Foundation:  thunder leopard, azure serpent, earth-armour tortoise, frost eagle ...
+   Core:        golden-winged roc, nine-tailed fox, black tortoise spawn, qilin calf ...
+   Nascent:     flood dragon, vermilion bird chick, white tiger ...
+   Divinity:    the four sacred beasts themselves, one of each to a world, each guarding an immortal herb.
+They drop BEAST CORES (alchemy, artifacts, formations), blood (talisman ink), hide, bone and meat (spirit food).
+TAMING: a beast can be bound young (an egg or a cub, raised on beast pills) or beaten and contracted with a
+Beast-Taming Talisman, if it is no more than a realm above its master. A contracted beast follows, fights,
+grows as it is fed, can be ridden if it is big enough (the roc flies), and lives in a SPIRIT BEAST BAG when not
+out. ROGUE CULTIVATORS and the remnant souls in ruins are the beasts that think.
+
+================================================================================================================
+8. THE WORLD, THE INTERFACE, THE ENGINE
+================================================================================================================
+
+IN THE WORLD: spirit veins and the qi map; spirit herbs by qi and biome; five spirit ores (one a realm) and
+spirit jade; spirit springs; ruined sect halls, sealed cultivators' caves (built by the structure system
+villages use) with manuals, formulas, diagrams and inheritances - an INHERITANCE being a dead cultivator's
+whole road, given to whoever passes its trial; altars; steles that give insight once. In a world from before
+the mod: nothing wild appears, so every staple has a second source (spirit stones condensed slowly from sitting;
+seeds from a wandering spirit crane; the first manual from the portal).
+
+INTERFACE (all new, and all named in the README rather than explained on screen):
+   A QI BAR beside the others, and the realm and stage under the character's name.
+   THE CULTIVATION SCREEN, from the character's panel: the body with its meridians and dantian, roots,
+   foundation, comprehension, the manual and what the next step asks for - the one place the whole road is seen.
+   A TECHNIQUE BAR above the inventory bar, keys of its own.
+   THE FURNACE and THE FORMATION CORE have menus of their own (herbs, flame, grade; pattern, flags found, fuel).
+   A BREAKTHROUGH is a sitting with a bar and a chance shown beforehand; a tribulation counts its bolts.
+   Qi density on the readout; spirit sight as a view that tints the world by qi.
+
+ENGINE (as data fields the base game and other mods could use; no "if the mod is on"):
+   per-character cultivation state, saved (a new save version); the qi map; stages and realms as data
+   (a "path" file: every stage, what it holds, gives and asks, so another mod could add a different path);
+   item quality grades and ages (a number kept with one item, as meters are); techniques as a new kind of
+   definition, with a bar and keys; formations as patterns matched in the world; breakthroughs and tribulations;
+   creature realms, taming, following, mounts; conditional sources ("known formulas"); the screens.
+   It builds on what the last few mods added: effects (pills), other places (secret realms), structures
+   (ruins), signals' device list (formations), spells (talismans).
+
+SIZE, AS PROPOSED
+                     blocks   items   recipes   creatures   techniques   places
+   Path of Immortals  ~420    ~1,150   ~1,400      ~60        ~120          2 + trials
+   Base game           356      429      505        26          -           1
+
+================================================================================================================
+9. STAGES OF WORK
+================================================================================================================
+
+  1. THE ROAD. Cultivation state, the qi map and spirit veins, meditation gaining qi, the fifty stages as data,
+     small breakthroughs, the qi bar and the cultivation screen, one manual. Qi Refining playable end to end.
+  2. HERBS AND PILLS. Spirit herbs with ages, the furnace, grades and toxin, formulas, meridians; spirit food.
+  3. TECHNIQUES. The bar, scrolls, mastery, the first forty; talismans; comprehension.
+  4. BOTTLENECKS, GREAT BREAKTHROUGHS, TRIBULATIONS; Foundation Building complete.
+  5. FORMATIONS, and artifacts and the forge.
+  6. SPIRIT BEASTS: the sixty, cores, taming, the bag, mounts; rogue cultivators.
+  7. CORE FORMATION AND NASCENT SOUL: sword flight, the natal artifact, the soul; the Spirit Realm; ruins,
+     caves, inheritances, the rest of the manuals and techniques.
+  8. DIVINITY AND IMMORTALITY: the domain, the Immortal Ruins, the sacred beasts, the ninefold tribulation;
+     balance; the README.
+  Stage 1 is the foundation for all of it and the one to get right; I would stop after it for you to try.
