@@ -633,7 +633,7 @@ The skin is one picture, 64 by 32, with each box opened out flat: the head's fac
 
 A step on foot takes 0.24 seconds - about four blocks a second. Climbing and crawling go at half that: 0.48 seconds a block. (Hopping, falling and swimming are as they were.) These are `"walk_time"`, `"climb_time"` and `"crawl_time"` under `"player"` in `rules.json`.
 
-With a **jetpack** on - in the chest slot, not just carried - the air holds a character up as water holds a swimmer. A click anywhere in the open sky sends them there, straight, on the slant if that is the way; they hover where they stop, and go on from there to anywhere else or back to the ground. The movement keys fly them too. It is quick: a tenth of a second a block (`"fly_time"`). It burns nothing. Taken off in the air, they fall. An item that does this has `"lifts": true`.
+With a **jetpack** on - in the chest slot, not just carried - the air holds a character up as water holds a swimmer. A click anywhere in the open sky sends them there, straight, on the slant if that is the way; they hover where they stop, and go on from there to anywhere else or back to the ground. The movement keys fly them too. It is two and a half times as fast as walking (`"fly_speed"`) - 0.096 seconds a block - and that is of the plain walking pace: boots that quicken walking do nothing for it. It burns nothing. Taken off in the air, they fall. An item that does this has `"lifts": true`.
 
 Nothing in the **fog of war** can be clicked: not a square that has never been uncovered, nor anything in one. To get into it, walk or fly with the keys, or click as far as has been seen.
 

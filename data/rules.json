@@ -9,7 +9,7 @@
     ]
   },
   "player": {
-    "walk_time": 0.24, "fall_time": 0.07, "climb_time": 0.48, "hop_time": 0.2, "crawl_time": 0.48, "fly_time": 0.1, "hop_height": 0.35, "max_drop": 1, "flail_time": 0.6,
+    "walk_time": 0.24, "fall_time": 0.07, "climb_time": 0.48, "hop_time": 0.2, "crawl_time": 0.48, "fly_speed": 2.5, "hop_height": 0.35, "max_drop": 1, "flail_time": 0.6,
     "max_wall_hop": 2, "place_time": 0.15, "craft_time": 0.1,
     "start_items": [
       { "item": "basket", "count": 1 },

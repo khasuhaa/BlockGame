@@ -1305,7 +1305,8 @@ static bool read_rules(Reader *r, const cJSON *root)
         u->walk_time = (float)num(player, "walk_time", u->walk_time);
         u->flail_time = (float)num(player, "flail_time", u->flail_time);
         u->max_drop = (int)num(player, "max_drop", u->max_drop);
-        u->fly_time = (float)num(player, "fly_time", u->fly_time > 0.0f ? u->fly_time : 0.1);
+        u->fly_speed = (float)num(player, "fly_speed", u->fly_speed > 0.0f ? u->fly_speed : 2.5);
+        if (u->fly_speed <= 0.0f) return fail(r, "\"fly_speed\" is so many times the pace of walking: more than nothing");
         u->fall_time = (float)num(player, "fall_time", u->fall_time);
         u->climb_time = (float)num(player, "climb_time", u->climb_time);
         u->hop_time = (float)num(player, "hop_time", u->hop_time);

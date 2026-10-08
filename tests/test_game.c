@@ -11052,7 +11052,7 @@ static void test_pace_and_flight(void)
     RulesDef *u = &content.rules;
     u->walk_time = shipped_walk_time, u->climb_time = shipped_climb_time, u->crawl_time = shipped_crawl_time; /* (as the game has them) */
     /* A step takes twice what it did; climbing and crawling go at half that pace again. */
-    CHECK(u->walk_time == 0.24f && u->climb_time == 2.0f * u->walk_time && u->crawl_time == 2.0f * u->walk_time && u->fly_time == 0.1f);
+    CHECK(u->walk_time == 0.24f && u->climb_time == 2.0f * u->walk_time && u->crawl_time == 2.0f * u->walk_time && u->fly_speed == 2.5f);
     static Game g;
     game_init(&g, 128, 64, 4, WORLD_FLAT);
     g.tick_rate = 0;
@@ -11129,7 +11129,17 @@ static void test_pace_and_flight(void)
         last = g.player.feet;
     }
     CHECK(is_idle(&g) && g.player.feet.x == start.x + 8 && (g.player.feet.y == row - 12 || g.player.feet.y == row - 11));
-    CHECK(steps <= 14 && slant >= 6 && quickest >= 0.1f && quickest < 0.15f);
+    /* Two and a half times as fast as walking: a block straight in 0.096 seconds (and a slant, being further, in 0.136). */
+    CHECK(steps <= 14 && slant >= 6 && quickest > 0.095f && quickest < 0.14f);
+    /* Boots that quicken walking do nothing for it. */
+    g.inventory.armor[EQUIP_BOOTS] = (ItemStack){ .id = (uint16_t)item_id("pole_boots"), .count = 1 };
+    CHECK(game_walk_speed(&g) == 2.0f && game_click_tile(&g, g.player.feet.x + 6, g.player.feet.y));
+    game_update(&g, 0.001f);
+    CHECK(g.player.activity == ACTIVITY_STEPPING && g.player.step.dy == 0 && near(g.player.duration, 0.24f / 2.5f));
+    run(&g, 2.0f);
+    CHECK(game_click_tile(&g, g.player.feet.x - 6, g.player.feet.y));
+    run(&g, 2.0f);
+    g.inventory.armor[EQUIP_BOOTS] = (ItemStack){ 0 };
     /* There they stay, held up by it; and go on from there to anywhere else in the air, or back to the ground. */
     run(&g, 3.0f);
     CHECK(g.player.feet.x == start.x + 8 && g.player.feet.y <= row - 11 && game_player_flying(&g));

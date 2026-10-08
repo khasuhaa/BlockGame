@@ -1511,7 +1511,7 @@ static void begin_step(Game *g, Step s)
     bool swim = in_water(&g->world, p->feet) && in_water(&g->world, to) && !is_supported(&g->world, to) &&
                 content.rules.swim_time > 0.0f;
     /* Flying is the same through the air, and quicker. */
-    bool fly = !swim && g->world.aloft && buoyed(&g->world, p->feet) && buoyed(&g->world, to) && !is_supported(&g->world, to) && content.rules.fly_time > 0.0f;
+    bool fly = !swim && g->world.aloft && buoyed(&g->world, p->feet) && buoyed(&g->world, to) && !is_supported(&g->world, to) && content.rules.fly_speed > 0.0f;
     p->step_swim = swim || fly;
     /* (A ride in a lift: quick, and so much a block.) */
     bool ride = s.dx == 0 && !s.climb && !p->climbing && (s.dy < -1 || s.dy > 1 || (s.dy != 0 && world_is_shaft(&g->world, to.x, to.y)));
@@ -1522,7 +1522,8 @@ static void begin_step(Game *g, Step s)
     if (boat) p->duration = content.rules.swim_time / (content.rules.boat_speed > 0.0f ? content.rules.boat_speed : 2.0f);
     else if (ride) p->duration = (content.rules.lift_time > 0.0f ? content.rules.lift_time : 0.04f) * (float)abs(s.dy);
     else if (hop) p->duration = HOP_TIME / game_walk_speed(g) / game_pace(g);
-    else if (fly) p->duration = content.rules.fly_time * (s.dx != 0 && s.dy != 0 ? 1.4142f : 1.0f) / game_pace(g);
+    /* (So many times the pace of a walk - the plain pace, not what boots make of it.) */
+    else if (fly) p->duration = WALK_TIME / content.rules.fly_speed * (s.dx != 0 && s.dy != 0 ? 1.4142f : 1.0f) / game_pace(g);
     else if (swim) p->duration = content.rules.swim_time * (s.dx != 0 && s.dy != 0 ? 1.4142f : 1.0f) / game_pace(g);
     else if (s.climb || p->climbing) p->duration = CLIMB_TIME / game_pace(g);
     else if (s.dy > 0) p->duration = FALL_TIME;

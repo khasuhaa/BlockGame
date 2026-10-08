@@ -766,7 +766,7 @@ typedef struct {
     int water_color[4];    /* red, green, blue, alpha of the tint drawn over water */
     int water_flow;        /* eighths of water a level stretch moves sideways in one tick */
     float swim_time;       /* seconds per step, swimming */
-    float fly_time;        /* and flying */
+    float fly_speed;       /* flying: so many times as fast as walking is, whatever is on their feet */
     int oxygen_ticks;      /* ticks under water for a full oxygen bar to run out; 0 to need no air */
     int oxygen_refill_ticks; /* ticks in the air for it to fill again */
     int drown_ticks;       /* ticks for health to run down with no oxygen left */
