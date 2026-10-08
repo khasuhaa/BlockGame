@@ -16,7 +16,8 @@ typedef enum {
     SOURCE_FRUIT,      /* borne by a tree */
     SOURCE_CHEST,      /* found inside a block the world was generated with */
     SOURCE_MEDITATION, /* brought by meditating */
-    SOURCE_START       /* a new character has it */
+    SOURCE_START,      /* a new character has it */
+    SOURCE_VILLAGE     /* sold in some villages, and nowhere else */
 } SourceKind;
 
 typedef struct {

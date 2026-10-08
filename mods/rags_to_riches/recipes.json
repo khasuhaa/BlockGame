@@ -1,0 +1,18 @@
+{
+  "recipes": [
+    {"bench": "woodwork_bench", "output": {"item": "thatch", "count": 4}, "inputs": [{"item": "wheat", "count": 4}], "time": 60},
+    {"bench": "builder_bench", "output": {"item": "slate_roof", "count": 4}, "inputs": [{"item": "basalt", "count": 2}], "time": 60},
+    {"bench": "builder_bench", "output": {"item": "azure_roof", "count": 4}, "inputs": [{"item": "clay", "count": 2}, {"item": "lapis_lazuli", "count": 1}], "time": 60},
+    {"bench": "woodwork_bench", "output": {"item": "timber_wall", "count": 4}, "inputs": [{"item": "wood", "count": 2}, {"item": "limestone", "count": 2}], "time": 60},
+    {"bench": "builder_bench", "output": {"item": "hewn_stone", "count": 4}, "inputs": [{"item": "stone", "count": 4}], "time": 60},
+    {"bench": "builder_bench", "output": {"item": "whitewash_wall", "count": 4}, "inputs": [{"item": "marble", "count": 2}, {"item": "limestone", "count": 2}], "time": 60},
+    {"bench": "builder_bench", "output": {"item": "cobblestone", "count": 4}, "inputs": [{"item": "stone", "count": 2}, {"item": "gravel", "count": 2}], "time": 60},
+    {"bench": "builder_bench", "output": {"item": "sky_cobble", "count": 4}, "inputs": [{"item": "marble", "count": 2}, {"item": "gravel", "count": 2}], "time": 60},
+    {"bench": "woodwork_bench", "output": {"item": "village_planks", "count": 4}, "inputs": [{"item": "wood", "count": 2}], "time": 60},
+    {"bench": "tailor_bench", "output": {"item": "awning", "count": 2}, "inputs": [{"item": "linen", "count": 2}, {"item": "stick", "count": 1}], "time": 60},
+    {"bench": "metalwork_bench", "output": {"item": "street_lamp", "count": 1}, "inputs": [{"item": "iron_ingot", "count": 1}, {"item": "torch", "count": 1}], "time": 60},
+    {"bench": "tailor_bench", "output": {"item": "village_banner", "count": 1}, "inputs": [{"item": "linen", "count": 2}, {"item": "ultramarine_blue", "count": 1}], "time": 60},
+    {"bench": "builder_bench", "output": {"item": "village_well", "count": 1}, "inputs": [{"item": "stone", "count": 6}, {"item": "bucket", "count": 1}, {"item": "wood", "count": 2}], "time": 60},
+    {"bench": "woodwork_bench", "output": {"item": "village_crate", "count": 1}, "inputs": [{"item": "wood", "count": 3}], "time": 60}
+  ]
+}

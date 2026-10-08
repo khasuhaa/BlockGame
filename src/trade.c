@@ -1,6 +1,7 @@
 #include "trade.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 bool game_trade_open(const Game *g)
 {
@@ -17,6 +18,120 @@ int trade_price(ItemId item)
 int trade_sell_price(ItemId item)
 {
     return (int)((float)trade_price(item) * content.trade.sell_share + 0.0001f);
+}
+
+/* ---- villages ------------------------------------------------------------ */
+
+static uint32_t mix32(uint32_t h)
+{
+    h ^= h >> 16;
+    h *= 0x7feb352du;
+    h ^= h >> 15;
+    h *= 0x846ca68bu;
+    h ^= h >> 16;
+    return h;
+}
+
+/* A number for a name: the same whatever order things were loaded in. */
+static uint32_t name_hash(const char *name)
+{
+    uint32_t h = 2166136261u;
+    for (; *name; name++) h = (h ^ (uint32_t)(unsigned char)*name) * 16777619u;
+    return h;
+}
+
+uint32_t game_village_at(const Game *g, int x, int y)
+{
+    /* Where the hearts are: looked for through the whole world, and again every so often, for they can be moved. */
+    enum { MOST = 96, EVERY = 200 };
+    static struct {
+        const Game *game;
+        uint32_t seed;
+        int width, height, count, reach[MOST];
+        uint64_t tick;
+        TilePos at[MOST];
+    } known;
+    const World *w = &g->world;
+    bool stale = known.game != g || known.seed != w->seed || known.width != w->width || known.height != w->height ||
+                 g->tick < known.tick || g->tick - known.tick >= EVERY;
+    bool any = false;
+    for (int t = 1; t < content.tile_count && !any; t++) any = content.tiles[t].village > 0;
+    if (!any) return 0;
+    if (stale) {
+        known.game = g, known.seed = w->seed, known.width = w->width, known.height = w->height, known.tick = g->tick, known.count = 0;
+        size_t cells = (size_t)w->width * w->height;
+        for (int layer = 0; layer < BLOCK_LAYERS; layer++)
+            for (size_t i = 0; i < cells && known.count < MOST; i++) {
+                int reach = tile_def((TileType)w->layers[layer][i])->village;
+                if (reach <= 0) continue;
+                /* (The top of a tall one only: one heart, one village.) */
+                if (i >= (size_t)w->width && w->layers[layer][i - w->width] == w->layers[layer][i]) continue;
+                known.reach[known.count] = reach;
+                known.at[known.count++] = (TilePos){ (int)(i % (size_t)w->width), (int)(i / (size_t)w->width) };
+            }
+    }
+    uint32_t best = 0;
+    int nearest = 0;
+    for (int i = 0; i < known.count; i++) {
+        int dx = abs(world_dx(w, known.at[i].x, x)), dy = abs(known.at[i].y - y), far = dx > dy ? dx : dy;
+        if (dx > known.reach[i] || dy > known.reach[i] / 2 + 6 || (best != 0 && far >= nearest)) continue;
+        nearest = far;
+        best = mix32(w->seed ^ (uint32_t)known.at[i].x * 73856093u ^ (uint32_t)known.at[i].y * 19349663u) | 1u;
+    }
+    return best;
+}
+
+static uint32_t open_village(const Game *g)
+{
+    return game_trade_open(g) ? game_village_at(g, g->bench_pos.x, g->bench_pos.y) : 0;
+}
+
+bool game_trade_works(const Game *g)
+{
+    if (!game_trade_open(g)) return false;
+    return !content.trade.villages_only || game_trade_free(g) || open_village(g) != 0;
+}
+
+/* Whether a village is one of the few that deal in a speciality: the ones for which it comes out highest. */
+static bool village_deals(uint32_t village, ItemId item)
+{
+    if (village == 0 || !item_def(item)->speciality) return false;
+    uint32_t mine = mix32(village ^ name_hash(item_def(item)->name));
+    int above = 0;
+    for (ItemId i = 1; i < content.item_count; i++)
+        if (i != item && content.items[i].speciality && mix32(village ^ name_hash(content.items[i].name)) > mine) above++;
+    return above < content.trade.village_specialities;
+}
+
+bool game_trade_stocks(const Game *g, ItemId item)
+{
+    if (!game_trade_deals(g, item)) return false;
+    return !item_def(item)->speciality || game_trade_free(g) || village_deals(open_village(g), item);
+}
+
+int game_trade_price(const Game *g, ItemId item)
+{
+    const TradeDef *t = &content.trade;
+    int price = trade_price(item);
+    uint32_t village = open_village(g);
+    if (village == 0 || price <= 0 || game_trade_free(g)) return price;
+    /* A speciality is worth a good deal more anywhere that does not deal in it. */
+    if (item_def(item)->speciality) return village_deals(village, item) ? price : price + price / 2;
+    if (t->village_swing <= 0.0f) return price;
+    /* Which things are dearer or cheaper here, and by how much: settled by the village and the thing, and
+     * - where prices move - by which stretch of days it is. */
+    const RulesDef *u = &content.rules;
+    int day = u->day_ticks + u->night_ticks > 0 ? (int)(g->tick / (uint64_t)(u->day_ticks + u->night_ticks)) : 0;
+    uint32_t h = mix32(village ^ name_hash(item_def(item)->name) ^ (t->village_days > 0 ? (uint32_t)(day / t->village_days) * 2654435761u : 0u));
+    if ((float)(h % 1000u) / 1000.0f >= t->village_share) return price;
+    float swing = ((float)((h >> 10) % 2001u) / 1000.0f - 1.0f) * t->village_swing;
+    int changed = (int)((float)price * (1.0f + swing) + 0.5f);
+    return changed < 1 ? 1 : changed;
+}
+
+int game_trade_sell_price(const Game *g, ItemId item)
+{
+    return (int)((float)game_trade_price(g, item) * content.trade.sell_share + 0.0001f);
 }
 
 bool game_trade_free(const Game *g)
@@ -54,6 +169,12 @@ bool game_trade_deals(const Game *g, ItemId item)
     if (!game_trade_open(g) || item <= ITEM_NONE || item >= content.item_count) return false;
     const ItemDef *def = &content.items[item];
     if (game_trade_free(g)) return def->crystals == 0 && !def->becomes_player;
+    if (!game_trade_works(g)) return false;
+    /* A speciality: sold where the village deals in it, and bought from anybody who has one, in any village. */
+    if (def->speciality) {
+        uint32_t village = open_village(g);
+        return village != 0 && trade_price(item) > 0 && (village_deals(village, item) || inventory_count(&g->inventory, item) > 0);
+    }
     if (trade_price(item) <= 0 || trade_barred(item)) return false;
     int level = game_trade_level(g);
     if (level > 0 && def->trade_tier > level) return false;
@@ -112,7 +233,7 @@ int game_trade_listing(const Game *g, int category, ItemId *out, bool *found, in
             if (in != category || content.items[i].trade_tier != tier) continue;
             bool deals = game_trade_deals(g, (ItemId)i);
             /* (What it will never deal in has no place kept for it.) */
-            if (!deals && (trade_price((ItemId)i) <= 0 || trade_barred((ItemId)i))) continue;
+            if (!deals && (trade_price((ItemId)i) <= 0 || trade_barred((ItemId)i) || content.items[i].speciality)) continue;
             if (found) found[n] = deals;
             out[n++] = (ItemId)i;
         }
@@ -157,8 +278,8 @@ static bool plan_payment(const Inventory *inv, long price, int *delta)
 
 bool trade_buy_now(Game *g, ItemId item, int count)
 {
-    int price = trade_price(item), delta[MAX_CURRENCIES];
-    if (count < 1 || !game_trade_deals(g, item)) return false;
+    int price = game_trade_price(g, item), delta[MAX_CURRENCIES];
+    if (count < 1 || !game_trade_stocks(g, item)) return false;
     if (game_trade_free(g)) {
         game_give_items(g, item, count);
         return true;
@@ -177,20 +298,25 @@ bool trade_buy_now(Game *g, ItemId item, int count)
 bool trade_sell_now(Game *g, ItemId item, int count)
 {
     const TradeDef *t = &content.trade;
-    int price = trade_sell_price(item);
+    int price = game_trade_sell_price(g, item);
     if (count < 1 || !game_trade_deals(g, item) || t->currency_count == 0) return false;
     if (inventory_count(&g->inventory, item) < count) return false;
     /* (Where everything is free, a thing handed back is worth nothing.) */
     if (!game_trade_free(g) && price <= 0) return false;
     inventory_remove(&g->inventory, item, count);
-    if (!game_trade_free(g)) game_give_items(g, t->currencies[0].item, price * count / t->currencies[0].value);
+    if (!game_trade_free(g)) {
+        /* Paid in the biggest coins that make it up: a great sum in the smallest would not fit in anybody's pockets. */
+        int parts[MAX_CURRENCIES], kinds = trade_coins((long)price * count, parts);
+        for (int i = kinds - 1; i >= 0; i--)
+            if (parts[i] > 0) game_give_items(g, t->currencies[i].item, parts[i]);
+    }
     return true;
 }
 
 bool trade_convert_now(Game *g, int from, int to)
 {
     const TradeDef *t = &content.trade;
-    if (!game_trade_open(g) || from < 0 || to < 0 || from >= t->currency_count ||
+    if (!game_trade_works(g) || from < 0 || to < 0 || from >= t->currency_count ||
         to >= t->currency_count || (from - to != 1 && to - from != 1))
         return false;
     int lower = from < to ? from : to, higher = from < to ? to : from;

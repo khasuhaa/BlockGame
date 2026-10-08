@@ -11601,6 +11601,148 @@ static bool go_through(Game *g, int x, int y)
     return true;
 }
 
+/* Rags to Riches: villages built into a new world, trade that is only done in them, and every village with prices of its own. */
+static void test_rags_mod(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count, kinds = content.mob_count;
+    CHECK(content.village_count == 0 && content.structure_count == 0 && !content.trade.villages_only);
+    static World plain;
+    CHECK(world_init(&plain, 2048, 401, 21, WORLD_TERRAIN));
+    if (!content_load("mods/rags_to_riches", err, sizeof err)) {
+        printf("FAIL rags to riches does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    CHECK(content.tile_count == tiles + 18 && content.item_count == items + 33 && content.recipe_count == recipes + 14 && content.mob_count == kinds + 4);
+    CHECK(content.structure_count == 24 && content.village_count == 3 && content.trade.villages_only && content.trade.village_specialities == 4);
+    CHECK(tile_def(tile_id("village_bell"))->village > 0 && !tile_def(tile_id("village_bell"))->removable && item_def(item_id("traders_boots"))->speciality);
+
+    /* A new world has villages of every kind: on the ground, under it and in the sky - and but for them is the world it would have been. */
+    static Game g;
+    game_init(&g, 2048, 401, 21, WORLD_TERRAIN);
+    World *w = &g.world;
+    g.tick_rate = 20;
+    TilePos bells[32];
+    int bell_count = 0;
+    long changed = 0;
+    for (int y = 0; y < w->height; y++)
+        for (int x = 0; x < w->width; x++) {
+            changed += world_get(w, x, y) != world_get(&plain, x, y);
+            if (world_get_at(w, LAYER_BACKGROUND, x, y) == tile_id("village_bell") && bell_count < 32) bells[bell_count++] = (TilePos){ x, y };
+        }
+    world_free(&plain);
+    CHECK(bell_count >= 3 && changed > 500 && changed < 2048L * 401 / 20 && w->spawn_x > 0);
+    CHECK(count_tile(w, LAYER_FOREGROUND, tile_id("timber_wall")) > 20 && count_tile(w, LAYER_FOREGROUND, tile_id("hewn_stone")) > 20 &&
+          count_tile(w, LAYER_FOREGROUND, tile_id("whitewash_wall")) > 20 && count_tile(w, LAYER_FOREGROUND, tile_id("wooden_door")) >= 12);
+    CHECK(count_tile(w, LAYER_BACKGROUND, tile_id("wooden_bed")) >= 3 && count_tile(w, LAYER_BACKGROUND, tile_id("village_crate")) >= 6);
+    int above = 0, below = 0;
+    for (int i = 0; i < bell_count; i++) {
+        above += world_row_to_y(w, bells[i].y) > 60;
+        below += world_row_to_y(w, bells[i].y) < -30;
+    }
+    CHECK(above >= 1 && below >= 1 && bell_count - above - below >= 1);
+    /* Each is a village, with a number of its own; where the world begins is not in one. */
+    uint32_t first = game_village_at(&g, bells[0].x, bells[0].y), second = game_village_at(&g, bells[1].x, bells[1].y);
+    CHECK(first != 0 && second != 0 && first != second && game_village_at(&g, bells[0].x + 5, bells[0].y + 2) == first && game_village_at(&g, w->spawn_x, w->spawn_y) == 0);
+
+    /* The trade portal of a village works, at the village's own prices: many things up to a fifth dearer or cheaper, and selling a tenth under that. */
+    TilePos stalls[2] = { { -1, -1 }, { -1, -1 } };
+    for (int k = 0; k < 2; k++)
+        for (int dx = -12; dx <= 12; dx++)
+            for (int dy = -1; dy <= 6; dy++)
+                if (tile_def(world_get_at(w, LAYER_BACKGROUND, bells[k].x + dx, bells[k].y + dy))->trade) stalls[k] = (TilePos){ world_wrap_x(w, bells[k].x + dx), bells[k].y + dy };
+    CHECK(stalls[0].x >= 0 && stalls[1].x >= 0);
+    memset(g.discovered, 1, sizeof g.discovered);
+    g.player.feet = g.player.step_to = (TilePos){ stalls[0].x + 1, stalls[0].y };
+    CHECK(game_open_bench(&g, stalls[0].x, stalls[0].y) && game_trade_open(&g) && game_trade_works(&g));
+    int moved = 0, same = 0, stocked = 0, here[1024];
+    ItemId speciality = ITEM_NONE, elsewhere = ITEM_NONE;
+    for (ItemId i = 1; i < content.item_count; i++) {
+        int usual = trade_price(i), now = game_trade_price(&g, i);
+        here[i % 1024] = now;
+        if (usual <= 0) continue;
+        if (item_def(i)->speciality) {
+            /* (A speciality is not in this: it costs what it costs where it is sold, and half as much again where it is not.) */
+            g.inventory.slots[5] = (ItemStack){ .id = (uint16_t)i, .count = 1 };
+            bool sold = game_trade_stocks(&g, i);
+            CHECK(game_trade_deals(&g, i) && now == (sold ? usual : usual + usual / 2));
+            g.inventory.slots[5] = (ItemStack){ 0 };
+            CHECK(game_trade_deals(&g, i) == sold);
+            stocked += sold;
+            if (sold) speciality = i;
+            else elsewhere = i;
+            continue;
+        }
+        CHECK(now >= (int)((float)usual * 0.8f) && now <= (int)((float)usual * 1.2f) + 1 && game_trade_sell_price(&g, i) == (int)((float)now * 0.9f + 0.0001f));
+        moved += now != usual;
+        same += now == usual;
+    }
+    CHECK(moved > 60 && same > 60 && stocked == 4 && speciality != ITEM_NONE && elsewhere != ITEM_NONE);
+    /* Buying is at that price, and what the village does not sell cannot be bought there - though it will buy one. */
+    clear_inventory(&g);
+    inventory_add(&g.inventory, item_id("platinum_coin"), 20);
+    long wallet = trade_wallet(&g.inventory);
+    CHECK(trade_buy_now(&g, ITEM_DIRT, 3) && trade_wallet(&g.inventory) == wallet - 3L * game_trade_price(&g, ITEM_DIRT) && count_item(&g, ITEM_DIRT) == 3);
+    wallet = trade_wallet(&g.inventory);
+    CHECK(trade_buy_now(&g, speciality, 1) && trade_wallet(&g.inventory) == wallet - trade_price(speciality) && !trade_buy_now(&g, elsewhere, 1));
+    inventory_add(&g.inventory, elsewhere, 1);
+    wallet = trade_wallet(&g.inventory);
+    int fetch = game_trade_sell_price(&g, elsewhere);
+    bool sold_it = trade_sell_now(&g, elsewhere, 1);
+    CHECK(sold_it && trade_wallet(&g.inventory) == wallet + fetch && fetch > trade_price(elsewhere));
+    /* Prices move as the weeks go by. */
+    uint64_t then = g.tick;
+    g.tick += (uint64_t)(content.rules.day_ticks + content.rules.night_ticks) * 8;
+    int shifted = 0;
+    for (ItemId i = 1; i < content.item_count && i < 1024; i++) shifted += game_trade_price(&g, i) != here[i];
+    CHECK(shifted > 40);
+    g.tick = then;
+    /* Another village's are not the same. */
+    game_close_bench(&g);
+    g.player.feet = g.player.step_to = (TilePos){ stalls[1].x + 1, stalls[1].y };
+    CHECK(game_open_bench(&g, stalls[1].x, stalls[1].y) && game_trade_works(&g));
+    int differ = 0;
+    for (ItemId i = 1; i < content.item_count && i < 1024; i++) differ += game_trade_price(&g, i) != here[i];
+    CHECK(differ > 60);
+    game_close_bench(&g);
+
+    /* Anywhere else a trade portal does nothing at all; one that gives everything away works wherever it is. */
+    int px = w->spawn_x + 6, py = w->spawn_y;
+    for (int k = 0; k < 3; k++) {
+        for (int dx = 0; dx <= 3; dx++) world_set(w, px + dx, py - k, TILE_AIR);
+        world_set_at(w, LAYER_BACKGROUND, px, py - k, tile_id("trade_portal_6"));
+        world_set_at(w, LAYER_BACKGROUND, px + 3, py - k, tile_id("dev_portal"));
+    }
+    g.player.feet = g.player.step_to = (TilePos){ px + 1, py };
+    CHECK(game_open_bench(&g, px, py) && game_trade_open(&g) && !game_trade_works(&g));
+    wallet = trade_wallet(&g.inventory);
+    CHECK(!game_trade_deals(&g, ITEM_DIRT) && !trade_buy_now(&g, ITEM_DIRT, 1) && !trade_sell_now(&g, ITEM_DIRT, 1) && !trade_convert_now(&g, 2, 1) && trade_wallet(&g.inventory) == wallet);
+    static ItemId listed[1024];
+    static bool can[1024];
+    CHECK(game_trade_listing(&g, item_def(ITEM_DIRT)->category, listed, can, 1024) >= 0);
+    game_close_bench(&g);
+    CHECK(game_open_bench(&g, px + 3, py) && game_trade_works(&g) && game_trade_free(&g) && trade_buy_now(&g, elsewhere, 1));
+    game_close_bench(&g);
+    game_free(&g);
+
+    /* It is no trouble to any of the other mods. */
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/settest/saves");
+    const ModInfo *mine = NULL;
+    for (int i = 0; i < mods.count; i++)
+        if (strcmp(mods.mods[i].id, "rags_to_riches") == 0) mine = &mods.mods[i];
+    CHECK(mine != NULL && strcmp(mine->label, "Rags to Riches") == 0);
+    for (int i = 0; mine && i < mods.count; i++) {
+        char what[64];
+        if (&mods.mods[i] != mine) CHECK(!mods_conflict(mine, &mods.mods[i], what, sizeof what));
+    }
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+}
+
 /* The workbench makes benches and nothing else: in the game, and in every mod it comes with. (A machine is a bench for this.) */
 static void test_workbench_only(void)
 {
@@ -12438,6 +12580,7 @@ int main(void)
     test_discovery_mod();
     test_alchemie_mod();
     test_dimensions_mod();
+    test_rags_mod();
     test_workbench_only();
     test_all_caged();
     test_equip_selected();

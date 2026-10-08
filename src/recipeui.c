@@ -169,7 +169,7 @@ static float draw_recipe(const Recipe *r, float x, float y, float width, Rectang
 /* One way of getting a thing that is not making it. */
 static float draw_source(const ItemSource *s, float x, float y, float width, Rectangle clip)
 {
-    static const char *verbs[] = { "Mine", "Kill", "Shear", "Milk", "Pick from", "Open", "", "" };
+    static const char *verbs[] = { "Mine", "Kill", "Shear", "Milk", "Pick from", "Open", "", "", "Buy in" };
     float text_x = x + 6 + CELL + 10, text_width = width - CELL - 28 - (s->placed_by != ITEM_NONE ? CELL + 10 : 0);
     float line = y + 8;
     /* (Measured first, so the row can be drawn behind its words.) */

@@ -1,0 +1,8 @@
+{
+  "mobs": [
+    {"name": "villager", "label": "Villager", "texture": "mobs/villager.png", "walk": ["mobs/villager_walk_0.png", "mobs/villager.png", "mobs/villager_walk_1.png", "mobs/villager.png"], "hop": 0.03, "step_ticks": 5, "move_chance": 0.12, "turn_chance": 0.3, "health": 20, "cap": 3, "spawn": {"above": ["village_planks", "cobblestone", "sky_cobble"], "chance": 0.5}, "drops": [{"item": "copper_coin", "min": 0, "max": 3}], "caged": "caged_villager"},
+    {"name": "merchant", "label": "Merchant", "texture": "mobs/merchant.png", "walk": ["mobs/merchant_walk_0.png", "mobs/merchant.png", "mobs/merchant_walk_1.png", "mobs/merchant.png"], "hop": 0.03, "step_ticks": 5, "move_chance": 0.12, "turn_chance": 0.3, "health": 20, "cap": 3, "spawn": {"above": ["village_planks", "cobblestone", "sky_cobble"], "chance": 0.5}, "drops": [{"item": "copper_coin", "min": 0, "max": 3}], "caged": "caged_merchant"},
+    {"name": "farmer", "label": "Farmer", "texture": "mobs/farmer.png", "walk": ["mobs/farmer_walk_0.png", "mobs/farmer.png", "mobs/farmer_walk_1.png", "mobs/farmer.png"], "hop": 0.03, "step_ticks": 5, "move_chance": 0.12, "turn_chance": 0.3, "health": 20, "cap": 3, "spawn": {"above": ["village_planks", "cobblestone", "sky_cobble"], "chance": 0.5}, "drops": [{"item": "copper_coin", "min": 0, "max": 3}], "caged": "caged_farmer"},
+    {"name": "elder", "label": "Elder", "texture": "mobs/elder.png", "walk": ["mobs/elder_walk_0.png", "mobs/elder.png", "mobs/elder_walk_1.png", "mobs/elder.png"], "hop": 0.03, "step_ticks": 5, "move_chance": 0.12, "turn_chance": 0.3, "health": 20, "cap": 3, "spawn": {"above": ["village_planks", "cobblestone", "sky_cobble"], "chance": 0.5}, "drops": [{"item": "copper_coin", "min": 0, "max": 3}], "caged": "caged_elder"}
+  ]
+}

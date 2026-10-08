@@ -13,6 +13,19 @@ bool game_trade_open(const Game *g);
 int trade_price(ItemId item);
 /* What selling one gives: a share of that. */
 int trade_sell_price(ItemId item);
+/* Villages. The village a square is in - a number of its own, never 0 - or 0 for none: it is in one if it is
+ * within reach of a block that is a village's heart. */
+uint32_t game_village_at(const Game *g, int x, int y);
+/* Whether the block that is open does any trade where it stands: where trade is only done in villages, one
+ * anywhere else does none (but one that gives everything away works anywhere). */
+bool game_trade_works(const Game *g);
+/* What one of an item costs at the block that is open, and what selling one there gives: in a village, the
+ * village's own prices, which are not quite any other's and change from time to time. */
+int game_trade_price(const Game *g, ItemId item);
+int game_trade_sell_price(const Game *g, ItemId item);
+/* Whether the block that is open has an item to sell, as well as buying it: a speciality is sold only in the
+ * villages that deal in it, though any village will buy one - and pays well for it. */
+bool game_trade_stocks(const Game *g, ItemId item);
 /* Whether the block that is open gives everything away. */
 bool game_trade_free(const Game *g);
 /* How far the block that is open has been raised: it deals in nothing of a
@@ -44,8 +57,7 @@ long trade_wallet(const Inventory *inv);
 /* Buys `count` of an item. Coins are spent smallest first, and a bigger coin
  * is broken into change when the smaller ones do not cover it. */
 bool game_trade_buy(Game *g, ItemId item, int count);
-/* Sells `count` of an item for the smallest currency. Coins are never
- * exchanged upward on a sale; that is what converting is for. */
+/* Sells `count` of an item, for the biggest coins that make up what it fetches. */
 bool game_trade_sell(Game *g, ItemId item, int count);
 /* Exchanges between two currencies next to each other in value: as many of
  * the lower as make one of the higher, or one of the higher for that many. */

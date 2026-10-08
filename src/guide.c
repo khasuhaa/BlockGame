@@ -432,6 +432,11 @@ int guide_sources(ItemId item, ItemSource *out, int max)
             say(s->where, sizeof s->where, "Every %d ticks of meditating brings something.", content.rules.meditation_ticks);
         }
     }
+    if (item_def(item)->speciality) {
+        ItemSource *s = add(out, &count, max, SOURCE_VILLAGE, 0, 1, 1, 1.0f);
+        snprintf(s->label, sizeof s->label, "A village");
+        say(s->where, sizeof s->where, "A speciality: sold at the trade portal of some villages and no others.");
+    }
     for (int i = 0; i < content.rules.start_item_count; i++) {
         if (content.rules.start_items[i].id != item) continue;
         int many = content.rules.start_items[i].count;

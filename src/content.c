@@ -362,6 +362,7 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->opens_above = (int)num(e, "opens_above", 0);
         t->opens_below = (int)num(e, "opens_below", 0);
         t->hardness = (int)num(e, "hardness", 0);
+        t->village = (int)num(e, "village", 0);
         t->harm = (float)num(e, "harm", 0.0);
         const cJSON *extends = field(e, "extends"), *ext_cost;
         t->extends = extends != NULL;
@@ -710,6 +711,7 @@ static bool read_items(Reader *r, const cJSON *root)
         it->cooling = (float)num(e, "cooling", 0.0);
         it->reveals_all = flag(e, "reveals_all", false);
         it->identifies = flag(e, "identifies", false);
+        it->speciality = flag(e, "speciality", false);
         it->relic = flag(e, "relic", false);
         read_boons(field(e, "boons"), &it->boons);
         if (!boons_ok(&it->boons)) return fail(r, "item \"%s\": its \"boons\" are not less than nothing, and shares are no more than 1", it->name);
@@ -1308,6 +1310,82 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         }
     }
 
+    /* Things built: each a picture in rows of characters, with a legend that says what each character is. */
+    cJSON_ArrayForEach(e, field(root, "structures")) {
+        const char *name = str(e, "name");
+        const cJSON *rows = field(e, "rows"), *legend = field(e, "legend"), *row;
+        if (!name || !cJSON_IsArray(rows) || !legend) return fail(r, "a structure needs a \"name\", its \"rows\" and a \"legend\"");
+        int id = -1;
+        for (int i = 0; i < content.structure_count; i++)
+            if (strcmp(content.structures[i].name, name) == 0) id = i;
+        if (id < 0) {
+            if (content.structure_count >= MAX_STRUCTURES) return fail(r, "too many structures");
+            id = content.structure_count++;
+        }
+        StructureDef *s = &content.structures[id];
+        memset(s, 0, sizeof *s);
+        copy_name(s->name, sizeof s->name, name);
+        s->height = cJSON_GetArraySize(rows);
+        if (s->height < 1 || s->height > STRUCTURE_MAX_HEIGHT) return fail(r, "structure \"%s\" is 1 to %d rows tall", name, STRUCTURE_MAX_HEIGHT);
+        int y = 0;
+        cJSON_ArrayForEach(row, rows) {
+            const char *text = cJSON_IsString(row) ? row->valuestring : "";
+            int wide = (int)strlen(text);
+            if (wide > STRUCTURE_MAX_WIDTH) return fail(r, "structure \"%s\" is at most %d wide", name, STRUCTURE_MAX_WIDTH);
+            if (wide > s->width) s->width = wide;
+            for (int x = 0; x < STRUCTURE_MAX_WIDTH; x++) {
+                char key[2] = { x < wide ? text[x] : '~', '\0' };
+                /* ('~' is the world left as it was; a space is open air; anything else is in the legend.) */
+                if (key[0] == '~') {
+                    s->cells[y][x].keep = true;
+                    continue;
+                }
+                if (key[0] == ' ') continue;
+                const cJSON *what = field(legend, key);
+                if (!what) return fail(r, "structure \"%s\": '%s' is not in its legend", name, key);
+                if (!tile_ref(r, what, "front", &s->cells[y][x].front) || !tile_ref(r, what, "back", &s->cells[y][x].back) ||
+                    !tile_ref(r, what, "wall", &s->cells[y][x].wall)) return false;
+            }
+            y++;
+        }
+    }
+    cJSON_ArrayForEach(e, field(root, "villages")) {
+        const char *name = str(e, "name"), *where = str(e, "where");
+        const cJSON *one;
+        if (!name) return fail(r, "a village has no \"name\"");
+        int id = -1;
+        for (int i = 0; i < content.village_count; i++)
+            if (strcmp(content.villages[i].name, name) == 0) id = i;
+        if (id < 0) {
+            if (content.village_count >= MAX_VILLAGE_KINDS) return fail(r, "too many kinds of village");
+            id = content.village_count++;
+        }
+        VillageDef *v = &content.villages[id];
+        memset(v, 0, sizeof *v);
+        copy_name(v->name, sizeof v->name, name);
+        v->where = !where || strcmp(where, "ground") == 0 ? VILLAGE_GROUND : strcmp(where, "cave") == 0 ? VILLAGE_CAVE : strcmp(where, "island") == 0 ? VILLAGE_ISLAND : -1;
+        if (v->where < 0) return fail(r, "village \"%s\" is \"where\": \"ground\", \"cave\" or \"island\"", name);
+        v->count_min = (int)num(e, "at_least", 1);
+        v->per_1000_columns = (float)num(e, "per_1000_columns", 0.0);
+        v->houses_min = 3, v->houses_max = 6;
+        pair(e, "houses", &v->houses_min, &v->houses_max);
+        if (!tile_ref(r, e, "street", &v->street) || !tile_ref(r, e, "ground", &v->ground)) return false;
+        if (v->ground == TILE_AIR) return fail(r, "village \"%s\" needs \"ground\" to stand on", name);
+        if (v->street == TILE_AIR) v->street = v->ground;
+        v->centre = -1;
+        for (int i = 0; i < content.structure_count; i++)
+            if (str(e, "centre") && strcmp(content.structures[i].name, str(e, "centre")) == 0) v->centre = i;
+        if (v->centre < 0) return fail(r, "village \"%s\" needs a \"centre\" that is a structure", name);
+        cJSON_ArrayForEach(one, field(e, "buildings")) {
+            int found = -1;
+            for (int i = 0; cJSON_IsString(one) && i < content.structure_count; i++)
+                if (strcmp(content.structures[i].name, one->valuestring) == 0) found = i;
+            if (found < 0 || v->house_count >= MAX_VILLAGE_HOUSES) return fail(r, "village \"%s\" lists at most %d buildings that are structures", name, MAX_VILLAGE_HOUSES);
+            v->houses[v->house_count++] = found;
+        }
+        if (v->house_count == 0) return fail(r, "village \"%s\" needs some \"buildings\"", name);
+    }
+
     cJSON_ArrayForEach(e, field(root, "dimensions")) {
         const char *name = str(e, "name"), *kind = str(e, "generator");
         if (!name) return fail(r, "a dimension has no \"name\"");
@@ -1802,6 +1880,16 @@ static bool read_trade(Reader *r, const cJSON *root)
     cJSON_ArrayForEach(e, field(root, "tier_prices")) {
         if (t->tier_count >= MAX_TRADE_TIERS) return fail(r, "too many tiers");
         t->tier_prices[t->tier_count++] = (int)e->valuedouble;
+    }
+    const cJSON *villages = field(root, "villages");
+    if (villages) {
+        t->villages_only = flag(villages, "only", t->villages_only);
+        t->village_swing = (float)num(villages, "swing", t->village_swing);
+        t->village_share = (float)num(villages, "share", t->village_share);
+        t->village_days = (int)num(villages, "days", t->village_days);
+        t->village_specialities = (int)num(villages, "specialities", t->village_specialities);
+        if (t->village_swing < 0.0f || t->village_swing >= 1.0f || t->village_share < 0.0f || t->village_share > 1.0f)
+            return fail(r, "\"villages\": \"swing\" and \"share\" are shares, 0 to 1");
     }
     if (field(root, "currencies")) t->currency_count = 0;
     cJSON_ArrayForEach(e, field(root, "currencies")) {

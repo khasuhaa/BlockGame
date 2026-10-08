@@ -22,6 +22,11 @@
 #define MAX_DECOR 64
 #define MAX_POLES 16
 #define MAX_DIMENSIONS 8
+#define MAX_STRUCTURES 48
+#define STRUCTURE_MAX_WIDTH 32
+#define STRUCTURE_MAX_HEIGHT 20
+#define MAX_VILLAGE_KINDS 8
+#define MAX_VILLAGE_HOUSES 16
 #define MAX_BIOME_SPIKES 8
 #define MAX_GEODES 4
 #define MAX_STRATA 4
@@ -282,6 +287,7 @@ typedef struct {
     bool extends;
     RecipeItem extend_cost[RECIPE_MAX_INPUTS];
     int extend_cost_count, extend_crystals;
+    int village;       /* it is the heart of a village: everywhere within so many blocks of it is in that village; 0 for not */
     int hardness;      /* nothing with less `power` than this digs it; 0 for anything */
     float harm;        /* the share of a health bar it takes, each second, from whoever stands on it or against it */
     bool needs_tool;   /* it is only taken up with its tool in hand: otherwise a click on it is a click on the square */
@@ -509,6 +515,7 @@ typedef struct {
     int power;             /* a tool: what `hardness` of block it can dig */
     bool glides;           /* worn, a drop of any height is a step like another: they come down slowly */
     float cooling;         /* worn, how much of the environment score it keeps where it is hot: a share, 0 to 1 */
+    bool speciality;       /* it is sold only in villages, and only in the few of them that happen to deal in it */
     bool pack;             /* worn, it is a pack on the back as well: a box there, drawn from the top right of its picture */
     bool lifts;            /* worn, it lets them fly: the air holds them up wherever they go in it */
     /* Something that runs on rails: put down on them, it is not a block but a vehicle (see train.h). */
@@ -721,6 +728,35 @@ typedef struct {
     float amplitude;
     int wavelength;
 } Swell;
+
+/* Something built: a picture of blocks, set down whole when a world is made. Each square of it may have a
+ * block in front, something behind, and a backwall - or be left as the world had it. */
+typedef struct {
+    char name[CONTENT_NAME_LEN];
+    int width, height;
+    struct {
+        TileType front, back, wall;
+        bool keep; /* nothing of the world's is changed here */
+    } cells[STRUCTURE_MAX_HEIGHT][STRUCTURE_MAX_WIDTH];
+} StructureDef;
+
+enum { VILLAGE_GROUND, VILLAGE_CAVE, VILLAGE_ISLAND };
+
+/* A kind of village: where it is put - on the ground, in a hall cut for it under ground, or on an island made
+ * for it in the sky - how many a world has, and what it is built of: one building in the middle (which has
+ * the block that is the village's heart) and so many others either side, chosen from a list, with a street
+ * of `street` between them on ground of `ground`. */
+typedef struct {
+    char name[CONTENT_NAME_LEN];
+    int where;
+    int count_min;           /* a world has at least this many */
+    float per_1000_columns;  /* and this many more, about, for its width */
+    int houses_min, houses_max;
+    int centre;              /* which of content.structures */
+    int houses[MAX_VILLAGE_HOUSES];
+    int house_count;
+    TileType street, ground;
+} VillageDef;
 
 enum { DIM_ISLANDS, DIM_CAVERNS, DIM_VOID };
 
@@ -1070,6 +1106,13 @@ typedef struct {
     /* An item that names no tier is of the highest one whose price it reaches: these are those prices, lowest tier first. */
     int tier_prices[MAX_TRADE_TIERS];
     int tier_count;
+    /* Villages. Where trade is only done in them, a block to trade at anywhere else does nothing. Each village
+     * has prices of its own: so many of all the things there are (`village_share`) cost up to `village_swing`
+     * more or less there than usual, and which, and by how much, changes every so many days (0 for never).
+     * Each also deals in so many of the specialities, which no other place sells. */
+    bool villages_only;
+    float village_swing, village_share;
+    int village_days, village_specialities;
     /* Coins, smallest first. Each is an item worth so many of the smallest. */
     struct {
         ItemId item;
@@ -1119,6 +1162,10 @@ typedef struct {
     char tool_classes[MAX_TOOL_CLASSES][CONTENT_NAME_LEN];
     int tool_class_count;
     WorldGenDef worldgen;
+    StructureDef structures[MAX_STRUCTURES];
+    int structure_count;
+    VillageDef villages[MAX_VILLAGE_KINDS];
+    int village_count;
     DimensionDef dimensions[MAX_DIMENSIONS];
     int dimension_count;
     RulesDef rules;

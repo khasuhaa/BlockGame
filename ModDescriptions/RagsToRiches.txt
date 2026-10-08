@@ -1,0 +1,26 @@
+RAGS TO RICHES - WHAT WAS ASKED FOR, AND WHAT WAS BUILT
+
+Asked for: structures; people who live in villages; villages on a floating island, in a cave or on the ground;
+trade portals that only work in a village and say so anywhere else; every village with prices of its own, many
+things up to 20% dearer or cheaper, for buying and for selling (selling being 90% of buying); more mechanics of
+my own choosing, perhaps things that can only be bought in certain villages; and houses that look good.
+
+Built (no plan was put to the owner first: the request said to work it out):
+
+  Villages      Three kinds - hamlet (ground, timber and thatch), delve (a hall under ground, stone and slate),
+                aerie (an island of its own in the sky, whitewash and blue tile). At least one of each in every
+                new world, and more in a wide one. A market in the middle with a bell, an awning and a trade
+                portal (tier III, IV and VI); four to eight buildings either side: cottage, longhouse, house of
+                two floors, tower, storehouse, well, garden.
+  People        Villager, merchant, farmer, elder: they turn up on the village's floors and streets and wander.
+                They do nothing else yet.
+  Trade         Only in a village (within reach of its bell). Elsewhere the portal opens to a message.
+  Prices        About six things in ten are up to 20% dearer or cheaper in any one village, and which, and by
+                how much, changes every seven days. The menu shows the difference.
+  Specialities  Fourteen things sold only in villages, four to a village; any other village buys them at half
+                as much again.
+  Other         Crates with loot in the houses; building blocks with recipes; sales paid in the biggest coins.
+
+Left for later, if wanted: villagers who do something (buy, sell, ask for things, give work); reputation in a
+village; a way to found a village of one's own; villages in the Aether and the Deep; roads between villages;
+a ledger that remembers what each village charged.

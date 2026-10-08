@@ -318,7 +318,9 @@ static void draw_items(const TradeUi *ui, const Game *g, Rectangle panel)
         draw_centered("Pick an item to buy or sell", note, 16, LIGHTGRAY);
         return;
     }
-    int price = trade_price(ui->selected), back = trade_sell_price(ui->selected), held = inventory_count(&g->inventory, ui->selected);
+    int price = game_trade_price(g, ui->selected), back = game_trade_sell_price(g, ui->selected), held = inventory_count(&g->inventory, ui->selected);
+    int usual = trade_price(ui->selected);
+    bool stocked = game_trade_stocks(g, ui->selected);
     long wallet = trade_wallet(&g->inventory);
     assets_draw_item_tones(ui->selected, (Rectangle){ left, y, 40, 40 }, 0);
     DrawText(item_def(ui->selected)->label, (int)(left + 46), (int)y + 3, 16, RAYWHITE);
@@ -327,14 +329,17 @@ static void draw_items(const TradeUi *ui, const Game *g, Rectangle panel)
         DrawText("Free", (int)right - MeasureText("Free", 16), (int)y + 12, 16, (Color){ 140, 226, 140, 255 });
     } else {
         /* What it costs, and under that what it fetches. */
-        float x = draw_price(price, right, y, 20, 14, RAYWHITE);
-        DrawText("Buy", (int)x - MeasureText("Buy", 12) - 6, (int)y + 4, 12, LIGHTGRAY);
+        /* (Cheaper here than it usually is in green, dearer in red, with by how much.) */
+        Color tone = price < usual ? (Color){ 140, 226, 140, 255 } : price > usual ? (Color){ 240, 150, 120, 255 } : RAYWHITE;
+        float x = draw_price(price, right, y, 20, 14, tone);
+        const char *word = !stocked ? "Not sold here" : price != usual && usual > 0 ? TextFormat("Buy %+d%%", (int)lroundf(((float)price / (float)usual - 1.0f) * 100.0f)) : "Buy";
+        DrawText(word, (int)x - MeasureText(word, 12) - 6, (int)y + 4, 12, price == usual || !stocked ? LIGHTGRAY : tone);
         x = draw_price(back, right, y + 21, 20, 14, RAYWHITE);
         DrawText("Sell", (int)x - MeasureText("Sell", 12) - 6, (int)y + 25, 12, LIGHTGRAY);
     }
 
-    draw_button(deal_rect(panel, 0), "Buy 1", free || wallet >= price);
-    draw_button(deal_rect(panel, 1), "Buy 10", free || wallet >= (long)price * 10);
+    draw_button(deal_rect(panel, 0), "Buy 1", free || (stocked && wallet >= price));
+    draw_button(deal_rect(panel, 1), "Buy 10", free || (stocked && wallet >= (long)price * 10));
     draw_button(deal_rect(panel, 2), "Sell 1", held >= 1 && (free || back > 0));
     draw_button(deal_rect(panel, 3), "Sell 10", held >= 10 && (free || back > 0));
 }
@@ -410,6 +415,13 @@ void tradeui_draw(const TradeUi *ui, const Game *g, const View *v)
                  (Vector2){ panel.x - 12, tile_y }, edge_color);
     DrawRectangleRec(panel, panel_color);
     DrawRectangleLinesEx(panel, 2.0f, edge_color);
+    if (!game_trade_works(g)) {
+        /* Where trade is only done in villages, one set down anywhere else says so and does nothing. */
+        DrawText(tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y))->label, (int)(panel.x + PAD), (int)panel.y + 9, 16, RAYWHITE);
+        draw_centered("No trade here", (Rectangle){ panel.x, panel.y + panel.height / 2 - 34, panel.width, 24 }, 20, RAYWHITE);
+        draw_centered("Trade portals only work in a village", (Rectangle){ panel.x, panel.y + panel.height / 2, panel.width, 20 }, 16, LIGHTGRAY);
+        return;
+    }
 
     /* The block's name, and the coins held, biggest first from the left. */
     DrawText(tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y))->label, (int)(panel.x + PAD),

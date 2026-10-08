@@ -732,6 +732,146 @@ static void place_poles(World *w)
     }
 }
 
+/* ---- villages ------------------------------------------------------------ */
+
+/* Sets a thing that is built down in the world, its bottom row on a row of the world. */
+static void stamp_structure(World *w, const StructureDef *s, int x0, int base)
+{
+    for (int sy = 0; sy < s->height; sy++) {
+        for (int sx = 0; sx < s->width; sx++) {
+            int y = base - (s->height - 1) + sy;
+            if (s->cells[sy][sx].keep || y < 1 || y >= w->height - 1) continue;
+            size_t cell = (size_t)y * w->width + world_wrap_x(w, x0 + sx);
+            w->layers[LAYER_FOREGROUND][cell] = (uint16_t)s->cells[sy][sx].front;
+            w->layers[LAYER_BACKGROUND][cell] = (uint16_t)s->cells[sy][sx].back;
+            /* (What has no wall of its own keeps whatever is behind it: the rock of a cave, or the sky.) */
+            if (s->cells[sy][sx].wall != TILE_AIR) w->layers[LAYER_WALL][cell] = (uint16_t)s->cells[sy][sx].wall;
+            w->water[cell] = 0;
+            w->meta[cell] = 0;
+        }
+    }
+    /* (A door takes its look from what it has been built into.) */
+    for (int sy = 0; sy < s->height; sy++)
+        for (int sx = 0; sx < s->width; sx++)
+            if (!s->cells[sy][sx].keep && tile_def(s->cells[sy][sx].front)->mimics != MIMIC_NONE)
+                world_fix_look(w, x0 + sx, base - (s->height - 1) + sy);
+}
+
+/* Makes one column of a village's site: open above a row, a street on it, and ground under that as far as there is none. */
+static void village_column(World *w, const VillageDef *v, int x, int row, int clear, bool walled)
+{
+    for (int y = row - clear; y < row; y++) {
+        if (y < 1) continue;
+        size_t cell = (size_t)y * w->width + world_wrap_x(w, x);
+        w->layers[LAYER_FOREGROUND][cell] = TILE_AIR;
+        w->layers[LAYER_BACKGROUND][cell] = TILE_AIR;
+        if (!walled) w->layers[LAYER_WALL][cell] = TILE_AIR;
+        w->water[cell] = 0;
+        w->meta[cell] = 0;
+    }
+    for (int y = row, filled = 0; y < w->height - 1 && filled < 40; y++, filled++) {
+        size_t cell = (size_t)y * w->width + world_wrap_x(w, x);
+        bool solid = tile_def((TileType)w->layers[LAYER_FOREGROUND][cell])->solid;
+        if (y > row + 2 && solid) break;
+        w->layers[LAYER_FOREGROUND][cell] = (uint16_t)(y == row ? v->street : v->ground);
+        w->layers[LAYER_BACKGROUND][cell] = TILE_AIR;
+        if (walled && tile_def(v->ground)->wall) w->layers[LAYER_WALL][cell] = (uint16_t)v->ground;
+        w->water[cell] = 0;
+    }
+}
+
+/* The villages of a new world: so many of each kind, each on a site made for it. They are made last of all,
+ * from numbers of their own, so that the rest of the world is what it would have been without them. */
+static void place_villages(World *w, const int *level)
+{
+    const WorldGenDef *gen = &content.worldgen;
+    uint32_t rng = w->seed ^ 0x51A6E5u;
+    if (rng == 0) rng = 1;
+    int placed[64], placed_count = 0;
+    for (int k = 0; k < content.village_count; k++) {
+        const VillageDef *v = &content.villages[k];
+        float more = v->per_1000_columns * (float)w->width / 1000.0f;
+        int want = v->count_min + (int)more + (rng_unit(&rng) < more - floorf(more) ? 1 : 0);
+        for (int n = 0; n < want && placed_count < 64; n++) {
+            /* What it is made of, left to right: buildings, the centre, more buildings, with a little street between each. */
+            int plan[MAX_VILLAGE_HOUSES + 1], gaps[MAX_VILLAGE_HOUSES + 1], count = rng_range(&rng, v->houses_min, v->houses_max), total = 6;
+            if (count > MAX_VILLAGE_HOUSES) count = MAX_VILLAGE_HOUSES;
+            int middle = count / 2;
+            for (int i = 0; i <= count; i++) {
+                plan[i] = i == middle ? v->centre : v->houses[rng_range(&rng, 0, v->house_count - 1)];
+                gaps[i] = rng_range(&rng, 2, 4);
+                total += content.structures[plan[i]].width + gaps[i];
+            }
+            if (total + 60 > w->width / 2) continue;
+            for (int go = 0; go < 80; go++) {
+                int cx = rng_range(&rng, 0, w->width - 1), x0 = cx - total / 2, row = 0;
+                bool ok = abs(world_dx(w, w->spawn_x, cx)) > total / 2 + 40;
+                for (int i = 0; ok && i < placed_count; i++) ok = abs(world_dx(w, placed[i], cx)) > total + 120;
+                /* Never in the sea, nor under it. */
+                int low = level[world_wrap_x(w, cx)], high = low;
+                for (int dx = -6; ok && dx < total + 6; dx++) {
+                    int at = level[world_wrap_x(w, x0 + dx)];
+                    if (at < low) low = at;
+                    if (at > high) high = at;
+                }
+                ok = ok && (!gen->has_sea || low > gen->sea_level + 2);
+                if (!ok) continue;
+                if (v->where == VILLAGE_GROUND) {
+                    if (high - low > 16) continue;
+                    row = world_y_to_row(w, (low + high) / 2) + 1;
+                    for (int dx = -2; dx < total + 2; dx++) village_column(w, v, x0 + dx, row, 22, false);
+                    /* The land either side comes up or down to it a step at a time. */
+                    for (int side = -1; side <= 1; side += 2) {
+                        int h = row;
+                        for (int step = 1; step <= 30; step++) {
+                            int x = side < 0 ? x0 - 2 - step : x0 + total + 1 + step, natural = world_y_to_row(w, level[world_wrap_x(w, x)]) + 1;
+                            if (natural == h) break;
+                            h += natural > h ? 1 : -1;
+                            village_column(w, v, x, h, natural < h ? h - natural + 3 : 3, false);
+                            w->layers[LAYER_FOREGROUND][(size_t)h * w->width + world_wrap_x(w, x)] = (uint16_t)v->ground;
+                        }
+                    }
+                } else if (v->where == VILLAGE_CAVE) {
+                    row = world_y_to_row(w, low) + rng_range(&rng, 40, 110);
+                    if (row > w->height - 24) continue;
+                    for (int dx = -3; dx < total + 3; dx++) {
+                        /* (A hall: lower at its ends than in the middle.) */
+                        int edge = dx + 3 < total + 2 - dx ? dx + 3 : total + 2 - dx;
+                        village_column(w, v, x0 + dx, row, edge < 4 ? 8 + edge * 2 : 16, true);
+                    }
+                } else {
+                    row = world_y_to_row(w, rng_range(&rng, gen->island_min_y + 15, gen->island_max_y > gen->island_min_y + 30 ? gen->island_max_y : gen->island_min_y + 60));
+                    if (row < 30 || row > world_y_to_row(w, high) - 30) continue;
+                    /* (Not through an island that is there already.) */
+                    bool clear = true;
+                    for (int dx = 0; clear && dx < total; dx += 3)
+                        for (int dy = -18; clear && dy <= 8; dy += 2) clear = world_get(w, x0 + dx, row + dy) == TILE_AIR;
+                    if (!clear) continue;
+                    int span = total + 8;
+                    for (int i = 0; i < span; i++) {
+                        float t = ((float)i + 0.5f) / (float)span * 2.0f - 1.0f;
+                        int thick = 2 + (int)(11.0f * sqrtf(1.0f - t * t) + rng_unit(&rng) * 1.5f);
+                        for (int d = 0; d < thick; d++) {
+                            size_t cell = (size_t)(row + d) * w->width + world_wrap_x(w, x0 - 4 + i);
+                            if (row + d >= w->height - 2) break;
+                            TileType tile = d == 0 ? v->street : d <= 3 ? v->ground : gen->island_base != TILE_AIR ? gen->island_base : gen->rock;
+                            w->layers[LAYER_FOREGROUND][cell] = (uint16_t)tile;
+                            if (d > 0) w->layers[LAYER_WALL][cell] = (uint16_t)tile;
+                        }
+                    }
+                }
+                int x = x0 + 3;
+                for (int i = 0; i <= count; i++) {
+                    stamp_structure(w, &content.structures[plan[i]], x, row);
+                    x += content.structures[plan[i]].width + gaps[i];
+                }
+                placed[placed_count++] = world_wrap_x(w, cx);
+                break;
+            }
+        }
+    }
+}
+
 static bool generate_terrain(World *w)
 {
     const WorldGenDef *gen = &content.worldgen;
@@ -904,6 +1044,7 @@ static bool generate_terrain(World *w)
     water_fill_sea(w);
     plant_world(w, level, biome, &rng);
     place_poles(w);
+    if (content.village_count > 0) place_villages(w, level);
     free(biome);
 
     free(c.level);
