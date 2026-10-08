@@ -4,7 +4,7 @@
 #include "inventory.h"
 #include "raylib.h"
 
-#define HUD_MAX_EXTRA_SLOTS 16
+#define HUD_MAX_EXTRA_SLOTS 20 /* a storage's sixteen, and the four relic slots */
 
 enum {
     HUD_EAT_NONE, /* what is selected is not food */
@@ -25,6 +25,9 @@ typedef struct {
     /* Slots outside the bar that take part in dragging this frame. */
     HudSlot extra[HUD_MAX_EXTRA_SLOTS];
     int extra_count;
+    /* How many of those, from the first, are the slots of a storage that is open (a click on a stack sends it
+     * there, or back): the rest are others of the character's own - their relics. */
+    int storage_count;
 
     bool armor_open;
     bool basket_open[INVENTORY_SLOTS];
@@ -58,6 +61,8 @@ typedef struct {
  * belongs to the inventory, so the world should ignore it. */
 bool hud_handle_input(Hud *hud, Inventory *inv);
 /* Collapses the armor column and every basket. */
+/* Where the i-th relic slot goes: a column beside the armour's, shown with it. */
+Rectangle hud_relic_rect(int i);
 void hud_close_all(Hud *hud);
 bool hud_mouse_over(const Hud *hud, const Inventory *inv);
 void hud_draw(const Hud *hud, const Inventory *inv);

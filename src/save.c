@@ -7,7 +7,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 33u
+#define SAVE_VERSION 34u
 
 /* Up to version 28 a world had room for a quarter as many of these, and they
  * were written out whole: every reader of an older version goes by these. */
@@ -511,8 +511,12 @@ bool save_game(const Game *g, const char *path)
         rides[c][0] = c == g->live ? g->ride : g->characters[c].ride;
         rides[c][1] = c == g->live ? g->ride_seat : g->characters[c].ride_seat;
     }
+    /* Which container each character's relics are in. */
+    uint16_t relic_boxes[MAX_CHARACTERS] = { 0 };
+    for (int c = 0; c < g->character_count && c < MAX_CHARACTERS; c++) relic_boxes[c] = c == g->live ? g->relic_box : g->characters[c].relic_box;
     ok = ok && fwrite(&vehicles, sizeof vehicles, 1, f) == 1 && fwrite(&vehicle_size, sizeof vehicle_size, 1, f) == 1 &&
-         fwrite(g->vehicles, sizeof g->vehicles, 1, f) == 1 && fwrite(rides, sizeof rides, 1, f) == 1;
+         fwrite(g->vehicles, sizeof g->vehicles, 1, f) == 1 && fwrite(rides, sizeof rides, 1, f) == 1 &&
+         fwrite(relic_boxes, sizeof relic_boxes, 1, f) == 1;
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
         remove(tmp);
@@ -798,6 +802,16 @@ bool load_game(Game *g, const char *path)
                 if (ride < 1 || ride > MAX_VEHICLES || seat < 0 || seat >= VEHICLE_SEATS || g->vehicles[ride - 1].seats[seat] != c + 1) ride = seat = 0;
                 if (c == g->live) g->ride = ride, g->ride_seat = seat;
                 else g->characters[c].ride = ride, g->characters[c].ride_seat = seat;
+            }
+        }
+        /* From version 34: where each character's relics are. */
+        if (ok && h.version >= 34) {
+            uint16_t relic_boxes[MAX_CHARACTERS] = { 0 };
+            ok = fread(relic_boxes, sizeof relic_boxes, 1, f) == 1;
+            for (int c = 0; ok && c < MAX_CHARACTERS; c++) {
+                uint16_t box = relic_boxes[c] < MAX_CONTAINERS && g->inventory.containers[relic_boxes[c]].used == CONTAINER_RELICS ? relic_boxes[c] : 0;
+                if (c == g->live) g->relic_box = box;
+                else g->characters[c].relic_box = box;
             }
         }
         bool nobody = ok && h.version >= 15 && people[0] == 0;

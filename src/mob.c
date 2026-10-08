@@ -278,6 +278,16 @@ bool mob_weak_to(const Game *g, int mob, int element)
 static void drop_on(Game *g, Mob *m, int column);
 static bool trunk_for(const World *w, const MobDef *def, int x, int y);
 
+/* What bites or stings someone with thorns on is hurt for it - without that making it any angrier than it was. */
+static void thorned(Game *g, Mob *m)
+{
+    int thorns = game_boons(g).thorns;
+    if (thorns <= 0 || !m->active) return;
+    if (m->hp <= 0) m->hp = content.mobs[m->kind].health;
+    m->hp -= thorns;
+    if (m->hp <= 0) kill_mob(g, (int)(m - g->mobs), false);
+}
+
 /* Something that attacks, hit and still alive, goes for whoever hit it there and then: one up a tree comes down
  * on them, and one that was resting from its last attack has done resting. */
 static void provoke(Game *g, Mob *m)
@@ -441,6 +451,7 @@ static void perch_tick(Game *g, Mob *m, const MobDef *def)
             game_attacked(g, def->bite);
             m->state = MOB_RETURN;
             m->timer = def->bite_rest;
+            thorned(g, m);
         } else if (!game_alive(g) || m->timer == 0 || abs(pdx) > def->seek_radius || !head_for(g, m, p->feet.x)) {
             /* Too far, too long, or no way to them: back up the tree. */
             m->state = MOB_RETURN;
@@ -557,6 +568,7 @@ static void swim_tick(Game *g, Mob *m, const MobDef *def)
                 game_wake(g);
                 game_attacked(g, def->bite);
                 m->timer = def->bite_rest;
+                thorned(g, m);
                 return;
             }
             if (swim_toward(g, m, pdx, pdy, false)) return;
@@ -634,6 +646,7 @@ void mobs_tick(Game *g)
                     game_poison(g, (int)((float)def->sting_ticks * (1.0f - game_protection(g)) + 0.5f));
                     game_attacked(g, 0.0f); /* (no harm of itself: only that they know it) */
                     m->timer = def->sting_rest > 0 ? def->sting_rest : 1;
+                    thorned(g, m);
                 }
                 if (pdx != 0) m->dir = pdx > 0 ? 1 : -1;
                 continue;

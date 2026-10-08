@@ -951,10 +951,73 @@ static bool sets_fire(const Game *g, const World *w, TilePos t)
     return held->count > 0 && item_def((ItemId)held->id)->ignites && layer >= 0 && tile_def(world_get_at(w, layer, t.x, t.y))->burns;
 }
 
+uint16_t game_relic_box(Game *g)
+{
+    if (!content.has_relics) return 0;
+    Inventory *inv = &g->inventory;
+    if (g->relic_box > 0 && g->relic_box < MAX_CONTAINERS && inv->containers[g->relic_box].used == CONTAINER_RELICS) return g->relic_box;
+    g->relic_box = container_alloc(inv);
+    if (g->relic_box != 0) inv->containers[g->relic_box].used = CONTAINER_RELICS;
+    return g->relic_box;
+}
+
+/* What the live character has on: armour, then relics. Returns how many. */
+static int worn(const Game *g, const ItemDef *out[ARMOR_SLOTS + RELIC_SLOTS])
+{
+    int n = 0;
+    for (int i = 0; i < ARMOR_SLOTS; i++)
+        if (g->inventory.armor[i].count > 0) out[n++] = item_def((ItemId)g->inventory.armor[i].id);
+    uint16_t box = g->relic_box;
+    if (box == 0 || box >= MAX_CONTAINERS || g->inventory.containers[box].used != CONTAINER_RELICS) return n;
+    for (int i = 0; i < RELIC_SLOTS; i++) {
+        const ItemStack *s = &g->inventory.containers[box].slots[i];
+        if (s->count > 0 && item_def((ItemId)s->id)->relic) out[n++] = item_def((ItemId)s->id);
+    }
+    return n;
+}
+
+int game_set_pieces(const Game *g, int set)
+{
+    const ItemDef *on[ARMOR_SLOTS + RELIC_SLOTS];
+    int n = worn(g, on), pieces = 0;
+    for (int i = 0; i < n; i++) pieces += set >= 0 && on[i]->set == set;
+    return pieces;
+}
+
+static void add_boons(Boons *all, const Boons *b)
+{
+    if (b->walk > 0.0f) all->walk *= b->walk;
+    if (b->mine > 0.0f) all->mine *= b->mine;
+    if (b->craft > 0.0f) all->craft *= b->craft;
+    if (b->regen > 0.0f) all->regen *= b->regen;
+    if (b->lung > 0.0f) all->lung *= b->lung;
+    if (b->appetite > 0.0f) all->appetite *= b->appetite;
+    if (b->stamina > 0.0f) all->stamina *= b->stamina;
+    all->armor += b->armor, all->warmth += b->warmth, all->luck += b->luck;
+    all->strength += b->strength, all->thorns += b->thorns;
+}
+
+Boons game_boons(const Game *g)
+{
+    Boons all = { .walk = 1.0f, .mine = 1.0f, .craft = 1.0f, .regen = 1.0f, .lung = 1.0f, .appetite = 1.0f, .stamina = 1.0f };
+    const ItemDef *on[ARMOR_SLOTS + RELIC_SLOTS];
+    int n = worn(g, on);
+    for (int i = 0; i < n; i++) add_boons(&all, &on[i]->boons);
+    /* Enough of a set on: what that gives besides - every bonus the number reaches. */
+    for (int s = 0; s < content.set_count && n > 0; s++) {
+        int pieces = 0;
+        for (int i = 0; i < n; i++) pieces += on[i]->set == s;
+        for (int t = 0; t < content.sets[s].tier_count; t++)
+            if (pieces >= content.sets[s].tiers[t].pieces) add_boons(&all, &content.sets[s].tiers[t].boons);
+    }
+    if (all.luck > 1.0f) all.luck = 1.0f;
+    return all;
+}
+
 float game_mine_time(const Game *g, TileType t)
 {
     const TileDef *def = tile_def(t);
-    return def->mine_time / inventory_tool_speed(&g->inventory, def->tool_class);
+    return def->mine_time / inventory_tool_speed(&g->inventory, def->tool_class) / game_boons(g).mine;
 }
 
 static TilePos drop_tile(const Drop *d)
@@ -1254,7 +1317,7 @@ int game_attack_damage(const Game *g)
 {
     const ItemStack *held = inventory_selected(&g->inventory);
     int with = held->count > 0 ? item_def(held->id)->damage : 0;
-    return with > content.rules.hand_damage ? with : content.rules.hand_damage;
+    return (with > content.rules.hand_damage ? with : content.rules.hand_damage) + game_boons(g).strength;
 }
 
 bool game_player_in_water(const Game *g)
@@ -1337,6 +1400,37 @@ static void container_put(Inventory *inv, uint16_t c, ItemId item, int count)
     }
 }
 
+int game_area_pools(const Game *g, int x, int y, int *out)
+{
+    const World *w = &g->world;
+    int n = 0, biome = world_biome(w, x), height = world_row_to_y(w, y);
+    for (int i = 0; i < content.pool_count; i++) {
+        const PoolDef *pool = &content.pools[i];
+        bool here = pool->any_biome;
+        for (int k = 0; k < pool->biome_count && !here; k++) here = pool->biomes[k] == biome;
+        if (!here || height < pool->y_min || height > pool->y_max || pool->loot_count == 0) continue;
+        if (out) out[n] = i;
+        n++;
+    }
+    return n;
+}
+
+ItemId game_area_find(Game *g, int x, int y)
+{
+    int pools[MAX_POOLS], n = game_area_pools(g, x, y, pools), total = 0;
+    for (int i = 0; i < n; i++)
+        for (int k = 0; k < content.pools[pools[i]].loot_count; k++) total += content.pools[pools[i]].loot[k].weight;
+    if (total <= 0) return ITEM_NONE;
+    int roll = (int)(game_random(g) % (uint32_t)total);
+    for (int i = 0; i < n; i++) {
+        for (int k = 0; k < content.pools[pools[i]].loot_count; k++) {
+            if (roll < content.pools[pools[i]].loot[k].weight) return content.pools[pools[i]].loot[k].item;
+            roll -= content.pools[pools[i]].loot[k].weight;
+        }
+    }
+    return ITEM_NONE;
+}
+
 /* A storage block that the world came with has no record yet. The first time
  * it is opened or dug up it gets one, holding whatever its kind is found with. */
 static void storage_ensure(Game *g, TilePos t, const TileDef *def)
@@ -1348,6 +1442,14 @@ static void storage_ensure(Game *g, TilePos t, const TileDef *def)
         const LootDef *l = &def->loot[i];
         int count = l->min + (l->max > l->min ? (int)(game_random(g) % (uint32_t)(l->max - l->min + 1)) : 0);
         ItemId item = l->item;
+        if (l->area) {
+            /* Whatever is found in this place: so many of them, each picked afresh. */
+            for (int n = 0; n < count; n++) {
+                ItemId found = game_area_find(g, t.x, t.y);
+                if (found != ITEM_NONE) container_put(&g->inventory, c, found, 1);
+            }
+            continue;
+        }
         if (item == ITEM_NONE) {
             int total = 0;
             for (int k = 0; k < l->choice_count; k++) total += l->choices[k].weight;
@@ -1709,6 +1811,11 @@ static void finish_activity(Game *g)
             /* A tree cut through dies from the cut upward. */
             decay_tree(&g->world, layer, t);
             int tones = def->two_tone ? tile_tones(&g->world, layer, t.x, t.y) : def->written ? world_meta(&g->world, t.x, t.y) : 0;
+            /* (With luck on their side, now and then one more of it than there was.) */
+            float luck = game_boons(g).luck;
+            if (luck > 0.0f && inside == 0 && tones == 0 && def->storage_columns == 0 && !def->bench && item_def(def->drop)->container_slots == 0 &&
+                (float)(game_random(g) >> 8) / 16777216.0f < luck)
+                count++;
             drop_block_items_toned(g, def, (TilePos){ t.x, bottom }, inside, count, tones);
             /* (Some blocks are still there when they have been mined: there is always more in them.) */
             if (def->endless) {
@@ -2463,7 +2570,7 @@ static void update_bench(Game *g, float dt)
     }
     /* Worn out, the work waits for them; as happy as can be, it goes that much the quicker. */
     if (g->vitals.energy <= 0.0f) return;
-    g->craft_timer += dt * (game_pace(g) > 1.0f ? game_pace(g) : 1.0f);
+    g->craft_timer += dt * (game_pace(g) > 1.0f ? game_pace(g) : 1.0f) * game_boons(g).craft;
     float each = game_craft_seconds(g, g->craft_recipe);
     while (g->craft_remaining > 0 && g->craft_timer >= each) {
         g->craft_timer -= each;
@@ -2600,6 +2707,7 @@ static void character_stash(Game *g, Character *c)
     c->shield = g->shield;
     c->chill = g->chill;
     c->ride = g->ride;
+    c->relic_box = g->relic_box;
     c->ride_seat = g->ride_seat;
     c->upgrading = g->upgrading;
     c->upgrade_timer = g->upgrade_timer;
@@ -2635,6 +2743,7 @@ static void character_fetch(Game *g, const Character *c)
     g->shield = c->shield;
     g->chill = c->chill;
     g->ride = c->ride;
+    g->relic_box = c->relic_box;
     g->ride_seat = c->ride_seat;
     g->upgrading = c->upgrading;
     g->upgrade_timer = c->upgrade_timer;
@@ -3275,7 +3384,7 @@ static void vitals_tick(Game *g)
     /* Hunger waits for a full stomach to wear off, then runs down. */
     if (still || game_sated(g)) {} /* (nor with something on that keeps hunger off) */
     else if (v->saturation > 0.0f) v->saturation = v->saturation > 1.0f ? v->saturation - 1.0f : 0.0f;
-    else if (u->hunger_ticks > 0) v->hunger = clamp01(v->hunger - 1.0f / (float)u->hunger_ticks);
+    else if (u->hunger_ticks > 0) v->hunger = clamp01(v->hunger - game_boons(g).appetite / (float)u->hunger_ticks);
 
     /* Health mends by itself, unless there is nothing left to eat on. */
     if (v->hunger <= 0.0f && u->starve_ticks > 0) {
@@ -3284,13 +3393,13 @@ static void vitals_tick(Game *g)
             if (v->health < u->starve_floor) v->health = u->starve_floor;
         }
     } else if (u->health_regen_ticks > 0) {
-        heal(g, 1.0f / (float)u->health_regen_ticks);
+        heal(g, game_boons(g).regen / (float)u->health_regen_ticks);
     }
 
     /* Breath: it runs down with the head under water and comes back in the
      * air. With none left, health goes instead. */
     if (u->oxygen_ticks > 0 && game_player_underwater(g)) {
-        v->oxygen = clamp01(v->oxygen - 1.0f / (float)u->oxygen_ticks);
+        v->oxygen = clamp01(v->oxygen - 1.0f / (float)u->oxygen_ticks / game_boons(g).lung);
         if (v->oxygen <= 0.0f && u->drown_ticks > 0) {
             game_wake(g);
             game_hurt(g, 1.0f / (float)u->drown_ticks);
@@ -3325,7 +3434,7 @@ static void vitals_tick(Game *g)
         }
         if (v->energy >= most || u->sleep_ticks <= 0) game_wake(g);
     } else if (u->energy_ticks > 0 && !still && !game_tireless(g)) {
-        v->energy -= 1.0f / (float)u->energy_ticks;
+        v->energy -= game_boons(g).stamina / (float)u->energy_ticks;
         if (v->energy < 0.0f) v->energy = 0.0f;
     }
 
@@ -3581,6 +3690,7 @@ float game_environment_floor(const Game *g)
         anything = true;
         kept += item_def((ItemId)g->inventory.armor[i].id)->warmth;
     }
+    kept += game_boons(g).warmth;
     /* (Anything on at all is enough to live through it.) */
     if (anything && kept < content.rules.env_clothed) kept = content.rules.env_clothed;
     return kept > 1.0f ? 1.0f : kept;
@@ -3615,7 +3725,7 @@ float game_walk_speed(const Game *g)
     for (int i = 0; i < ARMOR_SLOTS; i++)
         if (g->inventory.armor[i].count > 0 && item_def((ItemId)g->inventory.armor[i].id)->walk_speed > best)
             best = item_def((ItemId)g->inventory.armor[i].id)->walk_speed;
-    return best;
+    return best * game_boons(g).walk;
 }
 
 bool game_tireless(const Game *g)
@@ -3637,6 +3747,7 @@ float game_protection(const Game *g)
     float total = 0.0f;
     for (int i = 0; i < ARMOR_SLOTS; i++)
         if (g->inventory.armor[i].count > 0) total += item_def((ItemId)g->inventory.armor[i].id)->armor;
+    total += game_boons(g).armor;
     return total > 0.9f ? 0.9f : total;
 }
 

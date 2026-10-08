@@ -26,6 +26,11 @@ static Rectangle cell_rect(int col, int row)
     return (Rectangle){ x0 + col * pitch, y0 - row * pitch, SLOT_SIZE, SLOT_SIZE };
 }
 
+Rectangle hud_relic_rect(int i)
+{
+    return cell_rect(-1, COLUMN_ROWS - i);
+}
+
 static bool is_basket(const Inventory *inv, int slot)
 {
     const ItemStack *s = &inv->slots[slot];
@@ -101,7 +106,7 @@ bool hud_mouse_over(const Hud *hud, const Inventory *inv)
 /* The storage container whose slots are on screen, if one is open. */
 static uint16_t open_storage(const Hud *hud)
 {
-    if (hud->extra_count == 0 || hud->extra[0].ref.kind != SLOT_CONTAINER) return 0;
+    if (hud->storage_count == 0 || hud->extra_count == 0 || hud->extra[0].ref.kind != SLOT_CONTAINER) return 0;
     return (uint16_t)hud->extra[0].ref.index;
 }
 
@@ -112,7 +117,7 @@ static void handle_tap(Hud *hud, Inventory *inv)
      * into the chest from the inventory, out of it from the chest. */
     const ItemStack *tapped = hud->press_head ? NULL : inventory_slot(inv, s);
     if (open_storage(hud) != 0 && tapped && tapped->count > 0 && s.kind != SLOT_ARMOR) {
-        inventory_quick_move(inv, s, open_storage(hud), hud->extra_count);
+        inventory_quick_move(inv, s, open_storage(hud), hud->storage_count);
         return;
     }
     if (hud->press_head) {

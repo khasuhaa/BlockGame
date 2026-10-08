@@ -399,14 +399,15 @@ static bool read_tiles(Reader *r, const cJSON *root)
             l->min = (int)num(entry, "min", 1);
             l->max = (int)num(entry, "max", l->min);
             if (str(entry, "item") && !item_ref(r, entry, "item", &l->item)) return false;
+            l->area = flag(entry, "area", false);
             cJSON_ArrayForEach(choice, field(entry, "one_of")) {
                 if (l->choice_count >= MAX_LOOT_CHOICES || !str(choice, "item") ||
                     !item_ref(r, choice, "item", &l->choices[l->choice_count].item))
                     return fail(r, "tile \"%s\": \"one_of\" lists at most %d items that exist", t->name, MAX_LOOT_CHOICES);
                 l->choices[l->choice_count++].weight = (int)num(choice, "weight", 1);
             }
-            if ((l->item == ITEM_NONE) == (l->choice_count == 0) || l->min < 0 || l->max < l->min)
-                return fail(r, "tile \"%s\": loot is an \"item\" or a \"one_of\", with \"min\" no more than \"max\"", t->name);
+            if ((l->area ? l->item != ITEM_NONE || l->choice_count > 0 : (l->item == ITEM_NONE) == (l->choice_count == 0)) || l->min < 0 || l->max < l->min)
+                return fail(r, "tile \"%s\": loot is an \"item\", a \"one_of\" or \"area\", with \"min\" no more than \"max\"", t->name);
         }
         /* Creatures are read later; the name is matched to one once they are. */
         copy_name(t->hatches_name, sizeof t->hatches_name, str(e, "hatches"));
@@ -528,6 +529,24 @@ static bool read_tiles(Reader *r, const cJSON *root)
         }
     }
     return true;
+}
+
+/* "boons": what a thing does for whoever has it on. */
+static void read_boons(const cJSON *b, Boons *out)
+{
+    memset(out, 0, sizeof *out);
+    if (!b) return;
+    out->walk = (float)num(b, "walk", 0.0), out->mine = (float)num(b, "mine", 0.0), out->craft = (float)num(b, "craft", 0.0);
+    out->regen = (float)num(b, "regen", 0.0), out->lung = (float)num(b, "lung", 0.0);
+    out->appetite = (float)num(b, "appetite", 0.0), out->stamina = (float)num(b, "stamina", 0.0);
+    out->armor = (float)num(b, "armor", 0.0), out->warmth = (float)num(b, "warmth", 0.0), out->luck = (float)num(b, "luck", 0.0);
+    out->strength = (int)num(b, "strength", 0.0), out->thorns = (int)num(b, "thorns", 0.0);
+}
+
+static bool boons_ok(const Boons *b)
+{
+    return b->walk >= 0.0f && b->mine >= 0.0f && b->craft >= 0.0f && b->regen >= 0.0f && b->lung >= 0.0f && b->appetite >= 0.0f && b->stamina >= 0.0f &&
+           b->armor >= 0.0f && b->armor <= 1.0f && b->warmth >= 0.0f && b->warmth <= 1.0f && b->luck >= 0.0f && b->luck <= 1.0f && b->strength >= 0 && b->thorns >= 0;
 }
 
 static bool read_items(Reader *r, const cJSON *root)
@@ -670,6 +689,10 @@ static bool read_items(Reader *r, const cJSON *root)
         copy_name(it->worn, sizeof it->worn, str(e, "worn"));
         it->walk_speed = (float)num(e, "walk_speed", 0.0);
         it->lifts = flag(e, "lifts", false);
+        it->relic = flag(e, "relic", false);
+        read_boons(field(e, "boons"), &it->boons);
+        if (!boons_ok(&it->boons)) return fail(r, "item \"%s\": its \"boons\" are not less than nothing, and shares are no more than 1", it->name);
+        copy_name(it->set_name, sizeof it->set_name, str(e, "set"));
         it->shelters = flag(e, "shelters", false);
         const cJSON *vehicle = field(e, "vehicle");
         memset(&it->vehicle, 0, sizeof it->vehicle);
@@ -731,6 +754,31 @@ static bool read_items(Reader *r, const cJSON *root)
         const char *equip = str(e, "equip");
         for (int i = 0; equip && i < 4; i++)
             if (strcmp(equip, equip_names[i]) == 0) it->equip = (EquipSlot)i;
+    }
+    /* "sets": things that go together, and what having enough of one on gives besides. (One named again is replaced.) */
+    cJSON_ArrayForEach(e, field(root, "sets")) {
+        const char *name = str(e, "name");
+        if (!name) return fail(r, "a set has no \"name\"");
+        int at = -1;
+        for (int i = 0; i < content.set_count; i++)
+            if (strcmp(content.sets[i].name, name) == 0) at = i;
+        if (at < 0) {
+            if (content.set_count >= MAX_SETS) return fail(r, "too many sets");
+            at = content.set_count++;
+        }
+        SetDef *set = &content.sets[at];
+        memset(set, 0, sizeof *set);
+        copy_name(set->name, sizeof set->name, name);
+        copy_name(set->label, sizeof set->label, str(e, "label") ? str(e, "label") : name);
+        const cJSON *tier;
+        cJSON_ArrayForEach(tier, field(e, "bonuses")) {
+            if (set->tier_count >= MAX_SET_TIERS) return fail(r, "set \"%s\" has more than %d bonuses", name, MAX_SET_TIERS);
+            set->tiers[set->tier_count].pieces = (int)num(tier, "pieces", 0);
+            read_boons(field(tier, "boons"), &set->tiers[set->tier_count].boons);
+            if (set->tiers[set->tier_count].pieces < 1 || !boons_ok(&set->tiers[set->tier_count].boons))
+                return fail(r, "set \"%s\": a bonus is for so many \"pieces\", 1 or more, and its \"boons\" are not less than nothing", name);
+            set->tier_count++;
+        }
     }
     return true;
 }
@@ -1009,6 +1057,38 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         if (b->plant_count >= MAX_BIOME_PLANTS) return fail(r, "biome \"%s\" has too many plants", b->name);
         b->plants[b->plant_count].tile = tile;
         b->plants[b->plant_count++].one_in = (int)num(e, "one_in", 20);
+    }
+
+    /* "loot_pools": places with finds of their own. (One named again is added to, not replaced: a mod may put more
+     * into a pool another made.) */
+    cJSON_ArrayForEach(e, field(root, "loot_pools")) {
+        const char *name = str(e, "name");
+        const cJSON *one;
+        if (!name) return fail(r, "a loot pool has no \"name\"");
+        int at = -1;
+        for (int i = 0; i < content.pool_count; i++)
+            if (strcmp(content.pools[i].name, name) == 0) at = i;
+        if (at < 0) {
+            if (content.pool_count >= MAX_POOLS) return fail(r, "too many loot pools");
+            at = content.pool_count++;
+            memset(&content.pools[at], 0, sizeof content.pools[at]);
+            copy_name(content.pools[at].name, sizeof content.pools[at].name, name);
+            copy_name(content.pools[at].label, sizeof content.pools[at].label, name);
+            content.pools[at].y_min = -100000, content.pools[at].y_max = 100000;
+        }
+        PoolDef *pool = &content.pools[at];
+        if (str(e, "label")) copy_name(pool->label, sizeof pool->label, str(e, "label"));
+        cJSON_ArrayForEach(one, field(e, "biomes")) {
+            if (!cJSON_IsString(one)) continue;
+            if (pool->biome_name_count >= MAX_POOL_BIOMES) return fail(r, "loot pool \"%s\" names too many biomes", name);
+            copy_name(pool->biome_names[pool->biome_name_count++], CONTENT_NAME_LEN, one->valuestring);
+        }
+        if (field(e, "y")) pair(e, "y", &pool->y_min, &pool->y_max);
+        cJSON_ArrayForEach(one, field(e, "loot")) {
+            if (pool->loot_count >= MAX_POOL_LOOT || !str(one, "item") || !item_ref(r, one, "item", &pool->loot[pool->loot_count].item))
+                return fail(r, "loot pool \"%s\" lists at most %d items that exist", name, MAX_POOL_LOOT);
+            pool->loot[pool->loot_count++].weight = (int)num(one, "weight", 1);
+        }
     }
 
     const cJSON *caves = field(root, "caves");
@@ -1704,10 +1784,27 @@ static bool validate(Reader *r)
             return fail(r, "item \"%s\" has no \"category\", so it could not be bought or sold; "
                            "give it one from trade.json", it->name);
         it->cooked = it->cooked_said == 1;
+        it->set = -1;
+        for (int k = 0; k < content.set_count; k++)
+            if (strcmp(content.sets[k].name, it->set_name) == 0) it->set = k;
+        if (it->set_name[0] && it->set < 0) return fail(r, "item \"%s\" is of the set \"%s\", which does not exist", it->name, it->set_name);
+        if (it->relic && it->max_stack != 1) return fail(r, "item \"%s\" is a relic: it must have a \"max_stack\" of 1", it->name);
+        if (i == 0) content.has_relics = false;
+        content.has_relics = content.has_relics || it->relic;
         it->plants = it->plants_name[0] ? tree_id(it->plants_name) : -1;
         if (it->plants_name[0] && it->plants < 0)
             return fail(r, "item \"%s\" plants a tree called \"%s\", which does not exist", it->name,
                         it->plants_name);
+    }
+    /* A loot pool's biomes, by name: one the game has not got (another mod's, which is not on) is left out, and a
+     * pool that named some and has none of them left is nowhere. */
+    for (int i = 0; i < content.pool_count; i++) {
+        PoolDef *pool = &content.pools[i];
+        pool->biome_count = 0;
+        pool->any_biome = pool->biome_name_count == 0;
+        for (int k = 0; k < pool->biome_name_count; k++)
+            for (int b = 0; b < content.biome_count; b++)
+                if (strcmp(content.biomes[b].name, pool->biome_names[k]) == 0) pool->biomes[pool->biome_count++] = b;
     }
     /* Food that some recipe makes is cooked, unless the data has said otherwise of it. */
     for (int i = 0; i < content.recipe_count; i++) {

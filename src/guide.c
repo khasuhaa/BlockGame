@@ -349,6 +349,19 @@ int guide_sources(ItemId item, ItemSource *out, int max)
                 total += l->choices[c].weight;
                 if (l->choices[c].item == item) weight += l->choices[c].weight;
             }
+            /* (What is found there by the place it stands in: a line to every place that has this in its pool.) */
+            for (int p = 0; l->area && p < content.pool_count; p++) {
+                const PoolDef *pool = &content.pools[p];
+                int has = 0, of = 0;
+                for (int k = 0; k < pool->loot_count; k++) {
+                    of += pool->loot[k].weight;
+                    if (pool->loot[k].item == item) has += pool->loot[k].weight;
+                }
+                if (has == 0 || (!pool->any_biome && pool->biome_count == 0)) continue;
+                ItemSource *s = add(out, &count, max, SOURCE_CHEST, t, l->min, l->max, (float)has / (float)of);
+                snprintf(s->label, sizeof s->label, "%s", tile_label(t));
+                snprintf(s->where, sizeof s->where, "%s", pool->label);
+            }
             if (l->item != item && weight == 0) continue;
             int before = count;
             ItemSource *s = add(out, &count, max, SOURCE_CHEST, t, l->min, l->max,

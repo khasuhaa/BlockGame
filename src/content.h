@@ -24,6 +24,12 @@
 #define MAX_CAVE_BIOMES 16
 #define MAX_CAVE_GROWTH 8 /* kinds of thing on the floor, or hanging from the roof, of one kind of cave */
 #define MAX_BIOMES 64
+#define MAX_SETS 64         /* kinds of set that worn things belong to */
+#define MAX_SET_TIERS 4
+#define MAX_POOLS 96        /* places with finds of their own */
+#define MAX_POOL_LOOT 64
+#define MAX_POOL_BIOMES 16
+#define RELIC_SLOTS 4
 #define MAX_MOB_KINDS 192
 #define MAX_MOB_DROPS 16
 #define MAX_MOB_SPAWN_TILES 16
@@ -104,7 +110,7 @@ typedef enum {
 } EquipSlot;
 
 #define MAX_ZOOM_LEVELS 64
-#define MAX_RECIPE_CHOICES 32
+#define MAX_RECIPE_CHOICES 64
 #define MAX_ISLAND_TREES 48
 #define MAX_CELLS 1024      /* storage cells with anything in them that a world can have */
 #define CELL_TYPES 63      /* kinds of thing one cell holds */
@@ -147,7 +153,47 @@ typedef struct {
         int weight;
     } choices[MAX_LOOT_CHOICES];
     int choice_count;
+    bool area; /* it is whatever is found where the block stands: picked from the loot pools of that place */
 } LootDef;
+
+/* What a thing does for whoever has it on - worn as armour, or carried as a relic. Each is nothing unless given. */
+typedef struct {
+    float walk, mine, craft; /* so many times as fast on foot, at digging, at a bench: 0 for no difference */
+    float regen, lung;       /* so many times as fast at mending, as long a breath */
+    float appetite, stamina; /* so many times the pace hunger and tiredness come on at: less than 1 is slower */
+    float armor, warmth;     /* a share more of each attack stopped, of the environment score kept */
+    float luck;              /* the chance that a block dug leaves one more of what it leaves */
+    int strength, thorns;    /* damage more to every blow; damage done to whatever bites or stings them */
+} Boons;
+
+/* A set: things that go together. With enough of one on, there is something more besides. */
+typedef struct {
+    char name[CONTENT_NAME_LEN];
+    char label[CONTENT_NAME_LEN];
+    struct {
+        int pieces;
+        Boons boons;
+    } tiers[MAX_SET_TIERS];
+    int tier_count;
+} SetDef;
+
+/* Somewhere with finds of its own: so many biomes (any, if none are named) between two heights. A block whose
+ * loot is "area" holds something from every pool its place is in, taken together. */
+typedef struct {
+    char name[CONTENT_NAME_LEN];
+    char label[CONTENT_NAME_LEN];
+    char biome_names[MAX_POOL_BIOMES][CONTENT_NAME_LEN]; /* as the data names them: one the game has not got is no matter */
+    int biome_name_count;
+    int biomes[MAX_POOL_BIOMES];
+    int biome_count;
+    bool any_biome;
+    int y_min, y_max; /* heights, as the readout gives them */
+    struct {
+        ItemId item;
+        int weight;
+    } loot[MAX_POOL_LOOT];
+    int loot_count;
+} PoolDef;
 
 typedef struct {
     char name[CONTENT_NAME_LEN];
@@ -435,6 +481,12 @@ typedef struct {
     float walk_speed;
     bool tireless, sated;
     bool shelters;         /* worn, the weather is nothing to them: their environment score is kept past full */
+    /* A relic: it goes in a relic slot, and does what its boons say while it is there. `set` is the set it is one
+     * of (-1 for none), as armour may be too. */
+    bool relic;
+    Boons boons;
+    int set;
+    char set_name[CONTENT_NAME_LEN];
     bool lifts;            /* worn, it lets them fly: the air holds them up wherever they go in it */
     /* Something that runs on rails: put down on them, it is not a block but a vehicle (see train.h). */
     struct {
@@ -978,6 +1030,11 @@ typedef struct {
     int tool_class_count;
     WorldGenDef worldgen;
     RulesDef rules;
+    SetDef sets[MAX_SETS];
+    int set_count;
+    PoolDef pools[MAX_POOLS];
+    int pool_count;
+    bool has_relics; /* some item is a relic: characters have somewhere to carry them */
     TradeDef trade;
 } Content;
 

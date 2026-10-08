@@ -1,0 +1,712 @@
+{
+ "items": [
+  {
+   "name": "worn_compass",
+   "label": "Worn compass",
+   "texture": "items/worn_compass.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "wayfarer",
+   "boons": {
+    "walk": 1.08
+   },
+   "category": "relics",
+   "price": 2400,
+   "tier": 6
+  },
+  {
+   "name": "wayfarers_flask",
+   "label": "Wayfarer's flask",
+   "texture": "items/wayfarers_flask.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "wayfarer",
+   "boons": {
+    "appetite": 0.85
+   },
+   "category": "relics",
+   "price": 2400,
+   "tier": 6
+  },
+  {
+   "name": "trail_marker",
+   "label": "Trail marker",
+   "texture": "items/trail_marker.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "wayfarer",
+   "boons": {
+    "stamina": 0.85
+   },
+   "category": "relics",
+   "price": 2400,
+   "tier": 6
+  },
+  {
+   "name": "lucky_horseshoe",
+   "label": "Lucky horseshoe",
+   "texture": "items/lucky_horseshoe.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "wayfarer",
+   "boons": {
+    "luck": 0.06
+   },
+   "category": "relics",
+   "price": 2400,
+   "tier": 6
+  },
+  {
+   "name": "blossom_charm",
+   "label": "Blossom charm",
+   "texture": "items/blossom_charm.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "grove",
+   "boons": {
+    "regen": 1.5
+   },
+   "category": "relics",
+   "price": 2800,
+   "tier": 6
+  },
+  {
+   "name": "amber_acorn",
+   "label": "Amber acorn",
+   "texture": "items/amber_acorn.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "grove",
+   "boons": {
+    "stamina": 0.8
+   },
+   "category": "relics",
+   "price": 2800,
+   "tier": 6
+  },
+  {
+   "name": "carvers_knot",
+   "label": "Carver's knot",
+   "texture": "items/carvers_knot.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "grove",
+   "boons": {
+    "craft": 1.12
+   },
+   "category": "relics",
+   "price": 2800,
+   "tier": 6
+  },
+  {
+   "name": "pinecone_idol",
+   "label": "Pinecone idol",
+   "texture": "items/pinecone_idol.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "grove",
+   "boons": {
+    "warmth": 0.15
+   },
+   "category": "relics",
+   "price": 2800,
+   "tier": 6
+  },
+  {
+   "name": "scarab_brooch",
+   "label": "Scarab brooch",
+   "texture": "items/scarab_brooch.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "dune",
+   "boons": {
+    "armor": 0.06
+   },
+   "category": "relics",
+   "price": 3000,
+   "tier": 6
+  },
+  {
+   "name": "sun_disc",
+   "label": "Sun disc",
+   "texture": "items/sun_disc.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "dune",
+   "boons": {
+    "warmth": 0.2
+   },
+   "category": "relics",
+   "price": 3000,
+   "tier": 6
+  },
+  {
+   "name": "thorn_ring",
+   "label": "Thorn ring",
+   "texture": "items/thorn_ring.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "dune",
+   "boons": {
+    "thorns": 1
+   },
+   "category": "relics",
+   "price": 3000,
+   "tier": 6
+  },
+  {
+   "name": "nomads_waterskin",
+   "label": "Nomad's waterskin",
+   "texture": "items/nomads_waterskin.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "dune",
+   "boons": {
+    "appetite": 0.75
+   },
+   "category": "relics",
+   "price": 3000,
+   "tier": 6
+  },
+  {
+   "name": "pearl_of_breath",
+   "label": "Pearl of breath",
+   "texture": "items/pearl_of_breath.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "tide",
+   "boons": {
+    "lung": 2.0
+   },
+   "category": "relics",
+   "price": 3200,
+   "tier": 6
+  },
+  {
+   "name": "coral_crown",
+   "label": "Coral crown",
+   "texture": "items/coral_crown.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "tide",
+   "boons": {
+    "regen": 1.3
+   },
+   "category": "relics",
+   "price": 3200,
+   "tier": 6
+  },
+  {
+   "name": "drowned_coin",
+   "label": "Drowned coin",
+   "texture": "items/drowned_coin.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "tide",
+   "boons": {
+    "luck": 0.08
+   },
+   "category": "relics",
+   "price": 3200,
+   "tier": 6
+  },
+  {
+   "name": "sailors_knot",
+   "label": "Sailor's knot",
+   "texture": "items/sailors_knot.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "tide",
+   "boons": {
+    "strength": 2
+   },
+   "category": "relics",
+   "price": 3200,
+   "tier": 6
+  },
+  {
+   "name": "jade_idol",
+   "label": "Jade idol",
+   "texture": "items/jade_idol.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "jungle",
+   "boons": {
+    "strength": 3
+   },
+   "category": "relics",
+   "price": 3400,
+   "tier": 6
+  },
+  {
+   "name": "feathered_charm",
+   "label": "Feathered charm",
+   "texture": "items/feathered_charm.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "jungle",
+   "boons": {
+    "walk": 1.1
+   },
+   "category": "relics",
+   "price": 3400,
+   "tier": 6
+  },
+  {
+   "name": "monkeys_paw",
+   "label": "Monkey's paw",
+   "texture": "items/monkeys_paw.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "jungle",
+   "boons": {
+    "luck": 0.1
+   },
+   "category": "relics",
+   "price": 3400,
+   "tier": 6
+  },
+  {
+   "name": "vine_bracelet",
+   "label": "Vine bracelet",
+   "texture": "items/vine_bracelet.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "jungle",
+   "boons": {
+    "regen": 1.4
+   },
+   "category": "relics",
+   "price": 3400,
+   "tier": 6
+  },
+  {
+   "name": "ember_lantern",
+   "label": "Ember lantern",
+   "texture": "items/ember_lantern.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "deep",
+   "boons": {
+    "mine": 1.12
+   },
+   "category": "relics",
+   "price": 4200,
+   "tier": 6
+  },
+  {
+   "name": "prospectors_pin",
+   "label": "Prospector's pin",
+   "texture": "items/prospectors_pin.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "deep",
+   "boons": {
+    "mine": 1.18
+   },
+   "category": "relics",
+   "price": 4200,
+   "tier": 6
+  },
+  {
+   "name": "geode_heart",
+   "label": "Geode heart",
+   "texture": "items/geode_heart.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "deep",
+   "boons": {
+    "armor": 0.08
+   },
+   "category": "relics",
+   "price": 4200,
+   "tier": 6
+  },
+  {
+   "name": "canary_feather",
+   "label": "Canary feather",
+   "texture": "items/canary_feather.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "deep",
+   "boons": {
+    "lung": 1.6
+   },
+   "category": "relics",
+   "price": 4200,
+   "tier": 6
+  },
+  {
+   "name": "obsidian_skull",
+   "label": "Obsidian skull",
+   "texture": "items/obsidian_skull.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "abyss",
+   "boons": {
+    "strength": 5
+   },
+   "category": "relics",
+   "price": 6500,
+   "tier": 6
+  },
+  {
+   "name": "magma_core",
+   "label": "Magma core",
+   "texture": "items/magma_core.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "abyss",
+   "boons": {
+    "warmth": 0.4
+   },
+   "category": "relics",
+   "price": 6500,
+   "tier": 6
+  },
+  {
+   "name": "void_shard",
+   "label": "Void shard",
+   "texture": "items/void_shard.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "abyss",
+   "boons": {
+    "thorns": 3
+   },
+   "category": "relics",
+   "price": 6500,
+   "tier": 6
+  },
+  {
+   "name": "mountain_heart",
+   "label": "Heart of the mountain",
+   "texture": "items/mountain_heart.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "abyss",
+   "boons": {
+    "regen": 2.0,
+    "armor": 0.08
+   },
+   "category": "relics",
+   "price": 6500,
+   "tier": 6
+  },
+  {
+   "name": "cloud_feather",
+   "label": "Cloud feather",
+   "texture": "items/cloud_feather.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "sky",
+   "boons": {
+    "walk": 1.18
+   },
+   "category": "relics",
+   "price": 5600,
+   "tier": 6
+  },
+  {
+   "name": "star_fragment",
+   "label": "Star fragment",
+   "texture": "items/star_fragment.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "sky",
+   "boons": {
+    "luck": 0.14
+   },
+   "category": "relics",
+   "price": 5600,
+   "tier": 6
+  },
+  {
+   "name": "wind_chime",
+   "label": "Wind chime",
+   "texture": "items/wind_chime.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "sky",
+   "boons": {
+    "stamina": 0.7
+   },
+   "category": "relics",
+   "price": 5600,
+   "tier": 6
+  },
+  {
+   "name": "sunstone",
+   "label": "Sunstone",
+   "texture": "items/sunstone.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "sky",
+   "boons": {
+    "warmth": 0.3,
+    "regen": 1.2
+   },
+   "category": "relics",
+   "price": 5600,
+   "tier": 6
+  },
+  {
+   "name": "gilded_hammer",
+   "label": "Gilded hammer",
+   "texture": "items/gilded_hammer.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "artisan",
+   "boons": {
+    "craft": 1.25
+   },
+   "category": "relics",
+   "price": 3000,
+   "tier": 6
+  },
+  {
+   "name": "tinkers_gear",
+   "label": "Tinker's gear",
+   "texture": "items/tinkers_gear.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "artisan",
+   "boons": {
+    "craft": 1.15
+   },
+   "category": "relics",
+   "price": 3000,
+   "tier": 6
+  },
+  {
+   "name": "old_coin",
+   "label": "Old coin",
+   "texture": "items/old_coin.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "artisan",
+   "boons": {
+    "luck": 0.05
+   },
+   "category": "relics",
+   "price": 3000,
+   "tier": 6
+  },
+  {
+   "name": "hearthstone",
+   "label": "Hearthstone",
+   "texture": "items/hearthstone.png",
+   "max_stack": 1,
+   "relic": true,
+   "set": "artisan",
+   "boons": {
+    "warmth": 0.15,
+    "appetite": 0.9
+   },
+   "category": "relics",
+   "price": 3000,
+   "tier": 6
+  },
+  {
+   "name": "relic_dust",
+   "label": "Relic dust",
+   "texture": "items/relic_dust.png",
+   "category": "relics",
+   "price": 250,
+   "tier": 5
+  },
+  {
+   "name": "relic_chest",
+   "label": "Relic chest",
+   "places": "relic_chest",
+   "container": {
+    "slots": 8
+   },
+   "texture": "items/relic_chest.png",
+   "category": "relics",
+   "price": 900,
+   "tier": 5
+  },
+  {
+   "name": "reliquary",
+   "label": "Reliquary",
+   "places": "reliquary",
+   "texture": "items/reliquary.png",
+   "category": "special",
+   "price": 600
+  }
+ ],
+ "sets": [
+  {
+   "name": "wayfarer",
+   "label": "Wayfarer's",
+   "bonuses": [
+    {
+     "pieces": 2,
+     "boons": {
+      "walk": 1.05
+     }
+    },
+    {
+     "pieces": 4,
+     "boons": {
+      "walk": 1.1,
+      "stamina": 0.9
+     }
+    }
+   ]
+  },
+  {
+   "name": "grove",
+   "label": "Grove",
+   "bonuses": [
+    {
+     "pieces": 2,
+     "boons": {
+      "regen": 1.25
+     }
+    },
+    {
+     "pieces": 4,
+     "boons": {
+      "craft": 1.15,
+      "warmth": 0.1
+     }
+    }
+   ]
+  },
+  {
+   "name": "dune",
+   "label": "Dune",
+   "bonuses": [
+    {
+     "pieces": 2,
+     "boons": {
+      "armor": 0.04
+     }
+    },
+    {
+     "pieces": 4,
+     "boons": {
+      "thorns": 1,
+      "appetite": 0.85
+     }
+    }
+   ]
+  },
+  {
+   "name": "tide",
+   "label": "Tide",
+   "bonuses": [
+    {
+     "pieces": 2,
+     "boons": {
+      "lung": 1.5
+     }
+    },
+    {
+     "pieces": 4,
+     "boons": {
+      "strength": 2,
+      "luck": 0.05
+     }
+    }
+   ]
+  },
+  {
+   "name": "jungle",
+   "label": "Jungle",
+   "bonuses": [
+    {
+     "pieces": 2,
+     "boons": {
+      "strength": 1
+     }
+    },
+    {
+     "pieces": 4,
+     "boons": {
+      "walk": 1.1,
+      "strength": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "deep",
+   "label": "Deepdelver",
+   "bonuses": [
+    {
+     "pieces": 2,
+     "boons": {
+      "mine": 1.1
+     }
+    },
+    {
+     "pieces": 4,
+     "boons": {
+      "mine": 1.2,
+      "luck": 0.08
+     }
+    }
+   ]
+  },
+  {
+   "name": "abyss",
+   "label": "Abyssal",
+   "bonuses": [
+    {
+     "pieces": 2,
+     "boons": {
+      "armor": 0.06
+     }
+    },
+    {
+     "pieces": 4,
+     "boons": {
+      "strength": 3,
+      "thorns": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "sky",
+   "label": "Skyborne",
+   "bonuses": [
+    {
+     "pieces": 2,
+     "boons": {
+      "walk": 1.06
+     }
+    },
+    {
+     "pieces": 4,
+     "boons": {
+      "walk": 1.12,
+      "luck": 0.08
+     }
+    }
+   ]
+  },
+  {
+   "name": "artisan",
+   "label": "Artisan's",
+   "bonuses": [
+    {
+     "pieces": 2,
+     "boons": {
+      "craft": 1.1
+     }
+    },
+    {
+     "pieces": 4,
+     "boons": {
+      "craft": 1.2,
+      "mine": 1.1
+     }
+    }
+   ]
+  }
+ ]
+}

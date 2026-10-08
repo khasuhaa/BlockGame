@@ -284,6 +284,7 @@ typedef struct {
     float shield;
     float chill;
     int ride, ride_seat;
+    uint16_t relic_box;
 } Character;
 
 /* Something on the rails. (Saved as it is: add to the end.) */
@@ -317,6 +318,7 @@ typedef struct {
     int ride, ride_seat;    /* the vehicle the live character is riding, plus one (0 for none), and which seat */
     int open_vehicle;       /* the vehicle whose slots are open, plus one */
     int open_vehicle_cargo; /* and whether it is what it carries (1) or what it burns (0) */
+    uint16_t relic_box; /* the container the live character's relics are in; 0 until there are relics to have */
     float flail[MAX_CHARACTERS]; /* seconds each character has still to throw their arms about, having just been attacked */
 
     /* World time. Movement runs in real time; ticks drive the day, tree
@@ -649,6 +651,19 @@ bool game_environment_saturated(const Game *g);
 bool game_character_environment_saturated(const Game *g, int c);
 /* How fast they walk and work, as a share of their usual speed: the less happy, the slower. */
 float game_pace(const Game *g);
+/* The loot pools a square is in: its biome's, its height's and every one that is everywhere. Fills `out` (room for
+ * MAX_POOLS) if given; returns how many. */
+int game_area_pools(const Game *g, int x, int y, int *out);
+/* Something found there: one thing picked from all of those pools together, by weight. ITEM_NONE if there is nothing. */
+ItemId game_area_find(Game *g, int x, int y);
+/* Relics: where the character carries them - a container of RELIC_SLOTS slots, made the first time it is asked for;
+ * 0 if the game has no relics to carry. */
+uint16_t game_relic_box(Game *g);
+/* Everything the character has on, taken together: armour, relics, and what enough of a set gives besides.
+ * (Speeds are multiplied together and are 1 for no difference; shares and damage are added.) */
+Boons game_boons(const Game *g);
+/* How many of a set the character has on. */
+int game_set_pieces(const Game *g, int set);
 /* Whether the character has something on that lets them fly, and whether they are in the air on it now. */
 bool game_lifted(const Game *g);
 bool game_player_flying(const Game *g);

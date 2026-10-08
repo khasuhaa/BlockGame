@@ -11517,6 +11517,232 @@ static void test_playsets(void)
     remove(path);
 }
 
+/* Discovery Road: relics, the slots they are carried in, sets, and chests that hold what belongs to where they stand. */
+static bool of_set(ItemId item, const char *set)
+{
+    const ItemDef *d = item_def(item);
+    return d->relic && d->set >= 0 && strcmp(content.sets[d->set].name, set) == 0;
+}
+
+static void carry(Game *g, const char *a, const char *b, const char *c, const char *d)
+{
+    const char *names[RELIC_SLOTS] = { a, b, c, d };
+    uint16_t box = game_relic_box(g);
+    for (int i = 0; i < RELIC_SLOTS; i++)
+        g->inventory.containers[box].slots[i] = names[i] ? (ItemStack){ .id = (uint16_t)item_id(names[i]), .count = 1 } : (ItemStack){ 0 };
+}
+
+static void test_discovery_mod(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    /* The game by itself has no relics, and nowhere to carry any. */
+    static Game g;
+    game_init(&g, 64, 48, 3, WORLD_FLAT);
+    CHECK(!content.has_relics && content.set_count == 0 && content.pool_count == 0 && game_relic_box(&g) == 0);
+    Boons none = game_boons(&g);
+    CHECK(none.walk == 1.0f && none.mine == 1.0f && none.craft == 1.0f && none.regen == 1.0f && none.lung == 1.0f && none.appetite == 1.0f &&
+          none.stamina == 1.0f && none.armor == 0.0f && none.warmth == 0.0f && none.luck == 0.0f && none.strength == 0 && none.thorns == 0);
+    game_free(&g);
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count;
+    if (!content_load("mods/discovery_road", err, sizeof err)) {
+        printf("FAIL discovery_road does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    CHECK(content.tile_count == tiles + 3 && content.item_count == items + 39 && content.recipe_count == recipes + 39);
+    CHECK(content.has_relics && content.set_count == 9 && content.pool_count == 12);
+    /* Thirty-six relics, four to a set: each does something, is one to a slot, and has a price and a place in the trade. */
+    int relics = 0, in_set[MAX_SETS] = { 0 };
+    for (int i = 1; i < content.item_count; i++) {
+        const ItemDef *d = item_def((ItemId)i);
+        if (!d->relic) continue;
+        relics++;
+        const Boons *b = &d->boons;
+        bool does = b->walk > 0 || b->mine > 0 || b->craft > 0 || b->regen > 0 || b->lung > 0 || b->appetite > 0 || b->stamina > 0 || b->armor > 0 || b->warmth > 0 ||
+                    b->luck > 0 || b->strength > 0 || b->thorns > 0;
+        CHECK(does && d->max_stack == 1 && d->set >= 0 && d->category >= 0 && d->price >= 1000 && strcmp(content.trade.categories[d->category].name, "relics") == 0);
+        if (d->set >= 0) in_set[d->set]++;
+        /* Every one is found somewhere, and comes down to dust. */
+        bool found = false;
+        for (int p = 0; p < content.pool_count; p++)
+            for (int k = 0; k < content.pools[p].loot_count; k++) found = found || content.pools[p].loot[k].item == i;
+        CHECK(found && find_recipe_from(tile_id("reliquary"), "relic_dust", d->name) != NULL);
+    }
+    CHECK(relics == 36);
+    for (int s = 0; s < content.set_count; s++) CHECK(in_set[s] == 4 && content.sets[s].tier_count == 2 && content.sets[s].tiers[0].pieces == 2 && content.sets[s].tiers[1].pieces == 4);
+
+    game_init(&g, 512, 401, 7, WORLD_FLAT);
+    g.tick_rate = 0;
+    clear_mobs(&g);
+    clear_inventory(&g);
+    Inventory *inv = &g.inventory;
+    World *w = &g.world;
+    /* Where relics are carried: four slots of the character's own, for relics and nothing else, no two the same. */
+    uint16_t box = game_relic_box(&g);
+    CHECK(box != 0 && game_relic_box(&g) == box && inv->containers[box].used == CONTAINER_RELICS);
+    inv->slots[0] = (ItemStack){ .id = (uint16_t)item_id("worn_compass"), .count = 1 };
+    inv->slots[1] = (ItemStack){ .id = (uint16_t)ITEM_DIRT, .count = 5 };
+    inv->slots[2] = (ItemStack){ .id = (uint16_t)item_id("worn_compass"), .count = 1 };
+    inv->slots[3] = (ItemStack){ .id = (uint16_t)item_id("trail_marker"), .count = 1 };
+    CHECK(!inventory_move(inv, (SlotRef){ SLOT_BAR, 1, 0 }, (SlotRef){ SLOT_CONTAINER, box, 0 }, 5)); /* not a relic */
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 0, 0 }, (SlotRef){ SLOT_CONTAINER, box, 0 }, 1));
+    CHECK(!inventory_move(inv, (SlotRef){ SLOT_BAR, 2, 0 }, (SlotRef){ SLOT_CONTAINER, box, 1 }, 1)); /* the same one again */
+    CHECK(!inventory_move(inv, (SlotRef){ SLOT_BAR, 3, 0 }, (SlotRef){ SLOT_CONTAINER, box, RELIC_SLOTS }, 1)); /* no fifth slot */
+    CHECK(inventory_move(inv, (SlotRef){ SLOT_BAR, 3, 0 }, (SlotRef){ SLOT_CONTAINER, box, 3 }, 1));
+    CHECK(inv->containers[box].slots[0].id == item_id("worn_compass") && inv->containers[box].slots[3].id == item_id("trail_marker") && inv->slots[0].count == 0);
+    /* Carried in the bar a relic does nothing; in its slot it does what it says. Two of a set are a little more besides. */
+    CHECK(near(game_boons(&g).walk, 1.08f * 1.05f) && near(game_walk_speed(&g), 1.08f * 1.05f) && near(game_boons(&g).stamina, 0.85f) && game_set_pieces(&g, item_def(item_id("worn_compass"))->set) == 2);
+    carry(&g, "worn_compass", NULL, NULL, NULL);
+    CHECK(near(game_walk_speed(&g), 1.08f) && game_boons(&g).stamina == 1.0f);
+    game_set_move_input(&g, 1, 0);
+    game_update(&g, 0.001f);
+    CHECK(g.player.activity == ACTIVITY_STEPPING && near(g.player.duration, WALK_TIME / 1.08f));
+    game_set_move_input(&g, 0, 0);
+    run(&g, 1.0f);
+    /* All four of a set: both of its bonuses. */
+    carry(&g, "worn_compass", "wayfarers_flask", "trail_marker", "lucky_horseshoe");
+    Boons way = game_boons(&g);
+    CHECK(near(way.walk, 1.08f * 1.05f * 1.1f) && near(way.stamina, 0.85f * 0.9f) && near(way.appetite, 0.85f) && near(way.luck, 0.06f));
+    /* What the others do. Digging: */
+    float plain = tile_def(TILE_STONE)->mine_time;
+    carry(&g, "ember_lantern", "prospectors_pin", NULL, NULL);
+    CHECK(near(game_mine_time(&g, TILE_STONE), plain / (1.12f * 1.18f * 1.1f)));
+    /* blows, and what is stopped of one: */
+    int hand = content.rules.hand_damage;
+    carry(&g, "obsidian_skull", "jade_idol", "geode_heart", "scarab_brooch");
+    CHECK(game_attack_damage(&g) == hand + 5 + 3 && near(game_protection(&g), 0.08f + 0.06f));
+    g.vitals.health = 1.0f;
+    game_attacked(&g, 0.5f);
+    CHECK(near(g.vitals.health, 1.0f - 0.5f * (1.0f - 0.14f)));
+    /* the weather: */
+    carry(&g, "magma_core", "sunstone", "sun_disc", NULL);
+    CHECK(near(game_environment_floor(&g), 0.4f + 0.3f + 0.2f));
+    /* hunger, tiredness, breath and mending, each at its own pace: */
+    carry(&g, "nomads_waterskin", "wind_chime", NULL, NULL);
+    g.vitals = (Vitals){ .health = 1.0f, .hunger = 1.0f, .energy = 1.0f, .oxygen = 1.0f, .death = 1.0f };
+    for (int t = 0; t < 100; t++) game_tick(&g);
+    CHECK(near(g.vitals.hunger, 1.0f - 100.0f * 0.75f / (float)content.rules.hunger_ticks) && near(g.vitals.energy, 1.0f - 100.0f * 0.7f / (float)content.rules.energy_ticks));
+    carry(&g, "mountain_heart", NULL, NULL, NULL);
+    g.vitals.health = 0.5f;
+    g.vitals.hunger = 1.0f;
+    game_tick(&g);
+    CHECK(content.rules.health_regen_ticks > 0 && near(g.vitals.health, 0.5f + 2.0f / (float)content.rules.health_regen_ticks));
+    /* and luck: one more of what a block leaves, as often as the luck is. (Made certain here, to be seen.) */
+    carry(&g, "star_fragment", NULL, NULL, NULL);
+    float was_luck = content.items[item_id("star_fragment")].boons.luck;
+    content.items[item_id("star_fragment")].boons.luck = 1.0f;
+    for (int i = 0; i < INVENTORY_SLOTS; i++) inv->slots[i] = (ItemStack){ 0 };
+    int at = g.player.feet.x, row = g.player.feet.y;
+    world_set(w, at + 1, row, TILE_STONE);
+    CHECK(game_click_tile(&g, at + 1, row));
+    run(&g, 3.0f);
+    CHECK(world_get(w, at + 1, row) == TILE_AIR && count_item(&g, item_id("stone")) + drops_of(&g, item_id("stone")) == 2);
+    content.items[item_id("star_fragment")].boons.luck = was_luck;
+    /* Thorns: what bites them is hurt for it. */
+    carry(&g, "void_shard", "thorn_ring", NULL, NULL);
+    CHECK(game_boons(&g).thorns == 4);
+
+    /* What a place holds. Up on the ground of the plains: the wayfarer's things, a few of the grove's, and what is
+     * found anywhere. Far down: the deepdelver's. At the very bottom: the abyssal. */
+    int pools[MAX_POOLS], ground = w->surface_y - 1;
+    CHECK(strcmp(content.biomes[world_biome(w, at)].name, "plains") == 0 && world_row_to_y(w, ground) > -8);
+    int n = game_area_pools(&g, at, ground, pools);
+    bool anywhere = false, open = false, deep = false;
+    for (int i = 0; i < n; i++) {
+        anywhere = anywhere || strcmp(content.pools[pools[i]].name, "anywhere") == 0;
+        open = open || strcmp(content.pools[pools[i]].name, "open_country") == 0;
+        deep = deep || strcmp(content.pools[pools[i]].name, "depths") == 0 || strcmp(content.pools[pools[i]].name, "abyss") == 0;
+    }
+    CHECK(n == 2 && anywhere && open && !deep);
+    int way_found = 0, grove_found = 0, art_found = 0, other = 0;
+    for (int i = 0; i < 400; i++) {
+        ItemId f = game_area_find(&g, at, ground);
+        way_found += of_set(f, "wayfarer"), grove_found += of_set(f, "grove"), art_found += of_set(f, "artisan");
+        other += !of_set(f, "wayfarer") && !of_set(f, "grove") && !of_set(f, "artisan");
+    }
+    CHECK(way_found > 200 && grove_found > 10 && art_found > 30 && other == 0);
+    int deep_row = ground + 60, bottom_row = ground + 150, deep_found = 0, abyss_found = 0;
+    CHECK(world_row_to_y(w, deep_row) < -26 && world_row_to_y(w, deep_row) > -110 && world_row_to_y(w, bottom_row) < -111);
+    other = 0;
+    for (int i = 0; i < 400; i++) {
+        ItemId f = game_area_find(&g, at, deep_row);
+        deep_found += of_set(f, "deep");
+        other += of_set(f, "abyss") || of_set(f, "grove") || of_set(f, "sky") || of_set(f, "tide");
+    }
+    CHECK(deep_found > 220 && other == 0);
+    for (int i = 0; i < 400; i++) abyss_found += of_set(game_area_find(&g, at, bottom_row), "abyss");
+    CHECK(abyss_found > 200);
+    /* A relic chest that the world came with holds a relic of its place, and dust; one put down by hand holds nothing. */
+    TileType chest = tile_id("relic_chest");
+    CHECK(chest > 0 && tile_def(chest)->loot_count == 4 && tile_def(chest)->loot[0].area && !tile_def(chest)->solid && tile_def(chest)->storage_columns * tile_def(chest)->storage_rows == 8);
+    world_set_at(w, LAYER_BACKGROUND, at + 2, ground, chest);
+    g.player.feet = g.player.step_to = (TilePos){ at + 1, ground };
+    CHECK(game_queue_action(&g, ACTION_USE, at + 2, ground));
+    run(&g, 2.0f);
+    uint16_t held = game_open_storage(&g);
+    int relic_count = 0, dust = 0;
+    for (int i = 0; held != 0 && i < 8; i++) {
+        const ItemStack *st = &inv->containers[held].slots[i];
+        if (st->count == 0) continue;
+        relic_count += item_def(st->id)->relic;
+        CHECK(!item_def(st->id)->relic || of_set(st->id, "wayfarer") || of_set(st->id, "grove") || of_set(st->id, "artisan"));
+        if (st->id == item_id("relic_dust")) dust += st->count;
+    }
+    CHECK(g.bench_open && held != 0 && relic_count >= 1 && relic_count <= 2 && dust >= 1 && dust <= 3);
+    game_close_bench(&g);
+    CHECK(place_and_open(&g, "relic_chest", at + 6));
+    held = game_open_storage(&g);
+    CHECK(held != 0 && container_is_empty(inv, held));
+    game_close_bench(&g);
+    /* At a reliquary a relic is broken down to dust, and dust and a gem make a relic - some one of them. */
+    box = game_relic_box(&g); /* (emptying the bar for the test took the old one with it) */
+    CHECK(place_and_open(&g, "reliquary", at + 9));
+    const Recipe *down = find_recipe_from(tile_id("reliquary"), "relic_dust", "old_coin");
+    CHECK(down != NULL && down->output.count == 3);
+    inventory_add(inv, item_id("old_coin"), 1);
+    CHECK(down && game_craft(&g, down, 1));
+    run(&g, 12.0f);
+    CHECK(count_item(&g, item_id("relic_dust")) == 3 && count_item(&g, item_id("old_coin")) == 0);
+    const Recipe *up = NULL;
+    for (int i = 0; i < content.recipe_count; i++)
+        if (strcmp(content.recipes[i].bench, "reliquary") == 0 && content.recipes[i].one_of_count > 0) up = &content.recipes[i];
+    CHECK(up != NULL && up->one_of_count == 36);
+    inventory_add(inv, item_id("relic_dust"), 9);
+    inventory_add(inv, item_id("amethyst"), 1);
+    CHECK(up && game_craft(&g, up, 1));
+    run(&g, 62.0f);
+    int made = 0;
+    for (int i = 0; i < INVENTORY_SLOTS; i++) made += inv->slots[i].count > 0 && item_def(inv->slots[i].id)->relic;
+    CHECK(made == 1 && count_item(&g, item_id("relic_dust")) == 0);
+    game_close_bench(&g);
+
+    /* Relics are kept with the world, in the slots they were in; a world from before there were any has none. */
+    carry(&g, "jade_idol", NULL, "pearl_of_breath", NULL);
+    CHECK(save_game(&g, "build/test_relics.world"));
+    static Game loaded;
+    CHECK(load_game(&loaded, "build/test_relics.world"));
+    uint16_t kept = loaded.relic_box;
+    CHECK(kept != 0 && game_relic_box(&loaded) == kept && loaded.inventory.containers[kept].slots[0].id == item_id("jade_idol") &&
+          loaded.inventory.containers[kept].slots[2].id == item_id("pearl_of_breath") && game_boons(&loaded).strength == 3 && near(game_boons(&loaded).lung, 2.0f));
+    game_free(&loaded);
+    CHECK(load_game(&loaded, "tests/fixtures/v32_chests.world") && loaded.relic_box == 0 && game_boons(&loaded).walk == 1.0f);
+    game_free(&loaded);
+    game_free(&g);
+    /* It is no trouble to any of the other mods. */
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/settest/saves");
+    const ModInfo *road = NULL;
+    for (int i = 0; i < mods.count; i++)
+        if (strcmp(mods.mods[i].id, "discovery_road") == 0) road = &mods.mods[i];
+    CHECK(road != NULL && strcmp(road->label, "Discovery Road") == 0);
+    for (int i = 0; road && i < mods.count; i++) {
+        char what[64];
+        if (&mods.mods[i] != road) CHECK(!mods_conflict(road, &mods.mods[i], what, sizeof what));
+    }
+}
+
 int main(void)
 {
     char err[256];
@@ -11643,6 +11869,7 @@ int main(void)
     test_digital_mod();
     test_culinary_mod();
     test_explorers_mod();
+    test_discovery_mod();
     test_worn();
     test_trade_tiers();
     test_environment();

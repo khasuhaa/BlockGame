@@ -850,6 +850,54 @@ For someone writing a mod: `"network"` on a block (`cable`, `controller`, `drive
 - **From the sea and the caves**, at the builder's bench: **coral blocks** in red, blue and yellow (four pieces of coral each), the **pearl block** (four pearls), and the **prism block** (four prism shards), which gives light. Coral and sea grass are grown again under water from what they leave.
 - Odds and ends: rock salt and salt crust give salt; four packed snow make glacial ice; four red sand make red sandstone; stone and moss make mossy stone; reeds make sticks.
 
+### Discovery Road
+
+A mod (`mods/discovery_road`, written out by `tools/mod_discovery_road.py`) about finding things. It adds **relics**: thirty-six small old things, each of which does a little for whoever carries it.
+
+**Relic slots.** With the mod on, the head button opens a second column beside the armour: four relic slots. They take relics and nothing else, one to a slot and no two the same. A relic does nothing in the bar or a basket - only in a relic slot. Relics are kept with the character and the world.
+
+**What relics do.** Each has one or two of these: faster on foot; faster at digging; faster at a bench; more damage to every blow; a share more of every attack stopped; a share more of the environment score kept; mending faster; a longer breath; hunger or tiredness coming on more slowly; luck - a chance that a block dug leaves one more of what it leaves; and thorns - whatever bites or stings the character is hurt for it. They add up with each other and with armour.
+
+**Sets.** The relics come in nine sets of four, and a set gives more as more of it is carried: one bonus with two of its pieces in the slots, and a second, on top, with all four.
+
+| Set | Its relics | With 2 | With all 4 |
+| --- | --- | --- | --- |
+| Wayfarer's | Worn compass (8% faster on foot), Wayfarer's flask (hunger 15% slower), Trail marker (tiredness 15% slower), Lucky horseshoe (6% luck) | 5% faster on foot | 10% more, and tiredness 10% slower |
+| Grove | Blossom charm (mends half again as fast), Amber acorn (tiredness 20% slower), Carver's knot (12% faster at a bench), Pinecone idol (15% of the environment score kept) | mends 25% faster | 15% faster at a bench, 10% more kept |
+| Dune | Scarab brooch (6% of attacks stopped), Sun disc (20% kept), Thorn ring (1 thorns), Nomad's waterskin (hunger 25% slower) | 4% more stopped | 1 more thorns, hunger 15% slower |
+| Tide | Pearl of breath (twice the breath), Coral crown (mends 30% faster), Drowned coin (8% luck), Sailor's knot (2 more damage) | half again the breath | 2 more damage, 5% luck |
+| Jungle | Jade idol (3 more damage), Feathered charm (10% faster on foot), Monkey's paw (10% luck), Vine bracelet (mends 40% faster) | 1 more damage | 10% faster on foot, 2 more damage |
+| Deepdelver | Ember lantern (12% faster digging), Prospector's pin (18%), Geode heart (8% stopped), Canary feather (60% more breath) | 10% faster digging | 20% more, and 8% luck |
+| Abyssal | Obsidian skull (5 more damage), Magma core (40% kept), Void shard (3 thorns), Heart of the mountain (mends twice as fast, 8% stopped) | 6% more stopped | 3 more damage, 2 more thorns |
+| Skyborne | Cloud feather (18% faster on foot), Star fragment (14% luck), Wind chime (tiredness 30% slower), Sunstone (30% kept, mends 20% faster) | 6% faster on foot | 12% more, and 8% luck |
+| Artisan's | Gilded hammer (25% faster at a bench), Tinker's gear (15%), Old coin (5% luck), Hearthstone (15% kept, hunger 10% slower) | 10% faster at a bench | 20% more, and 10% faster digging |
+
+**Relic chests** are a new kind of chest, of dark wood bound in green bronze, that the world comes with: in caves at every depth, and now and then out on the ground. Each holds one relic, sometimes two, with a little relic dust and perhaps a gold coin - and **which relics depends on where the chest stands**. Every place has its own, and a chest holds what every place it is in has, taken together:
+
+| Where | What is found there |
+| --- | --- |
+| Anywhere | the Artisan's set, and now and then the Wayfarer's |
+| The plains | the Wayfarer's set, a little of the Grove |
+| The woods (cherry grove, orchard, pine and maple forest) | the Grove set, some of the Wayfarer's |
+| The desert | the Dune set |
+| The shore and the sea | the Tide set, a little of the Dune |
+| The tropics | the Jungle set, a little of the Tide |
+| The cold country (pine forest) | the relics that keep the weather off: Pinecone idol, Hearthstone, and more rarely Sun disc, Sunstone, Magma core |
+| Just under the ground | Wayfarer's, Deepdelver and Artisan's together |
+| The depths (26 to 110 below) | the Deepdelver set |
+| The very bottom of the world (below 110) | the Abyssal set, some of the Deepdelver |
+| The heights and the sky (above 60) | the Skyborne set |
+
+So a chest far down under a desert may hold a Dune relic's neighbour from the depths, but never a Skyborne one; and the Abyssal and Skyborne sets are only found at the bottom and the top of the world. With Explorer's Delight on as well, its biomes join these places (the red mesa is desert, the coral reef is shore, and the volcanic wastes have the Abyssal set at the surface); nothing depends on it. The recipe book says, for each relic, where it is found. A relic chest holds 8 stacks, can be picked up and put down again, and one put down by hand is empty.
+
+**Ancient urns** lie about in caves, and in deserts and on beaches. Broken, an urn leaves relic dust - one, sometimes two - and now and then a gold coin.
+
+**The reliquary** is a bench (workbench tier 2: 6 stone, 2 glass, 1 gold ingot). At it any relic is **broken down** into 3 relic dust, and 12 relic dust with an amethyst are **restored** into a relic - which, there is no saying: any of the thirty-six, the everyday ones likelier and the Abyssal and Skyborne rarer. That is what to do with the third Worn compass. It also makes a relic chest of your own from a chest, 4 relic dust and 2 bronze ingots.
+
+Relics have a category of their own at the trade portal, **Relics**, all at tier VI: found first, as everything is, they can then be bought and sold.
+
+In the data, a relic is an item with `"relic": true` and `"boons"`; `"set"` names its set, and `"sets"` in `items.json` says what each set gives for how many `"pieces"`. A chest's loot is `{"area": true}` for something from the place it stands in, and `"loot_pools"` in `worldgen.json` are the places: each with its `"biomes"` (any, if none), the heights `"y"` it runs between, and its `"loot"` by weight. Armour can have boons and a set as well.
+
 ### Golden chests
 
 Under a beach, quite often - about one column in six, a dozen or more to a world - a golden chest lies buried at the bottom of the sand: behind the sand, in the background, so it is not seen or opened until the sand in front of it is dug away. (Golden chests and portal chests are things of the background: they are walked past, not into.) A golden chest is what a portal chest is made from (with 100 crystals, at a tier 6 portal), and a tier 2 metalwork bench melts one down into a gold coin. It opens and is carried off like any chest. The first time it is opened or dug up it holds 1 to 5 gold coins, up to 3 gold ore, up to 3 iron ingots, perhaps a titanium ingot, and one gem shard: of amethyst most often, then sapphire, emerald, and ruby least. What a block is found holding is its `"loot"` in `tiles.json`, and where it is buried is `"buried"` on a biome in `worldgen.json`; a golden chest the player puts down, or buys, holds only what they put in it.

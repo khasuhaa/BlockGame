@@ -29,7 +29,8 @@ typedef struct {
 enum {
     CONTAINER_FREE = 0,
     CONTAINER_ITEMS = 1,
-    CONTAINER_METERS = 2
+    CONTAINER_METERS = 2,
+    CONTAINER_RELICS = 3 /* a character's relics: its first RELIC_SLOTS slots, each for one relic, no two the same */
 };
 
 typedef struct {

@@ -1,0 +1,7 @@
+{
+  "tiles": [
+    {"name": "relic_chest", "label": "Relic chest", "solid": false, "layer": "background", "removable": true, "mine_time": 0.7, "drop": "relic_chest", "texture": "tiles/relic_chest.png", "storage": {"columns": 4, "rows": 2}, "tool": "pickaxe", "light": 4, "model": "box", "loot": [{"area": true, "min": 1, "max": 1}, {"area": true, "min": 0, "max": 1}, {"item": "relic_dust", "min": 1, "max": 3}, {"item": "gold_coin", "min": 0, "max": 2}]},
+    {"name": "ancient_urn", "label": "Ancient urn", "solid": false, "layer": "background", "removable": true, "mine_time": 0.15, "texture": "tiles/ancient_urn.png", "tool": "pickaxe", "drops": [{"item": "relic_dust", "count": 1}, {"item": "relic_dust", "count": 1, "chance": 0.4}, {"item": "gold_coin", "count": 1, "chance": 0.15}]},
+    {"name": "reliquary", "label": "Reliquary", "solid": false, "layer": "background", "removable": true, "mine_time": 0.4, "drop": "reliquary", "texture": "tiles/reliquary.png", "bench": true, "bench_kind": "reliquary", "bench_level": 1, "popup_name": "reliquary", "tool": "pickaxe"}
+  ]
+}

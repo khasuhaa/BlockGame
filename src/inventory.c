@@ -612,6 +612,13 @@ static bool slot_accepts(Inventory *inv, SlotRef ref, const ItemStack *s)
 {
     if (is_empty(s)) return true;
     if (ref.kind == SLOT_ARMOR) return (int)item_def(s->id)->equip == ref.index;
+    /* Where relics are carried: relics, one to a slot, and not the same one twice. */
+    if (ref.kind == SLOT_CONTAINER && ref.index > 0 && ref.index < MAX_CONTAINERS && inv->containers[ref.index].used == CONTAINER_RELICS) {
+        if (!item_def(s->id)->relic || ref.inner < 0 || ref.inner >= RELIC_SLOTS) return false;
+        for (int i = 0; i < RELIC_SLOTS; i++)
+            if (i != ref.inner && inv->containers[ref.index].slots[i].count > 0 && inv->containers[ref.index].slots[i].id == s->id) return false;
+        return true;
+    }
     /* The shared container takes only plain items. */
     if (ref_container(inv, ref) == SHARED_CONTAINER && !container_is_empty(inv, s->container)) return false;
     /* A container cannot go inside itself, however deep. */

@@ -1,0 +1,613 @@
+{
+ "loot_pools": [
+  {
+   "name": "anywhere",
+   "label": "anywhere",
+   "loot": [
+    {
+     "item": "gilded_hammer",
+     "weight": 2
+    },
+    {
+     "item": "tinkers_gear",
+     "weight": 2
+    },
+    {
+     "item": "old_coin",
+     "weight": 2
+    },
+    {
+     "item": "hearthstone",
+     "weight": 2
+    },
+    {
+     "item": "worn_compass",
+     "weight": 1
+    },
+    {
+     "item": "wayfarers_flask",
+     "weight": 1
+    },
+    {
+     "item": "trail_marker",
+     "weight": 1
+    },
+    {
+     "item": "lucky_horseshoe",
+     "weight": 1
+    }
+   ]
+  },
+  {
+   "name": "open_country",
+   "label": "the plains",
+   "loot": [
+    {
+     "item": "worn_compass",
+     "weight": 6
+    },
+    {
+     "item": "wayfarers_flask",
+     "weight": 6
+    },
+    {
+     "item": "trail_marker",
+     "weight": 6
+    },
+    {
+     "item": "lucky_horseshoe",
+     "weight": 6
+    },
+    {
+     "item": "blossom_charm",
+     "weight": 1
+    },
+    {
+     "item": "amber_acorn",
+     "weight": 1
+    },
+    {
+     "item": "carvers_knot",
+     "weight": 1
+    },
+    {
+     "item": "pinecone_idol",
+     "weight": 1
+    }
+   ],
+   "biomes": [
+    "plains",
+    "savanna",
+    "salt_flats",
+    "berry_meadow"
+   ],
+   "y": [
+    -8,
+    60
+   ]
+  },
+  {
+   "name": "woods",
+   "label": "the woods",
+   "loot": [
+    {
+     "item": "blossom_charm",
+     "weight": 6
+    },
+    {
+     "item": "amber_acorn",
+     "weight": 6
+    },
+    {
+     "item": "carvers_knot",
+     "weight": 6
+    },
+    {
+     "item": "pinecone_idol",
+     "weight": 6
+    },
+    {
+     "item": "worn_compass",
+     "weight": 2
+    },
+    {
+     "item": "wayfarers_flask",
+     "weight": 2
+    },
+    {
+     "item": "trail_marker",
+     "weight": 2
+    },
+    {
+     "item": "lucky_horseshoe",
+     "weight": 2
+    }
+   ],
+   "biomes": [
+    "cherry_grove",
+    "orchard",
+    "pine_forest",
+    "maple_forest",
+    "birch_woods",
+    "mossy_hollow",
+    "misty_marsh"
+   ],
+   "y": [
+    -8,
+    60
+   ]
+  },
+  {
+   "name": "sands",
+   "label": "the desert",
+   "loot": [
+    {
+     "item": "scarab_brooch",
+     "weight": 6
+    },
+    {
+     "item": "sun_disc",
+     "weight": 6
+    },
+    {
+     "item": "thorn_ring",
+     "weight": 6
+    },
+    {
+     "item": "nomads_waterskin",
+     "weight": 6
+    },
+    {
+     "item": "worn_compass",
+     "weight": 1
+    },
+    {
+     "item": "wayfarers_flask",
+     "weight": 1
+    },
+    {
+     "item": "trail_marker",
+     "weight": 1
+    },
+    {
+     "item": "lucky_horseshoe",
+     "weight": 1
+    }
+   ],
+   "biomes": [
+    "desert",
+    "red_mesa",
+    "salt_flats"
+   ],
+   "y": [
+    -8,
+    60
+   ]
+  },
+  {
+   "name": "shore",
+   "label": "the shore and the sea",
+   "loot": [
+    {
+     "item": "pearl_of_breath",
+     "weight": 6
+    },
+    {
+     "item": "coral_crown",
+     "weight": 6
+    },
+    {
+     "item": "drowned_coin",
+     "weight": 6
+    },
+    {
+     "item": "sailors_knot",
+     "weight": 6
+    },
+    {
+     "item": "scarab_brooch",
+     "weight": 1
+    },
+    {
+     "item": "sun_disc",
+     "weight": 1
+    },
+    {
+     "item": "thorn_ring",
+     "weight": 1
+    },
+    {
+     "item": "nomads_waterskin",
+     "weight": 1
+    }
+   ],
+   "biomes": [
+    "beach",
+    "ocean",
+    "coral_reef",
+    "frozen_sea",
+    "seagrass_meadow"
+   ],
+   "y": [
+    -45,
+    60
+   ]
+  },
+  {
+   "name": "jungle",
+   "label": "the tropics",
+   "loot": [
+    {
+     "item": "jade_idol",
+     "weight": 6
+    },
+    {
+     "item": "feathered_charm",
+     "weight": 6
+    },
+    {
+     "item": "monkeys_paw",
+     "weight": 6
+    },
+    {
+     "item": "vine_bracelet",
+     "weight": 6
+    },
+    {
+     "item": "pearl_of_breath",
+     "weight": 1
+    },
+    {
+     "item": "coral_crown",
+     "weight": 1
+    },
+    {
+     "item": "drowned_coin",
+     "weight": 1
+    },
+    {
+     "item": "sailors_knot",
+     "weight": 1
+    }
+   ],
+   "biomes": [
+    "tropics",
+    "bamboo_grove",
+    "savanna"
+   ],
+   "y": [
+    -8,
+    60
+   ]
+  },
+  {
+   "name": "cold_country",
+   "label": "the cold country",
+   "loot": [
+    {
+     "item": "pinecone_idol",
+     "weight": 4
+    },
+    {
+     "item": "hearthstone",
+     "weight": 4
+    },
+    {
+     "item": "sun_disc",
+     "weight": 1
+    },
+    {
+     "item": "sunstone",
+     "weight": 1
+    },
+    {
+     "item": "magma_core",
+     "weight": 1
+    }
+   ],
+   "biomes": [
+    "pine_forest",
+    "frozen_tundra",
+    "slate_highlands",
+    "frozen_sea"
+   ],
+   "y": [
+    -8,
+    400
+   ]
+  },
+  {
+   "name": "fire_country",
+   "label": "the volcanic wastes",
+   "loot": [
+    {
+     "item": "obsidian_skull",
+     "weight": 3
+    },
+    {
+     "item": "magma_core",
+     "weight": 3
+    },
+    {
+     "item": "void_shard",
+     "weight": 3
+    },
+    {
+     "item": "mountain_heart",
+     "weight": 3
+    },
+    {
+     "item": "sun_disc",
+     "weight": 2
+    },
+    {
+     "item": "ember_lantern",
+     "weight": 2
+    }
+   ],
+   "biomes": [
+    "volcanic_wastes"
+   ],
+   "y": [
+    -40,
+    400
+   ]
+  },
+  {
+   "name": "under_foot",
+   "label": "just under the ground",
+   "loot": [
+    {
+     "item": "worn_compass",
+     "weight": 2
+    },
+    {
+     "item": "wayfarers_flask",
+     "weight": 2
+    },
+    {
+     "item": "trail_marker",
+     "weight": 2
+    },
+    {
+     "item": "lucky_horseshoe",
+     "weight": 2
+    },
+    {
+     "item": "ember_lantern",
+     "weight": 2
+    },
+    {
+     "item": "prospectors_pin",
+     "weight": 2
+    },
+    {
+     "item": "geode_heart",
+     "weight": 2
+    },
+    {
+     "item": "canary_feather",
+     "weight": 2
+    },
+    {
+     "item": "gilded_hammer",
+     "weight": 1
+    },
+    {
+     "item": "tinkers_gear",
+     "weight": 1
+    },
+    {
+     "item": "old_coin",
+     "weight": 1
+    },
+    {
+     "item": "hearthstone",
+     "weight": 1
+    }
+   ],
+   "y": [
+    -25,
+    -9
+   ]
+  },
+  {
+   "name": "depths",
+   "label": "the depths",
+   "loot": [
+    {
+     "item": "ember_lantern",
+     "weight": 6
+    },
+    {
+     "item": "prospectors_pin",
+     "weight": 6
+    },
+    {
+     "item": "geode_heart",
+     "weight": 6
+    },
+    {
+     "item": "canary_feather",
+     "weight": 6
+    },
+    {
+     "item": "gilded_hammer",
+     "weight": 1
+    },
+    {
+     "item": "tinkers_gear",
+     "weight": 1
+    },
+    {
+     "item": "old_coin",
+     "weight": 1
+    },
+    {
+     "item": "hearthstone",
+     "weight": 1
+    }
+   ],
+   "y": [
+    -110,
+    -26
+   ]
+  },
+  {
+   "name": "abyss",
+   "label": "the very bottom of the world",
+   "loot": [
+    {
+     "item": "obsidian_skull",
+     "weight": 6
+    },
+    {
+     "item": "magma_core",
+     "weight": 6
+    },
+    {
+     "item": "void_shard",
+     "weight": 6
+    },
+    {
+     "item": "mountain_heart",
+     "weight": 6
+    },
+    {
+     "item": "ember_lantern",
+     "weight": 2
+    },
+    {
+     "item": "prospectors_pin",
+     "weight": 2
+    },
+    {
+     "item": "geode_heart",
+     "weight": 2
+    },
+    {
+     "item": "canary_feather",
+     "weight": 2
+    }
+   ],
+   "y": [
+    -400,
+    -111
+   ]
+  },
+  {
+   "name": "heights",
+   "label": "the heights and the sky",
+   "loot": [
+    {
+     "item": "cloud_feather",
+     "weight": 6
+    },
+    {
+     "item": "star_fragment",
+     "weight": 6
+    },
+    {
+     "item": "wind_chime",
+     "weight": 6
+    },
+    {
+     "item": "sunstone",
+     "weight": 6
+    },
+    {
+     "item": "worn_compass",
+     "weight": 1
+    },
+    {
+     "item": "wayfarers_flask",
+     "weight": 1
+    },
+    {
+     "item": "trail_marker",
+     "weight": 1
+    },
+    {
+     "item": "lucky_horseshoe",
+     "weight": 1
+    }
+   ],
+   "y": [
+    61,
+    400
+   ]
+  }
+ ],
+ "cave_decor": [
+  {
+   "name": "relic_chest",
+   "tile": "relic_chest",
+   "per_100_columns": 1.5,
+   "depth": [
+    3,
+    190
+   ]
+  },
+  {
+   "name": "ancient_urn",
+   "tile": "ancient_urn",
+   "per_100_columns": 5,
+   "depth": [
+    2,
+    190
+   ]
+  }
+ ],
+ "biome_plants": [
+  {
+   "biome": "plains",
+   "tile": "relic_chest",
+   "one_in": 260
+  },
+  {
+   "biome": "desert",
+   "tile": "relic_chest",
+   "one_in": 260
+  },
+  {
+   "biome": "cherry_grove",
+   "tile": "relic_chest",
+   "one_in": 260
+  },
+  {
+   "biome": "orchard",
+   "tile": "relic_chest",
+   "one_in": 260
+  },
+  {
+   "biome": "tropics",
+   "tile": "relic_chest",
+   "one_in": 260
+  },
+  {
+   "biome": "pine_forest",
+   "tile": "relic_chest",
+   "one_in": 260
+  },
+  {
+   "biome": "maple_forest",
+   "tile": "relic_chest",
+   "one_in": 260
+  },
+  {
+   "biome": "beach",
+   "tile": "relic_chest",
+   "one_in": 260
+  },
+  {
+   "biome": "desert",
+   "tile": "ancient_urn",
+   "one_in": 70
+  },
+  {
+   "biome": "beach",
+   "tile": "ancient_urn",
+   "one_in": 70
+  }
+ ]
+}

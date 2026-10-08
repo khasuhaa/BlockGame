@@ -218,10 +218,15 @@ static void sync_storage_slots(const Game *g, Hud *hud)
     Rectangle rects[HUD_MAX_EXTRA_SLOTS];
     uint16_t container;
     /* (Something on the rails that is open has its slots there, as a chest has.) */
-    hud->extra_count = trainui_storage_slots(g, &ui_view, rects, HUD_MAX_EXTRA_SLOTS, &container);
-    if (hud->extra_count == 0) hud->extra_count = benchui_storage_slots(g, &ui_view, rects, HUD_MAX_EXTRA_SLOTS, &container);
+    hud->extra_count = trainui_storage_slots(g, &ui_view, rects, HUD_MAX_EXTRA_SLOTS - RELIC_SLOTS, &container);
+    if (hud->extra_count == 0) hud->extra_count = benchui_storage_slots(g, &ui_view, rects, HUD_MAX_EXTRA_SLOTS - RELIC_SLOTS, &container);
     for (int i = 0; i < hud->extra_count; i++)
         hud->extra[i] = (HudSlot){ rects[i], { SLOT_CONTAINER, container, i } };
+    hud->storage_count = hud->extra_count;
+    /* The character's relics, beside their armour, wherever there are relics to be had. */
+    uint16_t relics = hud->armor_open ? game_relic_box((Game *)g) : 0;
+    for (int i = 0; relics != 0 && i < RELIC_SLOTS && hud->extra_count < HUD_MAX_EXTRA_SLOTS; i++)
+        hud->extra[hud->extra_count++] = (HudSlot){ hud_relic_rect(i), { SLOT_CONTAINER, relics, i } };
 }
 
 /* The whole world, a pixel to a block, redrawn every so often while it shows. */
