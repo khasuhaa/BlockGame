@@ -680,6 +680,10 @@ static void block_depth(const Game *g, int layer, const TileDef *def, int x, int
         world3d_solid(-0.72f * TILE_SIZE, -0.96f * TILE_SIZE, sides, def->model != 0 ? model : W3D_PANEL);
     } else if (def->wire && tile_def(world_get(w, x, y))->solid && !tile_def(world_get(w, x, y))->see_through) {
         world3d_plane(Z_FRONT); /* wire over the face of a block */
+    } else if (world_is_solid(w, x, y) && !tile_def(world_get(w, x, y))->solid) {
+        /* A square of something of the background that is stood on all the same - the foot of a portal: it is as
+         * deep as the ground it stands in for, front to back. */
+        world3d_solid(Z_FRONT, Z_BACK, sides, model == W3D_BOX || model == W3D_BLOCK ? model : W3D_MASS);
     } else if (def->rail) {
         /* Track lies where what runs on it runs: under the characters' feet, not back among the trees. */
         world3d_solid(-0.1f * TILE_SIZE, -0.66f * TILE_SIZE, sides, W3D_FRAME);

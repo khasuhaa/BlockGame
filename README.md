@@ -638,6 +638,7 @@ The world is drawn in depth. The game itself is still a grid seen from the side 
   - a **creature** is built the same way with every part in the middle of it;
   - a **plant** - anything sown, or that grows, or is the top of something that does - is its picture twice, crossed;
   - a **flat thing** - a vine, a window, a sign, something lying on the ground - is a panel with a little thickness.
+  - and **whatever is stood on is as deep as the ground**: a square that stops a character and holds them up is drawn from the front of the world to the back of it, whatever it is part of. The foot of a portal is such a square, though the arch over it is of the background: the foot fills the depth, and the arch stands on the back half of it.
   What kind a block is is worked out from what it does and what its picture is like; `"model"` in `tiles.json` says it outright where that would be wrong (`"block"`, `"box"`, `"frame"`, `"body"`, `"panel"` or `"cross"`). The character is the six boxes they always were, now standing in the scene.
 - **Clicking** goes by what is under the cursor in depth: the face of a block; failing that the square the characters are in; failing that what stands in the background behind it.
 - Light and darkness, the fog of war, water and the marks for what is queued are laid over the front of the scene, as before.

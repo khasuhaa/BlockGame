@@ -47,9 +47,11 @@ void world3d_plane(float z);
  *              wide - so a table's top is a slab and a post is square - and a part much thinner than the whole
  *              (a leg, a wheel) stands once at the front and once at the back.
  *   W3D_BODY   the same, with every part in the middle: a creature.
+ *   W3D_MASS   the same, made as deep as the room it is given: each part that much deeper in proportion, and none
+ *              doubled. Something that is stood on, and so is as deep as the ground is.
  *   W3D_PANEL  a flat thing with a little thickness: a ladder, a sign, something lying on the ground.
  *   W3D_CROSS  two flat pictures crossed, as plants are. */
-typedef enum { W3D_AUTO, W3D_BLOCK, W3D_BOX, W3D_FRAME, W3D_BODY, W3D_PANEL, W3D_CROSS } World3dModel;
+typedef enum { W3D_AUTO, W3D_BLOCK, W3D_BOX, W3D_FRAME, W3D_BODY, W3D_PANEL, W3D_CROSS, W3D_MASS } World3dModel;
 void world3d_solid(float front, float back, int sides, World3dModel model);
 
 /* Draws a texture as DrawTexturePro would, standing as last told. (assets.c draws everything through this.) */

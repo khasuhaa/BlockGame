@@ -290,7 +290,7 @@ void world3d_texture(Texture2D tex, Rectangle src, Rectangle dst, Color tint)
     bool whole = fabsf(sw - (float)tex.width) < 0.5f && fabsf(src.height - (float)tex.height) < 0.5f && src.x == 0.0f && src.y == 0.0f;
     World3dModel model = mode == 2 ? mode_model : W3D_PANEL;
     if (mode == 2 && model == W3D_AUTO) model = shape->full ? W3D_BLOCK : shape->cover < 0.5f && shape->branchy > 0.25f ? W3D_CROSS : W3D_FRAME;
-    if (mode == 2 && !shape->full && (model == W3D_FRAME || model == W3D_BODY) && (shape->part_count == 0 || !whole)) model = W3D_PANEL;
+    if (mode == 2 && !shape->full && (model == W3D_FRAME || model == W3D_BODY || model == W3D_MASS) && (shape->part_count == 0 || !whole)) model = model == W3D_MASS ? W3D_BLOCK : W3D_PANEL;
     if (mode == 2 && shape->full && model != W3D_BOX) model = W3D_BLOCK;
     if (mode == 2 && model == W3D_BOX && !shape->full) model = whole && shape->part_count > 0 ? W3D_FRAME : W3D_PANEL;
     float px = dst.width / (float)tex.width, py = dst.height / (float)tex.height;
@@ -302,13 +302,14 @@ void world3d_texture(Texture2D tex, Rectangle src, Rectangle dst, Color tint)
         quad(tex, (Corner){ xm - half, y0, mid - reach, u0, v0 }, (Corner){ xm - half, y1, mid - reach, u0, v1 }, (Corner){ xm + half, y1, mid + reach, u1, v1 }, (Corner){ xm + half, y0, mid + reach, u1, v0 }, shaded(tint, SIDE_SHADE + 0.1f));
         return;
     }
-    if (mode == 2 && (model == W3D_FRAME || model == W3D_BODY)) {
+    if (mode == 2 && (model == W3D_FRAME || model == W3D_BODY || model == W3D_MASS)) {
         /* A built thing: a box for every part of the picture, as deep as the part is wide - but none deeper than
          * the whole of it, which is as deep as its widest part, or as there is room for. */
-        float room = front - back, whole_deep = fminf((float)shape->widest * px, room), mid = (front + back) / 2.0f;
+        float room = front - back, natural = (float)shape->widest * px, whole_deep = model == W3D_MASS ? room : fminf(natural, room), mid = (front + back) / 2.0f;
+        float stretch = model == W3D_MASS && natural > 0.0f ? room / natural : 1.0f;
         for (int i = 0; i < shape->part_count; i++) {
             const Part *p = &shape->parts[i];
-            float wide = (float)(p->x1 - p->x0) * px, deep = fminf(wide, whole_deep);
+            float wide = (float)(p->x1 - p->x0) * px, deep = fminf(wide * stretch, whole_deep);
             float xa = flip ? x1 - (float)p->x1 * px : x0 + (float)p->x0 * px, xb = xa + wide, ya = y0 + (float)p->y0 * py, yb = y0 + (float)p->y1 * py;
             float ua = (float)p->x0 / (float)tex.width, ub = (float)p->x1 / (float)tex.width, va = (float)p->y0 / (float)tex.height, vb = (float)p->y1 / (float)tex.height;
             if (flip) {
