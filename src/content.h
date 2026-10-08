@@ -348,6 +348,9 @@ typedef struct {
     float qi;
     int qi_reach;
     float needs_qi;
+    /* "grow_one_in": it grows on only one time in so many that its turn comes (0 or 1: every time). "insight": what
+     * using it gives somebody who cultivates (with "use_becomes", once). */
+    int grow_one_in, insight;
     bool formation, formation_gate;
     TileType formation_flags;
     int formation_pattern, formation_min, formation_max; /* 0 a cross: four, level and plumb; 1 a square: four, at the corners; 2 a ring: all eight */
@@ -594,6 +597,10 @@ typedef struct {
     bool technique;
     float technique_qi;
     int technique_stage, needs_stage;
+    /* "technique": {"insight"}: the insight it takes to use. "tames": used on a creature whose "tame" is no more, it is theirs. */
+    int technique_insight, tames;
+    int insight_gain; /* "insight": taken, it gives so much */
+    int meridian;     /* "meridian": which one it opens, from 1 - and only when those before it are open (0: whichever is next) */
     /* Something taken - drunk, eaten - that does something for a while: these boons, for so many ticks (less
      * than nothing for ever after: a thing that can be taken only once by anybody). Taken again while it lasts,
      * it lasts from then. It may also cure poison, take them back to where the world begins, and leave something
@@ -880,6 +887,9 @@ typedef struct {
     /* What a stage needs before it can be left, besides qi: indexed by the stage being left, 1 for the first. */
     RecipeItem needs[MAX_DAO_STAGES][3];
     int need_count[MAX_DAO_STAGES];
+    /* ...and the insight it takes, which is not spent. What grows where a tribulation struck. */
+    int need_insight[MAX_DAO_STAGES];
+    TileType scorch;
     /* A tribulation called down on purpose: so many bolts of such a share, and what it leaves whoever lives. */
     int called_bolts;
     float called_bolt;
@@ -1179,6 +1189,11 @@ typedef struct {
     bool swims, hunts;
     /* A creature of the air: it drifts about the open sky as one of the water does the sea, and never lands. */
     bool flies;
+    /* "tame": what grade of thing that tames it takes (0: it cannot be). "companion": owned, it keeps by whoever is
+     * nearest and goes for wild creatures it can see, doing so much to them at a time. */
+    int tame;
+    bool companion;
+    int companion_bite, companion_sight;
     /* One that blows do nothing to: it is hurt by magic of the one element it is weak to, and by nothing else. */
     bool immune;
     int weak_to;        /* which of content.elements it is weak to; -1 for none in particular */

@@ -42,6 +42,11 @@ static TileType open_bench(const Game *g)
 #define INPUT_COLUMNS 4
 #define INPUT_ROW 30.0f
 static int extra_rows;
+/* A bench with a great many recipes sets them out in rows, one under another, so that there is less to scroll
+ * through: how many rows, for the bench that is open. (As extra_rows: every menu_rect in a frame sees the same.) */
+static int list_rows = 1;
+#define LIST_SHIFT ((float)(list_rows - 1) * (LIST_CELL + LIST_GAP))
+#define LIST_COLUMNS(count) (((count) + list_rows - 1) / list_rows)
 /* The name of whatever of a recipe the cursor is over, to be shown by it; NULL for nothing. */
 static const char *hover_name;
 
@@ -56,7 +61,7 @@ static void note_rows(const Recipe *r)
 static Rectangle menu_rect(const Game *g, const View *v)
 {
     const TileDef *def = tile_def(open_bench(g));
-    float w = MENU_WIDTH, h = MENU_HEIGHT + (def->storage_columns > 0 ? 0.0f : (float)extra_rows * INPUT_ROW);
+    float w = MENU_WIDTH, h = MENU_HEIGHT + (def->storage_columns > 0 ? 0.0f : (float)extra_rows * INPUT_ROW + LIST_SHIFT);
     if (def->storage_columns > 0) {
         w = 2 * MENU_PAD + def->storage_columns * (STORAGE_SLOT + STORAGE_GAP) - STORAGE_GAP;
         h = MENU_HEADER + 2 * MENU_PAD + def->storage_rows * (STORAGE_SLOT + STORAGE_GAP) - STORAGE_GAP;
@@ -150,12 +155,12 @@ static void draw_machine(const Game *g, Rectangle menu)
 static Rectangle list_rect(Rectangle menu)
 {
     return (Rectangle){ menu.x + MENU_PAD, menu.y + MENU_HEADER + MENU_PAD,
-                        menu.width - 2 * MENU_PAD, LIST_CELL + 4.0f };
+                        menu.width - 2 * MENU_PAD, LIST_CELL + 4.0f + LIST_SHIFT };
 }
 
 static Rectangle slider_rect(Rectangle menu)
 {
-    return (Rectangle){ menu.x + MENU_PAD + 6, menu.y + MENU_HEADER + 144 + (float)extra_rows * INPUT_ROW,
+    return (Rectangle){ menu.x + MENU_PAD + 6, menu.y + MENU_HEADER + 144 + (float)extra_rows * INPUT_ROW + LIST_SHIFT,
                         menu.width - 2 * MENU_PAD - 62, 20 };
 }
 
@@ -261,7 +266,7 @@ static int open_recipes(const Game *g, const Recipe **out)
 /* The list only scrolls when its items are wider than the menu. */
 static float max_scroll(Rectangle list, int count)
 {
-    float content = count * (LIST_CELL + LIST_GAP) - LIST_GAP;
+    float content = LIST_COLUMNS(count) * (LIST_CELL + LIST_GAP) - LIST_GAP;
     return content > list.width ? content - list.width : 0.0f;
 }
 
@@ -373,6 +378,7 @@ bool benchui_handle_input(BenchUi *ui, Game *g, const View *v)
     const Recipe *recipes[MAX_BENCH_RECIPES];
     int count = g->bench_open ? open_recipes(g, recipes) : 0;
     note_rows(g->bench_open && ui->selected >= 0 && ui->selected < count ? recipes[ui->selected] : NULL);
+    list_rows = count > 150 ? 3 : count > 60 ? 2 : 1;
     Rectangle menu = menu_rect(g, v);
     Rectangle list = list_rect(menu);
     if (ui->selected >= count) ui->selected = -1;
@@ -416,9 +422,10 @@ bool benchui_handle_input(BenchUi *ui, Game *g, const View *v)
     BenchPress released = press_target(ui, g, v, m);
     if (ui->press == BENCH_PRESS_LIST && !ui->dragged && released == BENCH_PRESS_LIST) {
         float offset = m.x - list.x + ui->scroll;
-        int i = (int)(offset / (LIST_CELL + LIST_GAP));
+        int column = (int)(offset / (LIST_CELL + LIST_GAP)), row = (int)((m.y - list.y) / (LIST_CELL + LIST_GAP));
+        int i = offset >= 0.0f && row >= 0 && row < list_rows ? column * list_rows + row : -1;
         /* A recipe the bench is not yet good enough for cannot be picked. */
-        if (i >= 0 && i < count && offset - i * (LIST_CELL + LIST_GAP) <= LIST_CELL &&
+        if (i >= 0 && i < count && offset - column * (LIST_CELL + LIST_GAP) <= LIST_CELL && m.y - list.y - row * (LIST_CELL + LIST_GAP) <= LIST_CELL &&
             !recipe_locked(open_bench(g), recipes[i])) {
             ui->selected = i;
             ui->amount = 1;
@@ -535,7 +542,7 @@ static void draw_list(const BenchUi *ui, const Game *g, const Recipe **recipes, 
     bool scrolls = max_scroll(list, count) > 0.0f;
     if (scrolls) BeginScissorMode((int)list.x, (int)list.y, (int)list.width, (int)list.height);
     for (int i = 0; i < count; i++) {
-        Rectangle cell = { list.x + i * (LIST_CELL + LIST_GAP) - ui->scroll, list.y, LIST_CELL,
+        Rectangle cell = { list.x + (i / list_rows) * (LIST_CELL + LIST_GAP) - ui->scroll, list.y + (i % list_rows) * (LIST_CELL + LIST_GAP), LIST_CELL,
                            LIST_CELL };
         DrawRectangleRec(cell, (Color){ 44, 47, 58, 255 });
         DrawRectangleLinesEx(cell, i == ui->selected ? 3.0f : 2.0f,
@@ -585,10 +592,10 @@ static void draw_list(const BenchUi *ui, const Game *g, const Recipe **recipes, 
     if (scrolls) {
         EndScissorMode();
         /* Thin bar under the list showing where the view is. */
-        float content = count * (LIST_CELL + LIST_GAP) - LIST_GAP;
+        float content = LIST_COLUMNS(count) * (LIST_CELL + LIST_GAP) - LIST_GAP;
         float w = list.width * list.width / content;
         float x = list.x + (list.width - w) * ui->scroll / max_scroll(list, count);
-        DrawRectangleRec((Rectangle){ x, list.y + LIST_CELL + 1, w, 3 }, edge_color);
+        DrawRectangleRec((Rectangle){ x, list.y + LIST_CELL + 1 + LIST_SHIFT, w, 3 }, edge_color);
     }
 }
 
@@ -597,7 +604,7 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
     int cap = recipe_max_crafts(&g->inventory, r, g->crystals);
     int amount = ui->amount;
     float left = menu.x + MENU_PAD, room = menu.width - 2 * MENU_PAD;
-    float y = menu.y + MENU_HEADER + 70;
+    float y = menu.y + MENU_HEADER + 70 + LIST_SHIFT;
 
     /* What is being made, on a line of its own so a long name has room. */
     hud_draw_item_icon(recipe_shown(r, GetTime()), (Rectangle){ left, y - 3, 22, 22 });
@@ -804,7 +811,7 @@ void benchui_draw(const BenchUi *ui, const Game *g, const View *v)
             DrawText(hover_name, (int)tip.x + 7, (int)tip.y + 4, 16, RAYWHITE);
         }
     } else {
-        float top = MENU_HEADER + 72;
+        float top = MENU_HEADER + 72 + LIST_SHIFT;
         Rectangle rest = { menu.x, menu.y + top, menu.width, menu.height - top };
         draw_centered("Select an item to craft", rest, 16, LIGHTGRAY);
     }

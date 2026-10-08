@@ -107,6 +107,8 @@ void daoui_draw(const DaoUi *ui, const Game *g)
     static const char *built[5] = { "Flawed", "Weak", "Sound", "Firm", "Perfect" };
     DrawText("Base", (int)x, (int)y, 14, dim);
     DrawText(me->stage > 0 ? built[me->foundation > 4 ? 4 : me->foundation] : "", (int)x + 76, (int)y, 14, RAYWHITE);
+    DrawText("Insight", (int)x + 190, (int)y, 14, dim);
+    DrawText(TextFormat("%d", (int)me->insight), (int)x + 250, (int)y, 14, RAYWHITE);
     y += 20;
     DrawText("Toxin", (int)x, (int)y, 14, dim);
     bar((Rectangle){ x + 76, y + 1, wide - 76, 12 }, me->toxin, (Color){ 150, 96, 200, 255 });
@@ -128,6 +130,10 @@ void daoui_draw(const DaoUi *ui, const Game *g)
             if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){ nx, y, 60, 26 }))
                 DrawText(item_def(needs[i].id)->label, (int)x + 76, (int)y + 28, 12, RAYWHITE);
             nx += 66;
+        }
+        if (content.dao.need_insight[me->stage] > 0) {
+            const char *n = TextFormat("Insight %d/%d", (int)me->insight, content.dao.need_insight[me->stage]);
+            DrawText(n, (int)nx, (int)y + 7, 12, (int)me->insight >= content.dao.need_insight[me->stage] ? RAYWHITE : (Color){ 235, 90, 90, 255 });
         }
         const char *chance = TextFormat("%d%%", (int)(game_dao_chance(g) * 100.0f + 0.5f));
         DrawText(chance, (int)(x + wide) - MeasureText(chance, 16), (int)y + 5, 16, RAYWHITE);

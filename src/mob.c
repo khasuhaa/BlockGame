@@ -582,6 +582,48 @@ static void swim_tick(Game *g, Mob *m, const MobDef *def)
     if (!swim_to(g, m, m->dir, dy) && !swim_to(g, m, m->dir, 0) && !swim_to(g, m, 0, dy)) m->dir = -m->dir;
 }
 
+/* A creature that is somebody's and keeps by them: it goes for the nearest wild thing it can see, and
+ * otherwise comes after whoever is nearest when they have got ahead of it. True if that was its turn. */
+static bool companion_tick(Game *g, int self, const MobDef *def)
+{
+    World *w = &g->world;
+    Mob *m = &g->mobs[self];
+    if (m->timer > 0) m->timer--;
+    int prey = -1, near = def->companion_sight + 1;
+    for (int k = 0; k < MAX_MOBS; k++) {
+        const Mob *o = &g->mobs[k];
+        if (!o->active || o->owned || k == self) continue;
+        int far = abs(world_dx(w, m->x, o->x)) + abs(o->y - m->y);
+        if (abs(o->y - m->y) <= 2 && far < near) near = far, prey = k;
+    }
+    if (prey >= 0) {
+        int pdx = world_dx(w, m->x, g->mobs[prey].x);
+        if (pdx != 0) m->dir = pdx > 0 ? 1 : -1;
+        if (abs(pdx) <= 1) {
+            if (m->timer == 0) {
+                mob_hurt(g, prey, def->companion_bite);
+                m->timer = 12;
+            }
+            return true;
+        }
+        return start_step(g, m);
+    }
+    const Player *p = &g->player;
+    int pdx = world_dx(w, m->x, p->feet.x), pdy = p->feet.y - m->y;
+    /* (Left a long way behind - through a portal, over water - it is simply there again.) */
+    if (abs(pdx) > 24 || abs(pdy) > 12) {
+        m->x = m->to_x = p->feet.x;
+        m->y = m->to_y = p->feet.y;
+        m->step_left = 0;
+        return true;
+    }
+    if (abs(pdx) > 3) {
+        m->dir = pdx > 0 ? 1 : -1;
+        return start_step(g, m);
+    }
+    return false;
+}
+
 void mobs_tick(Game *g)
 {
     World *w = &g->world;
@@ -634,11 +676,13 @@ void mobs_tick(Game *g)
             m->step_total = m->step_left = 1;
             continue;
         }
-        if (def->perches) {
+        if (m->owned && def->companion && game_alive(g)) {
+            if (companion_tick(g, i, def)) continue;
+        } else if (def->perches) {
             perch_tick(g, m, def);
             continue;
         }
-        if (def->sting_ticks > 0 && game_alive(g) && g->vitals.respawn == 0 && game_boons(g).unseen <= 0.0f) {
+        if (!(m->owned && def->companion) && def->sting_ticks > 0 && game_alive(g) && g->vitals.respawn == 0 && game_boons(g).unseen <= 0.0f) {
             /* One that stings: a player beside it is stung; one it can see, it makes for. */
             const Player *p = &g->player;
             int pdx = world_dx(w, m->x, p->feet.x), pdy = p->feet.y - m->y;

@@ -143,6 +143,7 @@ bool game_dao_ready(const Game *g)
     RecipeItem needs[4];
     if (!dao_on() || !game_alive(g) || g->dao.stage < 1 || g->dao.stage > dao_stages() || g->dao.bolts > 0) return false;
     if (g->dao.qi + 0.001f < game_dao_capacity(g)) return false;
+    if ((int)g->dao.insight < content.dao.need_insight[g->dao.stage]) return false;
     return inventory_has_all(&g->inventory, needs, game_dao_needs(g, needs));
 }
 
@@ -179,12 +180,13 @@ bool game_breakthrough(Game *g)
     }
     g->dao.stage++;
     g->dao.qi = 0.0f;
+    g->dao.insight += 2;
     return true;
 }
 
 bool dao_item(const ItemDef *def)
 {
-    return def->qi_gain > 0.0f || def->toxin != 0.0f || def->opens_meridian || def->washes_roots || def->calls_tribulation || def->manual;
+    return def->qi_gain > 0.0f || def->toxin != 0.0f || def->insight_gain > 0 || def->opens_meridian || def->washes_roots || def->calls_tribulation || def->manual;
 }
 
 bool game_dao_can_take(const Game *g, ItemId item)
@@ -195,7 +197,7 @@ bool game_dao_can_take(const Game *g, ItemId item)
     if (def->needs_stage > 0 && g->dao.stage < def->needs_stage) return false;
     if (def->manual) return g->dao.manual != item;
     if (g->dao.stage < 1) return false;
-    if (def->opens_meridian) return g->dao.meridians < DAO_MERIDIANS;
+    if (def->opens_meridian) return g->dao.meridians < DAO_MERIDIANS && (def->meridian == 0 || def->meridian == g->dao.meridians + 1);
     if (def->calls_tribulation) return g->dao.bolts == 0 && content.dao.called_bolts > 0;
     return true;
 }
@@ -243,6 +245,7 @@ void dao_take(Game *g, ItemId item)
         if (me->qi > room) me->qi = room;
     }
     me->toxin += def->toxin;
+    me->insight += (uint32_t)def->insight_gain;
     if (me->toxin > 1.0f) me->toxin = 1.0f;
     if (me->toxin < 0.0f) me->toxin = 0.0f;
     if (def->calls_tribulation) call_down(g, content.dao.called_bolts, content.dao.called_bolt, false);
@@ -356,6 +359,13 @@ void dao_tick(Game *g)
         } else if (d->called_leaves.id != ITEM_NONE) {
             game_give_items(g, d->called_leaves.id, d->called_leaves.count);
         }
+        me->insight += 25;
+        /* Where it struck, something grows that grows nowhere else. */
+        for (int dx = -3; d->scorch != TILE_AIR && dx <= 3; dx++) {
+            int sx = g->player.feet.x + dx, sy = g->player.feet.y, layer = tile_def(d->scorch)->layer;
+            if (game_random(g) % 2u != 0 || !world_is_solid(&g->world, sx, sy + 1) || world_is_solid(&g->world, sx, sy) || world_get_at(&g->world, layer, sx, sy) != TILE_AIR) continue;
+            world_set_at(&g->world, layer, sx, sy, d->scorch);
+        }
     }
 }
 
@@ -384,7 +394,11 @@ void dao_world_tick(Game *g)
         /* What grows inside it is hurried; what does not belong inside it is hurt. */
         for (int n = 0; n < (int)(def->formation_grows * 2.0f + 0.5f); n++) {
             int x = st->x + (int)(game_random(g) % (uint32_t)(2 * reach + 1)) - reach, y = st->y + (int)(game_random(g) % (uint32_t)(2 * reach + 1)) - reach;
-            for (int layer = 0; layer < BLOCK_LAYERS; layer++) world_grow_plant(w, layer, x, y);
+            for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
+                int slow = tile_def(world_get_at(w, layer, x, y))->grow_one_in;
+                if (slow > 1 && game_random(g) % (uint32_t)slow != 0) continue;
+                world_grow_plant(w, layer, x, y);
+            }
         }
         for (int m = 0; def->formation_harms > 0.0f && g->tick % 20 == 0 && m < MAX_MOBS; m++)
             if (g->mobs[m].active && !g->mobs[m].owned && within_formation(g, st, g->mobs[m].x, g->mobs[m].y)) mob_hurt(g, m, (int)def->formation_harms);
@@ -395,7 +409,7 @@ bool game_technique_ready(const Game *g, ItemId item)
 {
     const ItemDef *def = item_def(item);
     if (!def->technique) return true;
-    return dao_on() && g->dao.stage >= def->technique_stage && g->dao.qi >= def->technique_qi;
+    return dao_on() && g->dao.stage >= def->technique_stage && g->dao.qi >= def->technique_qi && (int)g->dao.insight >= def->technique_insight;
 }
 
 void dao_spend(Game *g, ItemId item)
@@ -404,6 +418,8 @@ void dao_spend(Game *g, ItemId item)
     if (!def->technique) return;
     g->dao.qi -= def->technique_qi;
     if (g->dao.qi < 0.0f) g->dao.qi = 0.0f;
+    /* Using what they know teaches them something - up to a point, for the stage they are at. */
+    if ((int)g->dao.insight < g->dao.stage * 10) g->dao.insight++;
 }
 
 bool dao_revive(Game *g)

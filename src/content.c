@@ -371,6 +371,8 @@ static bool read_tiles(Reader *r, const cJSON *root)
             t->qi = (float)num(e, "qi", 0.0);
             t->qi_reach = (int)num(e, "qi_reach", 6);
             t->needs_qi = (float)num(e, "needs_qi", 0.0);
+            t->grow_one_in = (int)num(e, "grow_one_in", 0);
+            t->insight = (int)num(e, "insight", 0);
             t->formation = form != NULL;
             t->formation_gate = flag(form, "gate", false);
             t->formation_flags = TILE_AIR;
@@ -786,6 +788,11 @@ static bool read_items(Reader *r, const cJSON *root)
             it->technique = technique != NULL;
             it->technique_qi = (float)num(technique, "qi", 0.0);
             it->technique_stage = (int)num(technique, "stage", 0);
+            it->technique_insight = (int)num(technique, "insight", 0);
+            it->tames = (int)num(e, "tames", 0);
+            it->insight_gain = (int)num(e, "insight", 0);
+            it->meridian = (int)num(e, "meridian", 0);
+            if (it->meridian > 0) it->opens_meridian = true;
             it->needs_stage = (int)num(e, "needs_stage", 0);
             it->recalls = flag(e, "recalls", false);
             it->leaves = ITEM_NONE;
@@ -1697,11 +1704,14 @@ static bool read_dao(Reader *r, const cJSON *road)
         int stage = (int)num(need, "stage", 0);
         if (stage < 1 || stage > total) return fail(r, "\"needs\": a \"stage\" is 1 to %d", total);
         d->need_count[stage] = 0;
+        d->need_insight[stage] = (int)num(need, "insight", 0);
         cJSON_ArrayForEach(one, field(need, "items")) {
             if (d->need_count[stage] >= 3) return fail(r, "stage %d needs more than 3 kinds of thing", stage);
             if (!stack_ref(r, one, &d->needs[stage][d->need_count[stage]++])) return false;
         }
     }
+    d->scorch = TILE_AIR;
+    if (!tile_ref(r, road, "scorch", &d->scorch)) return false;
     const cJSON *called = field(road, "called");
     d->called_bolts = (int)num(called, "bolts", 0);
     d->called_bolt = (float)num(called, "bolt", 0.3);
@@ -1945,6 +1955,10 @@ static bool read_mobs(Reader *r, const cJSON *root)
         m->spawn_time = !when ? 0 : strcmp(when, "day") == 0 ? 1 : strcmp(when, "night") == 0 ? 2 : -1;
         if (m->spawn_time < 0) return fail(r, "mob \"%s\": the \"time\" it spawns at is \"day\" or \"night\"", name);
         m->flies = flag(e, "flies", false);
+        m->tame = (int)num(e, "tame", 0);
+        m->companion = field(e, "companion") != NULL;
+        m->companion_bite = (int)num(field(e, "companion"), "bite", 2);
+        m->companion_sight = (int)num(field(e, "companion"), "sight", 8);
         m->immune = flag(e, "immune", false);
         m->weak_to = element_ref(str(e, "weak_to"));
         cJSON_ArrayForEach(one, field(field(e, "spawn"), "above")) {

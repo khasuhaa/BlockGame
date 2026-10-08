@@ -18,6 +18,10 @@ repo = sys.argv[1] if len(sys.argv) > 1 else '.'
 DATA = os.path.join(repo, 'data')
 mod = os.path.join(repo, 'mods/seeker_of_the_dao'); TEX = os.path.join(mod, 'textures')
 for d in ('tiles', 'items', 'mobs', 'worn'): os.makedirs(os.path.join(TEX, d), exist_ok=True)
+# (Every picture here is drawn by this script or by the tools it runs: what was drawn last time goes first, so that nothing stale is left.)
+for d in ('tiles', 'items', 'mobs', 'worn'):
+    for f in os.listdir(os.path.join(TEX, d)):
+        if f.endswith('.png'): os.remove(os.path.join(TEX, d, f))
 BT = {t['name']: t for t in json.load(open(os.path.join(DATA, 'tiles.json')))['tiles']}
 BI = {t['name']: t for t in json.load(open(os.path.join(DATA, 'items.json')))['items']}
 BTR = {t['name']: t for t in json.load(open(os.path.join(DATA, 'trees.json')))['trees']}
@@ -509,23 +513,98 @@ def portal(tier, out, ins, count=1, time=300, **kw):
 
 # ---- herbs and crops: Herbalism --------------------------------------------------------------------------------------
 SOIL = ['dirt', 'grass', 'compost', 'spirit_soil', 'world_tree_bough', 'star_grass', 'heaven_soil']
-# name, label, realm, the crop it grows like, colour, the qi it must have to grow, how it is drawn in the hand, where it is wild
-HERBS = [('spirit_grass', 'Spirit grass', 1, 'wheat', '60d0a0', 0, 3, [('plains', 26), ('orchard', 30), ('cherry_grove', 30)]), ('mountain_ginseng', 'Mountain ginseng', 1, 'carrot', 'd8b070', 1.3, 1, [('pine_forest', 40), ('maple_forest', 40)]),
-         ('purple_lingzhi', 'Purple lingzhi', 2, 'tomato', '8a4ac0', 1.8, 1, [('maple_forest', 60), ('tropics', 60)]), ('frost_lotus', 'Frost lotus', 2, 'sunflower', 'a0e0ff', 2.2, 0, [('pine_forest', 60)]),
-         ('dragon_beard_grass', 'Dragon-beard grass', 3, 'flax', '40c070', 2.8, 3, []), ('fire_cloud_flower', 'Fire-cloud flower', 3, 'chilli', 'ff7030', 3.2, 0, []),
-         ('soul_orchid', 'Soul orchid', 4, 'sunflower', 'c0a0ff', 4.0, 2, []), ('nine_leaf_fern', 'Nine-leaf fern', 4, 'corn', '30a090', 4.5, 3, []),
-         ('phoenix_blossom', 'Phoenix blossom', 5, 'tomato', 'ff4060', 6.0, 0, []), ('heaven_root', 'Heaven root', 5, 'carrot', 'fff0a0', 6.5, 1, []),
-         ('spirit_rice', 'Spirit rice', 1, 'wheat', 'f0f0d0', 0, 3, [('plains', 40)]), ('spirit_cotton', 'Spirit cotton', 1, 'flax', 'e8e8ff', 0, 2, [('plains', 40), ('orchard', 40)]), ('spirit_tea', 'Spirit tea leaf', 2, 'flax', '3a9a4a', 1.5, 1, [('cherry_grove', 40)])]
-for n, lab, realm, base, col, needs, look, wild in HERBS:
-    k = c(col); r = ramp('202020', col, 'ffffff')
-    for i, t in enumerate(chain(base + '_0')):
-        d = clone_tile(t, t.replace(base, n), lab, r, 'tint', soil=SOIL, needs_qi=needs if (i > 0 and needs) else None, light=5 if realm >= 3 else None)
-        for key in ('grows_into', 'grows_top', 'topped_by', 'cut_to'):
-            if key in d: d[key] = d[key].replace(base, n)
-        many = [dr.get('count', 1) for dr in BT[t].get('drops', [])][:1]
-        d.pop('drops', None); d.pop('drop', None)
-        d['drops'] = [{'item': n, 'count': many[0] if many else 1}]
-    thing(herb(c('3a8a4a'), k, look), n, lab, lo(realm), 'nature', 0.4, sows=n + '_0')
+STEM = c('3a8a4a')
+def plant(arch, col, stage, stem=STEM):
+    """A herb standing in the ground, at one of four stages of its growth. Each kind of herb has a shape of its own."""
+    t = P(); h = [3, 6, 9, 12][stage]; top = 15 - h
+    if arch == 'grass':
+        for x, lean in ((5, -1), (7, 0), (9, 1), (11, 0))[:2 + stage // 1 if stage < 2 else 4]: t.line(x, 15, x + lean, top + (x % 3), stem if x % 2 else col)
+        if stage == 3: t.p(7, top - 1, lt(col, 1.3)).p(9, top, lt(col, 1.3))
+    elif arch == 'flower':
+        t.r(7, top + 2, 7, 15, stem); t.p(6, 12, stem).p(8, 10, stem) if stage else None
+        if stage >= 2: t.disc(7.5, top + 1.5, 1.2 + stage * 0.5, col); t.p(7, top + 1, lt(col, 1.4))
+        elif stage == 1: t.p(7, top + 1, col)
+    elif arch == 'root':
+        t.r(7, 13, 8, 15, col) if stage >= 2 else None
+        for x, lean in ((6, -2), (7, 0), (9, 2)): t.line(7, 13, x + lean, top + 2, stem)
+        if stage == 3: t.r(6, 12, 9, 13, col); t.p(6, 12, lt(col)); t.p(5, top + 2, c('d04040')).p(11, top + 2, c('d04040'))
+    elif arch == 'mushroom':
+        t.r(7, 16 - max(2, h // 2), 8, 15, c('e8dcc0'))
+        w = 1 + stage; t.r(7 - w, 15 - h // 2 - 2, 8 + w, 15 - h // 2, col); t.r(8 - w, 15 - h // 2 - 3, 7 + w, 15 - h // 2 - 3, lt(col)); t.p(7 - w + 1, 15 - h // 2 - 1, lt(col, 1.5))
+        if stage == 3: t.r(7 - w, 15 - h // 2 + 1, 8 + w, 15 - h // 2 + 1, dk(col))
+    elif arch == 'lotus':
+        t.r(3, 14, 12, 15, dk(stem)); t.r(4, 13, 11, 13, stem)
+        if stage >= 1: t.r(7, top + 3, 7, 13, stem)
+        if stage >= 2: t.r(6, top + 1, 8, top + 3, col); t.p(5, top + 2, col).p(9, top + 2, col); t.p(7, top, lt(col, 1.3))
+        if stage == 3: t.p(4, top + 3, col).p(10, top + 3, col); t.p(7, top + 2, GOLD)
+    elif arch == 'fern':
+        t.r(7, top + 1, 7, 15, stem)
+        for k in range(stage + 1):
+            y = 13 - k * 3; t.line(7, y, 4 - (k % 2), y - 2, col); t.line(7, y, 10 + (k % 2), y - 2, col)
+        t.p(7, top, lt(col, 1.3))
+    elif arch == 'vine':
+        ys = list(range(15, top, -1))
+        for k, y in enumerate(ys): t.p(7 + (1 if (k // 2) % 2 else -1), y, stem)
+        for k, y in enumerate(ys[2::3]): t.r(8 if k % 2 else 5, y, 9 if k % 2 else 6, y + 1, col); t.p(8 if k % 2 else 5, y, lt(col, 1.3))
+    else:  # bush
+        w = 1 + stage; t.r(7, 13, 8, 15, dk(stem)); t.disc(7.5, 12 - stage, 1.5 + stage, stem)
+        for k in range(stage * 2): t.p(5 + (k * 3) % 6, 13 - stage - (k * 2) % (2 + stage), col)
+    return t
+def held(arch, col, aura=None):
+    t = plant(arch, col, 3); t.im = t.im.crop((0, 2, 16, 16)).resize((16, 16), Image.NEAREST) if False else t.im; t.px = t.im.load()
+    t.outline()
+    if aura:
+        for x, y in ((2, 3), (13, 2), (1, 9), (14, 8), (3, 13), (12, 13)): t.p(x, y, aura)
+        t.p(13, 3, WHITE)
+    return t
+# name, label, realm, shape, colour, the qi it must have to grow, where it is wild in the world as it began
+HERBS = [('spirit_grass', 'Spirit grass', 1, 'grass', '60d0a0', 0, [('plains', 26), ('orchard', 30), ('cherry_grove', 30)]), ('mountain_ginseng', 'Mountain ginseng', 1, 'root', 'd8b070', 1.3, [('pine_forest', 40), ('maple_forest', 40)]),
+         ('purple_lingzhi', 'Purple lingzhi', 2, 'mushroom', '8a4ac0', 1.8, [('maple_forest', 60), ('tropics', 60)]), ('frost_lotus', 'Frost lotus', 2, 'lotus', 'a0e0ff', 2.2, [('pine_forest', 60)]),
+         ('dragon_beard_grass', 'Dragon-beard grass', 3, 'grass', '40c070', 2.8, []), ('fire_cloud_flower', 'Fire-cloud flower', 3, 'flower', 'ff7030', 3.2, []),
+         ('soul_orchid', 'Soul orchid', 4, 'flower', 'c0a0ff', 4.0, []), ('nine_leaf_fern', 'Nine-leaf fern', 4, 'fern', '30a090', 4.5, []),
+         ('phoenix_blossom', 'Phoenix blossom', 5, 'flower', 'ff4060', 6.0, []), ('heaven_root', 'Heaven root', 5, 'root', 'fff0a0', 6.5, [])]
+MORE = {1: [('bloodvine', 'Bloodvine', 'vine', 'c02838'), ('meridian_root', 'Meridian root', 'root', 'e0a060'), ('dew_lotus', 'Dew lotus', 'lotus', 'f0c0d8'), ('ironbark_fern', 'Ironbark fern', 'fern', '7a8a8a'),
+            ('yellow_essence_bud', 'Yellow essence bud', 'bush', 'f0d040'), ('dawn_dew_grass', 'Dawn-dew grass', 'grass', 'a0e8f0'), ('white_crane_flower', 'White crane flower', 'flower', 'f8f8ff'),
+            ('stoneskin_moss', 'Stoneskin moss', 'bush', '8a9a7a'), ('calm_heart_leaf', 'Calm-heart leaf', 'fern', '70c0a0'), ('foxtail_orchid', 'Foxtail orchid', 'flower', 'f09050')],
+        2: [('jade_ginseng', 'Jade ginseng', 'root', '80e0b0'), ('flame_lily', 'Flame lily', 'flower', 'f05020'), ('frost_orchid', 'Frost orchid', 'flower', 'b0d8ff'), ('earth_milk_mushroom', 'Earth-milk mushroom', 'mushroom', 'e8e0c8'),
+            ('azure_reed', 'Azure reed', 'grass', '4090e0'), ('thunder_bamboo_shoot', 'Thunder bamboo shoot', 'vine', 'c0c040'), ('silver_moon_grass', 'Silver moon grass', 'grass', 'd0d8f0'),
+            ('blood_coral_fungus', 'Blood coral fungus', 'mushroom', 'd04050'), ('wind_chime_bell', 'Wind-chime bell', 'flower', 'a0f0e0'), ('tiger_whisker_root', 'Tiger-whisker root', 'root', 'f0a030')],
+        3: [('golden_core_clover', 'Golden core clover', 'bush', 'f0c840'), ('purple_cloud_reishi', 'Purple cloud reishi', 'mushroom', 'a060d0'), ('amber_heart_blossom', 'Amber-heart blossom', 'flower', 'f0a020'),
+            ('starlight_fern', 'Starlight fern', 'fern', 'c0d0ff'), ('deep_lake_lily', 'Deep-lake lily', 'lotus', '5080e0'), ('seven_star_grass', 'Seven-star grass', 'grass', 'f0f0a0'),
+            ('jade_dew_orchid', 'Jade-dew orchid', 'flower', '70e0b0'), ('ember_root', 'Ember root', 'root', 'e05030'), ('moonshade_cap', 'Moonshade cap', 'mushroom', '5a5a9a'), ('ape_wine_gourd', 'Ape-wine gourd', 'vine', 'c8a050')],
+        4: [('soul_nurturing_lotus', 'Soul-nurturing lotus', 'lotus', 'e0b0ff'), ('phoenix_tail_grass', 'Phoenix-tail grass', 'grass', 'ff6040'), ('netherworld_blossom', 'Netherworld blossom', 'flower', '6a3a8a'),
+            ('void_petal', 'Void petal', 'flower', '9070e0'), ('star_tear_moss', 'Star-tear moss', 'bush', 'a0b0ff'), ('wraith_cap', 'Wraith cap', 'mushroom', '8a70c0'), ('celestial_bamboo', 'Celestial bamboo', 'vine', 'd8e8c0'),
+            ('dream_butterfly_flower', 'Dream-butterfly flower', 'flower', 'f0a0e0'), ('ghost_face_root', 'Ghost-face root', 'root', 'd0d0e0'), ('silver_soul_vine', 'Silver soul vine', 'vine', 'c0c8e0')],
+        5: [('immortal_dew_grass', 'Immortal dew grass', 'grass', 'c0fff0'), ('nirvana_lotus', 'Nirvana lotus', 'lotus', 'ff8060'), ('dragon_blood_ginseng', 'Dragon-blood ginseng', 'root', 'd02030'),
+            ('nine_heavens_orchid', 'Nine-heavens orchid', 'flower', 'a0c0ff'), ('chaos_seed_flower', 'Chaos-seed flower', 'flower', '8050c0'), ('sun_gold_bud', 'Sun-gold bud', 'bush', 'ffd030'),
+            ('moon_silver_bloom', 'Moon-silver bloom', 'flower', 'e0e8ff'), ('star_river_reed', 'Star-river reed', 'grass', '7090ff'), ('world_root', 'World root', 'root', 'a08050'), ('primordial_lingzhi', 'Primordial lingzhi', 'mushroom', 'f0e0ff')]}
+QI_BASE = {1: 1.1, 2: 1.6, 3: 2.6, 4: 3.8, 5: 5.8}
+HOME_B = ['plains', 'orchard', 'cherry_grove', 'pine_forest', 'maple_forest', 'tropics', 'desert', 'beach']
+for realm, rows in MORE.items():
+    for j, (n, lab, arch, col) in enumerate(rows):
+        wild = [(HOME_B[(j + realm * 3) % 8], 44 + realm * 12), (HOME_B[(j * 3 + realm) % 8], 60 + realm * 12)] if realm <= 2 else []
+        HERBS.append((n, lab, realm, arch, col, 0 if realm == 1 and j < 2 else round(QI_BASE[realm] + 0.1 * (j // 2), 1), wild))
+CROPS = [('spirit_rice', 'Spirit rice', 1, 'grass', 'f0f0d0', 0, [('plains', 40)]), ('spirit_cotton', 'Spirit cotton', 1, 'bush', 'e8e8ff', 0, [('plains', 40), ('orchard', 40)]), ('spirit_tea', 'Spirit tea leaf', 2, 'fern', '3a9a4a', 1.5, [('cherry_grove', 40)]),
+         ('lightning_herb', 'Lightning herb', 3, 'grass', 'f0f060', 0, [])]
+AGES = [('aged_', 'Hundred-year ', c('d0d8f0'), 12, 1.0, 8.0), ('ancient_', 'Thousand-year ', GOLD, 30, 2.5, 60.0)]
+HERB_NAMES = [h[0] for h in HERBS]
+ANY_SOIL = SOIL + ['stone', 'sand', 'heaven_marble', 'scorched_marble', 'heaven_paving', 'sect_paving']
+for n, lab, realm, arch, col, needs, wild in HERBS + CROPS:
+    k = c(col); aged = n in HERB_NAMES
+    stages = ['%s_%d' % (n, i) for i in range(4)] + ([n + '_c', n + '_m'] if aged else [])
+    for i, t in enumerate(stages):
+        if i < 4: pic = plant(arch, k, i)
+        else:
+            pic = plant(arch, k, 3)
+            for x, y in ((2, 4), (13, 3), (1, 10), (14, 9)): pic.p(x, y, AGES[i - 4][2])
+        pic.save('tiles', t)
+        what = n if i < 4 else AGES[i - 4][0] + n
+        tile(t, (AGES[i - 4][1] + lab.lower()) if i >= 4 else lab, False, mine_time=0.1, tool='machete', drop=None, drops=[{'item': what, 'count': 1 if i != 3 else 2}], soil=ANY_SOIL if n == 'lightning_herb' else SOIL,
+             grows_into=stages[i + 1] if i + 1 < len(stages) else None, model='cross', light=5 if realm >= 3 or i >= 4 else None,
+             needs_qi=(needs + (AGES[i - 4][4] if i >= 4 else 0)) if (i > 0 and (needs or i >= 4)) else None, grow_one_in=AGES[i - 4][3] if i >= 4 else None)
+    thing(held(arch, k), n, lab, lo(realm), 'nature', 0.4, sows=n + '_0')
+    if aged:
+        for pre, plab, aura, _, _, worth in AGES: thing(held(arch, k, aura), pre + n, plab + lab.lower(), min(10, lo(realm) + (1 if pre == 'aged_' else 2)), 'nature', worth * 0.4)
     for b, one_in in wild: plants.append({'biome': b, 'tile': n + '_0', 'one_in': one_in})
 
 # ---- trees ------------------------------------------------------------------------------------------------------------
@@ -556,7 +635,7 @@ def vault(name, label, col, trim, tier, cols, rows, loot):
     tile(name, label, False, tool='axe', mine_time=0.5, storage={'columns': cols, 'rows': rows}, loot=loot, light=4, model='box')
     item(name, label, tier, 'crafted', 1.0, places=name, container={'slots': cols * rows})
 vault('sect_chest', 'Sect chest', '8a3a2a', 'f0c840', 2, 4, 2, [drop('spirit_stone', 3, 9), some(('qi_gathering_pill', 5), ('spirit_grass', 5), ('mountain_ginseng', 3), ('cinnabar', 4), ('spirit_peach', 2), ('talisman_paper', 4)),
-      some(('basic_breathing_manual', 6), ('spirit_bolt', 3), ('spirit_iron_ingot', 4), ('formation_flag', 3), ('fire_talisman', 3), ('meridian_opening_pill', 2), ('spirit_bead', 1), ('sharp_metal_scripture', 1), ('flowing_water_scripture', 1), most=1)])
+      some(('basic_breathing_manual', 6), ('spirit_bolt', 3), ('spirit_iron_ingot', 4), ('formation_flag', 3), ('fire_talisman', 3), ('lung_meridian_pill', 2), ('spirit_bead', 1), ('sharp_metal_scripture', 1), ('flowing_water_scripture', 1), most=1)])
 vault('ancient_cache', 'Ancient cache', '5a6a3a', '5fc89a', 5, 4, 3, [drop('mid_spirit_stone', 2, 6), drop('tree_amber', 1, 4), some(('core_nourishing_pill', 4), ('dragon_beard_grass', 4), ('fire_cloud_flower', 3), ('star_silver_ingot', 4), ('beast_core_3', 2)),
       some(('five_phases_canon', 2), ('sword_qi_slash', 2), ('jade_formation_flag', 4), ('star_mirror', 1), ('spirit_gourd', 1), ('marrow_washing_pill', 3), ('clear_mind_pill', 3), most=1)])
 vault('heavenly_coffer', 'Heavenly coffer', 'd8d0e8', 'f0c840', 8, 4, 4, [drop('high_spirit_stone', 2, 6), drop('soul_crystal', 1, 3), some(('soul_tempering_pill', 4), ('soul_orchid', 4), ('nine_leaf_fern', 3), ('void_gold_ingot', 4), ('beast_core_4', 2), ('immortal_peach', 2)),
@@ -663,7 +742,6 @@ for n, lab, realm, col, ins, g in REALM_PILLS: pill_(n, lab, realm, col, ins, g,
 pill_('blood_restoring_pill', 'Blood restoring pill', 1, 'e04040', [('mountain_ginseng', 1), ('spirit_grass', 2)], effect=lasts(300, regen=12.0))
 pill_('fasting_pill', 'Fasting pill', 1, 'c8b080', [('spirit_rice', 4), ('mountain_ginseng', 1)], food=1.0, cooked=True)
 pill_('detox_pill', 'Cleansing pill', 1, 'e8e8e8', [('spirit_grass', 2), ('charcoal', 2)], toxin=-0.5)
-pill_('meridian_opening_pill', 'Meridian opening pill', 1, 'f0a030', [('mountain_ginseng', 2), ('beast_core_1', 1), ('cinnabar', 1)], count=1, ring=RED, mult=3.0, opens_meridian=True, toxin=0.15)
 pill_('clear_mind_pill', 'Clear mind pill', 2, 'b0f0f0', [('frost_lotus', 1), ('spirit_tea', 2)], effect=lasts(1200, breakthrough=0.15))
 pill_('marrow_washing_pill', 'Marrow washing pill', 2, '9a6a4a', [('purple_lingzhi', 2), ('frost_lotus', 2), ('beast_core_2', 1)], count=1, ring=WHITE, mult=4.0, washes_roots=True, toxin=0.2)
 pill_('iron_skin_pill', 'Iron skin pill', 2, '8a8e9a', [('purple_lingzhi', 1), ('boar_tusk', 1), ('spirit_iron_ingot', 1)], effect=lasts(2400, armor=0.2))
@@ -845,7 +923,7 @@ needs = []
 for r in range(1, 6):
     needs.append({'stage': first(r) + 2, 'items': [{'item': HERB_OF[r][0], 'count': 4}]})
     needs.append({'stage': first(r) + 5, 'items': [{'item': 'beast_core_%d' % r, 'count': 2}, {'item': METAL_OF[r], 'count': 2}]})
-    needs.append({'stage': first(r) + 8, 'items': [{'item': HERB_OF[r][1], 'count': 3}, {'item': STONES[min(r - 1, 2)][0], 'count': 5 if r != 2 else 30}]})
+    needs.append({'stage': first(r) + 8, 'items': [{'item': HERB_OF[r][1], 'count': 3}, {'item': ['spirit_stone', 'mid_spirit_stone', 'mid_spirit_stone', 'high_spirit_stone', 'high_spirit_stone'][r - 1], 'count': [10, 5, 20, 5, 20][r - 1]}]})
 # (Out of Divinity and into immortality: the last step asks most.)
 needs.append({'stage': 50, 'items': [{'item': 'fallen_star', 'count': 9}, {'item': 'supreme_spirit_stone', 'count': 3}, {'item': 'longevity_pill', 'count': 1}]})
 cultivation = {'realms': REALMS, 'immortal': 'Immortal', 'immortal_boons': {'appetite': 0.0, 'lung': 100.0, 'regen': 8.0, 'armor': 0.4, 'sight': 1.0, 'flight': 1.0, 'fireproof': 1.0, 'luck': 0.2}, 'stage_gain': 0.02, 'rate': 0.05,
@@ -930,11 +1008,384 @@ for short, lab, col in COURTS:
     dimensions.append({'name': short + '_trial', 'label': "Heaven's Trial: the " + lab, 'generator': 'void', 'width': 128, 'height': 96, 'rock': short + '_court', 'edge': 'heaven_wall', 'platform': short + '_court', 'qi': 8.0,
                        'void': {'length': 48, 'depth': 9}, 'structures': [short + '_arena'], 'structure_share': 1.0, 'sky_day': SKY[short][0], 'sky_night': SKY[short][1], 'ambient': 8})
 
+# ==== the rest of the plan: everything in its full number ============================================================================
+HR = {r: [h[0] for h in HERBS if h[2] == r] for r in range(1, 6)}
+def hh(r, k): return HR[r][k % 12]
+RANK = ['', 'Lesser', 'Common', 'Greater', 'Superior', 'Supreme']
+rank = lambda r: RANK[r].lower()
+CORE_OF = lambda r: 'beast_core_%d' % r
+
+# ---- more pills: every kind in every realm's strength ---------------------------------------------------------------------------------
+for (n, lab, realm, col, qi, ins) in QI_PILLS:
+    pill_('refined_' + n, 'Refined ' + lab.lower(), realm, col, [('aged_' + ins[0][0], 1), (hh(realm, 4), 2)], ring=c('d0d8f0'), mult=3.0, tier=hi(realm), qi=qi * 4, toxin=0.05)
+    pill_('peak_' + n, 'Peak ' + lab.lower(), realm, col, [('ancient_' + ins[0][0], 1), (hh(realm, 5), 2), (CORE_OF(realm), 1)], ring=GOLD, mult=10.0, tier=hi(realm), qi=qi * 15, toxin=0.02)
+# key, label, colour, which of the realm's herbs, what it does at realm r, and the realms it comes in
+FAMILIES = [('healing', 'healing pill', 'e04040', (2, 3), lambda r: {'effect': lasts(300, regen=8.0 * r + 4)}, (2, 3, 4, 5)),
+            ('stoneskin', 'stoneskin pill', '8a8e9a', (3, 7), lambda r: {'effect': lasts(2400, armor=round(0.12 + 0.06 * r, 2))}, (1, 3, 4, 5)),
+            ('galewind', 'galewind pill', 'a0f0c0', (5, 6), lambda r: {'effect': lasts(2400, walk=round(1.15 + 0.1 * r, 2))}, (1, 2, 4, 5)),
+            ('insight', 'insight pill', 'f0f0ff', (8, 9), lambda r: {'insight': 4 * r * r, 'toxin': 0.1}, (1, 2, 3, 4, 5)),
+            ('warding', 'warding pill', '6070d0', (7, 10), lambda r: {'effect': lasts(1200, ward=round(0.1 + 0.08 * r, 2))}, (1, 2, 3, 5)),
+            ('might', 'might pill', 'c05030', (2, 11), lambda r: {'effect': lasts(2400, strength=r)}, (1, 2, 3, 4, 5)),
+            ('focus', 'focus pill', 'f0c060', (4, 8), lambda r: {'effect': lasts(2400, craft=round(1.1 + 0.15 * r, 2))}, (1, 2, 3, 4, 5)),
+            ('earthsense', 'earth-sense pill', '9a7a3a', (3, 9), lambda r: {'effect': lasts(2400, mine=round(1.1 + 0.15 * r, 2))}, (1, 2, 3, 4, 5)),
+            ('qi_drawing', 'qi-drawing pill', '70e0d0', (6, 10), lambda r: {'effect': lasts(2400, qi=round(1.1 + 0.1 * r, 2)), 'toxin': 0.05}, (1, 2, 3, 4, 5)),
+            ('tempering', 'body tempering pill', 'c07040', (5, 11), lambda r: {'effect': {'forever': True, 'boons': {'armor': 0.02 * r, 'strength': 1 if r > 2 else 0}}, 'max_stack': 1, 'toxin': 0.2}, (1, 2, 4, 5)),
+            ('cleansing', 'cleansing pill', 'e8e8e8', (4, 6), lambda r: {'toxin': -0.25 * r, 'cures': True}, (2, 3)),
+            ('fortune', 'fortune pill', 'f0d040', (9, 10), lambda r: {'effect': lasts(2400, luck=round(0.05 * r, 2))}, (2, 3, 5)),
+            ('waterbreath', 'water-breathing pill', '4090e0', (4, 2), lambda r: {'effect': lasts(3600, lung=2.0 * r)}, (1, 2, 3)),
+            ('clarity', 'clarity pill', 'b0f0f0', (8, 3), lambda r: {'effect': lasts(1200, breakthrough=round(0.05 + 0.05 * r, 2))}, (1, 3, 4)),
+            ('eagle_eye', 'true-sight pill', 'f0f080', (6, 7), lambda r: {'effect': lasts(3600, sight=1.0)}, (2, 3))]
+for key, lab, col, (a, b), does, realms in FAMILIES:
+    for r in realms:
+        ins = [(hh(r, a), 2), (hh(r, b), 1)] + ([(CORE_OF(r), 1)] if key in ('tempering', 'insight') else [])
+        pill_('%s_%s_pill' % (rank(r), key), RANK[r] + ' ' + lab, r, col, ins, count=1 if key in ('tempering', 'insight') else 2, ring=RED if key == 'tempering' else None, mult=3.0 if key in ('tempering', 'insight') else 1.0, **does(r))
+pill_('fire_ward_pill', 'Fire-warding pill', 3, 'ff8040', [('ember_root', 2), ('deep_lake_lily', 1)], effect=lasts(2400, fireproof=1.0))
+pill_('phoenix_heart_pill', 'Phoenix-heart pill', 5, 'ff5030', [('nirvana_lotus', 2), ('sun_gold_bud', 2)], effect=lasts(6000, fireproof=1.0, warmth=0.5))
+pill_('cloud_treading_pill', 'Cloud-treading pill', 4, 'e0e8ff', [('void_petal', 2), ('celestial_bamboo', 2), ('beast_core_4', 1)], effect=lasts(1800, flight=1.0))
+pill_('shadow_veil_pill', 'Shadow-veil pill', 2, '3a3a5a', [('silver_moon_grass', 2), ('blood_coral_fungus', 1)], effect=lasts(1800, unseen=1.0))
+pill_('ghost_step_pill', 'Ghost-step pill', 4, '6a5a9a', [('wraith_cap', 2), ('ghost_face_root', 1)], effect=lasts(3600, unseen=1.0, walk=1.2))
+pill_('lodestone_pill', 'Gathering-hand pill', 2, 'a0a0b0', [('tiger_whisker_root', 1), ('spirit_iron_ingot', 1)], effect=lasts(3600, magnet=1.0))
+# Poison pills are thrown, not taken.
+for r, (n, lab, col) in enumerate((('choking_dust', 'Choking dust', '7a8a3a'), ('bone_melting_powder', 'Bone-melting powder', 'a0c040'), ('heart_stopping_incense', 'Heart-stopping incense', '8a4a8a'),
+                                   ('soul_scattering_ash', 'Soul-scattering ash', '5a5a7a'), ('immortal_slaying_poison', 'Immortal-slaying poison', '2a2a2a')), 1):
+    thing(trinket('dust', c(col)), n, lab, lo(r), 'pills', 1.0, max_stack=20, uses=1, range=9, cast={'damage': [6, 20, 60, 160, 500][r - 1], 'splash': 1 + r // 2, 'hold': 40 * r})
+    brew(n, [(hh(r, 0), 2), (hh(r, 7), 1), ('venom_sac' if r > 1 else 'charcoal', 1)], r, 2)
+
+# ---- more food: fifty dishes in all ------------------------------------------------------------------------------------------------
+DISHES = [('dew_lotus_tea', 'Dew-lotus tea', 1, 'cup', 'f0c0d8', [('dew_lotus', 2)], {'effect': lasts(2400, regen=2.0)}), ('foxtail_dumplings', 'Foxtail dumplings', 1, 'bowl', 'f0d0a0', [('foxtail_orchid', 1), ('flour', 2)], {'food': 0.5, 'qi': 10}),
+          ('bloodvine_broth', 'Bloodvine broth', 2, 'bowl', 'a02838', [('bloodvine', 2), ('dodo_meat', 1)], {'food': 0.5, 'effect': lasts(1200, strength=1)}), ('crane_flower_cake', 'Crane-flower cake', 2, 'bowl', 'f8f0e0', [('white_crane_flower', 2), ('flour', 2), ('dodo_egg', 1)], {'food': 0.6, 'qi': 25}),
+          ('meridian_root_soup', 'Meridian-root soup', 2, 'bowl', 'e0a060', [('meridian_root', 2), ('carrot', 1)], {'food': 0.5, 'effect': lasts(2400, qi=1.15)}), ('fox_skewers', 'Fox-fire skewers', 2, 'bowl', 'd06030', [('spirit_beast_meat', 1), ('chilli', 1)], {'food': 0.5, 'effect': lasts(2400, warmth=0.4)}),
+          ('calm_heart_tea', 'Calm-heart tea', 2, 'cup', '70c0a0', [('calm_heart_leaf', 3)], {'effect': lasts(1200, breakthrough=0.05)}), ('spirit_rice_wine', 'Spirit rice wine', 2, 'cup', 'f0f0d0', [('spirit_rice', 6)], {'effect': lasts(2400, qi=1.2, walk=1.1), 'toxin': 0.03}),
+          ('jade_ginseng_chicken', 'Jade-ginseng dodo', 3, 'bowl', '80e0b0', [('jade_ginseng', 1), ('dodo_meat', 2)], {'food': 0.8, 'qi': 120}), ('flame_lily_hotpot', 'Flame-lily hotpot', 4, 'bowl', 'f05020', [('flame_lily', 2), ('spirit_beast_meat', 2), ('chilli', 1)], {'food': 0.9, 'effect': lasts(3600, warmth=0.6, strength=1)}),
+          ('frost_orchid_ice', 'Frost-orchid ice', 3, 'bowl', 'b0d8ff', [('frost_orchid', 2), ('ice', 1), ('milk', 1)], {'food': 0.3, 'effect': lasts(3600, fireproof=1.0)}), ('earth_milk_porridge', 'Earth-milk porridge', 3, 'bowl', 'e8e0c8', [('earth_milk_mushroom', 2), ('spirit_rice', 2)], {'food': 0.7, 'effect': lasts(2400, armor=0.1)}),
+          ('azure_reed_wraps', 'Azure-reed wraps', 3, 'bowl', '4090e0', [('azure_reed', 2), ('fish', 1)], {'food': 0.6, 'effect': lasts(3600, lung=2.0)}), ('thunder_shoot_stirfry', 'Thunder-shoot stir-fry', 4, 'bowl', 'c0c040', [('thunder_bamboo_shoot', 2), ('spirit_beast_meat', 1)], {'food': 0.7, 'effect': lasts(2400, walk=1.25)}),
+          ('moon_grass_mochi', 'Moon-grass mochi', 4, 'bowl', 'd0d8f0', [('silver_moon_grass', 2), ('spirit_rice', 3)], {'food': 0.6, 'qi': 250}), ('serpent_soup', 'Jade serpent soup', 4, 'bowl', '3aa870', [('venom_sac', 1), ('purple_lingzhi', 1), ('spirit_rice', 1)], {'food': 0.7, 'cures': True, 'effect': lasts(2400, regen=4.0)}),
+          ('wind_chime_tea', 'Wind-chime tea', 4, 'cup', 'a0f0e0', [('wind_chime_bell', 3)], {'effect': lasts(2400, qi=1.3)}), ('tiger_whisker_tonic', 'Tiger-whisker tonic', 4, 'cup', 'f0a030', [('tiger_whisker_root', 2), ('spirit_rice_wine', 1)], {'effect': lasts(2400, strength=2, mine=1.2)}),
+          ('golden_clover_salad', 'Golden clover salad', 5, 'bowl', 'f0c840', [('golden_core_clover', 2), ('spirit_grass', 2)], {'food': 0.5, 'qi': 900}), ('reishi_steak', 'Reishi steak', 5, 'bowl', 'a060d0', [('purple_cloud_reishi', 2), ('spirit_beast_meat', 2)], {'food': 0.9, 'effect': lasts(3600, regen=5.0)}),
+          ('amber_blossom_honey', 'Amber-blossom honey', 5, 'cup', 'f0a020', [('amber_heart_blossom', 3), ('tree_amber', 1)], {'food': 0.4, 'effect': lasts(3600, craft=1.3)}), ('starlight_fern_rolls', 'Starlight fern rolls', 5, 'bowl', 'c0d0ff', [('starlight_fern', 2), ('azure_carp', 1)], {'food': 0.7, 'effect': lasts(3600, sight=1.0)}),
+          ('lake_lily_soup', 'Lake-lily soup', 6, 'bowl', '5080e0', [('deep_lake_lily', 2), ('azure_carp', 1)], {'food': 0.7, 'effect': lasts(6000, lung=5.0)}), ('seven_star_congee', 'Seven-star congee', 6, 'bowl', 'f0f0a0', [('seven_star_grass', 3), ('spirit_rice', 3)], {'food': 0.8, 'qi': 1500}),
+          ('jade_dew_wine', 'Jade-dew wine', 6, 'cup', '70e0b0', [('jade_dew_orchid', 3), ('spirit_rice_wine', 1)], {'effect': lasts(3600, qi=1.4, breakthrough=0.05)}), ('ember_root_curry', 'Ember-root curry', 6, 'bowl', 'e05030', [('ember_root', 2), ('spirit_beast_meat', 2), ('spirit_rice', 2)], {'food': 1.0, 'effect': lasts(3600, strength=2, warmth=0.5)}),
+          ('moonshade_dumplings', 'Moonshade dumplings', 6, 'bowl', '5a5a9a', [('moonshade_cap', 2), ('flour', 2)], {'food': 0.7, 'effect': lasts(2400, unseen=1.0)}), ('ape_wine', 'Ape wine', 6, 'cup', 'c8a050', [('ape_wine_gourd', 3), ('spirit_peach', 3)], {'effect': lasts(3600, qi=1.4, strength=2), 'toxin': 0.04}),
+          ('rabbit_moon_cakes', 'Moon-rabbit cakes', 5, 'bowl', 'e8e8ff', [('spirit_beast_meat', 1), ('moon_laurel_seed', 2), ('flour', 2)], {'food': 0.8, 'qi': 600}), ('crane_egg_custard', 'Crane custard', 6, 'bowl', 'f8f0c0', [('crane_feather', 1), ('dodo_egg', 2), ('milk', 1)], {'food': 0.6, 'effect': lasts(3600, glide=1.0)}),
+          ('soul_lotus_soup', 'Soul-lotus soup', 7, 'bowl', 'e0b0ff', [('soul_nurturing_lotus', 2), ('spirit_rice', 3)], {'food': 0.8, 'qi': 9000}), ('phoenix_tail_noodles', 'Phoenix-tail noodles', 7, 'bowl', 'ff6040', [('phoenix_tail_grass', 2), ('flour', 3)], {'food': 0.9, 'effect': lasts(3600, fireproof=1.0, walk=1.3)}),
+          ('nether_blossom_tea', 'Netherworld tea', 7, 'cup', '6a3a8a', [('netherworld_blossom', 3)], {'effect': lasts(3600, unseen=1.0, sight=1.0)}), ('void_petal_jelly', 'Void-petal jelly', 8, 'bowl', '9070e0', [('void_petal', 3), ('wraith_silk', 1)], {'food': 0.5, 'effect': lasts(2400, flight=1.0)}),
+          ('star_tear_soup', 'Star-tear soup', 8, 'bowl', 'a0b0ff', [('star_tear_moss', 3), ('spirit_beast_meat', 2)], {'food': 0.9, 'qi': 15000}), ('bamboo_rice', 'Celestial bamboo rice', 8, 'bowl', 'd8e8c0', [('celestial_bamboo', 2), ('spirit_rice', 4)], {'food': 1.0, 'effect': lasts(6000, regen=6.0)}),
+          ('butterfly_dream_wine', 'Butterfly-dream wine', 8, 'cup', 'f0a0e0', [('dream_butterfly_flower', 3), ('jade_dew_wine', 1)], {'insight': 30, 'effect': lasts(3600, qi=1.6)}), ('antler_broth', 'Antler broth', 8, 'bowl', 'a0b0ff', [('stag_antler', 1), ('ghost_face_root', 1), ('spirit_rice', 2)], {'food': 0.8, 'effect': lasts(3600, armor=0.2, strength=3)}),
+          ('dew_grass_tea', 'Immortal dew tea', 9, 'cup', 'c0fff0', [('immortal_dew_grass', 3)], {'effect': lasts(6000, qi=1.8)}), ('nirvana_lotus_feast', 'Nirvana feast', 10, 'bowl', 'ff8060', [('nirvana_lotus', 2), ('spirit_beast_meat', 4), ('spirit_rice', 4)], {'food': 1.0, 'effect': lasts(6000, regen=10.0, fireproof=1.0)}),
+          ('dragon_blood_soup', 'Dragon-blood soup', 10, 'bowl', 'd02030', [('dragon_blood_ginseng', 2), ('beast_blood', 4)], {'food': 1.0, 'effect': lasts(6000, strength=5, armor=0.25)}), ('nine_heavens_tea', 'Nine-heavens tea', 10, 'cup', 'a0c0ff', [('nine_heavens_orchid', 3)], {'insight': 80, 'effect': lasts(3600, breakthrough=0.15)}),
+          ('sun_gold_cake', 'Sun-gold cake', 9, 'bowl', 'ffd030', [('sun_gold_bud', 2), ('flour', 3), ('dodo_egg', 2)], {'food': 0.9, 'qi': 100000}), ('moon_silver_wine', 'Moon-silver wine', 10, 'cup', 'e0e8ff', [('moon_silver_bloom', 3), ('immortal_peach_wine', 1)], {'effect': lasts(6000, qi=2.0, luck=0.2)}),
+          ('star_river_sashimi', 'Star-river sashimi', 9, 'bowl', '7090ff', [('star_river_reed', 2), ('azure_carp', 2)], {'food': 0.8, 'effect': lasts(6000, lung=20.0, sight=1.0)}), ('lion_mane_stew', "Lion's-mane stew", 10, 'bowl', 'f0c840', [('lion_mane', 1), ('world_root', 1), ('spirit_beast_meat', 3)], {'food': 1.0, 'effect': lasts(6000, strength=6, walk=1.4)}),
+          ('lightning_pickle', 'Lightning pickle', 6, 'bowl', 'f0f060', [('lightning_herb', 3), ('salt', 1)], {'food': 0.4, 'effect': lasts(2400, ward=0.3)}), ('primordial_broth', 'Primordial broth', 10, 'bowl', 'f0e0ff', [('primordial_lingzhi', 2), ('chaos_seed_flower', 1), ('spirit_rice', 4)], {'food': 1.0, 'qi': 400000, 'cures': True}),
+          ('aged_ginseng_wine', 'Hundred-year ginseng wine', 4, 'cup', 'd8b070', [('aged_mountain_ginseng', 1), ('spirit_rice_wine', 2)], {'effect': lasts(6000, regen=4.0, qi=1.3)}), ('ancient_peach_nectar', 'Thousand-year nectar', 8, 'cup', 'f0a0b0', [('ancient_spirit_grass', 1), ('spirit_peach', 4)], {'qi': 30000, 'effect': lasts(6000, regen=6.0)})]
+for n, lab, tier, pic, col, ins, kw in DISHES: dish(n, lab, tier, cup(c(col)) if pic == 'cup' else bowl(c(col)), ins, **kw)
+
+# ---- more manuals: twenty in all ------------------------------------------------------------------------------------------------------
+manual('vajra_body_refining', 'Vajra Body refining', 2, 5.0, 4, 'b08a40', [('spirit_paper', 6), ('cinnabar_ink', 3), ('boar_tusk', 4), ('stoneskin_moss', 4)])
+manual('azure_wood_longevity_art', 'Azure Wood longevity art', 3, 18.0, 1, '2f8a6a', [('spirit_paper', 10), ('cinnabar_ink', 5), ('aged_spirit_grass', 2), ('beast_core_3', 2)], JADE)
+manual('blazing_sun_scripture', 'Blazing Sun scripture', 3, 22.0, 3, 'f08020', [('spirit_paper', 10), ('cinnabar_ink', 5), ('ember_root', 4), ('beast_core_3', 2)], RED)
+manual('nine_springs_yin_art', 'Nine Springs yin art', 3, 18.0, 2, '2a3a6a', [('spirit_paper', 10), ('cinnabar_ink', 5), ('moonshade_cap', 4), ('wyrm_scale', 2)], c('a0e0ff'))
+manual('thunder_god_canon', 'Thunder God canon', 4, 70.0, 0, '6a5ab0', [('spirit_paper', 12), ('lightning_herb', 6), ('beast_core_4', 2), ('lightning_glass', 2)], c('f0f060'))
+manual('star_river_sutra', 'Star River sutra', 4, 65.0, 2, '3050a0', [('spirit_paper', 12), ('star_tear_moss', 4), ('beast_core_4', 2), ('soul_crystal', 2)], c('c0d0ff'))
+manual('yellow_earth_canon', 'Yellow Earth canon', 4, 65.0, 4, 'a08040', [('spirit_paper', 12), ('ghost_face_root', 4), ('beast_core_4', 2), ('guardian_rune', 2)], GOLD)
+manual('phoenix_nirvana_scripture', 'Phoenix Nirvana scripture', 5, 280.0, 3, 'c03020', [('spirit_paper', 16), ('nirvana_lotus', 4), ('beast_core_5', 2), ('fallen_star', 2)], GOLD)
+manual('eternal_spring_canon', 'Eternal Spring canon', 5, 280.0, 1, '40a060', [('spirit_paper', 16), ('world_root', 4), ('beast_core_5', 2), ('fallen_star', 2)], JADE)
+
+# ---- more techniques: twenty to an element, four to a realm ---------------------------------------------------------------------------
+ELEM = [('Metal', 'd8e0f0', ['Golden needle', 'Iron shirt', 'Flying daggers', 'Hundred blades', 'Silver thread', 'Bronze skin', 'Sword rain', 'Thousand blades', 'Star-steel edge', 'Diamond body', 'Ten-thousand swords', 'Heaven-cleaving edge',
+                              'Void-cutting blade', 'Indestructible body', 'Sword domain', 'Sky-splitting sword', 'Dao-severing edge', 'Immortal golden body', 'Myriad sword return', 'Heaven-ending sword']),
+        ('Wood', '40c070', ['Vine lash', 'Spring breeze', 'Sprouting hand', 'Thorn cage', 'Root snare', 'Green renewal', 'Harvest hand', 'Forest of spears', 'Strangling grove', 'Life-returning art', "Spirit farmer's art", 'Ten-thousand roots',
+                             'Soul-binding vine', 'Evergreen body', 'Hundred-flower bloom', 'World-tree lash', 'Life-and-death thorn', 'Undying spring', 'Garden of heaven', 'Primordial forest']),
+        ('Water', '4090e0', ['Ice needle', 'Water curtain', 'Deep breath', 'Frozen wave', 'Frost touch', 'Mist veil', 'Rain summons', 'Glacier fall', 'Black ice spear', 'Tide shield', 'Drought hand', 'Nine-wave crash',
+                              'Soul-freezing gaze', 'Sea-king ward', 'River-parting art', 'Absolute zero', 'Nether-water needle', 'Ocean heart ward', 'Flood of heaven', 'Primordial tide']),
+        ('Fire', 'f05020', ['Ember flick', 'Warm blood', 'Fire snake', 'Burning cloud', 'Flame spear', 'Sun-warmed body', 'Fire rain', 'Crimson lotus', 'True-fire lance', 'Fire-walking art', 'Meteor fall', 'Nine-sun strike',
+                             'Soul-burning flame', 'Phoenix feathers', 'Sea of fire', 'Sun-devouring blaze', 'Nirvana flame', 'Vermilion body', 'Heaven-burning fire', 'Primordial flame']),
+        ('Earth', 'b09050', ['Stone hand', 'Earthen skin', 'Tunnel palm', 'Rock fall', 'Digging claw', 'Mountain stance', 'Quarry hand', 'Landslide', 'Earth escape', 'Jade-bone body', 'Canyon hand', 'Mountain drop',
+                              'Vein-opening palm', 'Immovable peak', 'Valley-making art', 'Continent crusher', 'World-vein hand', 'Mount Tai body', 'Earth-turning art', 'Primordial quake'])]
+DMG = [8, 25, 70, 180, 600]
+def tech_cast(e, r, k):
+    D = DMG[r - 1]
+    if e == 0: return [{'cast': {'damage': D}}, {'effect': lasts(1200, armor=round(0.1 + 0.08 * r, 2))}, {'cast': {'damage': int(D * 1.5), 'splash': 1}}, {'cast': {'damage': D * 3, 'splash': 2}}][k]
+    if e == 1: return [{'cast': {'damage': D // 2, 'hold': 60 * r}}, {'effect': lasts(1200, regen=2.0 * r + 2)}, {'cast': {'grow': 1 + r // 2}}, {'cast': {'damage': D * 2, 'hold': 100 * r, 'splash': 2}}][k]
+    if e == 2: return [{'cast': {'damage': D // 2, 'freeze': 1}}, {'cast': {'shield': round(0.5 + 0.25 * r, 2)}}, [{'effect': lasts(2400, lung=4.0)}, {'effect': lasts(2400, unseen=1.0)}, {'cast': {'weather': 'rain', 'weather_ticks': 12000}}, {'cast': {'drain': 8}}, {'cast': {'drain': 16, 'splash': 3}}][r - 1],
+                       {'cast': {'damage': int(D * 2.5), 'freeze': 2, 'splash': 3}}][k]
+    if e == 3: return [{'cast': {'damage': int(D * 1.3), 'cooks': True}}, {'effect': lasts(2400, warmth=0.5, **({'fireproof': 1.0} if r >= 3 else {}))}, {'cast': {'damage': int(D * 1.5), 'splash': 2, 'cooks': True}}, {'cast': {'damage': int(D * 3.5), 'splash': 3, 'cooks': True}}][k]
+    return [{'cast': {'dig': 1 + r}}, {'effect': lasts(1200, armor=round(0.08 + 0.06 * r, 2), strength=r)}, {'cast': {'dig': 2 + r, 'splash': 1 + r // 2}}, {'cast': {'damage': D * 2, 'hold': 80 * r, 'splash': 2}}][k]
+ELEM_THING = [['spirit_iron_ingot', 'azure_copper_ingot', 'star_silver_ingot', 'void_gold_ingot', 'dragonbone_ingot'], [hh(r, 5) for r in range(1, 6)], [hh(r, 2) for r in range(1, 6)], [hh(r, 1) for r in range(1, 6)], [hh(r, 3) for r in range(1, 6)]]
+slip_base = slip
+def slip_of(name, base, glyph):
+    t = slip_base(base, glyph); g = rnd(name)
+    for _ in range(5): t.p(g.choice((4, 5, 7, 8, 10, 11)), g.randrange(5, 11), glyph)
+    return t
+for e, (elab, ecol, names) in enumerate(ELEM):
+    for r in range(1, 6):
+        for k in range(4):
+            lab = names[(r - 1) * 4 + k]; n = lab.lower().replace(' ', '_').replace('-', '_').replace("'", '')
+            stage = first(r) + [1, 3, 6, 8][k]; qi = int(100 * 10 ** (r - 1) * [0.05, 0.1, 0.15, 0.3][k]); does = tech_cast(e, r, k)
+            base = JADE if r == 1 else c('7ab0e0') if r == 2 else c('c8d0f0') if r == 3 else c('c090e0') if r == 4 else GOLD
+            slip_of(n, base, c(ecol)).save('items', n)
+            item(n, lab, min(10, (stage + 4) // 5), 'scriptures', 2.0, max_stack=1, uses=100, range=0 if 'effect' in does else 8 + r, cast=does.get('cast'), effect=does.get('effect'),
+                 technique=clean({'qi': qi, 'stage': stage, 'insight': stage * 3 if k >= 2 else None}))
+            rec('scripture_desk', n, [('blank_jade_slip', 1), ('cinnabar_ink', 1), (ELEM_THING[e][r - 1], 2)] + ([(CORE_OF(r), 1)] if k >= 2 else []), time=240)
+
+# ---- more talismans -------------------------------------------------------------------------------------------------------------------
+for r in range(2, 6):
+    D = DMG[r - 1]
+    for key, lab, ink, cast in (('fire', 'fire', 'e03020', {'damage': int(D * 1.2), 'splash': 1 + r // 2, 'cooks': True}), ('frost', 'frost', '70c0e0', {'damage': D // 2, 'freeze': 2, 'splash': r}), ('sword', 'sword', 'c0c8d8', {'damage': D * 2}),
+                                ('quake', 'quake', '8a6a3a', {'dig': 2 + r, 'splash': r}), ('thorn', 'thorn', '3a9a4a', {'hold': 100 * r, 'splash': 2, 'damage': D // 3})):
+        charm('%s_%s_talisman' % (rank(r), key), '%s %s talisman' % (RANK[r], lab), lo(r), ink, [(hh(r, 6), 1), (FLUX[r], 1)], 9 + r, cast=cast)
+for r in range(1, 6):
+    thing(talisman(c('c08020'), c('f0e0b0'), c(['70d0a0', '50a0f0', 'c0d0ff', 'c080f0', 'ffb040'][r - 1])), 'beast_taming_talisman_%d' % r, 'Beast-taming talisman (%s)' % ['', 'mortal', 'earth', 'sky', 'king', 'saint'][r], lo(r), 'scriptures', 2.0, max_stack=10, tames=r)
+    rec('talisman_desk', 'beast_taming_talisman_%d' % r, [('talisman_paper', 2), ('cinnabar_ink', 1), ('beast_blood', 2), (CORE_OF(r), 1)], time=160)
+
+# ---- more formations: twenty-six in all --------------------------------------------------------------------------------------------------
+F1, F2, F3 = 'formation_flag', 'jade_formation_flag', 'star_formation_flag'
+MORE_ARRAYS = [('spirit_spring_array', 'Spirit-spring array', '70d0c0', 'd0fff0', 1, F1, 'cross', [2, 4], {'qi': 0.5}, [('spirit_stone', 12), ('spirit_jade', 1)]),
+               ('lightning_ward_array', 'Lightning-ward array', '6070d0', 'f0f060', 4, F1, 'square', [2, 6], {'aura': {'ward': 0.3}}, [('spirit_stone_block', 2), ('azure_copper_ingot', 6), ('hawk_plume', 2)]),
+               ('concealment_array', 'Concealment array', '3a3a5a', '9090c0', 4, F1, 'square', [2, 8], {'aura': {'unseen': 1.0}}, [('mid_spirit_stone_block', 1), ('silver_moon_grass', 4), ('azure_silk', 2)]),
+               ('warding_array', 'Warding array', 'c8a040', 'fff0a0', 3, F1, 'square', [2, 8], {'harms': 2, 'aura': {'armor': 0.15}}, [('spirit_stone_block', 2), ('boar_tusk', 6), ('spirit_iron_ingot', 6)]),
+               ('healing_array', 'Healing array', 'e06070', 'ffc0d0', 4, F1, 'cross', [2, 6], {'aura': {'regen': 3.0}}, [('mid_spirit_stone_block', 1), ('jade_ginseng', 4), ('mountain_ginseng', 6)]),
+               ('calm_heart_array', 'Calm-heart array', '70c0a0', 'e0fff0', 5, F2, 'cross', [2, 6], {'aura': {'breakthrough': 0.1}}, [('mid_spirit_stone_block', 2), ('calm_heart_leaf', 8), ('tree_amber', 2)]),
+               ('spirit_field_array', 'Spirit-field array', '5a9a3a', 'e0ff90', 6, F2, 'square', [3, 8], {'grows': 2.0}, [('mid_spirit_stone_block', 2), ('spirit_soil', 16), ('aged_spirit_grass', 2)]),
+               ('earth_fire_array', 'Earth-fire array', 'd05020', 'ffc040', 6, F2, 'cross', [2, 6], {'aura': {'craft': 1.6, 'fireproof': 1.0, 'warmth': 0.5}}, [('mid_spirit_stone_block', 2), ('ember_root', 6), ('star_silver_ingot', 4)]),
+               ('greater_killing_array', 'Greater killing array', '8a1010', 'ff4030', 6, F2, 'square', [3, 8], {'harms': 12}, [('mid_spirit_stone_block', 2), ('star_silver_sword', 2), ('beast_blood', 8)]),
+               ('gale_array', 'Gale array', '60c0b0', 'e0fff8', 8, F2, 'ring', [3, 12], {'aura': {'walk': 1.6, 'craft': 1.5}}, [('high_spirit_stone_block', 1), ('crane_feather', 8), ('void_gold_ingot', 4)]),
+               ('great_teleport_array', 'Great teleport array', '9060d0', 'f0d0ff', 9, F3, 'ring', [3, 8], {'gate': True, 'qi': 1.0}, [('high_spirit_stone_block', 2), ('soul_crystal', 4), ('fallen_star', 2)]),
+               ('star_field_array', 'Star-field array', '7090ff', 'e0e8ff', 9, F3, 'ring', [3, 10], {'grows': 3.0, 'qi': 2.0}, [('high_spirit_stone_block', 2), ('star_crystal', 6), ('heaven_soil', 16)]),
+               ('heaven_sword_array', 'Heaven-sword array', 'e0e8ff', 'ffffff', 10, F3, 'ring', [4, 12], {'harms': 80}, [('high_spirit_stone_block', 3), ('dragonbone_sword', 4), ('fallen_star', 4)]),
+               ('grand_protecting_formation', 'Sect-protecting grand formation', 'f0c840', 'ffffff', 10, F3, 'ring', [4, 14], {'qi': 3.0, 'harms': 40, 'aura': {'armor': 0.4, 'ward': 0.5, 'regen': 3.0}},
+                [('supreme_spirit_stone_block', 1), ('heaven_gathering_array', 1), ('sword_array', 1), ('protection_array', 1), ('dragonbone_block', 2)]),
+               ('immortal_gathering_array', 'Immortal gathering array', 'ffffff', 'ffe890', 11, F3, 'ring', [4, 12], {'qi': 8.0}, [('supreme_spirit_stone_block', 2), ('heaven_tempered_essence', 1), ('immortal_jade', 4)]),
+               ('insight_array', 'Dao-comprehension array', 'c0d0ff', 'ffffff', 8, F3, 'square', [3, 8], {'qi': 1.5, 'aura': {'breakthrough': 0.2}}, [('high_spirit_stone_block', 2), ('soul_crystal', 4), ('dream_butterfly_flower', 4)])]
+for n, lab, col, glow, tier, flags_, pattern, dist, does, ins in MORE_ARRAYS:
+    array_pic(c(col), c(glow)).save('tiles', n); icon_of(n)
+    tile(n, lab, False, mine_time=0.5, bench=True, bench_kind=n, bench_level=1, fuel_capacity=300000, fuels=FUELS, light=9, light_needs_fuel=True, formation=dict({'flags': flags_, 'pattern': pattern, 'distance': dist}, **does))
+    item(n, lab, tier, 'benches', 2.0, places=n); rec('formation_table', n, ins, time=300)
+
+# ---- more beasts: sixty and more in all ---------------------------------------------------------------------------------------------------
+def cultivator(robe, sash, frame=0):
+    t = P(); d = frame
+    t.r(6, 1, 9, 4, c('e8c8a0')); t.r(6, 0, 9, 1, c('2a2a2a')); t.p(8, 0, sash); t.p(7, 3, INK).p(9, 3, INK)
+    t.r(5, 5, 10, 11, robe); t.r(7, 5, 8, 11, lt(robe)); t.r(5, 8, 10, 8, sash); t.r(3, 5, 4, 9 - d, robe); t.r(11, 5, 12, 8 + d, robe); t.line(12, 8 + d, 15, 3, c('d0d8e0'))
+    t.r(5 + d, 12, 6 + d, 14, dk(robe)); t.r(9 - d, 12, 10 - d, 14, dk(robe)); return t.outline()
+beast_base = beast
+PART = {'quad': hide, 'boar': fang, 'serpent': lambda col: orb(col, spark=False), 'bird': feather, 'crane': feather, 'rabbit': hide, 'ape': lambda col: trinket('thread', col), 'golem': lambda col: trinket('rune', col, WHITE),
+        'stag': fang, 'wraith': lambda col: trinket('thread', col), 'fish': meat, 'wyrm': lambda col: trinket('plate', col), 'lion': hide, 'dragon': lambda col: trinket('plate', col), 'phoenix': feather, 'tortoise': lambda col: trinket('plate', col), 'tiger': hide}
+CAVE = {'cave': True}
+BITE = [0, 2, 6, 14, 36, 90]
+# kind, name, label, body, accent, realm, what it leaves (name, label), where, how it is with people (0 mild, 1 stings), health
+B2 = [('quad', 'wind_wolf', 'Wind wolf', '8a9aa8', 'e0f0f8', 1, ('wolf_pelt', 'Wind wolf pelt'), on(['grass'], ['pine_forest', 'plains'], 0.08), 1), ('quad', 'flame_fox', 'Flame fox', 'e05020', 'ffd060', 1, ('flame_tail', 'Flame fox tail'), on(['sand', 'grass'], ['desert', 'tropics'], 0.08), 0),
+      ('ape', 'stone_ape', 'Stone ape', '8a8478', 'c8c0b0', 1, ('ape_knuckle', 'Stone ape knuckle'), on(['grass'], ['maple_forest', 'tropics'], 0.06), 1), ('rabbit', 'jade_rabbit', 'Jade rabbit', '80e0b0', 'e0fff0', 1, ('jade_fluff', 'Jade rabbit fluff'), on(['grass'], ['orchard', 'cherry_grove', 'plains'], 0.1), 0),
+      ('tortoise', 'marsh_toad', 'Marsh toad', '5a7a3a', 'c0d060', 1, ('toad_wart', 'Toad wart'), on(['grass', 'sand'], ['tropics', 'beach'], 0.06), 0), ('stag', 'spirit_deer', 'Spirit deer', 'c8a878', 'f0e0c0', 1, ('deer_velvet', 'Deer velvet'), on(['grass'], ['cherry_grove', 'orchard', 'maple_forest'], 0.08), 0),
+      ('bird', 'cave_bat', 'Gloom bat', '3a3040', '8a70a0', 1, ('bat_fang', 'Gloom bat fang'), {'sky': True, 'time': 'night', 'chance': 0.004}, 0), ('crane', 'reed_heron', 'Reed heron', 'a8b8c8', '3a4a5a', 1, ('heron_quill', 'Heron quill'), on(['sand', 'grass'], ['beach', 'plains'], 0.06), 0),
+      ('tiger', 'thunder_leopard', 'Thunder leopard', 'e0c040', '3a3a5a', 2, ('leopard_pelt', 'Thunder leopard pelt'), on(['grass'], ['tropics', 'maple_forest'], 0.05), 1), ('serpent', 'azure_serpent', 'Azure serpent', '2a70d0', 'a0d8ff', 2, ('azure_scale', 'Azure serpent scale'), on(['grass', 'sand'], ['beach', 'tropics', 'orchard'], 0.05), 1),
+      ('tortoise', 'earth_tortoise', 'Earth-armour tortoise', '7a6a4a', 'c0a870', 2, ('tortoise_plate', 'Tortoise plate'), on(['grass', 'sand'], ['desert', 'plains'], 0.05), 0), ('bird', 'frost_eagle', 'Frost eagle', 'd0e8f8', '70b0e0', 2, ('frost_pinion', 'Frost pinion'), {'sky': True, 'time': 'day', 'chance': 0.002}, 0),
+      ('quad', 'blood_wolf', 'Blood wolf', '7a2028', 'e06060', 2, ('blood_fang', 'Blood wolf fang'), on(['grass'], ['pine_forest', 'maple_forest'], 0.05), 1), ('tiger', 'shadow_cat', 'Shadow cat', '2a2a3a', '9080c0', 2, ('shadow_whisker', 'Shadow whisker'), on(['grass'], ['cherry_grove', 'pine_forest'], 0.04), 1),
+      ('golem', 'clay_puppet', 'Clay puppet', 'a87850', 'f0c060', 2, ('puppet_core', 'Puppet core'), on(['sand'], ['desert'], 0.05), 1),
+      ('bird', 'golden_roc', 'Golden-winged roc', 'd0a030', 'fff0a0', 3, ('roc_pinion', 'Roc pinion'), {'sky': True, 'biome': ['sunlit_canopy', 'firefly_boughs'], 'chance': 0.003}, 0), ('quad', 'nine_tailed_fox', 'Nine-tailed fox', 'f0f0f8', 'f0a0c0', 3, ('fox_tail', 'Nine-tail tuft'), on([B], ['mistwood', 'sunlit_canopy'], 0.06), 1),
+      ('tortoise', 'tortoise_spawn', 'Black tortoise spawn', '3a4258', '3ad07a', 3, ('spawn_shell', 'Spawn shell'), on([B], ['amber_hollows', 'mistwood'], 0.06), 0), ('stag', 'qilin_calf', 'Qilin calf', '60c0a0', 'f0d060', 3, ('qilin_scale', 'Qilin scale'), on([B], ['sunlit_canopy'], 0.04), 0),
+      ('golem', 'amber_golem', 'Amber golem', 'e09020', 'ffe090', 3, ('amber_heart', 'Amber heart'), on([B], ['amber_hollows'], 0.1), 1), ('serpent', 'leaf_serpent', 'Leaf serpent', '4aa040', 'c0f080', 3, ('leaf_scale', 'Leaf serpent scale'), on([B], ['mistwood', 'firefly_boughs'], 0.08), 1),
+      ('stag', 'mist_stag', 'Mist stag', 'a8c0c8', 'e8f8ff', 3, ('mist_antler', 'Mist antler'), on([B], ['mistwood'], 0.08), 0), ('bird', 'lantern_moth', 'Lantern moth', 'f0e080', 'ff90c0', 3, ('moth_dust', 'Lantern moth dust'), {'sky': True, 'biome': ['firefly_boughs', 'amber_hollows'], 'time': 'night', 'chance': 0.006}, 0),
+      ('golem', 'root_golem', 'Root golem', '6a4a2a', '60d080', 3, ('living_root_knot', 'Living root knot'), on([B], ['mistwood', 'sunlit_canopy'], 0.05), 1), ('tortoise', 'jade_toad', 'Jade toad', '50c090', 'f0f0a0', 3, ('toad_pearl', 'Toad pearl'), on([B], ['firefly_boughs'], 0.08), 0),
+      ('dragon', 'flood_dragon', 'Flood dragon', '3070c0', 'a0e0ff', 4, ('flood_scale', 'Flood dragon scale'), on(['star_grass'], ['lotus_terraces'], 0.04), 1), ('phoenix', 'vermilion_chick', 'Vermilion bird chick', 'e05030', 'ffb040', 4, ('vermilion_down', 'Vermilion down'), {'sky': True, 'biome': ['thunder_scar', 'immortal_orchard'], 'chance': 0.003}, 0),
+      ('tiger', 'white_tiger_cub', 'White tiger cub', 'f0f0e8', '3a3a3a', 4, ('cub_claw', 'Tiger cub claw'), on(['star_grass'], ['star_fields', 'immortal_orchard'], 0.05), 1), ('quad', 'star_wolf', 'Star wolf', '3a3a7a', 'c0d0ff', 4, ('star_pelt', 'Star wolf pelt'), on(['star_grass'], ['star_fields'], 0.08), 1),
+      ('golem', 'marble_golem', 'Marble golem', 'd8d8e8', 'f0c840', 4, ('marble_heart', 'Marble heart'), on(['heaven_paving'], ['shattered_court'], 0.08), 1), ('serpent', 'void_serpent', 'Void serpent', '5a3a9a', 'ff80e0', 4, ('void_fang', 'Void fang'), on(['scorched_marble'], ['thunder_scar'], 0.08), 1),
+      ('crane', 'heaven_crane', 'Heaven crane', 'f8f8ff', 'f0c840', 4, ('heaven_plume', 'Heaven crane plume'), on(['star_grass'], ['lotus_terraces', 'immortal_orchard'], 0.08), 0), ('wraith', 'ghost_lantern', 'Ghost lantern', '5a7a9a', 'a0ffff', 4, ('ghost_flame', 'Ghost flame'), on(['heaven_paving'], ['shattered_court'], 0.06), 1),
+      ('lion', 'jade_lion', 'Jade lion', '60c090', 'e0fff0', 4, ('jade_mane', 'Jade lion mane'), on(['heaven_paving', 'star_grass'], ['shattered_court', 'lotus_terraces'], 0.04), 1),
+      ('stag', 'thunder_qilin', 'Thunder qilin', '6a5ab0', 'f0f060', 5, ('qilin_horn', 'Thunder qilin horn'), on(['scorched_marble'], ['thunder_scar'], 0.04), 1), ('dragon', 'abyss_wyrm', 'Abyss wyrm', '2a2a4a', 'c060ff', 5, ('abyss_scale', 'Abyss wyrm scale'), on(['scorched_marble', 'heaven_paving'], ['thunder_scar', 'shattered_court'], 0.03), 1),
+      ('bird', 'storm_roc', 'Storm roc', '4a4a6a', 'f0f060', 5, ('storm_pinion', 'Storm pinion'), {'sky': True, 'biome': ['thunder_scar', 'star_fields'], 'chance': 0.002}, 0), ('wraith', 'remnant_soul', 'Remnant soul', 'c0c8e0', '60a0ff', 5, ('soul_wisp', 'Soul wisp'), on(['heaven_paving'], ['shattered_court'], 0.04), 1),
+      ('golem', 'heaven_guard', 'Heavenly guard', 'e8d8a0', 'ff5030', 5, ('guard_seal', "Guard's seal"), on(['heaven_paving'], ['shattered_court'], 0.04), 1), ('ape', 'gold_ape', 'Golden ape', 'e0b030', 'fff0a0', 5, ('gold_fur', 'Golden ape fur'), on(['star_grass'], ['immortal_orchard'], 0.04), 1),
+      ('tortoise', 'star_tortoise', 'Star tortoise', '3a3a7a', 'c0d0ff', 5, ('star_shell', 'Star shell'), on(['star_grass'], ['star_fields', 'lotus_terraces'], 0.04), 0), ('tiger', 'nether_tiger', 'Nether tiger', '3a2a4a', 'c080ff', 5, ('nether_claw', 'Nether claw'), on(['scorched_marble', 'star_grass'], ['thunder_scar', 'star_fields'], 0.03), 1)]
+BEAST_PART = {}
+for kind, n, lab, body, acc, r, (pn, plab), where, mean in B2:
+    thing(PART[kind](c(body)) if kind not in ('quad', 'rabbit', 'lion', 'tiger') else hide(c(body), c(acc)), pn, plab, hi(r), 'nature', 0.3); BEAST_PART[n] = (pn, r)
+    walker = kind not in ('bird', 'phoenix')
+    creature(kind, n, lab, body, acc, [0, 16, 36, 70, 150, 320][r] + (10 * r if mean else 0), [drop(pn, 1, 2), drop(CORE_OF(r), 0, 1), drop('beast_blood', 0, r), drop('spirit_beast_meat', 0, 2)], where,
+             flies=None if walker else True, move_chance=0.2 if walker else 0.5, step_ticks=3 if mean else 4, hop=0.0 if kind in ('golem', 'serpent', 'dragon') else 0.06,
+             sting={'ticks': 30 + 25 * r, 'rest_ticks': 70, 'sight': 6 + r} if mean and walker else None, tame=r if walker else None, companion={'bite': BITE[r], 'sight': 7 + r} if walker else None, cap=2 if r >= 4 else 3)
+# Those already made can be tamed too.
+for m in mobs:
+    if m['name'] in ('spirit_fox', 'iron_boar', 'moon_rabbit', 'spirit_crane', 'star_stag', 'celestial_lion', 'stone_guardian', 'jade_serpent'):
+        r = {'spirit_fox': 1, 'iron_boar': 1, 'jade_serpent': 2, 'moon_rabbit': 3, 'spirit_crane': 3, 'star_stag': 4, 'stone_guardian': 4, 'celestial_lion': 5}[m['name']]
+        m['tame'] = r; m['companion'] = {'bite': BITE[r], 'sight': 7 + r}
+# Rogue cultivators: the beasts that think.
+for n, lab, robe, sash, r, where, loot in (('rogue_disciple', 'Rogue disciple', '6a7a8a', 'c0c0c0', 1, on(['grass', 'sect_paving'], ['plains', 'maple_forest', 'cherry_grove'], 0.04), [('qi_gathering_pill', 0, 2), ('spirit_stone', 1, 4), ('fire_talisman', 0, 2)]),
+                                           ('rogue_elder', 'Rogue elder', '6a2a7a', 'f0c840', 3, on([B], ['mistwood', 'amber_hollows'], 0.03), [('core_nourishing_pill', 0, 2), ('mid_spirit_stone', 1, 4), ('thunder_talisman', 0, 2), ('blank_jade_slip', 0, 2)]),
+                                           ('fallen_immortal', 'Fallen immortal', 'e8e0f0', 'ff5030', 5, on(['heaven_paving'], ['shattered_court'], 0.02), [('divine_essence_pill', 0, 2), ('high_spirit_stone', 2, 5), ('fallen_star', 0, 1), ('soul_crystal', 0, 2)])):
+    cultivator(c(robe), c(sash), 0).save('mobs', n); cultivator(c(robe), c(sash), 1).save('mobs', n + '_walk')
+    mobs.append({'name': n, 'label': lab, 'texture': 'mobs/%s.png' % n, 'walk': ['mobs/%s_walk.png' % n, 'mobs/%s.png' % n], 'hop': 0.06, 'step_ticks': 2, 'move_chance': 0.25, 'turn_chance': 0.25, 'health': [0, 40, 0, 160, 0, 500][r], 'cap': 2,
+                 'spawn': where, 'sting': {'ticks': 40 * r, 'rest_ticks': 40, 'sight': 8 + r}, 'drops': [drop(i, a, b) for i, a, b in loot]})
+
+# ---- metal goods, weapons, jade ---------------------------------------------------------------------------------------------------------------
+for n, lab, realm, r, host, hard, power, speed, armor in METALS:
+    tl, th = (lo(realm), hi(realm)) if realm < 6 else (11, 11); g = min(realm, 5); col = c('%02x%02x%02x' % r(0.6))
+    thing(trinket('plate', col), n + '_plate', lab + ' plate', tl, 'crafted', 0.6); forge(n + '_plate', [(n + '_ingot', 1)], g, 1, 80)
+    clone_item('stick', n + '_rod', lab + ' rod', r, tl, 'crafted', 0.3); forge(n + '_rod', [(n + '_ingot', 1)], g, 2, 80)
+    thing(trinket('needle', col, WOODC), n + '_spear', lab + ' spear', th, 'tools', 1.4, max_stack=1, damage=int(speed * 2.0), range=3); forge(n + '_spear', [(n + '_ingot', 2), (n + '_rod', 2)], g, time=240)
+    thing(trinket('sword', col, RED), n + '_sabre', lab + ' sabre', th, 'tools', 2.0, max_stack=1, damage=int(speed * 3.0)); forge(n + '_sabre', [(n + '_ingot', 5), (n + '_plate', 1), (CORE_OF(g), 1)], g, time=300)
+    clone_tile(BI['steel_lantern']['places'], n + '_lantern', lab + ' lantern', r, 'tint', drop=n + '_lantern'); clone_item('steel_lantern', n + '_lantern', lab + ' lantern', r, tl, 'crafted', 0.8, 'tint', places=n + '_lantern'); forge(n + '_lantern', [(n + '_plate', 1), ('glass', 1), (FLUX[g], 1)], g)
+    t = P(); [t.line(2 + i * 3, 1, 5 + i * 3, 14, col) for i in range(4)]; t.outline().save('items', n + '_needles')
+    item(n + '_needles', lab + ' needles', th, 'tools', 0.8, max_stack=20, uses=1, range=9 + realm, cast={'damage': int(speed * 1.6), 'splash': 0 if realm < 3 else 1}); forge(n + '_needles', [(n + '_rod', 1)], g, 4, 100)
+
+# ---- columns and stairs of each stone and wood (drawn by the tool that draws all of them) -----------------------------------------------------
+for n in ('sect_brick', 'jade_brick', 'heaven_marble', 'cloud_jade', 'heaven_brick', 'ruined_heaven_brick', 'rootstone', 'scorched_marble', 'spirit_wood', 'star_wood', 'vermilion_planks', 'sect_paving'):
+    lab = next(b[1] for b in BLOCKS if b[0] == n); tier = next(b[4] for b in BLOCKS if b[0] == n); wood = n in ('spirit_wood', 'star_wood', 'vermilion_planks')
+    for what, base in (('column', 'wood_column'), ('stairs', 'wood_stairs')):
+        d = copy.deepcopy(BT[base]); d.update(name='%s_%s' % (n, what), label='%s %s' % (lab, what), drop='%s_%s' % (n, what), texture='tiles/%s_%s.png' % (n, what))
+        if not wood: d.pop('burns', None)
+        # (The tool that draws them takes its colours from what is there the first time: the material itself.)
+        Image.open(os.path.join(TEX, 'tiles', n + '.png')).save(os.path.join(TEX, 'tiles', '%s_%s.png' % (n, what)))
+        tiles.append(d); item('%s_%s' % (n, what), '%s %s' % (lab, what), tier, 'blocks', 0.04, places='%s_%s' % (n, what))
+        (art if wood else forge)('%s_%s' % (n, what), [(n, 1)], 1, 2, 60)
+
+# ---- furniture, steles, springs ------------------------------------------------------------------------------------------------------------
+def deco(pic, name, label, tier, ins, where=art, g=1, count=1, mult=1.0, **kw):
+    pic.save('tiles', name); icon_of(name); kw.setdefault('mine_time', 0.3)
+    tile(name, label, False, **kw); item(name, label, tier, 'crafted', mult, places=name)
+    if ins: where(name, ins, g, count)
+def stele_pic(col, glyph, read=False):
+    t = P().r(4, 2, 11, 14, col); t.r(5, 1, 10, 1, col); t.r(3, 14, 12, 15, dk(col)); t.r(4, 2, 4, 14, lt(col)); t.r(11, 3, 11, 14, dk(col))
+    for x, y in ((6, 4), (9, 4), (7, 6), (6, 8), (9, 8), (8, 10), (6, 12), (9, 12)): t.p(x, y, dk(col, 0.6) if read else glyph)
+    return t
+for n, lab, col, glyph, tier, gain in (('stele', 'Dao stele', '8a8478', '60e0c0', 2, 12), ('ancient_stele', 'Ancient stele', '5a5048', 'f0c840', 5, 45), ('heaven_stele', 'Heaven stele', 'd8d8e8', 'ff5030', 9, 160)):
+    stele_pic(c(col), c(glyph)).save('tiles', n); stele_pic(c(col), c(glyph), True).save('tiles', n + '_read'); icon_of(n + '_read')
+    tile(n, lab, False, mine_time=2.0, light=7, insight=gain, use_becomes=n + '_read', drop=n + '_read'); tile(n + '_read', lab + ' (read)', False, mine_time=1.0)
+    item(n + '_read', lab + ' (read)', tier, 'crafted', 0.5, places=n + '_read')
+t = P().r(2, 12, 13, 15, c('7a8a8a')); t.r(3, 11, 12, 12, c('60c0e0')); t.r(4, 10, 11, 10, c('a0f0ff')); t.p(7, 7, c('a0f0ff')).p(8, 5, WHITE).p(6, 8, WHITE).p(9, 8, c('a0f0ff'))
+t.save('tiles', 'spirit_spring'); tile('spirit_spring', 'Spirit spring', False, mine_time=1.5, qi=1.5, qi_reach=5, light=8, pulse=0.1, drop='spirit_spring_water', drops=[{'item': 'spirit_spring_water', 'count': 4}])
+tiles[-1].pop('drop', None)
+thing(trinket('pot', c('60c0e0'), c('d8e0e8')), 'spirit_spring_water', 'Spirit-spring water', 4, 'nature', 1.0)
+def table_pic(top, leg, on_=None):
+    t = P().r(2, 9, 13, 10, top); t.r(2, 9, 13, 9, lt(top)); t.r(3, 11, 4, 15, leg); t.r(11, 11, 12, 15, leg)
+    if on_: on_(t)
+    return t
+deco(table_pic(c('8a3a2a'), c('5a2218'), lambda t: (t.r(5, 6, 7, 8, c('7a9a8a')), t.r(9, 7, 10, 8, c('e8e0d0')), t.p(6, 4, WHITE))), 'tea_table', 'Tea table', 1, [('vermilion_planks', 3), ('clay', 2)], qi=0.1, qi_reach=1, tool='axe')
+deco(P().r(1, 3, 4, 15, c('c8b890')).r(6, 3, 9, 15, c('c8b890')).r(11, 3, 14, 15, c('c8b890')).r(1, 3, 14, 3, c('5a2218')).r(1, 15, 14, 15, c('5a2218')).line(2, 6, 3, 12, c('3a8a4a')).line(7, 5, 8, 11, c('3a6a8a')).p(12, 7, RED).p(13, 10, RED), 'folding_screen', 'Folding screen', 2,
+     [('spirit_paper', 6), ('vermilion_planks', 2)], tool='axe')
+deco(chest_pic(c('6a4a2a'), c('efe2b8')).r(3, 7, 12, 8, c('efe2b8')).r(3, 11, 12, 12, c('efe2b8')), 'scroll_shelf', 'Scroll shelf', 2, [('spirit_wood', 6), ('spirit_paper', 4)], g=3, storage={'columns': 4, 'rows': 2}, tool='axe', model='box')
+items[-1]['container'] = {'slots': 8}
+for n, lab, col, tier, ins, g in (('jade_statue', 'Jade statue', '5fc89a', 4, [('spirit_jade', 6)], 2), ('marble_statue', 'Marble immortal', 'd8d8e8', 8, [('heaven_marble', 8), ('void_gold_ingot', 1)], 4), ('stone_guardian_statue', 'Guardian lion', '8a8478', 2, [('stone', 12), ('cinnabar', 1)], 1)):
+    k = c(col); deco(P().r(6, 1, 9, 4, k).r(5, 5, 10, 11, k).r(4, 6, 4, 9, k).r(11, 6, 11, 9, k).r(4, 12, 11, 15, dk(k)).r(6, 1, 6, 11, lt(k)).p(7, 2, INK).p(9, 2, INK), n, lab, tier, ins, forge, g, qi=0.2, qi_reach=2)
+deco(P().r(6, 12, 9, 15, c('8a8478')).r(5, 6, 10, 11, c('8a8478')).r(6, 7, 9, 10, c('ffd070')).r(4, 4, 11, 5, c('6a6458')).r(6, 2, 9, 3, c('6a6458')), 'stone_lantern', 'Stone lantern', 1, [('stone', 6), ('coal', 1)], forge, light=13)
+deco(P().r(4, 10, 11, 12, c('5a5560')).r(5, 13, 6, 15, c('3a3540')).r(9, 13, 10, 15, c('3a3540')).r(5, 7, 10, 9, c('f06020')).r(6, 5, 9, 6, c('ffc040')).p(7, 3, c('ffe890')).p(8, 4, c('ffe890')), 'brazier', 'Brazier', 2, [('spirit_iron_ingot', 3), ('coal', 4)], forge, light=14, pulse=0.15)
+deco(P().r(5, 12, 10, 15, c('8a5a3a')).r(7, 8, 8, 11, c('5a3a2a')).disc(5, 6, 2.5, c('3a8a4a')).disc(10, 5, 2.5, c('3a9a5a')).disc(8, 3, 2, c('4aaa5a')).p(9, 4, c('f0a0b0')), 'bonsai', 'Spirit bonsai', 3, [('spirit_pine_seed', 1), ('clay', 3), ('spirit_soil', 1)], qi=0.3, qi_reach=2)
+deco(table_pic(c('5a3a2a'), c('3a2218'), lambda t: (t.r(2, 7, 13, 8, c('2a1a12')), [t.r(x, 6, x, 8, c('d8d0c0')) for x in (4, 6, 8, 10, 12)])), 'guqin_stand', 'Guqin', 3, [('spirit_wood', 4), ('ape_sinew', 3)], g=3, qi=0.2, qi_reach=3, tool='axe')
+deco(P().r(7, 1, 8, 15, c('8a6a3a')).r(3, 2, 12, 3, c('8a6a3a')).r(4, 4, 11, 12, c('efe2b8')).line(6, 6, 9, 6, INK).line(9, 6, 6, 9, INK).line(6, 9, 9, 11, INK), 'calligraphy_scroll', 'Hanging scroll', 1, [('spirit_paper', 3), ('cinnabar_ink', 1)], lambda n, i, g, k: rec('scripture_desk', n, i, k), tool='axe')
+for i, (elab, ecol, _) in enumerate(ELEM):
+    k = c(ecol); deco(P().r(3, 0, 3, 15, WOODC).r(4, 1, 12, 11, k).r(4, 1, 12, 1, lt(k)).r(4, 11, 6, 13, k).r(10, 11, 12, 13, k).r(7, 4, 9, 8, GOLD).p(8, 3, GOLD).p(8, 9, GOLD), elab.lower() + '_banner', elab + ' banner', 2,
+                      [('spirit_cloth', 2), ('stick', 1), ([ 'spirit_iron_ingot', 'spirit_grass', 'dew_lotus', 'cinnabar', 'stone'][i], 1)], lambda n, i_, g, k_: rec('spirit_loom', n, i_, k_), tool='axe')
+deco(P().r(6, 3, 9, 15, c('a83a2a')).r(2, 1, 13, 3, c('2f7a66')).r(4, 5, 11, 6, c('a83a2a')).r(7, 8, 8, 12, GOLD), 'paifang_post', 'Gate post', 1, [('vermilion_planks', 2), ('sect_roof', 1)], tool='axe')
+deco(P().disc(7.5, 8, 6.5, c('a8a090')).disc(7.5, 8, 4.5, (0, 0, 0, 0)).r(0, 14, 15, 15, c('8a8478')), 'moon_gate', 'Moon gate', 2, [('sect_brick', 8)], forge)
+deco(P().r(2, 13, 13, 15, c('5a5048')).r(3, 6, 12, 12, c('2a2a34')).r(4, 7, 11, 11, c('5fc89a')).r(7, 3, 8, 5, GOLD).p(6, 8, WHITE), 'spirit_stone_pile', 'Spirit-stone pile', 3, [('spirit_stone', 30)], qi=0.8, qi_reach=4, light=7)
+deco(P().r(3, 12, 12, 15, c('d8d8e8')).r(5, 4, 10, 11, c('c8d0f0')).r(6, 2, 9, 3, c('f0c840')).r(7, 6, 8, 9, c('60d0ff')).p(7, 5, WHITE), 'heaven_altar', 'Heaven altar', 8, [('heaven_brick', 6), ('soul_crystal', 2), ('high_spirit_stone', 2)], forge, 4, qi=1.2, qi_reach=5, light=10, pulse=0.1)
+deco(P().r(4, 9, 11, 15, c('7a5a8a')).r(5, 5, 10, 8, c('c8a040')).r(6, 3, 9, 4, c('c8a040')).r(7, 6, 8, 7, c('ff5030')).r(4, 9, 11, 9, GOLD), 'pill_cabinet', 'Pill cabinet', 3, [('spirit_wood', 6), ('azure_copper_ingot', 2)], g=2, storage={'columns': 4, 'rows': 3}, tool='axe', model='box')
+items[-1]['container'] = {'slots': 12}
+deco(P().r(5, 10, 10, 15, c('3a6a8a')).r(4, 8, 11, 9, c('60c0e0')).r(6, 4, 9, 7, c('3a6a8a')).p(7, 2, c('a0f0ff')).p(8, 1, WHITE), 'spirit_well', 'Spirit well', 5, [('rootstone', 8), ('spirit_spring_water', 4), ('mid_spirit_stone', 2)], forge, 3, qi=1.0, qi_reach=5, light=7)
+
+# ---- more artifacts: storage rings, spirit flames, four more sets ---------------------------------------------------------------------------
+for n, lab, col, tier, slots, ins, g in (('storage_ring', 'Storage ring', '8fb8c8', 3, 6, [('azure_copper_ingot', 2), ('spirit_jade', 2), ('mid_spirit_stone', 2)], 2), ('void_storage_ring', 'Void storage ring', 'c090e0', 7, 10, [('storage_ring', 1), ('void_gold_ingot', 2), ('soul_crystal', 2)], 4),
+                                         ('immortal_storage_ring', 'Immortal storage ring', 'ffe890', 10, 16, [('void_storage_ring', 1), ('dragonbone_ingot', 2), ('fallen_star', 2)], 5)):
+    thing(trinket('ring', c(col)), n, lab, tier, 'artifacts', 3.0, max_stack=1, container={'slots': slots, 'open_in_inventory': True}); art(n, ins, g, time=300)
+FLAMES = [('bone_cold_flame', 'Bone-cold flame', 'a0e0ff', 2, {'craft': 1.15}, 'frost_lotus'), ('earth_core_flame', 'Earth-core flame', 'f08030', 2, {'craft': 1.15, 'warmth': 0.3}, 'flame_lily'), ('green_lotus_flame', 'Green lotus flame', '40d080', 3, {'craft': 1.25, 'regen': 1.5}, 'deep_lake_lily'),
+          ('amber_sun_flame', 'Amber sun flame', 'f0b020', 3, {'craft': 1.25, 'mine': 1.2}, 'amber_heart_blossom'), ('purple_cloud_flame', 'Purple cloud flame', 'a060e0', 4, {'craft': 1.35, 'qi': 1.2}, 'void_petal'), ('ghost_fire', 'Nether ghost fire', '60f0c0', 4, {'craft': 1.35, 'unseen': 1.0}, 'netherworld_blossom'),
+          ('star_fall_flame', 'Star-fall flame', 'c0d0ff', 5, {'craft': 1.5, 'luck': 0.15}, 'star_river_reed'), ('nirvana_flame_seed', 'Nirvana flame', 'ff5030', 5, {'craft': 1.5, 'fireproof': 1.0}, 'nirvana_lotus'), ('chaos_flame', 'Primordial chaos flame', 'f0a0ff', 5, {'craft': 1.8, 'qi': 1.5}, 'chaos_seed_flower')]
+for n, lab, col, r, boons, herb_ in FLAMES:
+    k = c(col); t = P().disc(7.5, 10, 3.6, k); t.r(6, 4, 9, 9, k); t.r(7, 2, 8, 4, k); t.p(7, 1, lt(k, 1.4)); t.disc(7.5, 10.5, 1.8, lt(k, 1.4)); t.p(7, 9, WHITE); t.outline().save('items', n)
+    item(n, lab, hi(r), 'artifacts', 4.0, max_stack=1, relic=True, boons=boons, set='spirit_flames', needs_stage=first(r), fuel=60000)
+    brew(n, [('ancient_' + herb_, 1), (CORE_OF(r), 3), (FLUX[r], 5)], r, 1, 900)
+sets.append({'name': 'spirit_flames', 'label': 'Tamed flames', 'bonuses': [{'pieces': 2, 'boons': {'warmth': 0.5}}, {'pieces': 4, 'boons': {'craft': 1.5, 'fireproof': 1.0}}]})
+SETS4 = [('tamer', 'Beast tamer', 2, 'c8a040', [('bell', 'whistle', {'unseen': 0.5}), ('pendant', 'fang charm', {'strength': 1}), ('ring', 'collar ring', {'luck': 0.08}), ('gourd', 'feed gourd', {'regen': 1.3})], [{'walk': 1.15}, {'strength': 2, 'luck': 0.15}], 'blood_fang'),
+         ('alchemist', 'Pill master', 3, 'f08030', [('gourd', 'pill gourd', {'craft': 1.15}), ('fan', 'furnace fan', {'craft': 1.15}), ('seal', 'flame seal', {'fireproof': 1.0}), ('bead', 'ash bead', {'qi': 1.15})], [{'craft': 1.3}, {'craft': 1.6, 'qi': 1.2}], 'amber_heart'),
+         ('thunder', 'Tribulation crosser', 4, '6070d0', [('mirror', 'thunder mirror', {'ward': 0.15}), ('needle', 'lightning rod', {'ward': 0.15}), ('bell', 'storm bell', {'ward': 0.1, 'walk': 1.1}), ('seal', 'heaven seal', {'ward': 0.15, 'armor': 0.1})], [{'ward': 0.1}, {'ward': 0.2, 'breakthrough': 0.1}], 'void_fang'),
+         ('sword_saint', 'Sword saint', 5, 'e0e8ff', [('sword', 'heart sword', {'strength': 3}), ('pendant', 'sword tassel', {'walk': 1.2}), ('ring', 'whetstone ring', {'strength': 2, 'mine': 1.3}), ('crown', 'sword crown', {'qi': 1.3})], [{'strength': 3}, {'strength': 6, 'flight': 1.0, 'thorns': 8}], 'nether_claw')]
+for key, lab, r, col, pieces, bonus, part_ in SETS4:
+    for kind, plab, boons in pieces:
+        artifact('%s_%s' % (key, plab.replace(' ', '_')), '%s %s' % (lab + "'s", plab), kind, col, r, [(METALS[r - 1][0] + '_ingot', 2), (part_, 1), (CORE_OF(r), 1)], boons, key)
+    sets.append({'name': key, 'label': lab, 'bonuses': [{'pieces': 2, 'boons': bonus[0]}, {'pieces': 4, 'boons': bonus[1]}]})
+
+# ---- what the new things are for: second ways to the old ones, and uses for every part ---------------------------------------------------------
+# Every herb can be ground for seed-stock of its realm, and the old ones split.
+for r in range(1, 6):
+    for j, h_ in enumerate(HR[r]):
+        art('aged_' + h_, [(h_, 12), (FLUX[r], 2)], r, 1, 400) if j % 3 == 0 else None
+        brew(h_, [('aged_' + h_, 1)], r, 6, 60); brew('aged_' + h_, [('ancient_' + h_, 1)], r, 6, 60)
+# Beast parts into cloth, ink, cores and gear.
+thing(trinket('pot', c('7a1010'), GOLD), 'beast_blood_ink', 'Beast-blood ink', 3, 'crafted', 1.0); rec('talisman_desk', 'beast_blood_ink', [('beast_blood', 3), ('cinnabar_ink', 1)], 2, time=80)
+for r in range(1, 5): art(CORE_OF(r + 1), [(CORE_OF(r), 8), (FLUX[r + 1], 2)], r + 1, 1, 300)
+LEATHER = [('spirit_leather', 'Spirit leather', 'b08050', 1), ('storm_leather', 'Storm leather', '6a6a9a', 2), ('grove_leather', 'Grove leather', '6a8a4a', 3), ('star_leather', 'Star leather', '4a4a8a', 4), ('nether_leather', 'Nether leather', '4a2a5a', 5)]
+for n, lab, col, r in LEATHER:
+    thing(hide(c(col)), n, lab, lo(r), 'crafted', 0.8)
+    for bn, (pn, pr) in BEAST_PART.items():
+        if pr == r: rec('spirit_loom', n, [(pn, 2)], 1, time=100)
+    k = c(col)
+    for piece, base, plab, cnt in (('cap', 'linen_cap', 'cap', 2), ('jerkin', 'leather_jacket', 'jerkin', 5), ('leggings', 'leather_pants', 'leggings', 3), ('boots', 'fur_boots', 'boots', 2)):
+        clone_item(base, '%s_%s' % (n, piece), '%s %s' % (lab, plab), ramp('181820', col, 'ffffff'), hi(r), 'clothing', 0.5 * cnt, 'tint', armor=round(0.05 + 0.03 * r, 2), warmth=0.4, max_stack=1, boons={'walk': round(1.0 + 0.03 * r, 2)}, set=n,
+                   needs_stage=first(r) if r > 1 else None, walk_speed=round(1.1 + 0.05 * r, 2) if piece == 'boots' else None)
+        rec('spirit_loom', '%s_%s' % (n, piece), [(n, cnt)], time=200)
+    sets.append({'name': n, 'label': lab, 'bonuses': [{'pieces': 2, 'boons': {'walk': round(1.05 + 0.03 * r, 2)}}, {'pieces': 4, 'boons': {'strength': r, 'stamina': 1.0 + 0.2 * r}}]})
+# A second road to each realm's pill, from old herbs; and the great pills from the oldest.
+for (n, lab, realm, col, ins, g) in REALM_PILLS: brew(n, [('ancient_' + hh(realm - 1, 0), 1), ('aged_' + hh(realm - 1, 1), 2), (CORE_OF(realm - 1), 2)], g, 2, 400)
+pill_('heaven_mending_pill', 'Heaven-mending pill', 5, 'ffffff', [('ancient_dragon_blood_ginseng', 1), ('ancient_nirvana_lotus', 1), ('beast_core_5', 2)], count=1, ring=GOLD, mult=10.0, max_stack=5, cures=True, food=1.0, cooked=True, effect=lasts(600, regen=60.0))
+pill_('dao_enlightenment_pill', 'Dao-enlightenment pill', 5, 'c0d0ff', [('ancient_nine_heavens_orchid', 1), ('ancient_dream_butterfly_flower', 1), ('fallen_star', 1)], count=1, ring=GOLD, mult=10.0, max_stack=5, insight=300, toxin=0.2)
+pill_('root_reforging_pill', 'Root-reforging pill', 4, '9a6a4a', [('ancient_ghost_face_root', 1), ('aged_world_root', 1), ('beast_core_4', 3)], count=1, ring=WHITE, mult=8.0, washes_roots=True, toxin=0.1)
+# Bows of sinew and spirit wood.
+for n, lab, col, tier, dmg, ins, g in (('spirit_bow', 'Spirit bow', '8a6a3a', 3, 6, [('spirit_iron_rod', 2), ('string', 3)], 1), ('grove_bow', 'Grove bow', '6a8a4a', 6, 30, [('spirit_wood', 4), ('ape_sinew', 3), ('star_silver_rod', 1)], 3), ('star_bow', 'Starfall bow', 'a0b0ff', 9, 140, [('star_wood', 4), ('wraith_silk', 3), ('dragonbone_rod', 1)], 5)):
+    clone_item('copper_bow', n, lab, ramp('181820', col, 'ffffff'), tier, 'tools', 2.0, 'tint', damage=dmg, range=12); art(n, ins, g, time=240)
+
+# The twelve meridians, opened in their order, each by a pill of its own herb.
+for k, (mer, h_) in enumerate(zip(('Lung', 'Large intestine', 'Stomach', 'Spleen', 'Heart', 'Small intestine', 'Bladder', 'Kidney', 'Pericardium', 'Triple burner', 'Gallbladder', 'Liver'), HR[1]), 1):
+    pill_(mer.lower().replace(' ', '_') + '_meridian_pill', mer + ' meridian pill', 1, 'f0a030', [(h_, 3), ('beast_core_1', 1), ('cinnabar', 1)], count=1, ring=RED, mult=3.0, tier=2, meridian=k, toxin=0.12)
+# What is left of a beast, rendered down: an essence of its grade, which stands in for herbs in the plain pills.
+for r in range(1, 6):
+    thing(orb(CORE[r], c('a02020')), 'beast_essence_%d' % r, 'Beast essence (%s)' % ['', 'mortal', 'earth', 'sky', 'king', 'saint'][r], hi(r), 'nature', 0.6)
+    for bn, (pn, pr) in BEAST_PART.items():
+        if pr == r: brew('beast_essence_%d' % r, [(pn, 2), ('beast_blood', 1)], r, 1, 120)
+    brew(QI_PILLS[r - 1][0], [('beast_essence_%d' % r, 2), (hh(r, 9), 1)], r, 3)
+# One old herb does the work of many young ones.
+for key, lab, col, (a, b), does, realms in FAMILIES:
+    for r in realms: brew('%s_%s_pill' % (rank(r), key), [('aged_' + hh(r, a), 1), (hh(r, b), 1)], r, 6, 300)
+# A technique or a manual can be copied out, for somebody else to learn from.
+for it in list(items):
+    if it.get('technique') or (it.get('manual') and it['name'] != 'dao_of_heaven'):
+        rec('scripture_desk', it['name'], [(it['name'], 1), ('blank_jade_slip' if it.get('technique') else 'spirit_paper', 1 if it.get('technique') else 8), ('beast_blood_ink', 1)], 2, time=300)
+# Dressed stone: each of the stones as smooth tile and as carved block.
+for n in ('sect_brick', 'jade_brick', 'heaven_marble', 'cloud_jade', 'heaven_brick', 'rootstone', 'scorched_marble', 'sect_paving'):
+    lab = next(b_[1] for b_ in BLOCKS if b_[0] == n); tier = next(b_[4] for b_ in BLOCKS if b_[0] == n); k = COL[n]
+    t = P(k); t.r(0, 0, 15, 0, lt(k, 1.12)); t.r(0, 15, 15, 15, dk(k, 0.75)); t.r(0, 0, 0, 15, lt(k, 1.12)); t.r(15, 0, 15, 15, dk(k, 0.75)); t.speck(n + 't', dk(k, 0.93), 8)
+    block(t, n + '_tile', 'Smooth ' + lab.lower(), tier, 0.05); forge(n + '_tile', [(n, 4)], 1, 4, 60)
+    t = P(k); t.r(0, 0, 15, 15, dk(k, 0.8)); t.r(1, 1, 14, 14, k); t.r(3, 3, 12, 12, dk(k, 0.85)); t.r(4, 4, 11, 11, k); t.line(5, 5, 10, 5, lt(k, 1.15)); t.line(10, 5, 10, 10, dk(k, 0.7)); t.line(5, 10, 10, 10, dk(k, 0.7)); t.line(5, 5, 5, 10, lt(k, 1.15)); t.r(7, 7, 8, 8, lt(k, 1.2))
+    block(t, n + '_carved', 'Carved ' + lab.lower(), tier, 0.06); forge(n + '_carved', [(n, 4), ('cinnabar', 1)], 1, 4, 80)
+
+# ---- the new things set down in the world ---------------------------------------------------------------------------------------------------
+SECT['T'] = {'wall': 'sect_brick', 'back': 'stele'}; SECT['t'] = {'wall': 'jade_brick', 'back': 'ancient_stele'}; SECT['B'] = {'wall': 'sect_brick', 'back': 'brazier'}; SECT['s'] = {'wall': 'jade_brick', 'back': 'spirit_spring'}
+HEAVEN['T'] = {'wall': 'heaven_brick', 'back': 'heaven_stele'}; HEAVEN['S'] = {'wall': 'heaven_brick', 'back': 'marble_statue'}; HEAVEN['a'] = {'back': 'heaven_altar'}
+PATCH = {'sect_hall': ('~D.C..M..M..A.D~', '~D.C..M..T..A.D~'), 'sect_library': ('~D..M..M..D~', '~D..T..M..D~'), 'sect_pagoda': ('~~D..A...D~~', '~~D..A.B.D~~'), 'cave_abode': ('~jmjcjjOj~', '~jmjctjsj~'),
+         'broken_palace': ('~~.M.C..,,~~A.r~~~', '~~.T.C.S,,~~A.r~~~'), 'fallen_pagoda': ('~~r.M..#~~', '~~r.T..#~~'), 'star_altar': ('~#~~~~~~~#~', '~#~~~a~~~#~')}
+for st in structures:
+    if st['name'] in PATCH:
+        a, b = PATCH[st['name']]; assert a in st['rows'], st['name']; st['rows'] = [b if row == a else row for row in st['rows']]
+    if st['name'].endswith('_arena'):
+        k = st['name'][:-6] + '_court'; st['legend']['b'] = {'wall': k, 'back': 'brazier'}; st['legend']['S'] = {'wall': k, 'back': 'stone_guardian_statue'}
+        st['rows'][4] = 'Pb~~~~~~~~~~~~~~~~~~bP'; st['rows'][5] = 'PS~~~~~~~~~~~~~~~~~~SP'
+decor.append({'name': 'dao_spirit_spring', 'tile': 'spirit_spring', 'per_100_columns': 0.8, 'depth': [30, 300], 'on_floor': True})
+decor.append({'name': 'dao_wt_spring', 'tile': 'spirit_spring', 'dimension': 'world_tree', 'per_100_columns': 3, 'depth': [0, 240], 'on_floor': True})
+# The herbs of the higher realms, wild where the qi is thick enough for them.
+for r, where in ((3, WT_B), (4, FH_B[1:3] + FH_B[4:]), (5, FH_B[1:])):
+    for j, h_ in enumerate(HR[r][2:]):
+        b = next(x for x in biomes if x['name'] == where[j % len(where)]); b.setdefault('plants', []).append({'tile': h_ + '_0', 'one_in': 16 + 2 * r})
+next(x for x in biomes if x['name'] == 'mistwood')['treasure'] = {'tile': 'ancient_stele', 'one_in': 40}
+# What the road asks of understanding, and what a tribulation leaves in the ground.
+for s_ in needs:
+    w_ = s_['stage'] - (s_['stage'] - 1) // 10 * 10
+    if w_ == 9: s_['insight'] = s_['stage'] * 2
+    if s_['stage'] == 50: s_['insight'] = 150
+cultivation['scorch'] = 'lightning_herb_0'
+
 # ---- written out ---------------------------------------------------------------------------------------------------------------------
 def dump(name, obj):
     with open(os.path.join(mod, name), 'w') as f:
         f.write('{\n' + ',\n'.join('  "%s": [\n' % k + ',\n'.join('    ' + json.dumps(e) for e in v) + '\n  ]' if isinstance(v, list) else '  "%s": %s' % (k, json.dumps(v)) for k, v in obj.items()) + '\n}\n')
 for kind, group in (('tile', tiles), ('item', items), ('creature', mobs)):
+    long_ = [t['name'] for t in group if len(('caged_' if kind == 'creature' else '') + t['name']) > 31]; assert not long_, long_
     names = [t['name'] for t in group]; assert len(names) == len(set(names)), (kind, sorted({n for n in names if names.count(n) > 1}))
 # Everything named is something there is: a wrong name is found here, not when the game starts.
 have_i = set(BI) | {i['name'] for i in items}; have_t = set(BT) | {t['name'] for t in tiles}
@@ -966,3 +1417,4 @@ print('stages: ' + ', '.join('%s %d' % (n, depth(n)) for n in ('world_tree_gate'
 tools = os.path.dirname(os.path.abspath(__file__))
 subprocess.run([sys.executable, os.path.join(tools, 'worn_art.py'), repo], check=True)
 subprocess.run([sys.executable, os.path.join(tools, 'caged_art.py'), repo], check=True)
+subprocess.run([sys.executable, os.path.join(tools, 'stair_column_art.py'), repo], check=True)

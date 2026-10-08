@@ -91,5 +91,17 @@
   "mods/industry/heavy_bronze": {"kind": "metal", "tones": [[96, 66, 44], [134, 93, 62], [161, 112, 75], [169, 117, 79], [213, 152, 107]], "alpha": 255},
   "mods/industry/imperial": {"kind": "metal", "tones": [[134, 137, 164], [187, 191, 228], [226, 231, 255], [237, 242, 255], [255, 255, 255]], "alpha": 255},
   "mods/industry/lead": {"kind": "metal", "tones": [[75, 79, 96], [105, 110, 134], [127, 133, 161], [133, 140, 169], [170, 179, 213]], "alpha": 255},
-  "mods/industry/royal_bronze": {"kind": "metal", "tones": [[145, 109, 44], [202, 152, 62], [243, 183, 75], [255, 192, 79], [255, 240, 107]], "alpha": 255}
+  "mods/industry/royal_bronze": {"kind": "metal", "tones": [[145, 109, 44], [202, 152, 62], [243, 183, 75], [255, 192, 79], [255, 240, 107]], "alpha": 255},
+  "mods/seeker_of_the_dao/cloud_jade": {"kind": "stone", "tones": [[103, 138, 128], [144, 192, 178], [168, 224, 208], [168, 224, 208], [212, 255, 255]], "alpha": 255},
+  "mods/seeker_of_the_dao/heaven_brick": {"kind": "brick", "tones": [[86, 82, 92], [120, 115, 129], [200, 192, 216], [230, 221, 247], [255, 255, 255]], "alpha": 255},
+  "mods/seeker_of_the_dao/heaven_marble": {"kind": "stone", "tones": [[133, 133, 143], [185, 185, 199], [216, 216, 232], [216, 216, 232], [255, 255, 255]], "alpha": 255},
+  "mods/seeker_of_the_dao/jade_brick": {"kind": "brick", "tones": [[41, 86, 66], [57, 120, 92], [95, 200, 154], [114, 230, 179], [148, 255, 225]], "alpha": 255},
+  "mods/seeker_of_the_dao/rootstone": {"kind": "stone", "tones": [[45, 39, 34], [63, 55, 48], [74, 64, 56], [74, 64, 56], [101, 89, 80]], "alpha": 255},
+  "mods/seeker_of_the_dao/ruined_heaven_brick": {"kind": "brick", "tones": [[59, 56, 66], [82, 79, 92], [138, 132, 154], [161, 155, 179], [203, 196, 225]], "alpha": 255},
+  "mods/seeker_of_the_dao/scorched_marble": {"kind": "stone", "tones": [[45, 41, 48], [63, 58, 68], [74, 68, 80], [74, 68, 80], [101, 94, 108]], "alpha": 255},
+  "mods/seeker_of_the_dao/sect_brick": {"kind": "brick", "tones": [[59, 56, 51], [82, 79, 72], [138, 132, 120], [161, 155, 142], [203, 196, 181]], "alpha": 255},
+  "mods/seeker_of_the_dao/sect_paving": {"kind": "stone", "tones": [[90, 86, 77], [126, 120, 108], [168, 160, 144], [168, 160, 144], [212, 202, 183]], "alpha": 255},
+  "mods/seeker_of_the_dao/spirit_wood": {"kind": "wood", "tones": [[64, 48, 26], [89, 68, 37], [138, 106, 58], [138, 106, 58], [176, 139, 82]], "alpha": 255},
+  "mods/seeker_of_the_dao/star_wood": {"kind": "wood", "tones": [[41, 41, 72], [58, 58, 100], [90, 90, 154], [90, 90, 154], [120, 120, 195]], "alpha": 255},
+  "mods/seeker_of_the_dao/vermilion_planks": {"kind": "stone", "tones": [[78, 26, 19], [109, 37, 27], [168, 58, 42], [168, 58, 42], [212, 82, 63]], "alpha": 255}
 }

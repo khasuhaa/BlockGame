@@ -83,7 +83,8 @@ enum {
     HAND_HIT = 0,
     HAND_SHEAR,
     HAND_MILK,
-    HAND_CAGE
+    HAND_CAGE,
+    HAND_TAME
 };
 
 typedef struct {
@@ -230,6 +231,7 @@ typedef struct {
     int32_t bolt_wait;   /* the ticks before the next, */
     float bolt_share;    /* and the share of a health bar each is */
     uint64_t revived;    /* the tick they last survived a death at; 0 for never */
+    uint32_t insight;    /* what they have understood: from techniques used, steles read, steps taken (from version 38) */
 } Dao;
 
 /* Something a character has taken that is still working on them: the item it was, and the ticks it has left

@@ -1324,9 +1324,10 @@ bool game_click_mob(Game *g, int mob)
     bool shear = held->count > 0 && item_def((ItemId)held->id)->shears && content.mobs[m->kind].shear_item != ITEM_NONE;
     bool milk = held->count > 0 && item_def((ItemId)held->id)->milks && content.mobs[m->kind].milk_item != ITEM_NONE;
     bool cage = held->count > 0 && item_def((ItemId)held->id)->cages && content.mobs[m->kind].caged != ITEM_NONE;
+    bool tame = held->count > 0 && item_def((ItemId)held->id)->tames > 0 && content.mobs[m->kind].tame > 0 && !m->owned;
     Action a = { .type = ACTION_ATTACK, .target = { m->x, m->y }, .drop = mob, .drop_id = m->id,
-                 .amount = shear || milk || cage ? 0 : game_attack_range(g),
-                 .arg = shear ? HAND_SHEAR : milk ? HAND_MILK : cage ? HAND_CAGE : HAND_HIT };
+                 .amount = shear || milk || cage || tame ? 0 : game_attack_range(g),
+                 .arg = tame ? HAND_TAME : shear ? HAND_SHEAR : milk ? HAND_MILK : cage ? HAND_CAGE : HAND_HIT };
     return queue_checked(g, sim_pending(g), a);
 }
 
@@ -2086,6 +2087,13 @@ static void finish_activity(Game *g)
                 /* Shearing: it has to be in reach, and to have something to give. */
                 if (!with->shears || !in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y }) || !mob_shear(g, g->current.drop))
                     deny(g, (TilePos){ m->x, m->y });
+            } else if (g->current.arg == HAND_TAME) {
+                /* Taming: with something strong enough for it, a wild creature is theirs from then on. */
+                if (with->tames < content.mobs[m->kind].tame || content.mobs[m->kind].tame <= 0 || m->owned ||
+                    !in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y }) || inventory_remove(&g->inventory, held->id, 1) != 1)
+                    deny(g, (TilePos){ m->x, m->y });
+                else
+                    m->owned = true;
             } else if (g->current.arg == HAND_CAGE) {
                 /* Caging: the creature is gone from the world and is an item in hand, in place of the cage. */
                 ItemId caged = content.mobs[m->kind].caged;
@@ -2452,6 +2460,8 @@ static bool start_next_activity(Game *g)
                     if (tile_def(game_bench_at(g, g->current.target.x, g->current.target.y))->use_becomes != TILE_AIR) {
                         TilePos used = g->current.target;
                         g->has_current = false;
+                        /* (Something to read: whoever cultivates is the wiser for it.) */
+                        if (g->dao.stage >= 1) g->dao.insight += (uint32_t)tile_def(game_bench_at(g, used.x, used.y))->insight;
                         game_use_block(g, used.x, used.y);
                         continue;
                     }
@@ -3140,6 +3150,8 @@ void game_random_event(Game *g, int x, int y)
     for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
         const TileDef *def = tile_def(world_get_at(w, layer, x, y));
         if (def->grows_into == TILE_AIR) continue;
+        /* (Some take their time over it.) */
+        if (def->grow_one_in > 1 && game_random(g) % (uint32_t)def->grow_one_in != 0) return;
         world_grow_plant(w, layer, x, y);
         return;
     }

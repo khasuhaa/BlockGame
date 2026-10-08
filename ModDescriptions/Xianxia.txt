@@ -397,3 +397,49 @@ Not built, or thinner than sections 1-8 describe:
   - The Fallen Heaven's sky is a colour, not stars. The trial courts are bare of anything but lamps.
   - Balance is untested by play: every number (qi per stage, pill strengths, bolt shares, prices) is a first guess.
   - Not compatible with other mods by the owner's leave, but it clashes in name with none of them.
+
+
+12. SENT BACK, AND BUILT OUT
+
+The owner pointed out that section 8 promised about 1,150 items and 1,400 recipes and the first build had 369 and
+274, and asked for what was missing. What the mod adds now, against the plan:
+
+                     blocks   items   recipes   creatures   techniques   herbs   pills   dishes   manuals   formations
+   as planned         ~420    ~1,150   ~1,400      ~60        ~120        ~60     ~90     ~50      ~20        ~25
+   first build         180      369      274        17          18         13      23      10       11         10
+   now                 588    1,084    1,149        62         118         60     116      60       20         26
+
+Added in this pass:
+  - Herbs: 60, twelve to a realm, each drawn in its own shape at four stages; AGES (aged, ancient) as two further,
+    slow stages of growth that need thicker qi and are different things when cut; lightning herb where a
+    tribulation struck.
+  - Insight (the plan's comprehension, as one number): gained by using techniques, breaking through, tribulations,
+    pills, teas and steles read once; asked for by the ninth stage of each realm, by immortality, and by the later
+    techniques. Saved (version 38).
+  - Taming: beast-taming talismans in five grades; a tamed beast follows and fights.
+  - The twelve meridians each with a pill of its own herb, opened in order.
+  - Pills in every strength, refined and peak pills from old herbs, poisons, insight pills, a second road to each
+    realm's pill; 50 more dishes; 9 more manuals; 100 more techniques (twenty to an element); 25 more talismans;
+    16 more formations (among them the sect-protecting grand formation); 45 more creatures, rogue cultivators
+    among them; storage rings, the nine flames, four more sets of artifacts, five sets of leather armour, spears,
+    sabres, needles, bows; columns, stairs, smooth and carved stone; furniture, steles, spirit springs and wells;
+    copying of manuals and techniques.
+  - The bench menu shows a great many recipes in rows (for every bench in the game).
+
+Still short of the plan, said plainly:
+  - Items are 1,084 against about 1,150 and recipes 1,149 against about 1,400. I stopped where the next hundred
+    would have been padding - the same thing under another name - rather than content.
+  - Recipes are not "known only once a formula is found": everything can be made by whoever has the bench.
+  - Pills do not come out at a grade by the alchemist's skill; strength is by the recipe (plain, refined, peak).
+  - Techniques have no mastery and there is no technique bar: they are in the ordinary bar. The 100 added are the
+    engine's existing effects in rising strengths, twenty names to an element - a family, not 100 different ideas.
+    Earth escape, object control and the soul leaving the body are not there.
+  - Insight is one number, not one for each element and craft.
+  - A tamed beast cannot be ridden, does not grow, and has no bag; fliers and swimmers cannot be tamed.
+  - No natal artifact, no core grades, no tempering tasks for each stage, no domain beyond what Divinity gives.
+  - No formation diagrams: a formation is its heart and one ring of flags. No illusion maze.
+  - No qi map of the world from its seed, and no spirit sight view: qi is by depth, place, biome and what is near.
+  - The Sacred Beasts still have no attacks of their own; no inheritances; no sects to join.
+  - The herb plants are small simple drawings; the 100 new technique slips differ only in colour and marks.
+  - Nothing has been played: every number is a guess. Taming, the steles, the furniture and the three-row bench
+    menu were looked at in a screenshot or driven in a test, not used in play.

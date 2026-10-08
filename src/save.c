@@ -7,7 +7,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 37u
+#define SAVE_VERSION 38u
 
 /* Up to version 28 a world had room for a quarter as many of these, and they
  * were written out whole: every reader of an older version goes by these. */
@@ -893,7 +893,8 @@ bool load_game(Game *g, const char *path)
             Dao dao = { 0 };
             char manual[CONTENT_NAME_LEN];
             uint32_t size = 0;
-            ok = fread(&size, sizeof size, 1, f) == 1 && size == sizeof dao && fread(&dao, sizeof dao, 1, f) == 1 && fread(manual, sizeof manual, 1, f) == 1;
+            /* (It is written with its size: one from before it had as much in it is the beginning of this one.) */
+            ok = fread(&size, sizeof size, 1, f) == 1 && size > 0 && size <= sizeof dao && fread(&dao, size, 1, f) == 1 && fread(manual, sizeof manual, 1, f) == 1;
             if (!ok) break;
             manual[CONTENT_NAME_LEN - 1] = '\0';
             dao.manual = manual[0] && item_id(manual) > 0 ? (uint16_t)item_id(manual) : 0;
