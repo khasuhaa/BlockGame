@@ -764,6 +764,30 @@ bool inventory_selection_inside(const Inventory *inv, int slot)
     return !is_empty(&inv->containers[holder->container].slots[inv->sel_inner]);
 }
 
+bool inventory_equip_selected(Inventory *inv)
+{
+    if (inventory_hand(inv)) return false;
+    ItemStack *s = &inv->slots[inv->sel_slot];
+    if (inventory_selection_inside(inv, inv->sel_slot)) s = &inv->containers[s->container].slots[inv->sel_inner];
+    if (s->count < 1) return false;
+    EquipSlot where = item_def((ItemId)s->id)->equip;
+    if (where == EQUIP_NONE || where < 0 || where >= ARMOR_SLOTS) return false;
+    ItemStack *on = &inv->armor[where];
+    if (s->count == 1) {
+        /* One for the other: a straight swap. */
+        ItemStack was = *on;
+        *on = *s;
+        *s = was;
+        return true;
+    }
+    /* One off a stack: what was on has to find room of its own. */
+    if (on->count > 0 && inventory_add_stack(inv, *on) != on->count) return false;
+    *on = *s;
+    on->count = 1;
+    s->count--;
+    return true;
+}
+
 const ItemStack *inventory_selected(const Inventory *inv)
 {
     static const ItemStack nothing = { 0 };

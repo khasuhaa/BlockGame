@@ -418,7 +418,7 @@ void hud_draw(const Hud *hud, const Inventory *inv)
                      : hover ? (Color){ 66, 160, 78, 255 } : (Color){ 52, 132, 64, 245 };
         DrawRectangleRec(r, back);
         DrawRectangleLinesEx(r, 2.0f, ready ? (Color){ 170, 232, 170, 255 } : (Color){ 90, 92, 102, 255 });
-        const char *text = ready ? "Eat" : "Full";
+        const char *text = hud->use_label ? hud->use_label : ready ? "Eat" : "Full";
         DrawText(text, (int)(r.x + (r.width - MeasureText(text, 18)) / 2), (int)r.y + 5, 18,
                  ready ? RAYWHITE : (Color){ 244, 196, 48, 255 });
     }

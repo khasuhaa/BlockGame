@@ -137,6 +137,10 @@ int inventory_basket_choice(const Inventory *inv, int slot);
 /* The selected stack: the chosen item inside a container if there is one
  * there, otherwise whatever is in the selected bar slot. */
 const ItemStack *inventory_selected(const Inventory *inv);
+/* Puts on what is selected, if it is something to wear: into the place it is worn, and whatever was on there
+ * comes off into the slot it came out of. (From a stack, one is put on; with something on already and nowhere
+ * for it to go, nothing happens.) True if it was. */
+bool inventory_equip_selected(Inventory *inv);
 /* True if the selection is an item inside the container in bar slot `slot`. */
 bool inventory_selection_inside(const Inventory *inv, int slot);
 

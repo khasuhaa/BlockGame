@@ -45,6 +45,9 @@ typedef struct {
     /* The "Eat" button over a selected food. Whoever runs the HUD says each
      * frame whether it shows, and is told when it has been clicked. */
     int eat;          /* HUD_EAT_NONE, HUD_EAT_READY or HUD_EAT_FULL */
+    /* (The same button serves for whatever else the selected thing is for: what it says then - "Equip" for
+     * something to wear - is given here, and NULL is food.) */
+    const char *use_label;
     bool eat_pressed; /* a press that began on it */
     bool eat_clicked; /* set for the frame it is clicked */
     /* A stack dragged off the inventory and let go over the world: set for

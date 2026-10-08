@@ -11630,6 +11630,28 @@ static void test_workbench_only(void)
     CHECK(content_load("data", err, sizeof err));
 }
 
+/* What is selected and can be worn is put on, and what was on comes off into its place. */
+static void test_equip_selected(void)
+{
+    static Game g;
+    game_init(&g, 64, 48, 5, WORLD_FLAT);
+    Inventory *inv = &g.inventory;
+    clear_inventory(&g);
+    inv->slots[0] = (ItemStack){ .id = (uint16_t)item_id("iron_helmet"), .count = 1 };
+    inv->slots[1] = (ItemStack){ .id = (uint16_t)item_id("tin_helmet"), .count = 1 };
+    inv->slots[2] = (ItemStack){ .id = (uint16_t)item_id("dirt"), .count = 5 };
+    inventory_select(inv, 0, -1);
+    CHECK(inventory_equip_selected(inv) && inv->armor[EQUIP_HEAD].id == item_id("iron_helmet") && inv->slots[0].count == 0);
+    /* With one on already it is a swap: the old one is where the new one was. */
+    inventory_select(inv, 1, -1);
+    CHECK(inventory_equip_selected(inv) && inv->armor[EQUIP_HEAD].id == item_id("tin_helmet") && inv->armor[EQUIP_HEAD].count == 1 &&
+          inv->slots[1].id == item_id("iron_helmet") && inv->slots[1].count == 1);
+    /* Not what cannot be worn; and not the bare hand. */
+    inventory_select(inv, 2, -1);
+    CHECK(!inventory_equip_selected(inv) && inv->slots[2].count == 5 && inv->armor[EQUIP_HEAD].id == item_id("tin_helmet"));
+    game_free(&g);
+}
+
 /* Every creature there is can be caged, in the game and in every mod; and let out again where it could live. */
 static void test_all_caged(void)
 {
@@ -12418,6 +12440,7 @@ int main(void)
     test_dimensions_mod();
     test_workbench_only();
     test_all_caged();
+    test_equip_selected();
     test_worn();
     test_trade_tiers();
     test_environment();

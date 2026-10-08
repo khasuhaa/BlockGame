@@ -417,10 +417,15 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
     const ItemStack *chosen = inventory_selected(&g->inventory);
     hud->eat = chosen->count < 1 || !game_is_food(chosen->id) ? HUD_EAT_NONE
                : game_can_eat(g, chosen->id) ? HUD_EAT_READY : HUD_EAT_FULL;
+    /* Something to wear gets an "Equip" button in the same place: it goes on, and what was on comes off into its slot. */
+    bool wearable = chosen->count > 0 && hud->eat == HUD_EAT_NONE && item_def((ItemId)chosen->id)->equip != EQUIP_NONE;
+    hud->use_label = wearable ? "Equip" : NULL;
+    if (wearable) hud->eat = HUD_EAT_READY;
 
     /* A press that starts on the inventory never reaches the world. */
     bool on_hud = hud_handle_input(hud, &g->inventory);
-    if (hud->eat_clicked) game_eat(g);
+    if (hud->eat_clicked && wearable) inventory_equip_selected(&g->inventory);
+    else if (hud->eat_clicked) game_eat(g);
     /* A stack dragged out of the inventory and let go over the world is
      * dropped into it - but not one let go over a menu. */
     if (hud->discard && !playerui_mouse_over(player) && !benchui_mouse_over(bench, g, &ui_view) &&

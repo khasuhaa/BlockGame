@@ -619,6 +619,8 @@ A **door** or **trapdoor** (wooden or iron) is a solid block to everything excep
 
 ### Armour
 
+Something to wear that is selected in the bar has an **Equip** button over it, where food has Eat: it goes on, and if something was already on in that place the two change over - the old one is left in the slot the new one came from.
+
 Clothes and armour worn in the four slots each stop a share of every **attack** - a dropbear's or shark's bite, and how long a scorpion's poison lasts - and the shares add up. Linen stops 2% a piece, fur 4%, leather 6%, tin 9%, iron 13%, titanium and carbon fiber 17% each, so a full suit of iron stops 52% and of titanium 68%. It does nothing for hunger, drowning or poison already in. An item's share is its `"armor"`.
 
 ### How the character looks
