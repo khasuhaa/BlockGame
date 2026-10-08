@@ -7,7 +7,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 32u
+#define SAVE_VERSION 33u
 
 /* Up to version 28 a world had room for a quarter as many of these, and they
  * were written out whole: every reader of an older version goes by these. */
@@ -826,7 +826,9 @@ bool load_game(Game *g, const char *path)
         }
         /* A block that has since been moved to the background - a golden chest, say - goes there in an older world,
          * where nothing is in its way. */
-        for (size_t i = 0; ok && h.version < 25 && i < cells; i++) {
+        /* (And again at version 33, when the chest and the safe went to the background as well: a world from before
+         * has its own put there, with what was in them.) */
+        for (size_t i = 0; ok && h.version < 33 && i < cells; i++) {
             TileType front = w->layers[LAYER_FOREGROUND][i];
             if (front == TILE_AIR || tile_def(front)->layer != LAYER_BACKGROUND || tile_def(front)->pair_of != TILE_AIR ||
                 tile_def(front)->pair != TILE_AIR || tile_def(front)->height > 1 || w->layers[LAYER_BACKGROUND][i] != TILE_AIR)

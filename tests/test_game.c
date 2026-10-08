@@ -4992,7 +4992,7 @@ static void test_furniture_cages_paint(void)
 
     /* A safe is a chest of iron: 16 slots. A shelf and a display cabinet hold 4, and show them. */
     const TileDef *safe = tile_def(tile_id("safe")), *shelf = tile_def(tile_id("shelf")), *cabinet = tile_def(tile_id("display_cabinet"));
-    CHECK(safe->storage_columns * safe->storage_rows == 16 && safe->solid && !safe->shows_contents);
+    CHECK(safe->storage_columns * safe->storage_rows == 16 && !safe->solid && safe->layer == LAYER_BACKGROUND && !safe->shows_contents);
     CHECK(shelf->storage_columns * shelf->storage_rows == 4 && shelf->shows_contents && shelf->layer == LAYER_BACKGROUND);
     CHECK(cabinet->storage_columns * cabinet->storage_rows == 4 && cabinet->shows_contents && cabinet->layer == LAYER_BACKGROUND);
     CHECK(item_def(item_id("safe"))->places == tile_id("safe") && item_def(item_id("safe"))->container_slots == 16);
@@ -8642,7 +8642,9 @@ static void test_chests(void)
     CHECK(game_click_tile(&g, cx, s - 1) && g.queue[0].type == ACTION_PLACE);
     CHECK(game_queue_action(&g, ACTION_USE, cx, s - 1));
     run(&g, 3.0f);
-    CHECK(world_get(&g.world, cx, s - 1) == chest_tile && g.bench_open && inv->slots[1].count == 1);
+    /* (It is of the background, as benches are: walked past, not round.) */
+    CHECK(!tile_def(chest_tile)->solid && tile_def(chest_tile)->layer == LAYER_BACKGROUND);
+    CHECK(world_get_at(&g.world, LAYER_BACKGROUND, cx, s - 1) == chest_tile && world_get(&g.world, cx, s - 1) == TILE_AIR && g.bench_open && inv->slots[1].count == 1);
     CHECK(tile_def(chest_tile)->storage_columns == 4 && tile_def(chest_tile)->storage_rows == 4);
     CHECK(game_open_storage(&g) != 0 && chest_slot(&g, 15) != NULL && chest_slot(&g, 16) == NULL);
     CHECK(inventory_move(inv, bar2, (SlotRef){ SLOT_CONTAINER, game_open_storage(&g), 5 }, 5));
@@ -8708,7 +8710,7 @@ static void test_chests(void)
     game_close_bench(&g); /* (as a click away from it does) */
     CHECK(game_queue_action(&g, ACTION_MINE, cx, s - 1));
     run(&g, 3.0f);
-    CHECK(world_get(&g.world, cx, s - 1) == TILE_AIR && !g.bench_open && game_open_storage(&g) == 0);
+    CHECK(world_get(&g.world, cx, s - 1) == TILE_AIR && world_get_at(&g.world, LAYER_BACKGROUND, cx, s - 1) == TILE_AIR && !g.bench_open && game_open_storage(&g) == 0);
     CHECK(inv->slots[1].id == ITEM_CHEST && inv->slots[1].count == 1 && inv->slots[1].container == 0);
     CHECK(inv->slots[3].id == ITEM_CHEST && inv->slots[3].count == 1 && inv->slots[3].container != 0);
     CHECK(inv->containers[inv->slots[3].container].slots[0].count == 5);
@@ -8761,13 +8763,29 @@ static void test_chests(void)
     inventory_select(inv, 1, -1);
     CHECK(inv->slots[1].container != 0 && game_click_tile(&g, cx + 2, s - 1));
     run(&g, 3.0f);
-    CHECK(world_get(&g.world, cx + 2, s - 1) == chest_tile && save_game(&g, "build/test_chest.world"));
+    CHECK(world_get_at(&g.world, LAYER_BACKGROUND, cx + 2, s - 1) == chest_tile && save_game(&g, "build/test_chest.world"));
     Game loaded;
     CHECK(load_game(&loaded, "build/test_chest.world"));
     CHECK(game_queue_action(&loaded, ACTION_USE, cx + 2, s - 1));
     run(&loaded, 3.0f);
     CHECK(loaded.bench_open && chest_slot(&loaded, 0)->id == ITEM_WOOD && chest_slot(&loaded, 0)->count == 5);
     game_free(&loaded);
+    /* A world saved at version 32, when a chest and a safe were blocks of the foreground: each is in the background
+     * now, where it stood, with what was in it. */
+    if (item_id("safe") > 0) {
+        CHECK(load_game(&loaded, "tests/fixtures/v32_chests.world"));
+        const char *kinds[2] = { "chest", "safe" };
+        for (int k = 0; k < 2; k++) {
+            int x = 35 + 3 * k, y = 18;
+            CHECK(world_get_at(&loaded.world, LAYER_BACKGROUND, x, y) == tile_id(kinds[k]) && world_get(&loaded.world, x, y) == TILE_AIR);
+            loaded.player.feet = loaded.player.step_to = (TilePos){ x - 1, y };
+            CHECK(game_queue_action(&loaded, ACTION_USE, x, y));
+            run(&loaded, 2.0f);
+            CHECK(loaded.bench_open && game_open_storage(&loaded) != 0 && chest_slot(&loaded, 2)->id == ITEM_DIRT && chest_slot(&loaded, 2)->count == 11 + k);
+            game_close_bench(&loaded);
+        }
+        game_free(&loaded);
+    }
     remove("build/test_chest.world");
     game_free(&g);
 }
