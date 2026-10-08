@@ -1,0 +1,1055 @@
+dungeon,name,grade,class,power,upgrades,health,gain
+DT,Bronze Dagger,1,warrior,6,2,0,1.0
+DT,Bronze Dagger,2,warrior,7,3,0,1.0
+DT,Bronze Dagger,3,warrior,8,4,0,1.0
+DT,Bronze Dagger,4,warrior,9,5,0,1.0
+DT,Novice Wand,1,mage,12,3,0,1.0
+DT,Novice Wand,2,mage,13,4,0,1.0
+DT,Novice Wand,3,mage,14,5,0,1.0
+DT,Novice Wand,4,mage,15,6,0,1.0
+DT,Bronze Longsword,1,warrior,10,3,0,1.0
+DT,Bronze Longsword,2,warrior,11,4,0,1.0
+DT,Bronze Longsword,3,warrior,12,5,0,1.0
+DT,Bronze Longsword,4,warrior,13,6,0,1.0
+DT,Iron Longsword,1,warrior,16,4,0,1.0
+DT,Iron Longsword,2,warrior,19,5,0,1.0
+DT,Iron Longsword,3,warrior,22,6,0,1.0
+DT,Iron Longsword,4,warrior,25,7,0,1.0
+DT,Spiked Club,1,warrior,13,3,0,1.0
+DT,Spiked Club,2,warrior,14,4,0,1.0
+DT,Spiked Club,3,warrior,16,5,0,1.0
+DT,Spiked Club,4,warrior,19,6,0,1.0
+DT,Steel Serrated Sword,1,warrior,21,5,0,1.0
+DT,Steel Serrated Sword,2,warrior,24,6,0,1.0
+DT,Steel Serrated Sword,3,warrior,29,7,0,1.0
+DT,Steel Serrated Sword,4,warrior,34,8,0,1.312
+DT,Magic Mallet,1,mage,22,5,0,1.0
+DT,Magic Mallet,2,mage,24,6,0,1.0
+DT,Magic Mallet,3,mage,28,7,0,1.0
+DT,Magic Mallet,4,mage,32,8,0,1.188
+DT,Apprentice Staff,1,mage,15,4,0,1.0
+DT,Apprentice Staff,2,mage,16,5,0,1.0
+DT,Apprentice Staff,3,mage,18,6,0,1.0
+DT,Apprentice Staff,4,mage,20,7,0,1.0
+DT,Flame Staff,1,mage,34,6,0,1.25
+DT,Flame Staff,2,mage,38,7,0,1.714
+DT,Flame Staff,3,mage,44,8,0,2.125
+DT,Flame Staff,4,mage,51,9,0,2.5
+DT,Granite Maul,1,warrior,28,5,0,1.0
+DT,Granite Maul,2,warrior,33,6,0,1.167
+DT,Granite Maul,3,warrior,38,7,0,1.714
+DT,Granite Maul,4,warrior,44,8,0,2.125
+DT,Rouge's Rapier,1,warrior,37,6,0,1.5
+DT,Rouge's Rapier,2,warrior,41,7,0,1.857
+DT,Rouge's Rapier,3,warrior,46,8,0,2.188
+DT,Rouge's Rapier,4,warrior,51,9,0,2.5
+DT,Mage Spellbook,1,mage,52,7,0,2.357
+DT,Mage Spellbook,2,mage,59,8,0,3.062
+DT,Mage Spellbook,3,mage,68,9,0,3.611
+DT,Mage Spellbook,4,mage,78,10,0,4.4
+DT,Enchanted Sword,1,warrior,46,8,0,2.188
+DT,Enchanted Sword,2,warrior,51,9,0,2.5
+DT,Enchanted Sword,3,warrior,58,10,0,3.05
+DT,Enchanted Sword,4,warrior,65,11,0,3.636
+DT,Ghostly Greataxe,1,warrior,76,9,0,4.167
+DT,Ghostly Greataxe,2,warrior,84,10,0,4.7
+DT,Ghostly Greataxe,3,warrior,91,11,0,5.318
+DT,Ghostly Greataxe,4,warrior,99,13,0,6.115
+DT,Ghoul Slayer,1,warrior,86,14,0,5.393
+DT,Ghoul Slayer,2,warrior,93,16,0,6.25
+DT,Ghoul Slayer,3,warrior,100,18,0,7.0
+DT,Ghoul Slayer,4,warrior,109,21,0,7.952
+DT,Grand Claymore,1,warrior,55,9,0,2.833
+DT,Grand Claymore,2,warrior,60,10,0,3.15
+DT,Grand Claymore,3,warrior,67,11,0,3.773
+DT,Grand Claymore,4,warrior,74,13,0,4.385
+DT,Onyx Staff,1,mage,65,9,0,3.444
+DT,Onyx Staff,2,mage,74,10,0,4.05
+DT,Onyx Staff,3,mage,83,11,0,4.818
+DT,Onyx Staff,4,mage,94,13,0,5.769
+DT,Pulverizer,1,warrior,65,9,0,3.444
+DT,Pulverizer,2,warrior,72,10,0,3.9
+DT,Pulverizer,3,warrior,79,11,0,4.5
+DT,Pulverizer,4,warrior,87,13,0,5.346
+DT,Holy Staff,1,mage,86,13,0,5.269
+DT,Holy Staff,2,mage,94,15,0,6.067
+DT,Holy Staff,3,mage,102,17,0,6.5
+DT,Holy Staff,4,mage,114,21,0,8.19
+DT,Desert Fury,5,warrior,120,24,0,8.604
+DT,Novice | Blue Wizard,1,armor,4,2,20,1.0
+DT,Novice | Blue Wizard,2,armor,5,3,30,1.0
+DT,Novice | Blue Wizard,3,armor,6,4,40,1.0
+DT,Novice | Blue Wizard,4,armor,7,5,50,1.0
+DT,Iron Armor,1,guardian,60,2,0,2.75
+DT,Iron Armor,2,guardian,72,3,0,0.0
+DT,Iron Armor,3,guardian,85,4,0,4.25
+DT,Iron Armor,4,guardian,100,5,0,5.1
+DT,Mercenary/Elemental,1,armor,7,4,45,1.0
+DT,Mercenary/Elemental,2,armor,8,5,55,1.0
+DT,Mercenary/Elemental,3,armor,9,6,65,1.0
+DT,Mercenary/Elemental,4,armor,10,7,75,1.0
+DT,Crusader's,1,guardian,125,4,0,6.25
+DT,Crusader's,2,guardian,138,5,0,7.2
+DT,Crusader's,3,guardian,152,6,0,8.25
+DT,Crusader's,4,guardian,170,7,0,9.143
+DT,Red Knight/Templar,1,armor,10,6,85,1.0
+DT,Red Knight/Templar,2,armor,12,7,95,1.0
+DT,Red Knight/Templar,3,armor,15,9,105,1.0
+DT,Red Knight/Templar,4,armor,17,10,115,1.0
+DT,Guardian,1,guardian,200,6,0,9.833
+DT,Guardian,2,guardian,235,7,0,10.0
+DT,Guardian,3,guardian,270,9,0,10.0
+DT,Guardian,4,guardian,340,10,0,10.0
+WO,Holy Grail,1,mage,105,18,0,7.333
+WO,Holy Grail,2,mage,115,21,0,8.214
+WO,Holy Grail,3,mage,125,24,0,8.792
+WO,Holy Grail,4,mage,135,27,0,9.222
+WO,Steel Strongsword,1,warrior,100,17,0,6.853
+WO,Steel Strongsword,2,warrior,110,20,0,7.875
+WO,Steel Strongsword,3,warrior,121,22,0,8.545
+WO,Steel Strongsword,4,warrior,130,24,0,8.979
+WO,Coldstone Sword,1,warrior,121,17,0,8.118
+WO,Coldstone Sword,2,warrior,132,19,0,8.763
+WO,Coldstone Sword,3,warrior,142,21,0,9.19
+WO,Coldstone Sword,4,warrior,150,23,0,9.413
+WO,Sapphire Spell Dagger,1,mage,120,22,0,8.477
+WO,Sapphire Spell Dagger,2,mage,133,25,0,9.1
+WO,Sapphire Spell Dagger,3,mage,145,28,0,9.446
+WO,Sapphire Spell Dagger,4,mage,160,31,0,9.71
+WO,Ice Enhanced Sword,1,warrior,137,24,0,9.146
+WO,Ice Enhanced Sword,2,warrior,145,26,0,9.404
+WO,Ice Enhanced Sword,3,warrior,155,28,0,9.607
+WO,Ice Enhanced Sword,4,warrior,165,30,0,9.75
+WO,Infernal Elemental Sword,1,warrior,150,24,0,9.438
+WO,Infernal Elemental Sword,2,warrior,160,26,0,9.654
+WO,Infernal Elemental Sword,3,warrior,170,28,0,9.786
+WO,Infernal Elemental Sword,4,warrior,178,29,0,9.862
+WO,Snowy Greatstaff,1,mage,143,26,0,9.346
+WO,Snowy Greatstaff,2,mage,158,29,0,9.672
+WO,Snowy Greatstaff,3,mage,167,32,0,9.781
+WO,Snowy Greatstaff,4,mage,178,35,0,9.886
+WO,Magma Infused Staff,1,mage,165,30,0,9.75
+WO,Magma Infused Staff,2,mage,180,33,0,9.879
+WO,Magma Infused Staff,3,mage,195,36,0,9.972
+WO,Magma Infused Staff,4,mage,210,39,0,9.987
+WO,Reinforced Steel Sword,1,warrior,165,29,0,9.741
+WO,Reinforced Steel Sword,2,warrior,175,31,0,9.871
+WO,Reinforced Steel Sword,3,warrior,185,34,0,9.926
+WO,Reinforced Steel Sword,4,warrior,195,36,0,9.972
+WO,Frozen Greatsword,1,warrior,182,34,0,9.912
+WO,Frozen Greatsword,2,warrior,190,37,0,9.959
+WO,Frozen Greatsword,3,warrior,200,39,0,9.974
+WO,Frozen Greatsword,4,warrior,210,41,0,9.988
+WO,Bluefire Staff,1,mage,185,35,0,9.929
+WO,Bluefire Staff,2,mage,200,38,0,9.974
+WO,Bluefire Staff,3,mage,215,42,0,10.0
+WO,Bluefire Staff,4,mage,230,45,0,10.0
+WO,Diamond Encrusted Blade,1,warrior,195,38,0,9.974
+WO,Diamond Encrusted Blade,2,warrior,207,41,0,9.988
+WO,Diamond Encrusted Blade,3,warrior,219,43,0,10.0
+WO,Diamond Encrusted Blade,4,warrior,230,45,0,10.0
+WO,Dragon Slayer,1,warrior,215,42,0,10.0
+WO,Dragon Slayer,2,warrior,227,45,0,10.0
+WO,Dragon Slayer,3,warrior,239,47,0,10.0
+WO,Dragon Slayer,4,warrior,250,49,0,10.0
+WO,Crimson Spell Blade,1,mage,205,39,0,9.987
+WO,Crimson Spell Blade,2,mage,220,43,0,10.0
+WO,Crimson Spell Blade,3,mage,235,47,0,10.0
+WO,Crimson Spell Blade,4,mage,250,49,0,10.0
+WO,Onyx Spell Scythe,1,mage,240,48,0,10.0
+WO,Onyx Spell Scythe,2,mage,260,52,0,10.0
+WO,Onyx Spell Scythe,3,mage,290,56,0,10.0
+WO,Onyx Spell Scythe,4,mage,320,60,0,10.0
+WO,Mossy Greatsword,1,warrior,235,64,0,10.0
+WO,Mossy Greatsword,2,warrior,250,68,0,10.0
+WO,Mossy Greatsword,3,warrior,270,72,0,10.0
+WO,Mossy Greatsword,4,warrior,290,76,0,10.0
+WO,Hardened Ice Sword,1,warrior,260,53,0,10.0
+WO,Hardened Ice Sword,2,warrior,280,55,0,10.0
+WO,Hardened Ice Sword,3,warrior,300,57,0,10.0
+WO,Hardened Ice Sword,4,warrior,320,59,0,10.0
+WO,Water Spellblade,1,mage,275,54,0,10.0
+WO,Water Spellblade,2,mage,305,58,0,10.0
+WO,Water Spellblade,3,mage,335,62,0,10.0
+WO,Water Spellblade,4,mage,365,66,0,10.0
+WO,Twin Blade Slicer,1,warrior,290,56,0,10.0
+WO,Twin Blade Slicer,2,warrior,310,58,0,10.0
+WO,Twin Blade Slicer,3,warrior,330,60,0,10.0
+WO,Twin Blade Slicer,4,warrior,350,62,0,10.0
+WO,Onyx Hammer,1,warrior,320,59,0,10.0
+WO,Onyx Hammer,2,warrior,340,61,0,10.0
+WO,Onyx Hammer,3,warrior,360,63,0,10.0
+WO,Onyx Hammer,4,warrior,380,66,0,10.0
+WO,Arcane Greatstaff,1,mage,320,60,0,10.0
+WO,Arcane Greatstaff,2,mage,350,64,0,10.0
+WO,Arcane Greatstaff,3,mage,380,68,0,10.0
+WO,Arcane Greatstaff,4,mage,410,72,0,10.0
+WO,Molten Maul,1,warrior,350,62,0,10.0
+WO,Molten Maul,2,warrior,370,64,0,10.0
+WO,Molten Maul,3,warrior,390,67,0,10.0
+WO,Molten Maul,4,warrior,410,70,0,10.0
+WO,King's Spellblade,1,mage,390,70,0,10.0
+WO,King's Spellblade,2,mage,430,74,0,10.0
+WO,King's Spellblade,3,mage,470,78,0,10.0
+WO,King's Spellblade,4,mage,510,82,0,10.0
+WO,Reinforced Ice Blade,1,warrior,390,68,0,10.0
+WO,Reinforced Ice Blade,2,warrior,420,71,0,10.0
+WO,Reinforced Ice Blade,3,warrior,450,74,0,10.0
+WO,Reinforced Ice Blade,4,warrior,480,77,0,10.0
+WO,Glacial Greatsword,1,warrior,435,72,0,10.0
+WO,Glacial Greatsword,2,warrior,465,75,0,10.0
+WO,Glacial Greatsword,3,warrior,495,78,0,10.0
+WO,Glacial Greatsword,4,warrior,525,81,0,10.0
+WO,Snow Elemental Staff,1,mage,450,76,0,10.0
+WO,Snow Elemental Staff,2,mage,490,80,0,10.0
+WO,Snow Elemental Staff,3,mage,530,84,0,10.0
+WO,Snow Elemental Staff,4,mage,570,88,0,10.0
+WO,Royal Slicer,1,warrior,480,92,0,10.0
+WO,Royal Slicer,2,warrior,510,76,0,10.0
+WO,Royal Slicer,3,warrior,540,79,0,10.0
+WO,Royal Slicer,4,warrior,570,82,0,10.0
+WO,King's Greatsword,1,warrior,525,80,0,10.0
+WO,King's Greatsword,2,warrior,555,83,0,10.0
+WO,King's Greatsword,3,warrior,585,86,0,10.0
+WO,King's Greatsword,4,warrior,615,89,0,10.0
+WO,Ice Queen Wand,1,mage,510,82,0,10.0
+WO,Ice Queen Wand,2,mage,560,86,0,10.0
+WO,Ice Queen Wand,3,mage,610,90,0,10.0
+WO,Ice Queen Wand,4,mage,660,94,0,10.0
+WO,Runic Hammer,1,warrior,570,84,0,10.0
+WO,Runic Hammer,2,warrior,600,87,0,10.0
+WO,Runic Hammer,3,warrior,630,90,0,10.0
+WO,Runic Hammer,4,warrior,660,93,0,10.0
+WO,Demonic Spellblade,1,mage,630,90,0,10.0
+WO,Demonic Spellblade,2,mage,675,95,0,10.0
+WO,Demonic Spellblade,3,mage,720,100,0,10.0
+WO,Demonic Spellblade,4,mage,765,105,0,10.0
+WO,Demonic Greatsword,1,warrior,810,108,0,10.0
+WO,Demonic Greatsword,2,warrior,850,112,0,10.0
+WO,Demonic Greatsword,3,warrior,890,116,0,10.0
+WO,Demonic Greatsword,4,warrior,930,120,0,10.0
+WO,Mighty Frozen Greatsword,1,warrior,630,90,0,10.0
+WO,Mighty Frozen Greatsword,2,warrior,670,94,0,10.0
+WO,Mighty Frozen Greatsword,3,warrior,710,98,0,10.0
+WO,Mighty Frozen Greatsword,4,warrior,750,102,0,10.0
+WO,Ice Reaver,1,mage,695,98,0,10.0
+WO,Ice Reaver,2,mage,740,103,0,10.0
+WO,Ice Reaver,3,mage,785,108,0,10.0
+WO,Ice Reaver,4,mage,830,113,0,10.0
+WO,Godsword,1,warrior,690,96,0,10.0
+WO,Godsword,2,warrior,730,100,0,10.0
+WO,Godsword,3,warrior,770,104,0,10.0
+WO,Godsword,4,warrior,810,108,0,10.0
+WO,Ice Infused Slicer,1,warrior,750,102,0,10.0
+WO,Ice Infused Slicer,2,warrior,790,106,0,10.0
+WO,Ice Infused Slicer,3,warrior,830,110,0,10.0
+WO,Ice Infused Slicer,4,warrior,870,114,0,10.0
+WO,Elder Void Wand,1,mage,765,105,0,10.0
+WO,Elder Void Wand,2,mage,810,110,0,10.0
+WO,Elder Void Wand,3,mage,855,115,0,10.0
+WO,Elder Void Wand,4,mage,905,120,0,10.0
+WO,Azerite Greatstaff,1,mage,845,113,0,10.0
+WO,Azerite Greatstaff,2,mage,890,118,0,10.0
+WO,Azerite Greatstaff,3,mage,935,123,0,10.0
+WO,Azerite Greatstaff,4,mage,990,128,0,10.0
+WO,Frozen Lord's Greatsword,1,warrior,870,114,0,10.0
+WO,Frozen Lord's Greatsword,2,warrior,910,118,0,10.0
+WO,Frozen Lord's Greatsword,3,warrior,950,122,0,10.0
+WO,Frozen Lord's Greatsword,4,warrior,990,126,0,10.0
+WO,Crystalised Greatsword,5,warrior,1150,135,0,10.0
+WO,Ice,1,armor,18,11,135,1.0
+WO,Ice,2,armor,21,13,170,1.0
+WO,Ice,3,armor,24,15,205,1.067
+WO,Ice,4,armor,27,17,240,1.235
+WO,Ice Guardian,1,guardian,400,11,0,10.0
+WO,Ice Guardian,2,guardian,450,13,0,10.0
+WO,Ice Guardian,3,guardian,500,15,0,10.0
+WO,Ice Guardian,4,guardian,550,17,0,10.0
+WO,Forgotten,1,armor,30,18,260,1.472
+WO,Forgotten,2,armor,34,20,280,1.9
+WO,Forgotten,3,armor,38,22,300,2.568
+WO,Forgotten,4,armor,42,24,320,3.062
+WO,Forgotten Guardian,1,guardian,600,18,0,10.0
+WO,Forgotten Guardian,2,guardian,660,20,0,10.0
+WO,Forgotten Guardian,3,guardian,720,22,0,10.0
+WO,Forgotten Guardian,4,guardian,780,24,0,10.0
+WO,Plate,1,armor,44,26,340,3.423
+WO,Plate,2,armor,48,28,370,3.982
+WO,Plate,3,armor,52,30,400,4.667
+WO,Plate,4,armor,54,32,430,5.156
+WO,Ancient Plate,1,guardian,850,26,0,10.0
+WO,Ancient Plate,2,guardian,950,28,0,10.0
+WO,Ancient Plate,3,guardian,1050,30,0,10.0
+WO,Ancient Plate,4,guardian,1150,32,0,10.0
+WO,Elite (Warlord/Mage) Plate,1,armor,56,34,460,5.647
+WO,Elite (Warlord/Mage) Plate,2,armor,61,37,500,6.473
+WO,Elite (Warlord/Mage) Plate,3,armor,66,40,540,7.112
+WO,Elite (Warlord/Mage) Plate,4,armor,71,43,580,7.57
+WO,Elite Ancient Plate,1,guardian,1200,34,0,10.0
+WO,Elite Ancient Plate,2,guardian,1350,37,0,10.0
+WO,Elite Ancient Plate,3,guardian,1500,40,0,10.0
+WO,Elite Ancient Plate,4,guardian,1650,43,0,10.0
+WO,Ice King's,1,armor,75,45,600,7.9
+WO,Ice King's,2,armor,80,49,650,8.276
+WO,Ice King's,3,armor,85,53,700,8.594
+WO,Ice King's,4,armor,90,57,750,8.807
+WO,Ice King's Guardian,1,guardian,1750,45,0,10.0
+WO,Ice King's Guardian,2,guardian,1950,49,0,10.0
+WO,Ice King's Guardian,3,guardian,2150,53,0,10.0
+WO,Ice King's Guardian,4,guardian,2350,57,0,10.0
+PI,Stone Strongsword,1,warrior,930,124,0,10.0
+PI,Stone Strongsword,2,warrior,980,130,0,10.0
+PI,Stone Strongsword,3,warrior,1030,136,0,10.0
+PI,Stone Strongsword,4,warrior,1080,142,0,10.0
+PI,Ruby Staff,1,mage,930,124,0,10.0
+PI,Ruby Staff,2,mage,990,131,0,10.0
+PI,Ruby Staff,3,mage,1050,138,0,10.0
+PI,Ruby Staff,4,mage,1110,145,0,10.0
+PI,Mighty Flatblade,1,warrior,1050,138,0,10.0
+PI,Mighty Flatblade,2,warrior,1100,144,0,10.0
+PI,Mighty Flatblade,3,warrior,1150,150,0,10.0
+PI,Mighty Flatblade,4,warrior,1200,156,0,10.0
+PI,Holy Wand,1,mage,1020,135,0,10.0
+PI,Holy Wand,2,mage,1090,143,0,10.0
+PI,Holy Wand,3,mage,1160,150,0,10.0
+PI,Holy Wand,4,mage,1230,157,0,10.0
+PI,Molten Blade,1,warrior,1130,146,0,10.0
+PI,Molten Blade,2,warrior,1190,152,0,10.0
+PI,Molten Blade,3,warrior,1250,158,0,10.0
+PI,Molten Blade,4,warrior,1310,164,0,10.0
+PI,Arcane Orb Staff,1,mage,1130,148,0,10.0
+PI,Arcane Orb Staff,2,mage,1210,155,0,10.0
+PI,Arcane Orb Staff,3,mage,1300,162,0,10.0
+PI,Arcane Orb Staff,4,mage,1390,169,0,10.0
+PI,Cultist Blade,1,mage,1220,154,0,10.0
+PI,Cultist Blade,2,mage,1290,161,0,10.0
+PI,Cultist Blade,3,mage,1360,167,0,10.0
+PI,Cultist Blade,4,mage,1430,172,0,10.0
+PI,Empowered Crystal Blade,1,warrior,1330,165,0,10.0
+PI,Empowered Crystal Blade,2,warrior,1400,172,0,10.0
+PI,Empowered Crystal Blade,3,warrior,1480,179,0,10.0
+PI,Empowered Crystal Blade,4,warrior,1560,186,0,10.0
+PI,Greater Dark Scythe,1,mage,1260,159,0,10.0
+PI,Greater Dark Scythe,2,mage,1360,168,0,10.0
+PI,Greater Dark Scythe,3,mage,1460,177,0,10.0
+PI,Greater Dark Scythe,4,mage,1560,186,0,10.0
+PI,Tenplar Blade,1,warrior,1400,173,0,10.0
+PI,Tenplar Blade,2,warrior,1490,179,0,10.0
+PI,Tenplar Blade,3,warrior,1580,186,0,10.0
+PI,Tenplar Blade,4,warrior,1670,192,0,10.0
+PI,Earth Wand,1,mage,1410,172,0,10.0
+PI,Earth Wand,2,mage,1500,180,0,10.0
+PI,Earth Wand,3,mage,1590,188,0,10.0
+PI,Earth Wand,4,mage,1680,196,0,10.0
+PI,Ocean Splitter,1,warrior,1550,182,0,10.0
+PI,Ocean Splitter,2,warrior,1670,190,0,10.0
+PI,Ocean Splitter,3,warrior,1790,198,0,10.0
+PI,Ocean Splitter,4,warrior,1910,206,0,10.0
+PI,Solar Staff,1,mage,1550,185,0,10.0
+PI,Solar Staff,2,mage,1660,195,0,10.0
+PI,Solar Staff,3,mage,1770,205,0,10.0
+PI,Solar Staff,4,mage,1880,215,0,10.0
+PI,Onyx Empowered Greatsword,1,warrior,1720,195,0,10.0
+PI,Onyx Empowered Greatsword,2,warrior,1840,204,0,10.0
+PI,Onyx Empowered Greatsword,3,warrior,1960,213,0,10.0
+PI,Onyx Empowered Greatsword,4,warrior,2080,222,0,10.0
+PI,Angelic Staff,1,mage,1710,200,0,10.0
+PI,Angelic Staff,2,mage,1840,212,0,10.0
+PI,Angelic Staff,3,mage,1970,224,0,10.0
+PI,Angelic Staff,4,mage,2100,236,0,10.0
+PI,Devilish Greataxe,1,warrior,1920,208,0,10.0
+PI,Devilish Greataxe,2,warrior,2040,218,0,10.0
+PI,Devilish Greataxe,3,warrior,2180,228,0,10.0
+PI,Devilish Greataxe,4,warrior,2320,238,0,10.0
+PI,Dark Priest Staff,1,mage,1940,218,0,10.0
+PI,Dark Priest Staff,2,mage,2110,230,0,10.0
+PI,Dark Priest Staff,3,mage,2280,242,0,10.0
+PI,Dark Priest Staff,4,mage,2460,254,0,10.0
+PI,Titan's Greataxe,1,warrior,2100,224,0,10.0
+PI,Titan's Greataxe,2,warrior,2260,236,0,10.0
+PI,Titan's Greataxe,3,warrior,2420,248,0,10.0
+PI,Titan's Greataxe,4,warrior,2580,260,0,10.0
+PI,Greater Prophet Staff,1,mage,2260,240,0,10.0
+PI,Greater Prophet Staff,2,mage,2500,257,0,10.0
+PI,Greater Prophet Staff,3,mage,2720,272,0,10.0
+PI,Greater Prophet Staff,4,mage,2960,290,0,10.0
+PI,Molten Greataxe,1,warrior,2360,244,0,10.0
+PI,Molten Greataxe,2,warrior,2560,260,0,10.0
+PI,Molten Greataxe,3,warrior,2760,275,0,10.0
+PI,Molten Greataxe,4,warrior,2960,290,0,10.0
+PI,Pirate King's,1,armor,85,60,1100,10.0
+PI,Pirate King's,2,armor,95,68,1200,10.0
+PI,Pirate King's,3,armor,105,76,1300,10.0
+PI,Pirate King's,4,armor,115,84,1400,10.0
+PI,Pirate King's Guardian,1,guardian,3000,34,0,10.0
+PI,Pirate King's Guardian,2,guardian,3300,60,0,10.0
+PI,Pirate King's Guardian,3,guardian,3600,68,0,10.0
+PI,Pirate King's Guardian,4,guardian,3900,76,0,10.0
+PI,Angelic/Infernal,1,armor,85,74,1800,10.0
+PI,Angelic/Infernal,2,armor,105,85,2000,10.0
+PI,Angelic/Infernal,3,armor,125,96,2200,10.0
+PI,Angelic/Infernal,4,armor,145,107,2400,10.0
+PI,Void Plate,1,guardian,4000,74,0,10.0
+PI,Void Plate,2,guardian,4500,85,0,10.0
+PI,Void Plate,3,guardian,5000,96,0,10.0
+PI,Void Plate,4,guardian,5500,107,0,10.0
+PI,Godly,1,armor,150,100,2600,9.865
+PI,Godly,2,armor,170,110,2800,9.945
+PI,Godly,3,armor,190,120,3000,9.988
+PI,Godly,4,armor,210,130,3200,9.996
+PI,Godly Guardian,1,guardian,5700,100,0,10.0
+PI,Godly Guardian,2,guardian,6200,110,0,10.0
+PI,Godly Guardian,3,guardian,6700,120,0,10.0
+PI,Godly Guardian,4,guardian,7300,130,0,10.0
+PI,Soulstealer Greatsword,5,warrior,3450,350,0,10.0
+PI,Staff of the Gods,5,mage,3450,350,0,10.0
+KC,Goblin Cleaver,1,warrior,2420,245,0,10.0
+KC,Goblin Cleaver,2,warrior,2620,261,0,10.0
+KC,Goblin Cleaver,3,warrior,2820,277,0,10.0
+KC,Goblin Cleaver,4,warrior,3020,295,0,10.0
+KC,Tribal Staff,1,mage,2420,245,0,10.0
+KC,Tribal Staff,2,mage,2620,261,0,10.0
+KC,Tribal Staff,3,mage,2820,277,0,10.0
+KC,Tribal Staff,4,mage,3020,295,0,10.0
+KC,Dual Cutlasses,1,warrior,2720,270,0,10.0
+KC,Dual Cutlasses,2,warrior,3000,300,0,10.0
+KC,Dual Cutlasses,3,warrior,3280,320,0,10.0
+KC,Dual Cutlasses,4,warrior,3560,340,0,10.0
+KC,Eagle Staff,1,mage,2720,270,0,10.0
+KC,Eagle Staff,2,mage,3000,300,0,10.0
+KC,Eagle Staff,3,mage,3280,320,0,10.0
+KC,Eagle Staff,4,mage,3560,340,0,10.0
+KC,Beast Cleaver,1,warrior,3200,315,0,10.0
+KC,Beast Cleaver,2,warrior,3550,330,0,10.0
+KC,Beast Cleaver,3,warrior,3800,350,0,10.0
+KC,Beast Cleaver,4,warrior,4150,370,0,10.0
+KC,Infernal Sun Staff,1,mage,3200,315,0,10.0
+KC,Infernal Sun Staff,2,mage,3550,330,0,10.0
+KC,Infernal Sun Staff,3,mage,3800,350,0,10.0
+KC,Infernal Sun Staff,4,mage,4150,370,0,10.0
+KC,Dual Royal Axes,1,warrior,3650,340,0,10.0
+KC,Dual Royal Axes,2,warrior,4100,360,0,10.0
+KC,Dual Royal Axes,3,warrior,4500,380,0,10.0
+KC,Dual Royal Axes,4,warrior,4900,400,0,10.0
+KC,Elven Staff,1,mage,3650,340,0,10.0
+KC,Elven Staff,2,mage,4100,360,0,10.0
+KC,Elven Staff,3,mage,4500,380,0,10.0
+KC,Elven Staff,4,mage,4900,400,0,10.0
+KC,Heavenly Greatsword,1,warrior,4400,400,0,10.0
+KC,Heavenly Greatsword,2,warrior,4900,440,0,10.0
+KC,Heavenly Greatsword,3,warrior,5400,480,0,10.0
+KC,Heavenly Greatsword,4,warrior,5900,520,0,10.0
+KC,Apothecary Staff,1,mage,4400,400,0,10.0
+KC,Apothecary Staff,2,mage,4900,440,0,10.0
+KC,Apothecary Staff,3,mage,5400,480,0,10.0
+KC,Apothecary Staff,4,mage,5900,520,0,10.0
+KC,High Priest Battleaxe,1,warrior,5200,460,0,10.0
+KC,High Priest Battleaxe,2,warrior,5600,500,0,10.0
+KC,High Priest Battleaxe,3,warrior,6000,520,0,10.0
+KC,High Priest Battleaxe,4,warrior,6400,540,0,10.0
+KC,Moonlight Staff,1,mage,5200,460,0,10.0
+KC,Moonlight Staff,2,mage,5600,500,0,10.0
+KC,Moonlight Staff,3,mage,6000,520,0,10.0
+KC,Moonlight Staff,4,mage,6400,540,0,10.0
+KC,Etheral Greataxe,1,warrior,5800,510,0,10.0
+KC,Etheral Greataxe,2,warrior,6300,535,0,10.0
+KC,Etheral Greataxe,3,warrior,6800,555,0,10.0
+KC,Etheral Greataxe,4,warrior,7300,575,0,10.0
+KC,Sunight Staff,1,mage,5800,510,0,10.0
+KC,Sunight Staff,2,mage,6300,535,0,10.0
+KC,Sunight Staff,3,mage,6800,555,0,10.0
+KC,Sunight Staff,4,mage,7300,575,0,10.0
+KC,Dual Frozen Blades,1,warrior,6600,540,0,10.0
+KC,Dual Frozen Blades,2,warrior,7100,570,0,10.0
+KC,Dual Frozen Blades,3,warrior,7600,600,0,10.0
+KC,Dual Frozen Blades,4,warrior,8100,630,0,10.0
+KC,Celestial Fire Staff,1,mage,6600,540,0,10.0
+KC,Celestial Fire Staff,2,mage,7100,570,0,10.0
+KC,Celestial Fire Staff,3,mage,7600,600,0,10.0
+KC,Celestial Fire Staff,4,mage,8100,630,0,10.0
+KC,Dual Infernal Slicers,1,warrior,7400,585,0,10.0
+KC,Dual Infernal Slicers,2,warrior,8100,615,0,10.0
+KC,Dual Infernal Slicers,3,warrior,8800,645,0,10.0
+KC,Dual Infernal Slicers,4,warrior,9500,670,0,10.0
+KC,Arclight Battlestaff,1,mage,7400,585,0,10.0
+KC,Arclight Battlestaff,2,mage,8100,615,0,10.0
+KC,Arclight Battlestaff,3,mage,8800,645,0,10.0
+KC,Arclight Battlestaff,4,mage,9500,670,0,10.0
+KC,Dual Jade Daggers,1,warrior,8700,640,0,10.0
+KC,Dual Jade Daggers,2,warrior,9500,675,0,10.0
+KC,Dual Jade Daggers,3,warrior,10500,710,0,10.0
+KC,Dual Jade Daggers,4,warrior,11500,750,0,10.0
+KC,Fire Ice Staff,1,mage,8700,640,0,10.0
+KC,Fire Ice Staff,2,mage,9500,675,0,10.0
+KC,Fire Ice Staff,3,mage,10500,710,0,10.0
+KC,Fire Ice Staff,4,mage,11500,750,0,10.0
+KC,Barbaric,1,armor,200,115,2800,10.0
+KC,Barbaric,2,armor,240,135,3300,10.0
+KC,Barbaric,3,armor,280,155,3700,10.0
+KC,Barbaric,4,armor,320,175,4100,10.0
+KC,Barbaric Guardian,1,guardian,6200,115,0,10.0
+KC,Barbaric Guardian,2,guardian,6900,135,0,10.0
+KC,Barbaric Guardian,3,guardian,7600,155,0,10.0
+KC,Barbaric Guardian,4,guardian,8300,175,0,10.0
+KC,Beastly / Arch-Mage,1,armor,350,180,4300,10.0
+KC,Beastly / Arch-Mage,2,armor,390,200,4550,10.0
+KC,Beastly / Arch-Mage,3,armor,440,220,4800,10.0
+KC,Beastly / Arch-Mage,4,armor,490,240,5200,10.0
+KC,Beastly Guardian,1,guardian,8400,180,0,10.0
+KC,Beastly Guardian,2,guardian,9400,200,0,10.0
+KC,Beastly Guardian,3,guardian,10400,220,0,10.0
+KC,Beastly Guardian,4,guardian,11400,240,0,10.0
+KC,Titan-Forged,1,armor,450,220,4500,10.0
+KC,Titan-Forged,2,armor,530,245,4800,10.0
+KC,Titan-Forged,3,armor,610,270,5200,10.0
+KC,Titan-Forged,4,armor,690,300,5600,10.0
+KC,Titan-Forged Guardian,1,guardian,10900,220,0,10.0
+KC,Titan-Forged Guardian,2,guardian,12300,245,0,10.0
+KC,Titan-Forged Guardian,3,guardian,14000,270,0,10.0
+KC,Titan-Forged Guardian,4,guardian,16000,300,0,10.0
+KC,Beast Master War Scythe,5,warrior,14000,850,0,10.0
+KC,Beast Master Spell Scythe,5,mage,14000,850,0,10.0
+UW,Dual Sapphire Slicers,1,warrior,9700,700,0,10.0
+UW,Dual Sapphire Slicers,2,warrior,10200,740,0,10.0
+UW,Dual Sapphire Slicers,3,warrior,10700,780,0,10.0
+UW,Dual Sapphire Slicers,4,warrior,11200,820,0,10.0
+UW,Sapphire Greatstaff,1,mage,9700,700,0,10.0
+UW,Sapphire Greatstaff,2,mage,10200,740,0,10.0
+UW,Sapphire Greatstaff,3,mage,10700,780,0,10.0
+UW,Sapphire Greatstaff,4,mage,11200,820,0,10.0
+UW,Blacksteel Greatsword,1,warrior,10800,780,0,10.0
+UW,Blacksteel Greatsword,2,warrior,11800,820,0,10.0
+UW,Blacksteel Greatsword,3,warrior,12800,860,0,10.0
+UW,Blacksteel Greatsword,4,warrior,13800,900,0,10.0
+UW,Luminous Greatstaff,1,mage,10800,780,0,10.0
+UW,Luminous Greatstaff,2,mage,11800,820,0,10.0
+UW,Luminous Greatstaff,3,mage,12800,860,0,10.0
+UW,Luminous Greatstaff,4,mage,13800,900,0,10.0
+UW,Dual Flatblade Slicers,1,warrior,12800,860,0,10.0
+UW,Dual Flatblade Slicers,2,warrior,13800,900,0,10.0
+UW,Dual Flatblade Slicers,3,warrior,14800,940,0,10.0
+UW,Dual Flatblade Slicers,4,warrior,15800,980,0,10.0
+UW,Hope's Triumph,1,mage,12800,860,0,10.0
+UW,Hope's Triumph,2,mage,13800,900,0,10.0
+UW,Hope's Triumph,3,mage,14800,940,0,10.0
+UW,Hope's Triumph,4,mage,15800,980,0,10.0
+UW,Royal Crimson Greatsword,1,warrior,14800,940,0,10.0
+UW,Royal Crimson Greatsword,2,warrior,15800,980,0,10.0
+UW,Royal Crimson Greatsword,3,warrior,16800,1020,0,10.0
+UW,Royal Crimson Greatsword,4,warrior,17800,1060,0,10.0
+UW,Dragon's Claw Scythe,1,mage,14800,940,0,10.0
+UW,Dragon's Claw Scythe,2,mage,15800,980,0,10.0
+UW,Dragon's Claw Scythe,3,mage,16800,1020,0,10.0
+UW,Dragon's Claw Scythe,4,mage,17800,1060,0,10.0
+UW,Dual Ancient Daggers,1,warrior,16800,1020,0,10.0
+UW,Dual Ancient Daggers,2,warrior,17300,1050,0,10.0
+UW,Dual Ancient Daggers,3,warrior,17800,1080,0,10.0
+UW,Dual Ancient Daggers,4,warrior,18300,1110,0,10.0
+UW,Timelost Spellblade,1,mage,16800,1020,0,10.0
+UW,Timelost Spellblade,2,mage,17300,1050,0,10.0
+UW,Timelost Spellblade,3,mage,17800,1080,0,10.0
+UW,Timelost Spellblade,4,mage,18300,1110,0,10.0
+UW,Timelost Greatsword,1,warrior,17500,1060,0,10.0
+UW,Timelost Greatsword,2,warrior,18000,1090,0,10.0
+UW,Timelost Greatsword,3,warrior,18500,1120,0,10.0
+UW,Timelost Greatsword,4,warrior,19000,1150,0,10.0
+UW,Dual Arcane Daggers,1,mage,17500,1060,0,10.0
+UW,Dual Arcane Daggers,2,mage,18000,1090,0,10.0
+UW,Dual Arcane Daggers,3,mage,18500,1120,0,10.0
+UW,Dual Arcane Daggers,4,mage,19000,1150,0,10.0
+UW,Timelost Warhammer,1,warrior,18300,1110,0,10.0
+UW,Timelost Warhammer,2,warrior,18900,1140,0,10.0
+UW,Timelost Warhammer,3,warrior,19500,1170,0,10.0
+UW,Timelost Warhammer,4,warrior,20100,1200,0,10.0
+UW,Vampiric Greatstaff,1,mage,18300,1110,0,10.0
+UW,Vampiric Greatstaff,2,mage,18900,1140,0,10.0
+UW,Vampiric Greatstaff,3,mage,19500,1170,0,10.0
+UW,Vampiric Greatstaff,4,mage,20100,1200,0,10.0
+UW,Nature Scythe,1,warrior,19000,1150,0,10.0
+UW,Nature Scythe,2,warrior,19700,1180,0,10.0
+UW,Nature Scythe,3,warrior,20400,1210,0,10.0
+UW,Nature Scythe,4,warrior,21100,1240,0,10.0
+UW,Ancient Elder Staff,1,mage,19000,1150,0,10.0
+UW,Ancient Elder Staff,2,mage,19700,1180,0,10.0
+UW,Ancient Elder Staff,3,mage,20400,1210,0,10.0
+UW,Ancient Elder Staff,4,mage,21100,1240,0,10.0
+UW,Enchanted Demon Greataxe,1,warrior,19800,1190,0,10.0
+UW,Enchanted Demon Greataxe,2,warrior,20500,1220,0,10.0
+UW,Enchanted Demon Greataxe,3,warrior,21200,1250,0,10.0
+UW,Enchanted Demon Greataxe,4,warrior,21900,1280,0,10.0
+UW,Demon Lord's Greatstaff,1,mage,19800,1190,0,10.0
+UW,Demon Lord's Greatstaff,2,mage,20500,1220,0,10.0
+UW,Demon Lord's Greatstaff,3,mage,21200,1250,0,10.0
+UW,Demon Lord's Greatstaff,4,mage,21900,1280,0,10.0
+UW,Tribal,1,armor,900,285,6800,10.0
+UW,Tribal,2,armor,1000,310,7700,10.0
+UW,Tribal,3,armor,1100,335,8600,10.0
+UW,Tribal,4,armor,1200,350,9500,10.0
+UW,Reinforced Guardian,1,guardian,6200,285,0,10.0
+UW,Reinforced Guardian,2,guardian,6900,310,0,10.0
+UW,Reinforced Guardian,3,guardian,7600,335,0,10.0
+UW,Reinforced Guardian,4,guardian,8300,350,0,10.0
+UW,Timelost,1,armor,1200,360,9500,10.0
+UW,Timelost,2,armor,1300,380,10500,10.0
+UW,Timelost,3,armor,1400,400,11500,10.0
+UW,Timelost,4,armor,1500,420,12500,10.0
+UW,Timelost Guardian,1,guardian,20000,360,0,10.0
+UW,Timelost Guardian,2,guardian,22500,380,0,10.0
+UW,Timelost Guardian,3,guardian,25000,400,0,10.0
+UW,Timelost Guardian,4,guardian,27500,420,0,10.0
+UW,Glorious,1,armor,1400,400,4500,10.0
+UW,Glorious,2,armor,1500,420,4800,10.0
+UW,Glorious,3,armor,1600,440,5200,10.0
+UW,Glorious,4,armor,1700,460,5600,10.0
+UW,Glorious Guardian,1,guardian,26500,400,0,10.0
+UW,Glorious Guardian,2,guardian,28500,420,0,10.0
+UW,Glorious Guardian,3,guardian,30500,440,0,10.0
+UW,Glorious Guardian,4,guardian,32500,460,0,10.0
+UW,Dual Phoenix Daggers,5,warrior,24000,1400,0,10.0
+UW,Phoenix Greatstaff,5,mage,24000,1400,0,10.0
+SP,Bone Scythe,1,warrior,19500,1200,0,10.0
+SP,Bone Scythe,2,warrior,20500,1240,0,10.0
+SP,Bone Scythe,3,warrior,21500,1280,0,10.0
+SP,Bone Scythe,4,warrior,22500,1320,0,10.0
+SP,Staff Of Heat,1,mage,19500,1200,0,10.0
+SP,Staff Of Heat,2,mage,20500,1240,0,10.0
+SP,Staff Of Heat,3,mage,21500,1280,0,10.0
+SP,Staff Of Heat,4,mage,22500,1320,0,10.0
+SP,Royal Katana,1,warrior,21500,1280,0,10.0
+SP,Royal Katana,2,warrior,23000,1330,0,10.0
+SP,Royal Katana,3,warrior,24500,1380,0,10.0
+SP,Royal Katana,4,warrior,26000,1430,0,10.0
+SP,Industrial Spellscythe,1,mage,21500,1280,0,10.0
+SP,Industrial Spellscythe,2,mage,23000,1330,0,10.0
+SP,Industrial Spellscythe,3,mage,24500,1380,0,10.0
+SP,Industrial Spellscythe,4,mage,26000,1430,0,10.0
+SP,Honorable Greatsword,1,warrior,24000,1370,0,10.0
+SP,Honorable Greatsword,2,warrior,26000,1430,0,10.0
+SP,Honorable Greatsword,3,warrior,28000,1490,0,10.0
+SP,Honorable Greatsword,4,warrior,30000,1550,0,10.0
+SP,Sapphire Spellspear,1,mage,24000,1370,0,10.0
+SP,Sapphire Spellspear,2,mage,26000,1430,0,10.0
+SP,Sapphire Spellspear,3,mage,28000,1490,0,10.0
+SP,Sapphire Spellspear,4,mage,30000,1550,0,10.0
+SP,Dual Infernal Daggers,1,warrior,27000,1450,0,10.0
+SP,Dual Infernal Daggers,2,warrior,29000,1510,0,10.0
+SP,Dual Infernal Daggers,3,warrior,31000,1570,0,10.0
+SP,Dual Infernal Daggers,4,warrior,33000,1630,0,10.0
+SP,Amethyst Spelldagger,1,mage,27000,1450,0,10.0
+SP,Amethyst Spelldagger,2,mage,29000,1510,0,10.0
+SP,Amethyst Spelldagger,3,mage,31000,1570,0,10.0
+SP,Amethyst Spelldagger,4,mage,33000,1630,0,10.0
+SP,Dual Samurai Stars,1,warrior,26000,1430,0,10.0
+SP,Dual Samurai Stars,2,warrior,28000,1490,0,10.0
+SP,Dual Samurai Stars,3,warrior,30000,1550,0,10.0
+SP,Dual Samurai Stars,4,warrior,32000,1610,0,10.0
+SP,Violet Spellblade,1,mage,26000,1430,0,10.0
+SP,Violet Spellblade,2,mage,28000,1490,0,10.0
+SP,Violet Spellblade,3,mage,30000,1550,0,10.0
+SP,Violet Spellblade,4,mage,32000,1610,0,10.0
+SP,Dual Samurai Sickles,1,warrior,30000,1550,0,10.0
+SP,Dual Samurai Sickles,2,warrior,32500,1610,0,10.0
+SP,Dual Samurai Sickles,3,warrior,35000,1670,0,10.0
+SP,Dual Samurai Sickles,4,warrior,37500,1730,0,10.0
+SP,Amethyst Crescent Spellblade,1,mage,30000,1550,0,10.0
+SP,Amethyst Crescent Spellblade,2,mage,32500,1610,0,10.0
+SP,Amethyst Crescent Spellblade,3,mage,35000,1670,0,10.0
+SP,Amethyst Crescent Spellblade,4,mage,37500,1730,0,10.0
+SP,Crimson Kris,1,warrior,34000,1650,0,10.0
+SP,Crimson Kris,2,warrior,36500,1710,0,10.0
+SP,Crimson Kris,3,warrior,39000,1770,0,10.0
+SP,Crimson Kris,4,warrior,41500,1830,0,10.0
+SP,Jade Spelldagger,1,mage,34000,1650,0,10.0
+SP,Jade Spelldagger,2,mage,36500,1710,0,10.0
+SP,Jade Spelldagger,3,mage,39000,1770,0,10.0
+SP,Jade Spelldagger,4,mage,41500,1830,0,10.0
+SP,Toxic Warspear,1,warrior,38000,1740,0,10.0
+SP,Toxic Warspear,2,warrior,41000,1800,0,10.0
+SP,Toxic Warspear,3,warrior,44000,1860,0,10.0
+SP,Toxic Warspear,4,warrior,47000,1920,0,10.0
+SP,Pink Pearl Spellscythe,1,mage,38000,1740,0,10.0
+SP,Pink Pearl Spellscythe,2,mage,41000,1800,0,10.0
+SP,Pink Pearl Spellscythe,3,mage,44000,1860,0,10.0
+SP,Pink Pearl Spellscythe,4,mage,47000,1920,0,10.0
+SP,Ruby Greatsword,1,warrior,42500,1830,0,10.0
+SP,Ruby Greatsword,2,warrior,45500,1890,0,10.0
+SP,Ruby Greatsword,3,warrior,48500,1950,0,10.0
+SP,Ruby Greatsword,4,warrior,51500,2010,0,10.0
+SP,Dual Elegant Fans,1,mage,42500,1830,0,10.0
+SP,Dual Elegant Fans,2,mage,45500,1890,0,10.0
+SP,Dual Elegant Fans,3,mage,48500,1950,0,10.0
+SP,Dual Elegant Fans,4,mage,51500,2010,0,10.0
+SP,Samurai,1,armor,1650,450,16000,10.0
+SP,Samurai,2,armor,1900,490,18000,10.0
+SP,Samurai,3,armor,2150,530,20000,10.0
+SP,Samurai,4,armor,2400,570,22000,10.0
+SP,Samurai Guardian,1,guardian,30000,450,0,10.0
+SP,Samurai Guardian,2,guardian,34000,490,0,10.0
+SP,Samurai Guardian,3,guardian,38000,530,0,10.0
+SP,Samurai Guardian,4,guardian,42000,570,0,10.0
+SP,Infernal,1,armor,2400,570,23000,10.0
+SP,Infernal,2,armor,2700,610,26000,10.0
+SP,Infernal,3,armor,3000,650,29000,10.0
+SP,Infernal,4,armor,3300,690,32000,10.0
+SP,Infernal Guardian,1,guardian,42000,570,0,10.0
+SP,Infernal Guardian,2,guardian,47000,610,0,10.0
+SP,Infernal Guardian,3,guardian,52000,650,0,10.0
+SP,Infernal Guardian,4,guardian,57000,690,0,10.0
+SP,Ancestral,1,armor,3000,650,32000,10.0
+SP,Ancestral,2,armor,3300,690,35000,10.0
+SP,Ancestral,3,armor,3600,730,38000,10.0
+SP,Ancestral,4,armor,3900,770,41000,10.0
+SP,Ancestral Guardian,1,guardian,54000,650,0,10.0
+SP,Ancestral Guardian,2,guardian,59000,690,0,10.0
+SP,Ancestral Guardian,3,guardian,65000,730,0,10.0
+SP,Ancestral Guardian,4,guardian,71000,770,0,10.0
+SP,Sakura Katana,5,warrior,56000,2250,0,10.0
+SP,Sakura Greatstaff,5,mage,56000,2250,0,10.0
+TC,Stone Scythe,1,warrior,45000,1880,0,10.0
+TC,Stone Scythe,2,warrior,48000,1940,0,10.0
+TC,Stone Scythe,3,warrior,51000,2000,0,10.0
+TC,Stone Scythe,4,warrior,54000,2060,0,10.0
+TC,Sapphire Stone Wand,1,mage,45000,1880,0,10.0
+TC,Sapphire Stone Wand,2,mage,48000,1940,0,10.0
+TC,Sapphire Stone Wand,3,mage,51000,2000,0,10.0
+TC,Sapphire Stone Wand,4,mage,54000,2060,0,10.0
+TC,Dual Crimson Daggers,1,warrior,50000,1980,0,10.0
+TC,Dual Crimson Daggers,2,warrior,54000,2050,0,10.0
+TC,Dual Crimson Daggers,3,warrior,58000,2120,0,10.0
+TC,Dual Crimson Daggers,4,warrior,62000,2190,0,10.0
+TC,Runic Pike,1,mage,50000,1980,0,10.0
+TC,Runic Pike,2,mage,54000,2050,0,10.0
+TC,Runic Pike,3,mage,58000,2120,0,10.0
+TC,Runic Pike,4,mage,62000,2190,0,10.0
+TC,Dual Razor Slicers,1,warrior,56000,2100,0,10.0
+TC,Dual Razor Slicers,2,warrior,60000,2180,0,10.0
+TC,Dual Razor Slicers,3,warrior,64000,2260,0,10.0
+TC,Dual Razor Slicers,4,warrior,68000,2340,0,10.0
+TC,Elementalist Staff,1,mage,56000,2100,0,10.0
+TC,Elementalist Staff,2,mage,60000,2180,0,10.0
+TC,Elementalist Staff,3,mage,64000,2260,0,10.0
+TC,Elementalist Staff,4,mage,68000,2340,0,10.0
+TC,Giant Royal Axe,1,warrior,63000,2240,0,10.0
+TC,Giant Royal Axe,2,warrior,67000,2330,0,10.0
+TC,Giant Royal Axe,3,warrior,71000,2420,0,10.0
+TC,Giant Royal Axe,4,warrior,75000,2510,0,10.0
+TC,Toxic Spellscythe,1,mage,63000,2240,0,10.0
+TC,Toxic Spellscythe,2,mage,67000,2330,0,10.0
+TC,Toxic Spellscythe,3,mage,71000,2420,0,10.0
+TC,Toxic Spellscythe,4,mage,75000,2510,0,10.0
+TC,Dual Magma Fangs,1,warrior,69000,2350,0,10.0
+TC,Dual Magma Fangs,2,warrior,74000,2500,0,10.0
+TC,Dual Magma Fangs,3,warrior,79000,2650,0,10.0
+TC,Dual Magma Fangs,4,warrior,84000,2800,0,10.0
+TC,Amethyst Spellscythe,1,mage,69000,2350,0,10.0
+TC,Amethyst Spellscythe,2,mage,74000,2500,0,10.0
+TC,Amethyst Spellscythe,3,mage,79000,2650,0,10.0
+TC,Amethyst Spellscythe,4,mage,84000,2800,0,10.0
+TC,Dark Ice Blades,1,warrior,77000,2600,0,10.0
+TC,Dark Ice Blades,2,warrior,82000,2770,0,10.0
+TC,Dark Ice Blades,3,warrior,87000,2940,0,10.0
+TC,Dark Ice Blades,4,warrior,92000,3110,0,10.0
+TC,Dual Arcane Slicers,1,mage,77000,2600,0,10.0
+TC,Dual Arcane Slicers,2,mage,82000,2770,0,10.0
+TC,Dual Arcane Slicers,3,mage,87000,2940,0,10.0
+TC,Dual Arcane Slicers,4,mage,92000,3110,0,10.0
+TC,Dual Infernal Scimitars,1,warrior,86000,2900,0,10.0
+TC,Dual Infernal Scimitars,2,warrior,92000,2080,0,10.0
+TC,Dual Infernal Scimitars,3,warrior,98000,3260,0,10.0
+TC,Dual Infernal Scimitars,4,warrior,104000,3440,0,10.0
+TC,Runic Spellscythe,1,mage,86000,2900,0,10.0
+TC,Runic Spellscythe,2,mage,92000,2080,0,10.0
+TC,Runic Spellscythe,3,mage,98000,3260,0,10.0
+TC,Runic Spellscythe,4,mage,104000,3440,0,10.0
+TC,Bloodthrister,1,warrior,95000,3200,0,10.0
+TC,Bloodthrister,2,warrior,101000,3380,0,10.0
+TC,Bloodthrister,3,warrior,107000,3560,0,10.0
+TC,Bloodthrister,4,warrior,113000,3740,0,10.0
+TC,Mana Infused Spellblade,1,mage,95000,3200,0,10.0
+TC,Mana Infused Spellblade,2,mage,101000,3380,0,10.0
+TC,Mana Infused Spellblade,3,mage,107000,3560,0,10.0
+TC,Mana Infused Spellblade,4,mage,113000,3740,0,10.0
+TC,Salvaged,1,armor,4000,750,40000,10.0
+TC,Salvaged,2,armor,4500,830,45000,10.0
+TC,Salvaged,3,armor,5000,910,50000,10.0
+TC,Salvaged,4,armor,5500,990,55000,10.0
+TC,Salvaged Guardian,1,guardian,72000,750,0,10.0
+TC,Salvaged Guardian,2,guardian,78000,830,0,10.0
+TC,Salvaged Guardian,3,guardian,84000,910,0,10.0
+TC,Salvaged Guardian,4,guardian,90000,990,0,10.0
+TC,Rouge,1,armor,5500,990,55000,10.0
+TC,Rouge,2,armor,5900,1070,62500,10.0
+TC,Rouge,3,armor,6300,1150,70000,10.0
+TC,Rouge,4,armor,6700,1230,77500,10.0
+TC,Rouge Guardian,1,guardian,90000,990,0,10.0
+TC,Rouge Guardian,2,guardian,100000,1070,0,10.0
+TC,Rouge Guardian,3,guardian,110000,1150,0,10.0
+TC,Rouge Guardian,4,guardian,120000,1230,0,10.0
+TC,Overlord's,1,armor,6300,1150,77500,10.0
+TC,Overlord's,2,armor,6800,1240,85000,10.0
+TC,Overlord's,3,armor,7300,1130,92500,10.0
+TC,Overlord's,4,armor,7800,1420,100000,10.0
+TC,Overlord's Guardian (Hat),1,guardian,125000,1150,0,10.0
+TC,Overlord's Guardian (Hat),2,guardian,140000,1240,0,10.0
+TC,Overlord's Guardian (Hat),3,guardian,155000,1130,0,10.0
+TC,Overlord's Guardian (Hat),4,guardian,170000,1420,0,10.0
+TC,Overlord's Guardian (Chest),1,guardian,125000,1150,0,10.0
+TC,Overlord's Guardian (Chest),2,guardian,136000,1240,0,10.0
+TC,Overlord's Guardian (Chest),3,guardian,147000,1130,0,10.0
+TC,Overlord's Guardian (Chest),4,guardian,158000,1420,0,10.0
+TC,Overlord's Rageblade,5,warrior,122000,4400,0,10.0
+TC,Overlord's Manablade,5,mage,122000,4400,0,10.0
+GH,Cracked Tooth Cleaver,1,warrior,100000,3450,0,10.0
+GH,Cracked Tooth Cleaver,2,warrior,106000,3600,0,10.0
+GH,Cracked Tooth Cleaver,3,warrior,112000,3850,0,10.0
+GH,Cracked Tooth Cleaver,4,warrior,118000,4000,0,10.0
+GH,Poison Spear,1,mage,100000,3450,0,10.0
+GH,Poison Spear,2,mage,106000,3600,0,10.0
+GH,Poison Spear,3,mage,112000,3850,0,10.0
+GH,Poison Spear,4,mage,118000,4000,0,10.0
+GH,Dual Serrated Knives,1,warrior,110000,3800,0,10.0
+GH,Dual Serrated Knives,2,warrior,116000,4000,0,10.0
+GH,Dual Serrated Knives,3,warrior,122000,4200,0,10.0
+GH,Dual Serrated Knives,4,warrior,128000,4400,0,10.0
+GH,Dual Toxic Daggers,1,mage,110000,3800,0,10.0
+GH,Dual Toxic Daggers,2,mage,116000,4000,0,10.0
+GH,Dual Toxic Daggers,3,mage,122000,4200,0,10.0
+GH,Dual Toxic Daggers,4,mage,128000,4400,0,10.0
+GH,Dual Pirate Cutlasses,1,warrior,120000,4100,0,10.0
+GH,Dual Pirate Cutlasses,2,warrior,128000,4450,0,10.0
+GH,Dual Pirate Cutlasses,3,warrior,136000,4800,0,10.0
+GH,Dual Pirate Cutlasses,4,warrior,144000,5150,0,10.0
+GH,Dual Bladed Mage Daggers,1,mage,120000,4100,0,10.0
+GH,Dual Bladed Mage Daggers,2,mage,128000,4450,0,10.0
+GH,Dual Bladed Mage Daggers,3,mage,136000,4800,0,10.0
+GH,Dual Bladed Mage Daggers,4,mage,144000,5150,0,10.0
+GH,Captain's Anchor,1,warrior,133000,4700,0,10.0
+GH,Captain's Anchor,2,warrior,142000,5200,0,10.0
+GH,Captain's Anchor,3,warrior,151000,5600,0,10.0
+GH,Captain's Anchor,4,warrior,160000,6200,0,10.0
+GH,Dual Ocean Fists,1,mage,133000,4700,0,10.0
+GH,Dual Ocean Fists,2,mage,142000,5200,0,10.0
+GH,Dual Ocean Fists,3,mage,151000,5600,0,10.0
+GH,Dual Ocean Fists,4,mage,160000,6200,0,10.0
+GH,Sharktooth Blade,1,warrior,148000,5400,0,10.0
+GH,Sharktooth Blade,2,warrior,156000,5850,0,10.0
+GH,Sharktooth Blade,3,warrior,164000,6300,0,10.0
+GH,Sharktooth Blade,4,warrior,172000,6750,0,10.0
+GH,Magic Trident,1,mage,148000,5400,0,10.0
+GH,Magic Trident,2,mage,156000,5850,0,10.0
+GH,Magic Trident,3,mage,164000,6300,0,10.0
+GH,Magic Trident,4,mage,172000,6750,0,10.0
+GH,Seafarer's Lost Blade,1,warrior,162000,6200,0,10.0
+GH,Seafarer's Lost Blade,2,warrior,171000,6800,0,10.0
+GH,Seafarer's Lost Blade,3,warrior,180000,7400,0,10.0
+GH,Seafarer's Lost Blade,4,warrior,189000,8000,0,10.0
+GH,Dual Phantom Defenders,1,mage,162000,6200,0,10.0
+GH,Dual Phantom Defenders,2,mage,171000,6800,0,10.0
+GH,Dual Phantom Defenders,3,mage,180000,7400,0,10.0
+GH,Dual Phantom Defenders,4,mage,189000,8000,0,10.0
+GH,Dual Phantom Axes,1,warrior,176000,7200,0,10.0
+GH,Dual Phantom Axes,2,warrior,185000,7800,0,10.0
+GH,Dual Phantom Axes,3,warrior,194000,8400,0,10.0
+GH,Dual Phantom Axes,4,warrior,203000,9000,0,10.0
+GH,Ocean Dweller's Mageblade,1,mage,176000,7200,0,10.0
+GH,Ocean Dweller's Mageblade,2,mage,185000,7800,0,10.0
+GH,Ocean Dweller's Mageblade,3,mage,194000,8400,0,10.0
+GH,Ocean Dweller's Mageblade,4,mage,203000,9000,0,10.0
+GH,Dual Phantom Daggers,1,warrior,190000,8100,0,10.0
+GH,Dual Phantom Daggers,2,warrior,199000,8700,0,10.0
+GH,Dual Phantom Daggers,3,warrior,208000,9300,0,10.0
+GH,Dual Phantom Daggers,4,warrior,217000,9900,0,10.0
+GH,Seafarer's Magic Device,1,mage,190000,8100,0,10.0
+GH,Seafarer's Magic Device,2,mage,199000,8700,0,10.0
+GH,Seafarer's Magic Device,3,mage,208000,9300,0,10.0
+GH,Seafarer's Magic Device,4,mage,217000,9900,0,10.0
+GH,Raider's,1,armor,8000,1400,95000,10.0
+GH,Raider's,2,armor,9000,1570,107000,10.0
+GH,Raider's,3,armor,10000,1740,119000,10.0
+GH,Raider's,4,armor,11000,1910,131000,10.0
+GH,Raider's Guardian,1,guardian,160000,1400,0,10.0
+GH,Raider's Guardian,2,guardian,172000,1570,0,10.0
+GH,Raider's Guardian,3,guardian,184000,1740,0,10.0
+GH,Raider's Guardian,4,guardian,196000,1910,0,10.0
+GH,Hunter's,1,armor,11000,1910,131000,10.0
+GH,Hunter's,2,armor,12000,2070,149000,10.0
+GH,Hunter's,3,armor,13000,2240,167000,10.0
+GH,Hunter's,4,armor,14000,2400,185000,10.0
+GH,Hunter's Guardian,1,guardian,196000,1910,0,10.0
+GH,Hunter's Guardian,2,guardian,217000,2070,0,10.0
+GH,Hunter's Guardian,3,guardian,238000,2240,0,10.0
+GH,Hunter's Guardian,4,guardian,259000,2400,0,10.0
+GH,Mythical,1,armor,14000,2400,185000,10.0
+GH,Mythical,2,armor,15000,2530,203000,10.0
+GH,Mythical,3,armor,16000,2660,221000,10.0
+GH,Mythical,4,armor,17000,2800,239000,10.0
+GH,Mythical Guardian,1,guardian,260000,2400,0,10.0
+GH,Mythical Guardian,2,guardian,287500,2530,0,10.0
+GH,Mythical Guardian,3,guardian,315000,2660,0,10.0
+GH,Mythical Guardian,4,guardian,340000,2800,0,10.0
+GH,Kraken Slayer,5,warrior,240000,11000,0,10.0
+GH,Sea Serpent Wings,5,mage,240000,11000,0,10.0
+SS,Hextech Katana,1,warrior,200000,8700,0,10.0
+SS,Hextech Katana,2,warrior,209000,9200,0,10.0
+SS,Hextech Katana,3,warrior,218000,9700,0,10.0
+SS,Hextech Katana,4,warrior,227000,10200,0,10.0
+SS,Plasma Spellblade,1,mage,200000,8700,0,10.0
+SS,Plasma Spellblade,2,mage,209000,9200,0,10.0
+SS,Plasma Spellblade,3,mage,218000,9700,0,10.0
+SS,Plasma Spellblade,4,mage,227000,10200,0,10.0
+SS,Dual Fusion Blades,1,warrior,214000,9500,0,10.0
+SS,Dual Fusion Blades,2,warrior,224000,10100,0,10.0
+SS,Dual Fusion Blades,3,warrior,234000,10700,0,10.0
+SS,Dual Fusion Blades,4,warrior,244000,11300,0,10.0
+SS,Dual Hextech Spelldaggers,1,mage,214000,9500,0,10.0
+SS,Dual Hextech Spelldaggers,2,mage,224000,10100,0,10.0
+SS,Dual Hextech Spelldaggers,3,mage,234000,10700,0,10.0
+SS,Dual Hextech Spelldaggers,4,mage,244000,11300,0,10.0
+SS,Fusion Greatsword,1,warrior,230000,10400,0,10.0
+SS,Fusion Greatsword,2,warrior,250000,11000,0,10.0
+SS,Fusion Greatsword,3,warrior,270000,11600,0,10.0
+SS,Fusion Greatsword,4,warrior,290000,12200,0,10.0
+SS,Dual Bioforged Spelldaggers,1,mage,230000,10400,0,10.0
+SS,Dual Bioforged Spelldaggers,2,mage,250000,11000,0,10.0
+SS,Dual Bioforged Spelldaggers,3,mage,270000,11600,0,10.0
+SS,Dual Bioforged Spelldaggers,4,mage,290000,12200,0,10.0
+SS,Bioforged Greatsword,1,warrior,260000,11500,0,10.0
+SS,Bioforged Greatsword,2,warrior,280000,12500,0,10.0
+SS,Bioforged Greatsword,3,warrior,300000,13500,0,10.0
+SS,Bioforged Greatsword,4,warrior,320000,14500,0,10.0
+SS,Hextech Polearm,1,mage,260000,11500,0,10.0
+SS,Hextech Polearm,2,mage,280000,12500,0,10.0
+SS,Hextech Polearm,3,mage,300000,13500,0,10.0
+SS,Hextech Polearm,4,mage,320000,14500,0,10.0
+SS,Hextech Greataxe,1,warrior,290000,13000,0,10.0
+SS,Hextech Greataxe,2,warrior,310000,13800,0,10.0
+SS,Hextech Greataxe,3,warrior,330000,14600,0,10.0
+SS,Hextech Greataxe,4,warrior,350000,15400,0,10.0
+SS,Plasma Twin Spellblade,1,mage,290000,13000,0,10.0
+SS,Plasma Twin Spellblade,2,mage,310000,13800,0,10.0
+SS,Plasma Twin Spellblade,3,mage,330000,14600,0,10.0
+SS,Plasma Twin Spellblade,4,mage,350000,15400,0,10.0
+SS,Bioforged Reinforced Slicer,1,warrior,320000,14400,0,10.0
+SS,Bioforged Reinforced Slicer,2,warrior,340000,15300,0,10.0
+SS,Bioforged Reinforced Slicer,3,warrior,360000,16200,0,10.0
+SS,Bioforged Reinforced Slicer,4,warrior,380000,17100,0,10.0
+SS,Hextech Wired Spellblade,1,mage,320000,14400,0,10.0
+SS,Hextech Wired Spellblade,2,mage,340000,15300,0,10.0
+SS,Hextech Wired Spellblade,3,mage,360000,16200,0,10.0
+SS,Hextech Wired Spellblade,4,mage,380000,17100,0,10.0
+SS,Bioforged Greataxe,1,warrior,350000,16800,0,10.0
+SS,Bioforged Greataxe,2,warrior,370000,17800,0,10.0
+SS,Bioforged Greataxe,3,warrior,390000,18800,0,10.0
+SS,Bioforged Greataxe,4,warrior,410000,19800,0,10.0
+SS,Plasma Infused Cutlass,1,mage,350000,16800,0,10.0
+SS,Plasma Infused Cutlass,2,mage,370000,17800,0,10.0
+SS,Plasma Infused Cutlass,3,mage,390000,18800,0,10.0
+SS,Plasma Infused Cutlass,4,mage,410000,19800,0,10.0
+SS,Mighty Fusion Maul,1,warrior,380000,18400,0,10.0
+SS,Mighty Fusion Maul,2,warrior,400000,19400,0,10.0
+SS,Mighty Fusion Maul,3,warrior,420000,20400,0,10.0
+SS,Mighty Fusion Maul,4,warrior,440000,21400,0,10.0
+SS,Mighty Fusion Spellblade,1,mage,380000,18400,0,10.0
+SS,Mighty Fusion Spellblade,2,mage,400000,19400,0,10.0
+SS,Mighty Fusion Spellblade,3,mage,420000,20400,0,10.0
+SS,Mighty Fusion Spellblade,4,mage,440000,21400,0,10.0
+SS,Titanium,1,armor,20000,3000,240000,10.0
+SS,Titanium,2,armor,22000,3125,265000,10.0
+SS,Titanium,3,armor,24000,3250,290000,10.0
+SS,Titanium,4,armor,26000,3400,313000,10.0
+SS,Titanium Guardian,1,guardian,380000,3000,0,10.0
+SS,Titanium Guardian,2,guardian,410000,3125,0,10.0
+SS,Titanium Guardian,3,guardian,440000,3250,0,10.0
+SS,Titanium Guardian,4,guardian,470000,3400,0,10.0
+SS,Industrial,1,armor,26000,3400,313000,10.0
+SS,Industrial,2,armor,27500,3800,350000,10.0
+SS,Industrial,3,armor,29000,4200,400000,10.0
+SS,Industrial,4,armor,30000,4600,442000,10.0
+SS,Industrial Guardian,1,guardian,470000,3400,0,10.0
+SS,Industrial Guardian,2,guardian,520000,3800,0,10.0
+SS,Industrial Guardian,3,guardian,570000,4200,0,10.0
+SS,Industrial Guardian,4,guardian,620000,4600,0,10.0
+SS,War-Forged,1,armor,30000,4600,440000,10.0
+SS,War-Forged,2,armor,34000,4700,480000,10.0
+SS,War-Forged,3,armor,38000,4800,520000,10.0
+SS,War-Forged,4,armor,41000,4900,570000,10.0
+SS,War-Forged Guardian,1,guardian,620000,4600,0,10.0
+SS,War-Forged Guardian,2,guardian,680000,4700,0,10.0
+SS,War-Forged Guardian,3,guardian,740000,4800,0,10.0
+SS,War-Forged Guardian,4,guardian,810000,4900,0,10.0
+SS,Inventor's Greatsword,5,warrior,485000,24000,0,10.0
+SS,Inventor's Spellblade,5,mage,485000,24000,0,10.0
+OO,Blazing Star,1,warrior,1260000,49000,0,10.0
+OO,Blazing Star,2,warrior,1280000,50000,0,10.0
+OO,Blazing Star,3,warrior,1350000,51000,0,10.0
+OO,Blazing Star,4,warrior,1420000,52000,0,10.0
+OO,Electron Spelldagger,1,mage,1260000,49000,0,10.0
+OO,Electron Spelldagger,2,mage,1280000,50000,0,10.0
+OO,Electron Spelldagger,3,mage,1350000,51000,0,10.0
+OO,Electron Spelldagger,4,mage,1420000,52000,0,10.0
+OO,Dual Solar Blades,1,warrior,1400000,54000,0,10.0
+OO,Dual Solar Blades,2,warrior,1470000,55000,0,10.0
+OO,Dual Solar Blades,3,warrior,1540000,56000,0,10.0
+OO,Dual Solar Blades,4,warrior,1610000,57000,0,10.0
+OO,Void Spelldaggers,1,mage,1400000,54000,0,10.0
+OO,Void Spelldaggers,2,mage,1470000,55000,0,10.0
+OO,Void Spelldaggers,3,mage,1540000,56000,0,10.0
+OO,Void Spelldaggers,4,mage,1610000,57000,0,10.0
+OO,Solar Katana,1,warrior,1600000,57000,0,10.0
+OO,Solar Katana,2,warrior,1670000,58000,0,10.0
+OO,Solar Katana,3,warrior,1740000,59000,0,10.0
+OO,Solar Katana,4,warrior,1800000,60000,0,10.0
+OO,Void Spell Blade,1,mage,1600000,57000,0,10.0
+OO,Void Spell Blade,2,mage,1670000,58000,0,10.0
+OO,Void Spell Blade,3,mage,1740000,59000,0,10.0
+OO,Void Spell Blade,4,mage,1800000,60000,0,10.0
+OO,Dual Crystalized Knives,1,warrior,1670000,59000,0,10.0
+OO,Dual Crystalized Knives,2,warrior,1740000,60000,0,10.0
+OO,Dual Crystalized Knives,3,warrior,1800000,61000,0,10.0
+OO,Dual Crystalized Knives,4,warrior,1900000,62000,0,10.0
+OO,Moon Crystal Spellblade,1,mage,1670000,59000,0,10.0
+OO,Moon Crystal Spellblade,2,mage,1740000,60000,0,10.0
+OO,Moon Crystal Spellblade,3,mage,1800000,61000,0,10.0
+OO,Moon Crystal Spellblade,4,mage,1900000,62000,0,10.0
+OO,Void Greatsword,1,warrior,1950000,61000,0,10.0
+OO,Void Greatsword,2,warrior,2100000,63000,0,10.0
+OO,Void Greatsword,3,warrior,2250000,65000,0,10.0
+OO,Void Greatsword,4,warrior,2400000,67000,0,10.0
+OO,Energized Spelldagger,1,mage,1950000,61000,0,10.0
+OO,Energized Spelldagger,2,mage,2100000,63000,0,10.0
+OO,Energized Spelldagger,3,mage,2250000,65000,0,10.0
+OO,Energized Spelldagger,4,mage,2400000,67000,0,10.0
+OO,Solar Greatsword,1,warrior,2200000,64000,0,10.0
+OO,Solar Greatsword,2,warrior,2370000,66000,0,10.0
+OO,Solar Greatsword,3,warrior,2540000,68000,0,10.0
+OO,Solar Greatsword,4,warrior,2700000,70000,0,10.0
+OO,Solar Essence Staff,1,mage,2200000,64000,0,10.0
+OO,Solar Essence Staff,2,mage,2370000,66000,0,10.0
+OO,Solar Essence Staff,3,mage,2540000,68000,0,10.0
+OO,Solar Essence Staff,4,mage,2700000,70000,0,10.0
+OO,Space,1,armor,95000,12000,2100000,10.0
+OO,Space,2,armor,110000,12900,2320000,10.0
+OO,Space,3,armor,125000,13800,2540000,10.0
+OO,Space,4,armor,140000,14700,2750000,10.0
+OO,Space Guardian,1,guardian,3000000,12000,0,10.0
+OO,Space Guardian,2,guardian,3400000,12900,0,10.0
+OO,Space Guardian,3,guardian,3800000,13800,0,10.0
+OO,Space Guardian,4,guardian,4200000,14700,0,10.0
+OO,Commanders,1,armor,140000,14700,2800000,10.0
+OO,Commanders,2,armor,153000,15900,3200000,10.0
+OO,Commanders,3,armor,167000,17100,3600000,10.0
+OO,Commanders,4,armor,180000,18400,3900000,10.0
+OO,Commanders Guardian,1,guardian,4200000,14700,0,10.0
+OO,Commanders Guardian,2,guardian,4700000,15900,0,10.0
+OO,Commanders Guardian,3,guardian,5100000,17100,0,10.0
+OO,Commanders Guardian,4,guardian,5500000,18400,0,10.0
+OO,Alien,1,armor,190000,19000,3900000,10.0
+OO,Alien,2,armor,200000,20000,4300000,10.0
+OO,Alien,3,armor,210000,21000,4700000,10.0
+OO,Alien,4,armor,220000,22000,5000000,10.0
+OO,Alien Guardian,1,guardian,5500000,19000,0,10.0
+OO,Alien Guardian,2,guardian,6100000,20000,0,10.0
+OO,Alien Guardian,3,guardian,6700000,21000,0,10.0
+OO,Alien Guardian,4,guardian,7250000,22000,0,10.0
+OO,Galactic Dual Blades,5,warrior,3150000,79500,0,10.0
+OO,Galactic Pike,5,mage,3150000,79500,0,10.0

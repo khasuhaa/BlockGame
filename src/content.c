@@ -382,6 +382,16 @@ static bool read_tiles(Reader *r, const cJSON *root)
             t->needs_qi = (float)num(e, "needs_qi", 0.0);
             t->grow_one_in = (int)num(e, "grow_one_in", 0);
             t->buried_treasure = flag(e, "buried_treasure", false);
+            {
+                const cJSON *gate = field(e, "dungeon_gate");
+                t->dungeon_gate = gate != NULL && !cJSON_IsFalse(gate);
+                t->gate_reach = (int)num(gate, "reach", 6);
+                copy_name(t->gate_beside, sizeof t->gate_beside, cJSON_IsObject(gate) ? str(gate, "beside") : NULL);
+                t->loot_forge = flag(e, "loot_forge", false);
+                t->dungeon_door = flag(e, "dungeon_door", false);
+                t->dungeon_exit = flag(e, "dungeon_exit", false);
+                t->dungeon_spawn = (int)num(e, "dungeon_spawn", 0);
+            }
             t->rocket_fuel = (int)num(field(e, "rocket"), "fuel", 0);
             t->rocket_thrust = (int)num(field(e, "rocket"), "thrust", 0);
             t->rocket_reliability = (float)num(field(e, "rocket"), "reliability", 1.0);
@@ -819,6 +829,26 @@ static bool read_items(Reader *r, const cJSON *root)
             it->tames = (int)num(e, "tames", 0);
             it->insight_gain = (int)num(e, "insight", 0);
             it->boards = flag(e, "boards", false);
+            {
+                const cJSON *roll = field(e, "rolled");
+                const char *cls = str(roll, "class");
+                it->rolled = roll != NULL;
+                it->roll_power = (int)num(roll, "power", 0);
+                it->roll_ups = (int)num(roll, "upgrades", 0);
+                it->roll_health = (int)num(roll, "health", 0);
+                it->roll_gain = (float)num(roll, "gain", 0.0);
+                it->roll_health_gain = (float)num(roll, "health_gain", 0.0);
+                it->loot_class = cls && strcmp(cls, "warrior") == 0 ? 1 : cls && strcmp(cls, "mage") == 0 ? 2 : 0;
+                it->grade = (int)num(e, "grade", 0);
+                if (it->grade < 0 || it->grade >= MAX_GRADES) return fail(r, "item \"%s\": \"grade\" is 1 to %d", it->name, MAX_GRADES - 1);
+                if (it->rolled) {
+                    /* (How it fell is what its meter reads: 0 for not yet. One is never like the next, so they are held singly.) */
+                    it->holds_water = false;
+                    it->meter_max = 60000;
+                    it->meter_start = 0;
+                    it->max_stack = 1;
+                }
+            }
             it->treasure_map = flag(e, "treasure_map", false);
             if (it->treasure_map) {
                 /* (Which buried thing it is of, is what its meter reads: the column, plus one; 0 for none yet.) */
@@ -1187,6 +1217,52 @@ static bool read_worldgen(Reader *r, const cJSON *root)
                 copy_name(g->isle_biomes[g->isle_biome_count++], CONTENT_NAME_LEN, one->valuestring);
             }
             if (g->isle_gap_min < 4 || g->isle_min < 6 || g->isle_max < g->isle_min || g->sea_depth_min < 2) return fail(r, "\"ocean\": islands are 6 or more long, 4 or more apart, in a sea 2 or more deep");
+        }
+    }
+    /* "dungeons": each by name, a later one of the same name in place of the earlier. */
+    {
+        const cJSON *e, *one;
+        cJSON_ArrayForEach(e, field(root, "dungeons")) {
+            const char *name = str(e, "name");
+            if (!name) return fail(r, "a dungeon has no \"name\"");
+            int id = -1;
+            for (int i = 0; i < content.dungeon_count; i++)
+                if (strcmp(content.dungeons[i].name, name) == 0) id = i;
+            if (id < 0) {
+                if (content.dungeon_count >= MAX_DUNGEONS) return fail(r, "too many dungeons");
+                id = content.dungeon_count++;
+            }
+            DungeonDef *d = &content.dungeons[id];
+            memset(d, 0, sizeof *d);
+            copy_name(d->name, sizeof d->name, name);
+            copy_name(d->label, sizeof d->label, str(e, "label") ? str(e, "label") : name);
+            d->tier = (int)num(e, "tier", 1);
+            d->rooms_min = d->rooms_max = 8;
+            pair(e, "rooms", &d->rooms_min, &d->rooms_max);
+            d->gold = (long)num(e, "gold", 0);
+            if (!tile_ref(r, e, "wall", &d->wall) || !tile_ref(r, e, "floor", &d->floor) || !tile_ref(r, e, "back", &d->back) || !tile_ref(r, e, "door", &d->door) ||
+                !tile_ref(r, e, "mark", &d->mark) || !tile_ref(r, e, "boss_mark", &d->boss_mark) || !tile_ref(r, e, "chest", &d->chest) || !tile_ref(r, e, "exit", &d->exit))
+                return false;
+            if (str(e, "light") && !tile_ref(r, e, "light", &d->light)) return false;
+            if (str(e, "stone") && !item_ref(r, e, "stone", &d->stone)) return false;
+            cJSON_ArrayForEach(one, field(e, "decor")) {
+                if (!cJSON_IsString(one) || d->decor_count >= 8 || tile_id(one->valuestring) == TILE_AIR) return fail(r, "dungeon \"%s\": \"decor\" is at most 8 blocks, by name", name);
+                d->decor[d->decor_count++] = tile_id(one->valuestring);
+            }
+            cJSON_ArrayForEach(one, field(e, "hanging")) {
+                if (!cJSON_IsString(one) || d->hanging_count >= 4 || tile_id(one->valuestring) == TILE_AIR) return fail(r, "dungeon \"%s\": \"hanging\" is at most 4 blocks, by name", name);
+                d->hanging[d->hanging_count++] = tile_id(one->valuestring);
+            }
+            cJSON_ArrayForEach(one, field(e, "mobs")) {
+                if (!cJSON_IsString(one) || d->mob_count >= 8) return fail(r, "dungeon \"%s\": \"mobs\" is at most 8 creatures, by name, the boss last", name);
+                copy_name(d->mobs[d->mob_count++], CONTENT_NAME_LEN, one->valuestring);
+            }
+            cJSON_ArrayForEach(one, field(e, "loot")) {
+                if (d->loot_count >= MAX_DUNGEON_LOOT) return fail(r, "dungeon \"%s\": more than %d things to find", name, MAX_DUNGEON_LOOT);
+                if (!item_ref(r, one, "item", &d->loot[d->loot_count].item)) return false;
+                d->loot[d->loot_count++].rank = (float)num(one, "rank", 0.0);
+            }
+            if (d->mob_count < 2 || d->rooms_min < 3 || d->rooms_max < d->rooms_min) return fail(r, "dungeon \"%s\": it wants two creatures or more (the last is its boss) and three rooms or more", name);
         }
     }
     const cJSON *climate = field(root, "climate");
@@ -1592,8 +1668,8 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         copy_name(d->name, sizeof d->name, name);
         copy_name(d->label, sizeof d->label, str(e, "label") ? str(e, "label") : name);
         d->generator = !kind || strcmp(kind, "islands") == 0 ? DIM_ISLANDS : strcmp(kind, "caverns") == 0 ? DIM_CAVERNS : strcmp(kind, "void") == 0 ? DIM_VOID :
-                       strcmp(kind, "grove") == 0 ? DIM_GROVE : strcmp(kind, "surface") == 0 ? DIM_SURFACE : -1;
-        if (d->generator < 0) return fail(r, "dimension \"%s\": its \"generator\" is \"islands\", \"caverns\", \"void\", \"grove\" or \"surface\"", name);
+                       strcmp(kind, "grove") == 0 ? DIM_GROVE : strcmp(kind, "surface") == 0 ? DIM_SURFACE : strcmp(kind, "dungeon") == 0 ? DIM_DUNGEON : -1;
+        if (d->generator < 0) return fail(r, "dimension \"%s\": its \"generator\" is \"islands\", \"caverns\", \"void\", \"grove\", \"surface\" or \"dungeon\"", name);
         {
             const cJSON *land = field(e, "surface");
             d->gravity = (float)num(e, "gravity", 1.0);
@@ -1959,8 +2035,44 @@ static bool read_rules(Reader *r, const cJSON *root)
     const cJSON *combat = field(root, "combat");
     if (combat) {
         u->hand_damage = (int)num(combat, "hand_damage", u->hand_damage);
+        u->dungeon_health = (int)num(combat, "health", u->dungeon_health);
         u->attack_time = (float)num(combat, "attack_time", u->attack_time);
         u->poison_damage = (float)num(combat, "poison_damage", u->poison_damage);
+    }
+    /* "dungeons": how hard they may be made, each harder than the last and giving better. */
+    const cJSON *dungeons = field(root, "dungeons");
+    if (dungeons) {
+        const cJSON *e, *one;
+        u->upgrade_cost = (float)num(dungeons, "upgrade_cost", u->upgrade_cost);
+        u->upgrade_steps = (int)num(dungeons, "upgrade_steps", u->upgrade_steps);
+        int grade = 1;
+        cJSON_ArrayForEach(e, field(dungeons, "grades")) {
+            if (grade >= MAX_GRADES) return fail(r, "\"dungeons\": at most %d grades", MAX_GRADES - 1);
+            copy_name(u->grade_labels[grade], CONTENT_NAME_LEN, str(e, "label"));
+            int k = 0;
+            cJSON_ArrayForEach(one, field(e, "color"))
+                if (k < 3) u->grade_colors[grade][k++] = (unsigned char)one->valuedouble;
+            grade++;
+        }
+        if (field(dungeons, "difficulties")) u->difficulty_count = 0;
+        cJSON_ArrayForEach(e, field(dungeons, "difficulties")) {
+            if (u->difficulty_count >= MAX_DIFFICULTIES) return fail(r, "\"dungeons\": at most %d difficulties", MAX_DIFFICULTIES);
+            DifficultyDef *d = &u->difficulties[u->difficulty_count++];
+            memset(d, 0, sizeof *d);
+            copy_name(d->label, sizeof d->label, str(e, "label"));
+            d->health = (float)num(e, "health", 1.0);
+            d->damage = (float)num(e, "damage", 1.0);
+            d->from = (float)num(e, "from", 0.0);
+            d->to = (float)num(e, "to", 1.0);
+            d->stone = (float)num(e, "stone", 0.0);
+            d->gold = (float)num(e, "gold", 1.0);
+            d->more = (int)num(e, "more", 0);
+            d->loot_min = d->loot_max = 3;
+            pair(e, "loot", &d->loot_min, &d->loot_max);
+            int k = 1;
+            cJSON_ArrayForEach(one, field(e, "grades"))
+                if (k < MAX_GRADES) d->grades[k++] = (int)one->valuedouble;
+        }
     }
     const cJSON *teleport = field(root, "teleport");
     if (teleport) {
@@ -2063,6 +2175,9 @@ static bool read_mobs(Reader *r, const cJSON *root)
         m->strike_share = (float)num(field(e, "strike"), "share", 0.0);
         m->strike_range = (int)num(field(e, "strike"), "range", 6);
         m->strike_rest = (int)num(field(e, "strike"), "rest_ticks", 60);
+        m->strike_power = (int)num(field(e, "strike"), "power", 0);
+        m->sting_power = (int)num(field(e, "sting"), "power", 0);
+        m->boss = flag(e, "boss", false);
         m->companion = field(e, "companion") != NULL;
         m->companion_bite = (int)num(field(e, "companion"), "bite", 2);
         m->companion_sight = (int)num(field(e, "companion"), "sight", 8);

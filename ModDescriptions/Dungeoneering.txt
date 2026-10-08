@@ -297,3 +297,52 @@ HARD PARTS, honestly:
 
 SIZE, AS PROPOSED            blocks   items   recipes   enemies   bosses   dungeons   rooms   abilities
    Dungeoneering              ~260     ~900     ~350      ~110       10        10      ~200       60
+
+================================================================================================================
+WHAT WAS DECIDED, WHAT WAS BUILT, AND WHAT WAS NOT   (October 2026)
+================================================================================================================
+
+THE OWNER'S ANSWERS. Q1: yes - the mod's own portals VII to X. Q2: yes - a dungeon made new each time. Q5: random
+ranges: a base and a base count of upgrades, each give or take a tenth. And a drop table was supplied ("Copy of
+Personal Min_Max List 2025"), of which the first ten dungeons were to be used. The other questions were not
+answered; what was done about each is below.
+
+THE DROP TABLE CHANGED THE PLAN. The dungeons are the table's ten - Desert Temple, Winter Outpost, Pirate Island,
+King's Castle, The Underworld, Samurai Palace, The Canals, Ghastly Harbor, Steampunk Sewers, Orbital Outpost - not
+the ten proposed in section 2, and the numbers are the table's, not section 3's: a first dagger of 6, a last
+legendary of 3,150,000. Grades are the table's four and Legendary. Each thing's base and count of upgrades are the
+table's averages; what an upgrade adds is worked out from the table's "potential".
+
+BUILT (tools/mod_dungeoneering.py; tests in test_dungeoneering_mod)
+   - The gate, reaching as far down the list as the portal beside it has been raised; four difficulties.
+   - Dungeons built afresh on every entry (Q2): rooms in a row, sealed doors that open when a room is cleared,
+     creatures that appear as you near, a boss with its health across the screen, a chest, a way out.
+   - 1,054 rows of the table as 1,306 graded things (armour is a helm and a body piece), each with its own
+     picture by what its name says it is and is made of. Numbers that fall when found, give or take a tenth (Q5).
+   - Blows as numbers against a health that is 100 and what is worn.
+   - The forge: upgrade by goes, upgrade all, sell.
+   - The stone for the next portal tier in each chest; keystones and portals VII to X (Q1).
+   - Six creatures a dungeon, the last its boss: 60, all cageable. Each dungeon's own wall, floor, lamp and
+     furnishings, and the same to build with at home.
+   SIZE, AS BUILT: 135 blocks, 1,472 items, 82 recipes, 60 creatures, 10 dungeons - against ~260 / ~900 / ~350 /
+   ~110 proposed.
+
+NOT BUILT, AND THE QUESTIONS NOT ANSWERED
+   - Q3 (how you get in): as recommended.
+   - Q4 (dying): you come back where the world began with what you brought; nothing of the run is yours, since
+     it is all in the chest. No hardcore setting.
+   - Q6 (how big the numbers get): settled by the table.
+   - Q7 (classes): by what is held, as recommended - but ordinary armour's power adds to either class's weapon.
+   - Q8 (levels): not built. Nothing but the portal's tier gates a dungeon, and all four difficulties are open
+     from the first.
+   - Q9: one character at a time, as recommended.
+   - Q10: one sitting.
+   - Abilities, ability slots and cooldowns (section 4): none.
+   - Bosses that warn of their attacks; enemy kinds that heal, summon or explode; elites; traps; side rooms;
+     shrines; keys. A boss is a large creature with a heavy blow up close and another from afar.
+   - Rooms drawn by hand: they are laid out by rule.
+   - Legendaries' own powers, rings, sets, reforging, the armoury stand, trophies, the run board, the loot
+     chest that sorts, potions for a run, cosmetics, the endless dungeon.
+   - It has not been played. Each dungeon's creatures are set against the best of the dungeon before - a blow
+     of six tenths of its best weapon, a health of 100 and twice its best ordinary armour - and that is
+     arithmetic, not balance.

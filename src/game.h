@@ -608,6 +608,37 @@ bool game_rocket_report(const Game *g, int x, int y, int *fuel, int *thrust, flo
 bool game_recipe_known(const Game *g, const Recipe *r);
 /* Makes the game's own room for a world that has just been given more rows. False if there was not the memory. */
 bool game_world_grew(Game *g);
+
+/* ---- dungeons ---- */
+/* How the numbers of a "rolled" thing fell, and where its upgrading has got to. Its meter keeps it: how far from the
+ * middle its base is, how far its count of upgrades, and how many of `steps` goes at upgrading it has had. */
+typedef struct {
+    bool rolled, fallen;       /* it is such a thing; and its numbers have fallen (until then: the middle) */
+    int power, health;         /* what it has now */
+    int base_power, base_health; /* what it had with no upgrades */
+    int ups, done;             /* how many upgrades it can have, and has */
+    int steps, step;           /* the goes that takes, and how many have been had */
+    int base_percent, ups_percent;
+} Roll;
+Roll game_roll(const Inventory *inv, const ItemStack *s);
+/* What is worn adds to a blow, and to what a character can take where blows are numbers. */
+int game_worn_power(const Game *g);
+int game_max_health(const Game *g);
+/* The share of the health bar a blow of `power` takes from the character, struck at that square: more in a dungeon made harder. */
+float game_blow(const Game *g, int power, int x, int y);
+/* At a forge: what the thing in hand would sell for, what `steps` more goes at upgrading it cost, and doing either. */
+bool game_forge_open(const Game *g);
+long game_rolled_worth(const Game *g, const ItemStack *s);
+long game_upgrade_cost(const Game *g, const ItemStack *s, int steps);
+bool game_upgrade(Game *g, int steps);
+bool game_sell_rolled(Game *g);
+/* At a gate: whether one is open, how far down the list of dungeons it reaches, and going into one - which makes the
+ * place over. Leaving puts the character back by the gate they went in at. */
+int game_dungeon_dim(void);
+bool game_gate_open_here(const Game *g);
+int game_gate_level(const Game *g);
+bool game_dungeon_enter(Game *g, int dungeon, int difficulty);
+bool game_dungeon_leave(Game *g);
 /* What machinery does to the world (see signal.h). Digs the plain block in a square, leaving what it leaves;
  * puts down there a block out of what the block at (sx, sy) holds; takes everything plain within so many
  * blocks; moves whoever is in a square a step, if there is room for them where they would go; and says

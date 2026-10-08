@@ -9729,7 +9729,7 @@ static void test_industry_mod(void)
         game_free(&again);
         game_free(&old);
     }
-    CHECK(MAX_TILES == 4096 && MAX_ITEMS == 4096 && MAX_RECIPES == 4096 && MAX_STORAGES == 1024 && MAX_CONTAINERS == 1024 && MAX_DROPS == 8192 && MAX_MOBS == 256);
+    CHECK(MAX_TILES == 4096 && MAX_ITEMS == 8192 && MAX_RECIPES == 4096 && MAX_STORAGES == 1024 && MAX_CONTAINERS == 1024 && MAX_DROPS == 8192 && MAX_MOBS == 256);
     /* The workbench goes on to a fifth tier and a sixth; the alloy furnace and the industrial bench have tiers of their own. */
     CHECK(tile_def(tile_id("workbench_4"))->upgrade_to == tile_id("workbench_5") && tile_def(tile_id("workbench_4"))->upgrade_cost[0].id == item_id("heavy_bronze_ingot"));
     CHECK(tile_def(tile_id("workbench_5"))->upgrade_to == tile_id("workbench_6") && tile_def(tile_id("workbench_5"))->upgrade_cost[0].id == item_id("dreadsteel_ingot") &&
@@ -13006,6 +13006,213 @@ static void test_sky_mod(void)
         if (&mods.mods[i] != mine) CHECK(!mods_conflict(mine, &mods.mods[i], what, sizeof what));
 }
 
+/* Dungeoneering: a place made over each time it is gone into, doors that open when a room is cleared, creatures whose
+ * blows are numbers, and loot whose numbers are its own. */
+static void test_dungeoneering_mod(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    CHECK(content.dungeon_count == 0 && game_dungeon_dim() < 0);
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count, mobs = content.mob_count;
+    if (!content_load("mods/dungeoneering", err, sizeof err)) {
+        printf("FAIL dungeoneering does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    CHECK(content.tile_count - tiles == 135 && content.item_count - items == 1472 && content.recipe_count - recipes == 82 && content.mob_count - mobs == 60);
+    CHECK(content.dungeon_count == 10 && content.rules.difficulty_count == 4 && game_dungeon_dim() >= 0);
+    int first = -1, second = -1;
+    for (int i = 0; i < content.dungeon_count; i++) {
+        if (content.dungeons[i].tier == 1) first = i;
+        if (content.dungeons[i].tier == 2) second = i;
+        CHECK(content.dungeons[i].loot_count >= 90 && content.dungeons[i].mob_count == 6);
+        for (int k = 0; k < content.dungeons[i].mob_count; k++) CHECK(mob_id(content.dungeons[i].mobs[k]) >= 0);
+        CHECK(content.mobs[mob_id(content.dungeons[i].mobs[5])].boss);
+        /* The stone of each is what raises the way to the next: the game's own gems for the first five. */
+        CHECK((content.dungeons[i].stone != ITEM_NONE) == (content.dungeons[i].tier < 10));
+    }
+    CHECK(first >= 0 && second >= 0 && content.dungeons[first].stone == item_id("amethyst") && content.dungeons[second].stone == item_id("sapphire"));
+
+    static Game g;
+    game_init(&g, 2048, 401, 91, WORLD_TERRAIN);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    g.tick_rate = 20;
+    clear_inventory(&g);
+
+    /* A thing found: its numbers fall once, within a tenth of what its kind has, and stay. */
+    const ItemDef *dagger = item_def(item_id("dg_bronze_dagger_1"));
+    CHECK(dagger->rolled && dagger->roll_power == 6 && dagger->roll_ups == 2 && dagger->grade == 1 && dagger->loot_class == 1 && dagger->max_stack == 1);
+    in_hand(&g, "dg_bronze_dagger_1");
+    CHECK(!game_roll(inv, inventory_selected(inv)).fallen && game_roll(inv, inventory_selected(inv)).power == 6);
+    for (int i = 0; i < 40; i++) game_tick(&g);
+    Roll roll = game_roll(inv, inventory_selected(inv));
+    CHECK(roll.rolled && roll.fallen && roll.power >= 5 && roll.power <= 7 && roll.ups >= 1 && roll.ups <= 3 && roll.done == 0);
+    CHECK(roll.base_percent >= 90 && roll.base_percent <= 110 && roll.ups_percent >= 90 && roll.ups_percent <= 110);
+    for (int i = 0; i < 40; i++) game_tick(&g);
+    CHECK(game_roll(inv, inventory_selected(inv)).power == roll.power);
+    /* It strikes with them; and what is worn adds to the blow, and to what can be taken. */
+    int bare = game_boons(&g).strength;
+    CHECK(game_attack_damage(&g) == (roll.power > content.rules.hand_damage ? roll.power : content.rules.hand_damage) + bare);
+    CHECK(game_max_health(&g) == 100 && game_worn_power(&g) == 0);
+    inv->armor[EQUIP_HEAD] = (ItemStack){ (uint16_t)item_id("dg_novice_blue_wizard_h_4"), 1, 0 };
+    for (int i = 0; i < 40; i++) game_tick(&g);
+    Roll helm = game_roll(inv, &inv->armor[EQUIP_HEAD]);
+    CHECK(helm.fallen && helm.health >= 45 && helm.health <= 55 && helm.power >= 6 && helm.power <= 8);
+    CHECK(game_max_health(&g) == 100 + helm.health && game_worn_power(&g) == helm.power && game_attack_damage(&g) == roll.power + helm.power + bare);
+    /* A mage's weapon reaches. */
+    CHECK(item_def(item_id("dg_novice_wand_1"))->loot_class == 2 && item_def(item_id("dg_novice_wand_1"))->range >= 6);
+    /* Twenty legendaries; a guardian's armour is health and nothing else. */
+    int legends = 0;
+    for (int i = 1; i < content.item_count; i++) legends += content.items[i].rolled && content.items[i].grade == 5;
+    CHECK(legends == 18);
+    CHECK(item_def(item_id("dg_iron_armor_g_c_1"))->roll_power == 0 && item_def(item_id("dg_iron_armor_g_c_1"))->roll_health == 60);
+
+    /* At a forge it is upgraded, a go at a time, for coin - and sold for more the more was spent on it. */
+    TilePos home = g.player.feet;
+    world_set_at(w, BG, home.x + 1, home.y, tile_id("loot_forge"));
+    g.bench_open = true;
+    g.bench_pos = (TilePos){ home.x + 1, home.y };
+    CHECK(game_forge_open(&g) && !game_gate_open_here(&g));
+    CHECK(!game_upgrade(&g, 1)); /* (nothing to pay with) */
+    game_give_items(&g, item_id("gold_coin"), 50);
+    long had = trade_wallet(inv), cost = game_upgrade_cost(&g, inventory_selected(inv), 1), worth = game_rolled_worth(&g, inventory_selected(inv));
+    CHECK(cost > 0 && worth > 0 && game_upgrade(&g, 1));
+    Roll up = game_roll(inv, inventory_selected(inv));
+    CHECK(up.step == 1 && up.done >= 1 && up.power >= roll.power + 1 && up.base_power == roll.power && trade_wallet(inv) == had - cost);
+    CHECK(game_upgrade(&g, 1000));
+    up = game_roll(inv, inventory_selected(inv));
+    CHECK(up.step == up.steps && up.done == up.ups && game_upgrade_cost(&g, inventory_selected(inv), 1) == 0 && !game_upgrade(&g, 1));
+    CHECK(game_rolled_worth(&g, inventory_selected(inv)) > worth);
+    had = trade_wallet(inv);
+    CHECK(game_sell_rolled(&g) && inventory_count(inv, item_id("dg_bronze_dagger_1")) == 0 && trade_wallet(inv) > had);
+
+    /* A gate reaches as far down the list as the portal beside it has been raised. */
+    world_set_at(w, BG, home.x + 60, 6, tile_id("dungeon_gate"));
+    g.bench_pos = (TilePos){ world_wrap_x(w, home.x + 60), 6 };
+    CHECK(game_gate_open_here(&g) && game_gate_level(&g) == 0 && !game_dungeon_enter(&g, first, 0));
+    world_set_at(w, BG, home.x + 63, 6, tile_id("portal"));
+    CHECK(game_gate_level(&g) == 1 && !game_dungeon_enter(&g, second, 0));
+    world_set_at(w, BG, home.x + 63, 6, tile_id("portal_2"));
+    CHECK(game_gate_level(&g) == 2);
+    world_set_at(w, BG, home.x + 63, 6, tile_id("portal"));
+    world_set_at(w, BG, home.x + 1, home.y, tile_id("dungeon_gate"));
+    world_set_at(w, BG, home.x + 3, home.y, tile_id("portal"));
+    g.bench_pos = (TilePos){ home.x + 1, home.y };
+
+    /* Going in: the place is made, the way through is shut, the chest at the end is full, and nobody is about yet. */
+    in_hand(&g, "dg_ghoul_slayer_4");
+    CHECK(game_dungeon_enter(&g, first, 0));
+    int hard = -1, region = world_region_at(w, g.player.feet.y), y0, y1;
+    CHECK(region >= 0 && world_dungeon_run(w, g.player.feet.y, &hard) == first && hard == 0 && world_dungeon_run(w, home.y, NULL) < 0);
+    world_region_rows(w, region, &y0, &y1);
+    CHECK(world_is_solid(w, g.player.feet.x, g.player.feet.y + 1) && !world_is_solid(w, g.player.feet.x, g.player.feet.y));
+    int doors = count_tile(w, 0, tile_id("dg_desert_temple_door")), marks = count_tile(w, BG, tile_id("dg_mark"));
+    CHECK(doors >= 6 * 3 && doors % 3 == 0 && marks >= 10 && count_tile(w, BG, tile_id("dg_boss_mark")) == 1 && count_tile(w, BG, tile_id("dg_reward_chest")) == 1 && count_tile(w, BG, tile_id("dg_way_out")) == 2);
+    int stored = 0, fallen = 0, about = 0;
+    for (int i = 0; i < MAX_STORAGES; i++) {
+        if (!g.storages[i].used || g.storages[i].y < y0 || g.storages[i].y >= y1) continue;
+        for (int k = 0; k < CONTAINER_MAX_SLOTS; k++) {
+            ItemStack *st = &inv->containers[g.storages[i].container].slots[k];
+            if (st->count == 0 || !item_def((ItemId)st->id)->rolled) continue;
+            stored++;
+            fallen += game_roll(inv, st).fallen && item_def((ItemId)st->id)->grade <= 3;
+        }
+    }
+    CHECK(stored >= 3 && stored <= 4 && fallen == stored);
+    for (int i = 0; i < MAX_MOBS; i++) about += g.mobs[i].active && g.mobs[i].y >= y0 && g.mobs[i].y < y1;
+    CHECK(about == 0);
+    /* Somebody walks on: those in the next room come out, with what their kind has; the door past them stays shut until they are dead. */
+    for (int i = 0; i < 10; i++) game_tick(&g);
+    CHECK(count_tile(w, 0, tile_id("dg_desert_temple_door")) == doors - 3); /* (nothing in the first room: its door opens) */
+    g.player.feet.x += 16;
+    g.player.step_to = g.player.feet;
+    for (int i = 0; i < 10; i++) game_tick(&g);
+    about = 0;
+    int a_mob = -1;
+    for (int i = 0; i < MAX_MOBS; i++)
+        if (g.mobs[i].active && g.mobs[i].y >= y0 && g.mobs[i].y < y1) about++, a_mob = i;
+    CHECK(about >= 2 && count_tile(w, BG, tile_id("dg_mark")) == marks - about && count_tile(w, 0, tile_id("dg_desert_temple_door")) == doors - 3);
+    CHECK(a_mob >= 0 && g.mobs[a_mob].hp == content.mobs[g.mobs[a_mob].kind].health && content.mobs[g.mobs[a_mob].kind].sting_power + content.mobs[g.mobs[a_mob].kind].strike_power > 0);
+    /* A blow is a number against what the character can take. */
+    float blow = game_blow(&g, 20, g.player.feet.x, g.player.feet.y);
+    CHECK(fabsf(blow - 20.0f / (float)game_max_health(&g)) < 0.0001f && fabsf(game_blow(&g, 20, home.x, home.y) - blow) < 0.0001f);
+    for (int i = 0; i < MAX_MOBS; i++)
+        if (g.mobs[i].active && g.mobs[i].y >= y0 && g.mobs[i].y < y1) mob_hurt(&g, i, 100000000);
+    for (int i = 0; i < 10; i++) game_tick(&g);
+    CHECK(count_tile(w, 0, tile_id("dg_desert_temple_door")) == doors - 6);
+    /* Saved and loaded in the middle of it, it is the same run, and what was found has the numbers it had. */
+    in_hand(&g, "dg_ghoul_slayer_4");
+    for (int i = 0; i < 25; i++) game_tick(&g);
+    Roll kept = game_roll(inv, inventory_selected(inv));
+    CHECK(save_game(&g, "build/test_dungeon.world"));
+    static Game back;
+    CHECK(load_game(&back, "build/test_dungeon.world"));
+    hard = -1;
+    CHECK(world_dungeon_run(&back.world, back.player.feet.y, &hard) == first && hard == 0);
+    Roll after = game_roll(&back.inventory, inventory_selected(&back.inventory));
+    CHECK(kept.fallen && after.fallen && after.power == kept.power && after.ups == kept.ups);
+    game_free(&back);
+    /* The way out leads back to the gate. */
+    CHECK(game_dungeon_leave(&g) && world_region_at(w, g.player.feet.y) < 0 && abs(world_dx(w, g.player.feet.x, home.x)) <= 6 && !game_dungeon_leave(&g));
+
+    /* Gone into again it is another run - and harder, it is the same creatures with more to them, hitting harder, and a better chest. */
+    uint16_t before[64];
+    int row = y0 + (y1 - y0) * 3 / 5;
+    for (int i = 0; i < 64; i++) before[i] = w->layers[0][(size_t)(row - 6) * w->width + world_wrap_x(w, w->spawn_x + 10 + i)];
+    g.bench_open = false;
+    CHECK(game_dungeon_enter(&g, first, 3));
+    hard = -1;
+    CHECK(world_dungeon_run(w, g.player.feet.y, &hard) == first && hard == 3);
+    bool same = true;
+    for (int i = 0; i < 64; i++) same = same && before[i] == w->layers[0][(size_t)(row - 6) * w->width + world_wrap_x(w, w->spawn_x + 10 + i)];
+    CHECK(!same && count_tile(w, BG, tile_id("dg_mark")) > marks && count_tile(w, BG, tile_id("dg_reward_chest")) == 1);
+    CHECK(fabsf(game_blow(&g, 20, g.player.feet.x, g.player.feet.y) - 8.0f * blow) < 0.0001f);
+    g.player.feet.x += 16;
+    g.player.step_to = g.player.feet;
+    for (int i = 0; i < 10; i++) game_tick(&g);
+    a_mob = -1;
+    for (int i = 0; i < MAX_MOBS; i++)
+        if (g.mobs[i].active && g.mobs[i].y >= y0 && g.mobs[i].y < y1) a_mob = i;
+    CHECK(a_mob >= 0 && g.mobs[a_mob].hp == content.mobs[g.mobs[a_mob].kind].health * 30);
+    stored = 0;
+    int stones = 0;
+    for (int i = 0; i < MAX_STORAGES; i++) {
+        if (!g.storages[i].used || g.storages[i].y < y0 || g.storages[i].y >= y1) continue;
+        for (int k = 0; k < CONTAINER_MAX_SLOTS; k++) {
+            ItemStack *st = &inv->containers[g.storages[i].container].slots[k];
+            stored += st->count > 0 && item_def((ItemId)st->id)->rolled;
+            if (st->count > 0 && st->id == item_id("amethyst")) stones += st->count;
+        }
+    }
+    CHECK(stored >= 4 && stored <= 6 && stones == 2);
+    /* The way out is used as any way between places is. */
+    int out_x = -1, out_y = -1;
+    for (int y = y0; y < y1 && out_x < 0; y++)
+        for (int dx = -6; dx < 6 && out_x < 0; dx++)
+            if (world_get_at(w, BG, w->spawn_x + dx, y) == tile_id("dg_way_out")) out_x = world_wrap_x(w, w->spawn_x + dx), out_y = y;
+    CHECK(out_x >= 0 && game_travel(&g, out_x, out_y) && world_region_at(w, g.player.feet.y) < 0);
+    /* The book says where a thing is found. */
+    static ItemSource sources[8];
+    CHECK(guide_sources(item_id("dg_desert_fury_5"), sources, 8) == 1 && strstr(sources[0].where, "Desert Temple") && strstr(sources[0].where, "Nightmare") && !strstr(sources[0].where, "Easy"));
+    CHECK(guide_sources(item_id("dg_bronze_dagger_1"), sources, 8) == 1 && strstr(sources[0].where, "Easy"));
+    game_free(&g);
+
+    /* Portals past the sixth, raised by what the later dungeons give. */
+    CHECK(tile_def(tile_id("dg_portal_7"))->bench_level == 7 && tile_def(tile_id("dg_portal_10"))->bench_level == 10 && tile_def(tile_id("dg_trade_portal_10"))->trade_level == 10);
+
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/settest/saves");
+    const ModInfo *mine_mod = NULL;
+    for (int i = 0; i < mods.count; i++)
+        if (strcmp(mods.mods[i].id, "dungeoneering") == 0) mine_mod = &mods.mods[i];
+    CHECK(mine_mod != NULL);
+    char what[64];
+    for (int i = 0; mine_mod && i < mods.count; i++)
+        if (&mods.mods[i] != mine_mod) CHECK(!mods_conflict(mine_mod, &mods.mods[i], what, sizeof what));
+}
+
 /* Plunder & Thunder: a world of sea and islands, ships, boarding, treasure. */
 static void test_plunder_mod(void)
 {
@@ -14001,6 +14208,7 @@ int main(void)
     test_seeker_mod();
     test_sky_mod();
     test_plunder_mod();
+    test_dungeoneering_mod();
     test_equip_selected();
     test_worn();
     test_trade_tiers();

@@ -1,0 +1,137 @@
+{
+ "combat": {
+  "health": 100
+ },
+ "dungeons": {
+  "upgrade_cost": 2.0,
+  "upgrade_steps": 50,
+  "grades": [
+   {
+    "label": "Common",
+    "color": [
+     170,
+     170,
+     178
+    ]
+   },
+   {
+    "label": "Uncommon",
+    "color": [
+     96,
+     200,
+     96
+    ]
+   },
+   {
+    "label": "Rare",
+    "color": [
+     90,
+     150,
+     240
+    ]
+   },
+   {
+    "label": "Epic",
+    "color": [
+     180,
+     100,
+     230
+    ]
+   },
+   {
+    "label": "Legendary",
+    "color": [
+     240,
+     190,
+     60
+    ]
+   }
+  ],
+  "difficulties": [
+   {
+    "label": "Easy",
+    "health": 1,
+    "damage": 1,
+    "from": 0.0,
+    "to": 0.35,
+    "grades": [
+     600,
+     300,
+     100,
+     0,
+     0
+    ],
+    "loot": [
+     3,
+     4
+    ],
+    "stone": 0.34,
+    "gold": 1.0,
+    "more": 0
+   },
+   {
+    "label": "Hard",
+    "health": 3,
+    "damage": 2,
+    "from": 0.25,
+    "to": 0.65,
+    "grades": [
+     350,
+     350,
+     220,
+     80,
+     0
+    ],
+    "loot": [
+     3,
+     5
+    ],
+    "stone": 1.0,
+    "gold": 2.5,
+    "more": 1
+   },
+   {
+    "label": "Insane",
+    "health": 10,
+    "damage": 4,
+    "from": 0.5,
+    "to": 0.9,
+    "grades": [
+     150,
+     300,
+     300,
+     246,
+     4
+    ],
+    "loot": [
+     4,
+     5
+    ],
+    "stone": 1.5,
+    "gold": 5.0,
+    "more": 2
+   },
+   {
+    "label": "Nightmare",
+    "health": 30,
+    "damage": 8,
+    "from": 0.7,
+    "to": 1.0,
+    "grades": [
+     50,
+     200,
+     320,
+     418,
+     12
+    ],
+    "loot": [
+     4,
+     6
+    ],
+    "stone": 2.0,
+    "gold": 10.0,
+    "more": 3
+   }
+  ]
+ }
+}

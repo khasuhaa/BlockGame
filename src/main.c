@@ -17,6 +17,7 @@
 #include "tradeui.h"
 #include "train.h"
 #include "trainui.h"
+#include "dungeonui.h"
 #include "world3d.h"
 #include "digital.h"
 #include "view.h"
@@ -38,6 +39,7 @@ static TermUi term_ui;
 
 /* The menu over something on the rails. */
 static TrainUi train_ui;
+static DungeonUi dungeon_ui;
 
 /* The terminal of a storage network at a square, if there is one there. */
 static bool terminal_at(const Game *g, TilePos t)
@@ -457,6 +459,7 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
     if (on_players) return;
     if (tradeui_handle_input(trade, g, &ui_view)) return;
     if (trainui_handle_input(&train_ui, g, &ui_view)) return;
+    if (dungeonui_handle_input(&dungeon_ui, g, &ui_view)) return;
     bool on_bench = benchui_handle_input(bench, g, &ui_view);
     if (bench->teleported) {
         /* Gone with the player. */
@@ -2219,6 +2222,7 @@ static void session_draw(Session *s)
         benchui_draw(&s->bench, g, &ui_view);
         tradeui_draw(&s->trade, g, &ui_view);
         trainui_draw(&train_ui, g, &ui_view);
+        dungeonui_draw(&dungeon_ui, g, &ui_view);
     }
     playerui_set_view(&ui_view, !on_map);
     if (g->character_count == 0) {
@@ -2342,6 +2346,7 @@ static void session_draw(Session *s)
         }
     }
     draw_identified(g, &s->hud);
+    dungeonui_draw_over(g, &s->hud);
     sign_draw();
     termui_frame(&term_ui, g);
 }

@@ -392,6 +392,23 @@ int guide_sources(ItemId item, ItemSource *out, int max)
         say(s->where, sizeof s->where, "It grows back in %d ticks. ", def->shear_ticks);
         mob_where(m, s->where, sizeof s->where);
     }
+    /* The chest at the end of a dungeon: what is in its list, and the stone that raises the way there. */
+    for (int k = 0; k < content.dungeon_count; k++) {
+        const DungeonDef *d = &content.dungeons[k];
+        bool has = d->stone == item;
+        float low = 2.0f, high = -1.0f;
+        for (int i = 0; i < d->loot_count; i++)
+            if (d->loot[i].item == item) has = true, low = d->loot[i].rank, high = d->loot[i].rank;
+        if (!has) continue;
+        ItemSource *s = add(out, &count, max, SOURCE_CHEST, d->chest, 1, 1, 1.0f);
+        snprintf(s->label, sizeof s->label, "%s", tile_label(d->chest));
+        say(s->where, sizeof s->where, "At the end of %s. ", d->label);
+        for (int h = 0; h < content.rules.difficulty_count; h++) {
+            const DifficultyDef *hard = &content.rules.difficulties[h];
+            bool here = d->stone == item ? hard->stone > 0.0f : item_def(item)->grade >= 5 ? hard->grades[item_def(item)->grade] > 0 : hard->grades[item_def(item)->grade] > 0 && low >= hard->from - 0.0001f && high <= hard->to + 0.0001f;
+            if (here) say(s->where, sizeof s->where, "%s. ", hard->label);
+        }
+    }
     for (int m = 0; m < content.mob_count; m++) {
         const MobDef *def = &content.mobs[m];
         if (def->milk_item != item || !mob_natural(m, 0)) continue;

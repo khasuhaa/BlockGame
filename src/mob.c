@@ -313,7 +313,7 @@ static void provoke(Game *g, Mob *m)
         m->state = MOB_HUNT;
         m->timer = def->chase_ticks;
         if (up && !world_is_solid(&g->world, m->x, m->y + 1)) drop_on(g, m, g->player.feet.x);
-    } else if (def->sting_ticks > 0 || def->hunts) {
+    } else if (def->sting_ticks > 0 || def->sting_power > 0 || def->hunts) {
         m->timer = 0;
     }
 }
@@ -674,7 +674,7 @@ void mobs_tick(Game *g)
             if (waited == 0 && mob_hurt(g, i, 1)) continue;
         }
         /* What was shorn off it grows back; one that has stung is a while about stinging again. */
-        if ((def->shear_item != ITEM_NONE || def->sting_ticks > 0) && m->timer > 0) m->timer--;
+        if ((def->shear_item != ITEM_NONE || def->sting_ticks > 0 || def->sting_power > 0) && m->timer > 0) m->timer--;
         if (def->milk_item != ITEM_NONE && !def->perches && m->state > 0) m->state--;
         if (m->step_left > 0) {
             if (--m->step_left > 0) continue;
@@ -700,7 +700,7 @@ void mobs_tick(Game *g)
             if (m->state == 0 && abs(sdx) <= def->strike_range && abs(sdy) <= def->strike_range && game_boons(g).unseen <= 0.0f) {
                 /* (Aboard something, it is that which is struck - and sunk under them, if it comes to it.) */
                 if (g->mount > 0 && g->mount <= MAX_MOBS && g->mobs[g->mount - 1].active && content.mobs[g->mobs[g->mount - 1].kind].gun_range > 0) mob_hurt(g, g->mount - 1, (int)(def->strike_share * 200.0f + 0.5f));
-                else game_attacked(g, def->strike_share);
+                else game_attacked(g, def->strike_power > 0 ? game_blow(g, def->strike_power, m->x, m->y) : def->strike_share);
                 g->shot.from_x = (float)m->x + 0.5f, g->shot.from_y = (float)m->y - 0.5f;
                 g->shot.to_x = (float)m->x + (float)sdx + 0.5f, g->shot.to_y = (float)g->player.feet.y - 0.5f;
                 g->shot.age = 0.0f;
@@ -746,15 +746,16 @@ void mobs_tick(Game *g)
             continue;
         }
         /* (In a formation that confuses, it does not know where anybody is.) */
-        if (!(m->owned && def->companion) && def->sting_ticks > 0 && !(dao_on() && game_formation_rule(g, m->x, m->y, 1)) && game_alive(g) && g->vitals.respawn == 0 && game_boons(g).unseen <= 0.0f) {
+        if (!(m->owned && def->companion) && (def->sting_ticks > 0 || def->sting_power > 0) && !(dao_on() && game_formation_rule(g, m->x, m->y, 1)) && game_alive(g) && g->vitals.respawn == 0 && game_boons(g).unseen <= 0.0f) {
             /* One that stings: a player beside it is stung; one it can see, it makes for. */
             const Player *p = &g->player;
             int pdx = world_dx(w, m->x, p->feet.x), pdy = p->feet.y - m->y;
             if (abs(pdx) <= 1 && pdy >= -1 && pdy <= 2) {
                 if (m->timer == 0) {
                     /* (What the player wears keeps some of it out.) */
-                    game_poison(g, (int)((float)def->sting_ticks * (1.0f - game_protection(g)) + 0.5f));
-                    game_attacked(g, 0.0f); /* (no harm of itself: only that they know it) */
+                    if (def->sting_ticks > 0) game_poison(g, (int)((float)def->sting_ticks * (1.0f - game_protection(g)) + 0.5f));
+                    /* (No harm of itself, unless the blow is a number: only that they know it.) */
+                    game_attacked(g, def->sting_power > 0 ? game_blow(g, def->sting_power, m->x, m->y) : 0.0f);
                     m->timer = def->sting_rest > 0 ? def->sting_rest : 1;
                     thorned(g, m);
                 }

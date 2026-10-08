@@ -432,6 +432,15 @@ void hud_draw(const Hud *hud, const Inventory *inv)
     }
 }
 
+const ItemStack *hud_stack_at(const Hud *hud, const Inventory *inv, Vector2 point)
+{
+    bool head;
+    SlotRef slot;
+    if (!hit_test(hud, inv, point, &head, &slot) || head || slot.kind == SLOT_NONE) return NULL;
+    const ItemStack *st = inventory_slot((Inventory *)inv, slot);
+    return st && st->count > 0 ? st : NULL;
+}
+
 ItemId hud_item_at(const Hud *hud, const Inventory *inv, Vector2 point)
 {
     bool head;

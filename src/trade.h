@@ -53,6 +53,9 @@ int trade_coins(long amount, int *out);
 void trade_price_text(long amount, char *out, size_t size);
 /* Everything the player's coins are worth, in the smallest currency. */
 long trade_wallet(const Inventory *inv);
+/* A sum paid in coin, with change (false, and nothing done, if it cannot be made up); and a sum handed over, in the biggest coins. */
+bool trade_pay(Game *g, long price);
+void trade_give(Game *g, long amount);
 
 /* Buys `count` of an item. Coins are spent smallest first, and a bigger coin
  * is broken into change when the smaller ones do not cover it. */

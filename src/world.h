@@ -102,6 +102,11 @@ int world_sky_top(const World *w, int y);
 /* Adds a dimension to the world, under everything it has: made from the world's seed, or left empty to be
  * filled in from a save (`height` is then how tall; otherwise it is the dimension's own). The index of the region, or -1. */
 int world_add_region(World *w, int dim, const char *name, int height, bool generate);
+/* A place whose generator is "dungeon" is made over: emptied, and a run of rooms of that dungeon laid in it from where
+ * the world's spawn column is, rightward - different for each `seed`. `start` gets where to stand. Which dungeon and how
+ * hard is kept with the place (and so with a save): world_dungeon_run says which for a row in it, or -1. */
+bool world_dungeon_build(World *w, int region, int dungeon, int difficulty, uint32_t seed, int *start_x, int *start_y);
+int world_dungeon_run(const World *w, int y, int *difficulty);
 /* The kind of country a square is: the column's, in the place the row is in. */
 int world_biome_at(const World *w, int x, int y);
 

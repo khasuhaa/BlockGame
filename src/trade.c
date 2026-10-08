@@ -276,6 +276,25 @@ static bool plan_payment(const Inventory *inv, long price, int *delta)
     return false;
 }
 
+bool trade_pay(Game *g, long price)
+{
+    int delta[MAX_CURRENCIES];
+    if (price <= 0) return true;
+    if (!plan_payment(&g->inventory, price, delta)) return false;
+    for (int i = 0; i < content.trade.currency_count; i++)
+        if (delta[i] < 0) inventory_remove(&g->inventory, content.trade.currencies[i].item, -delta[i]);
+    for (int i = 0; i < content.trade.currency_count; i++)
+        if (delta[i] > 0) game_give_items(g, content.trade.currencies[i].item, delta[i]);
+    return true;
+}
+
+void trade_give(Game *g, long amount)
+{
+    int parts[MAX_CURRENCIES], kinds = trade_coins(amount, parts);
+    for (int i = kinds - 1; i >= 0; i--)
+        if (parts[i] > 0) game_give_items(g, content.trade.currencies[i].item, parts[i]);
+}
+
 bool trade_buy_now(Game *g, ItemId item, int count)
 {
     int price = game_trade_price(g, item), delta[MAX_CURRENCIES];

@@ -13,7 +13,7 @@
 #define CONTENT_NAME_LEN 32
 #define CONTENT_PATH_LEN 64
 #define MAX_TILES 4096 /* ids are stored in two bytes: 65,535 is as far as this can ever go */
-#define MAX_ITEMS 4096 /* ids are stored in two bytes */
+#define MAX_ITEMS 8192 /* ids are stored in two bytes */
 #define MAX_RECIPES 4096
 #define MAX_TINTS 250
 #define MAX_TREES 128
@@ -355,6 +355,14 @@ typedef struct {
     /* "grow_one_in": it grows on only one time in so many that its turn comes (0 or 1: every time). "insight": what
      * using it gives somebody who cultivates (with "use_becomes", once). */
     int grow_one_in, insight;
+    /* A dungeon: "dungeon_gate" is where one is chosen and gone into (its menu is its own; `gate_beside`, if given, is a
+     * kind of bench that must stand within `gate_reach` of it, whose level says how far down the list it may go);
+     * "loot_forge" is where what is found there is upgraded and sold; "dungeon_door" is shut until nothing hostile is
+     * left on the near side of it; "dungeon_spawn" is a mark that becomes one of the dungeon's creatures (1) or its
+     * boss (2) when somebody comes near; "dungeon_exit" is the way out. */
+    bool dungeon_gate, loot_forge, dungeon_door, dungeon_exit;
+    int dungeon_spawn, gate_reach;
+    char gate_beside[CONTENT_NAME_LEN];
     bool buried_treasure; /* "buried_treasure": a treasure map may be of where one of these lies */
     /* Rocketry. "rocket": a part of one - the fuel it holds, the thrust it gives, how likely it is to work, whether it
      * saves the crew when one does not. "pad": what a rocket stands on. "launch": on a way to another place - it is gone
@@ -618,6 +626,13 @@ typedef struct {
     /* "technique": {"insight"}: the insight it takes to use. "tames": used on a creature whose "tame" is no more, it is theirs. */
     int technique_insight, tames;
     int insight_gain; /* "insight": taken, it gives so much */
+    /* "rolled": one of these is not like the next. Its meter says how its numbers fell (see game_roll in game.h):
+     * `roll_power` and `roll_health` are what it has, give or take a tenth; `roll_ups` how many times it can be
+     * upgraded, give or take a tenth; and each upgrade adds `roll_gain` of power and `roll_health_gain` of health.
+     * "grade": 1 to 6, common to ultimate - a colour wherever it is named. "class": 1 a warrior's, 2 a mage's. */
+    bool rolled;
+    int roll_power, roll_ups, roll_health, grade, loot_class;
+    float roll_gain, roll_health_gain;
     bool boards;      /* "boards": used on a ship that can be boarded, it is */
     bool treasure_map; /* "treasure_map": in hand, it shows the lie of the land about something buried (which, its meter says) */
     int meridian;     /* "meridian": which one it opens, from 1 - and only when those before it are open (0: whichever is next) */
@@ -880,7 +895,43 @@ typedef struct {
     TileType street, ground;
 } VillageDef;
 
-enum { DIM_ISLANDS, DIM_CAVERNS, DIM_VOID, DIM_GROVE, DIM_SURFACE };
+enum { DIM_ISLANDS, DIM_CAVERNS, DIM_VOID, DIM_GROVE, DIM_SURFACE, DIM_DUNGEON };
+
+/* A dungeon: a run of rooms built afresh, in the place whose generator is "dungeon", each time somebody goes in.
+ * What it is built of, what is met there (creatures by name: they are read after this is), and what its chest holds:
+ * each thing in `loot` has a `rank` from 0 to 1 - how far up the dungeon's list it is - and a difficulty gives the
+ * ranks between two shares of it. */
+#define MAX_DUNGEONS 16
+#define MAX_DUNGEON_LOOT 320
+#define MAX_DIFFICULTIES 6
+#define MAX_GRADES 7
+typedef struct {
+    char name[CONTENT_NAME_LEN], label[CONTENT_NAME_LEN];
+    int tier;               /* the level a gate's bench has to have for this one to be offered */
+    TileType wall, floor, back, door, mark, boss_mark, chest, exit, light;
+    TileType decor[8], hanging[4];
+    int decor_count, hanging_count;
+    int rooms_min, rooms_max;
+    char mobs[8][CONTENT_NAME_LEN];
+    int mob_count;
+    struct {
+        ItemId item;
+        float rank;
+    } loot[MAX_DUNGEON_LOOT];
+    int loot_count;
+    ItemId stone;           /* what raises the portal that leads here: found in the chest, as often as the difficulty says */
+    long gold;              /* copper in the chest on the first difficulty, give or take a quarter */
+} DungeonDef;
+typedef struct {
+    char label[CONTENT_NAME_LEN];
+    float health, damage;   /* how many times what the dungeon's creatures have and do */
+    float from, to;         /* the ranks of loot it gives */
+    int grades[MAX_GRADES]; /* how often each grade, 1 to 6, against the others */
+    int loot_min, loot_max; /* how many things in the chest */
+    float stone;            /* how many of the dungeon's stone, on average */
+    float gold;             /* how many times the dungeon's gold */
+    int more;               /* creatures more to a room */
+} DifficultyDef;
 
 /* A realm of cultivation: so many stages, the first holding so much qi and each after it so many times the last. */
 typedef struct {
@@ -1203,6 +1254,13 @@ typedef struct {
     float flail_time;      /* seconds someone attacked throws their arms about */
     int max_drop;          /* how far they will let themselves fall by a step of their own: blocks; 0 for any distance */
     int respawn_cost;      /* crystals to come back at once, right after dying; less as the wait runs down */
+    int dungeon_health;    /* what a character's health adds up to with nothing on, where blows are numbers */
+    float upgrade_cost;    /* what upgrading a rolled thing all the way costs: so many times its price */
+    int upgrade_steps;     /* in how many goes */
+    char grade_labels[MAX_GRADES][CONTENT_NAME_LEN]; /* what each grade of a rolled thing is called, and its colour */
+    unsigned char grade_colors[MAX_GRADES][3];
+    DifficultyDef difficulties[MAX_DIFFICULTIES];
+    int difficulty_count;
     int hand_damage;       /* what a blow with nothing better in hand takes off a creature */
     float poison_damage;   /* share of the health bar each tick of being poisoned takes */
     float attack_time;     /* seconds a blow takes */
@@ -1248,6 +1306,10 @@ typedef struct {
     float mount_speed;
     float strike_share;
     int strike_range, strike_rest;
+    /* "power" in "sting" or "strike": the blow is a number, taken from what the character's health adds up to
+     * (game_max_health) - not a share of the bar. "boss": its health is shown across the top of the screen. */
+    int sting_power, strike_power;
+    bool boss;
     /* "tame": what grade of thing that tames it takes (0: it cannot be). "companion": owned, it keeps by whoever is
      * nearest and goes for wild creatures it can see, doing so much to them at a time. */
     int tame;
@@ -1382,6 +1444,8 @@ typedef struct {
     DaoDef dao;
     DimensionDef dimensions[MAX_DIMENSIONS];
     int dimension_count;
+    DungeonDef dungeons[MAX_DUNGEONS];
+    int dungeon_count;
     RulesDef rules;
     SetDef sets[MAX_SETS];
     int set_count;

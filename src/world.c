@@ -2050,6 +2050,12 @@ int world_add_region(World *w, int dim, const char *name, int height, bool gener
     uint32_t rng = w->seed ^ 0xD1AE5u;
     for (const char *c = d->name; *c; c++) rng = rng * 16777619u ^ (uint32_t)(unsigned char)*c;
     if (rng == 0) rng = 1;
+    if (d->generator == DIM_DUNGEON) {
+        /* (Solid, until somebody goes in: world_dungeon_build makes it what it is, each time.) */
+        for (int y = g->y0; y < g->y0 + g->height; y++)
+            for (int x = 0; x < w->width; x++) w->layers[LAYER_FOREGROUND][(size_t)y * w->width + x] = (uint16_t)d->edge;
+        return region;
+    }
     region_biomes(w, region, &rng);
     if (d->generator == DIM_ISLANDS) region_islands(w, region, &rng);
     else if (d->generator == DIM_CAVERNS) region_caverns(w, region, &rng);
@@ -2064,6 +2070,105 @@ int world_add_region(World *w, int dim, const char *name, int height, bool gener
     memset(w->water_awake, 0, (size_t)w->width);
     w->water_stirring = false;
     return region;
+}
+
+int world_dungeon_run(const World *w, int y, int *difficulty)
+{
+    int region = world_region_at(w, y);
+    if (region < 0 || w->regions[region].dim < 0 || content.dimensions[w->regions[region].dim].generator != DIM_DUNGEON) return -1;
+    int says = w->meta[(size_t)w->regions[region].y0 * w->width + world_wrap_x(w, w->spawn_x)];
+    if (says <= 0 || (says - 1) / 8 >= content.dungeon_count) return -1;
+    if (difficulty) *difficulty = (says - 1) % 8;
+    return (says - 1) / 8;
+}
+
+static void dungeon_put(World *w, TileType t, int x, int y)
+{
+    if (t == TILE_AIR) return;
+    size_t at = (size_t)y * w->width + world_wrap_x(w, x);
+    if (w->layers[tile_def(t)->layer][at] == TILE_AIR || tile_def(t)->layer == LAYER_FOREGROUND) w->layers[tile_def(t)->layer][at] = (uint16_t)t;
+}
+
+static void dungeon_carve(World *w, const DungeonDef *d, int x0, int x1, int y0, int y1)
+{
+    for (int y = y0; y <= y1; y++)
+        for (int x = x0; x <= x1; x++) {
+            size_t at = (size_t)y * w->width + world_wrap_x(w, x);
+            w->layers[LAYER_FOREGROUND][at] = TILE_AIR;
+            w->layers[LAYER_WALL][at] = (uint16_t)d->back;
+        }
+}
+
+bool world_dungeon_build(World *w, int region, int dungeon, int difficulty, uint32_t seed, int *start_x, int *start_y)
+{
+    if (region < 0 || region >= w->region_count || dungeon < 0 || dungeon >= content.dungeon_count) return false;
+    const Region *g = &w->regions[region];
+    const DimensionDef *dim = &content.dimensions[g->dim];
+    const DungeonDef *d = &content.dungeons[dungeon];
+    int more = difficulty >= 0 && difficulty < content.rules.difficulty_count ? content.rules.difficulties[difficulty].more : 0;
+    uint32_t rng_state = seed ? seed : 1u, *rng = &rng_state;
+    int width = w->width, y_end = g->y0 + g->height;
+    if (dim->generator != DIM_DUNGEON || g->height < 24 || width < 200) return false;
+    /* Whatever was there before is gone: rock from side to side. */
+    for (int y = g->y0; y < y_end; y++)
+        for (int x = 0; x < width; x++) {
+            size_t at = (size_t)y * width + x;
+            for (int layer = 0; layer < LAYER_COUNT; layer++) w->layers[layer][at] = 0;
+            w->layers[LAYER_FOREGROUND][at] = (uint16_t)dim->edge;
+            w->meta[at] = 0;
+            w->water[at] = 0;
+            w->paint[0][at] = w->paint[1][at] = 0;
+        }
+    w->devices_known = false;
+    int rooms = rng_range(rng, d->rooms_min, d->rooms_max), fits = (width - 60) / 28;
+    if (rooms > fits) rooms = fits;
+    if (rooms < 3) rooms = 3;
+    int left = w->spawn_x - 4, x = left, floor = g->y0 + g->height * 3 / 5;
+    *start_x = world_wrap_x(w, w->spawn_x), *start_y = floor;
+    for (int i = 0; i < rooms; i++) {
+        bool first = i == 0, last = i == rooms - 1, boss = i == rooms - 2;
+        int wide = first ? 9 : last ? 11 : boss ? 24 : rng_range(rng, 13, 22), high = first || last ? 5 : boss ? 9 : rng_range(rng, 5, 8);
+        dungeon_carve(w, d, x, x + wide - 1, floor - high + 1, floor);
+        /* What stands in it: lamps along the wall, things on the floor, things from the roof. */
+        for (int lx = x + 2; d->light != TILE_AIR && lx < x + wide - 1; lx += 5) dungeon_put(w, d->light, lx, floor - 2);
+        for (int k = rng_range(rng, 1, 3); d->decor_count > 0 && k > 0; k--) dungeon_put(w, d->decor[rng_range(rng, 0, d->decor_count - 1)], x + rng_range(rng, 1, wide - 2), floor);
+        for (int k = rng_range(rng, 1, 3); d->hanging_count > 0 && k > 0; k--) dungeon_put(w, d->hanging[rng_range(rng, 0, d->hanging_count - 1)], x + rng_range(rng, 1, wide - 2), floor - high + 1);
+        if (first) {
+            dungeon_put(w, d->exit, x + 1, floor);
+        } else if (last) {
+            w->layers[tile_def(d->chest)->layer][(size_t)floor * width + world_wrap_x(w, x + wide / 2)] = (uint16_t)d->chest;
+            w->layers[tile_def(d->exit)->layer][(size_t)floor * width + world_wrap_x(w, x + wide - 3)] = (uint16_t)d->exit;
+        } else {
+            /* Who is waiting: more of them the further in, and the last room but one has the one whose place it is. */
+            int many = boss ? 2 + more : 2 + (i + 1) / 2 + more;
+            if (many > (wide - 4) / 2) many = (wide - 4) / 2;
+            for (int k = 0; k < many; k++) {
+                size_t at = (size_t)floor * width + world_wrap_x(w, x + 3 + k * (wide - 5) / (many > 1 ? many - 1 : 1));
+                w->layers[tile_def(d->mark)->layer][at] = (uint16_t)d->mark;
+            }
+            if (boss) w->layers[tile_def(d->boss_mark)->layer][(size_t)floor * width + world_wrap_x(w, x + wide - 6)] = (uint16_t)d->boss_mark;
+        }
+        if (last) { x += wide; break; }
+        /* The way on: a passage with a door in it, and the next room a step up or down. */
+        dungeon_carve(w, d, x + wide, x + wide + 4, floor - 2, floor);
+        for (int k = 0; k < 3; k++) w->layers[LAYER_FOREGROUND][(size_t)(floor - k) * width + world_wrap_x(w, x + wide + 2)] = (uint16_t)d->door;
+        x += wide + 5;
+        int step = rng_range(rng, -1, 1);
+        if (floor + step > g->y0 + 14 && floor + step < y_end - 6) floor += step;
+    }
+    /* Built: whatever rock is beside the open is the dungeon's own wall, and under it its floor. */
+    for (int y = g->y0 + 1; y < y_end - 1; y++)
+        for (int cx = left - 2; cx <= x + 2; cx++) {
+            size_t at = (size_t)y * width + world_wrap_x(w, cx);
+            if (w->layers[LAYER_FOREGROUND][at] != dim->edge) continue;
+            bool beside = false;
+            for (int dy = -1; dy <= 1 && !beside; dy++)
+                for (int dx = -1; dx <= 1 && !beside; dx++) beside = w->layers[LAYER_WALL][(size_t)(y + dy) * width + world_wrap_x(w, cx + dx)] == d->back;
+            if (!beside) continue;
+            w->layers[LAYER_FOREGROUND][at] = (uint16_t)(w->layers[LAYER_WALL][(size_t)(y - 1) * width + world_wrap_x(w, cx)] == d->back ? d->floor : d->wall);
+        }
+    w->meta[(size_t)g->y0 * width + world_wrap_x(w, w->spawn_x)] = (uint16_t)(1 + dungeon * 8 + difficulty);
+    return true;
 }
 
 int world_biome(const World *w, int x)

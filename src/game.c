@@ -1582,6 +1582,11 @@ int game_attack_damage(const Game *g)
 {
     const ItemStack *held = inventory_selected(&g->inventory);
     int with = held->count > 0 ? item_def(held->id)->damage : 0;
+    /* (A thing whose numbers fell to it strikes with those, and with whatever of the kind is worn.) */
+    if (held->count > 0 && item_def(held->id)->rolled && item_def(held->id)->loot_class > 0) {
+        int power = game_roll(&g->inventory, held).power + game_worn_power(g);
+        if (power > with) with = power;
+    }
     if (g->mount > 0 && g->mount <= MAX_MOBS && g->mobs[g->mount - 1].active && content.mobs[g->mobs[g->mount - 1].kind].gun_damage > 0)
         return content.mobs[g->mobs[g->mount - 1].kind].gun_damage * (g->mobs[g->mount - 1].size > 1 ? 1 : 1) + game_boons(g).strength;
     return (with > content.rules.hand_damage ? with : content.rules.hand_damage) + game_boons(g).strength;
@@ -2952,6 +2957,319 @@ int game_enter_dimension(Game *g, int dim)
     return region;
 }
 
+/* ---- dungeons, and what is found in them ------------------------------------------------------------------------ */
+
+#define ROLL_SPAN 21 /* a tenth under to a tenth over, by hundredths */
+
+Roll game_roll(const Inventory *inv, const ItemStack *s)
+{
+    Roll out = { 0 };
+    if (!s || s->count == 0 || !item_def((ItemId)s->id)->rolled) return out;
+    const ItemDef *def = item_def((ItemId)s->id);
+    int reads = inventory_meter(inv, s);
+    /* (One that has not fallen yet is shown as the middle of what it could be.) */
+    int v = reads > 0 ? reads - 1 : ROLL_SPAN / 2 + ROLL_SPAN * (ROLL_SPAN / 2);
+    float base = 0.9f + 0.01f * (float)(v % ROLL_SPAN), ups = 0.9f + 0.01f * (float)(v / ROLL_SPAN % ROLL_SPAN);
+    out.rolled = true;
+    out.fallen = reads > 0;
+    out.base_percent = (int)(base * 100.0f + 0.5f);
+    out.ups_percent = (int)(ups * 100.0f + 0.5f);
+    out.ups = def->roll_ups > 0 ? (int)((float)def->roll_ups * ups + 0.5f) : 0;
+    if (def->roll_ups > 0 && out.ups < 1) out.ups = 1;
+    out.steps = content.rules.upgrade_steps > 0 ? content.rules.upgrade_steps : 50;
+    if (out.steps > out.ups) out.steps = out.ups;
+    out.step = v / (ROLL_SPAN * ROLL_SPAN);
+    if (out.step > out.steps) out.step = out.steps;
+    out.done = out.steps > 0 ? (int)((long)out.step * out.ups / out.steps) : 0;
+    out.base_power = def->roll_power > 0 ? (int)((float)def->roll_power * base + 0.5f) : 0;
+    out.base_health = def->roll_health > 0 ? (int)((float)def->roll_health * base + 0.5f) : 0;
+    out.power = out.base_power + (int)((float)out.done * def->roll_gain + 0.5f);
+    out.health = out.base_health + (int)((float)out.done * def->roll_health_gain + 0.5f);
+    return out;
+}
+
+static void roll_stack(Game *g, ItemStack *s)
+{
+    if (s->count == 0 || !item_def((ItemId)s->id)->rolled || inventory_meter(&g->inventory, s) > 0) return;
+    int v = (int)(game_random(g) % ROLL_SPAN) + ROLL_SPAN * (int)(game_random(g) % ROLL_SPAN);
+    inventory_set_meter(&g->inventory, s, v + 1);
+}
+
+/* Whatever has come into anybody's keeping without its numbers having fallen, gets them. */
+static void roll_everything(Game *g)
+{
+    Inventory *inv = &g->inventory;
+    for (int i = 0; i < INVENTORY_SLOTS; i++) roll_stack(g, &inv->slots[i]);
+    for (int i = 0; i < ARMOR_SLOTS; i++) roll_stack(g, &inv->armor[i]);
+    for (int c = 1; c < MAX_CONTAINERS; c++) {
+        if (inv->containers[c].used != CONTAINER_ITEMS) continue;
+        for (int i = 0; i < CONTAINER_MAX_SLOTS; i++)
+            if (inv->containers[c].slots[i].count > 0 && item_def((ItemId)inv->containers[c].slots[i].id)->rolled) roll_stack(g, &inv->containers[c].slots[i]);
+    }
+}
+
+int game_worn_power(const Game *g)
+{
+    int total = 0;
+    for (int i = 0; i < ARMOR_SLOTS; i++) total += game_roll(&g->inventory, &g->inventory.armor[i]).power;
+    return total;
+}
+
+int game_max_health(const Game *g)
+{
+    int total = content.rules.dungeon_health > 0 ? content.rules.dungeon_health : 100;
+    for (int i = 0; i < ARMOR_SLOTS; i++) total += game_roll(&g->inventory, &g->inventory.armor[i]).health;
+    return total;
+}
+
+float game_blow(const Game *g, int power, int x, int y)
+{
+    int hard = 0;
+    float times = world_dungeon_run(&g->world, y, &hard) >= 0 && hard < content.rules.difficulty_count ? content.rules.difficulties[hard].damage : 1.0f;
+    (void)x;
+    return (float)power * times / (float)game_max_health(g);
+}
+
+long game_rolled_worth(const Game *g, const ItemStack *s)
+{
+    Roll r = game_roll(&g->inventory, s);
+    if (!r.rolled) return 0;
+    float spent = r.steps > 0 ? (float)r.step / (float)r.steps : 0.0f;
+    float cost = content.rules.upgrade_cost > 0.0f ? content.rules.upgrade_cost : 2.0f;
+    return (long)((float)item_def((ItemId)s->id)->price * (1.0f + spent * cost) * content.trade.sell_share + 0.5f);
+}
+
+long game_upgrade_cost(const Game *g, const ItemStack *s, int steps)
+{
+    Roll r = game_roll(&g->inventory, s);
+    if (!r.rolled || r.step >= r.steps) return 0;
+    if (steps > r.steps - r.step) steps = r.steps - r.step;
+    float cost = content.rules.upgrade_cost > 0.0f ? content.rules.upgrade_cost : 2.0f;
+    long each = (long)((float)item_def((ItemId)s->id)->price * cost / (float)r.steps + 0.999f);
+    return (each < 1 ? 1 : each) * steps;
+}
+
+bool game_forge_open(const Game *g)
+{
+    return g->bench_open && tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y))->loot_forge;
+}
+
+bool game_upgrade(Game *g, int steps)
+{
+    ItemStack *s = (ItemStack *)inventory_selected(&g->inventory);
+    Roll r = game_roll(&g->inventory, s);
+    if (!game_forge_open(g) || !r.rolled || steps < 1) return false;
+    roll_stack(g, s);
+    if (steps > r.steps - r.step) steps = r.steps - r.step;
+    /* (As many as can be paid for.) */
+    while (steps > 0 && trade_wallet(&g->inventory) < game_upgrade_cost(g, s, steps)) steps--;
+    if (steps < 1 || !trade_pay(g, game_upgrade_cost(g, s, steps))) return false;
+    int v = inventory_meter(&g->inventory, s) - 1;
+    return inventory_set_meter(&g->inventory, s, v + steps * ROLL_SPAN * ROLL_SPAN + 1);
+}
+
+bool game_sell_rolled(Game *g)
+{
+    const ItemStack *s = inventory_selected(&g->inventory);
+    if (!game_forge_open(g) || s->count == 0 || !item_def((ItemId)s->id)->rolled) return false;
+    long worth = game_rolled_worth(g, s);
+    ItemStack out;
+    if (!inventory_take_one(&g->inventory, (ItemId)s->id, &out)) return false;
+    container_free(&g->inventory, out.container);
+    trade_give(g, worth);
+    return true;
+}
+
+int game_dungeon_dim(void)
+{
+    for (int i = 0; i < content.dimension_count; i++)
+        if (content.dimensions[i].generator == DIM_DUNGEON) return i;
+    return -1;
+}
+
+bool game_gate_open_here(const Game *g)
+{
+    return g->bench_open && tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y))->dungeon_gate;
+}
+
+int game_gate_level(const Game *g)
+{
+    const World *w = &g->world;
+    const TileDef *gate = tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y));
+    if (!g->bench_open || !gate->dungeon_gate) return 0;
+    if (!gate->gate_beside[0]) return 1000;
+    int best = 0;
+    for (int dy = -gate->gate_reach; dy <= gate->gate_reach; dy++)
+        for (int dx = -gate->gate_reach; dx <= gate->gate_reach; dx++)
+            for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
+                if (!world_in_bounds(w, g->bench_pos.x + dx, g->bench_pos.y + dy)) continue;
+                const TileDef *t = tile_def(world_get_at(w, layer, g->bench_pos.x + dx, g->bench_pos.y + dy));
+                if (t->bench && strcmp(t->bench_kind, gate->gate_beside) == 0 && t->bench_level > best) best = t->bench_level;
+            }
+    return best;
+}
+
+/* What the chest at the end holds: so many things of the ranks and grades the difficulty gives, the stone, and gold. */
+static void dungeon_fill_chest(Game *g, int y0, int y1, const DungeonDef *d, const DifficultyDef *hard)
+{
+    World *w = &g->world;
+    TilePos at = { -1, -1 };
+    for (int y = y0; y < y1 && at.x < 0; y++)
+        for (int x = 0; x < w->width && at.x < 0; x++)
+            if (world_get_at(w, tile_def(d->chest)->layer, x, y) == d->chest) at = (TilePos){ x, y };
+    if (at.x < 0) return;
+    storage_ensure(g, at, tile_def(d->chest));
+    Storage *st = storage_at(g, at);
+    if (!st || st->container == 0) return;
+    int many = hard->loot_min + (hard->loot_max > hard->loot_min ? (int)(game_random(g) % (uint32_t)(hard->loot_max - hard->loot_min + 1)) : 0);
+    int weights = 0;
+    for (int k = 1; k < MAX_GRADES; k++) weights += hard->grades[k];
+    for (int n = 0; n < many; n++) {
+        int grade = 0, roll = weights > 0 ? (int)(game_random(g) % (uint32_t)weights) : 0;
+        for (int k = 1; k < MAX_GRADES && grade == 0; k++) {
+            if (roll < hard->grades[k]) grade = k;
+            roll -= hard->grades[k];
+        }
+        /* (The best of all is not kept to a difficulty's share of the list: where it can be had at all, any of them can.) */
+        for (int pass = 0; pass < 2; pass++) {
+            int fits = 0, pick = -1;
+            for (int turn = 0; turn < 2; turn++) {
+                int seen = 0;
+                for (int i = 0; i < d->loot_count; i++) {
+                    const ItemDef *it = item_def(d->loot[i].item);
+                    bool in = (pass == 1 || it->grade == grade) && (it->grade >= 5 ? pass == 0 : d->loot[i].rank >= hard->from - 0.0001f && d->loot[i].rank <= hard->to + 0.0001f);
+                    if (!in) continue;
+                    if (turn == 1 && seen == pick) container_put(&g->inventory, st->container, d->loot[i].item, 1);
+                    seen++;
+                }
+                if (turn == 0) {
+                    fits = seen;
+                    if (fits == 0) break;
+                    pick = (int)(game_random(g) % (uint32_t)fits);
+                }
+            }
+            if (fits > 0) break;
+        }
+    }
+    int stones = (int)hard->stone;
+    if ((float)(game_random(g) % 1000u) / 1000.0f < hard->stone - (float)stones) stones++;
+    if (d->stone != ITEM_NONE && stones > 0) container_put(&g->inventory, st->container, d->stone, stones);
+    long gold = (long)((float)d->gold * hard->gold * (0.75f + (float)(game_random(g) % 500u) / 1000.0f));
+    int parts[MAX_CURRENCIES], kinds = trade_coins(gold, parts);
+    for (int i = kinds - 1; i >= 0; i--)
+        for (int left = parts[i], stacks = 0; left > 0 && stacks < 5; left -= 99, stacks++) container_put(&g->inventory, st->container, content.trade.currencies[i].item, left > 99 ? 99 : left);
+    roll_everything(g);
+}
+
+bool game_dungeon_enter(Game *g, int dungeon, int difficulty)
+{
+    World *w = &g->world;
+    Player *p = &g->player;
+    int dim = game_dungeon_dim();
+    if (dim < 0 || dungeon < 0 || dungeon >= content.dungeon_count || difficulty < 0 || difficulty >= content.rules.difficulty_count || !game_alive(g)) return false;
+    if (g->bench_open && game_gate_open_here(g) && content.dungeons[dungeon].tier > game_gate_level(g)) return false;
+    /* (One at a time: going in makes the place over, and nobody may be standing in it.) */
+    int region = world_region_of(w, dim);
+    for (int c = 0; region >= 0 && c < g->character_count; c++)
+        if (c != g->live && world_region_at(w, g->characters[c].player.feet.y) == region) return false;
+    TilePos from = g->bench_open ? g->bench_pos : p->feet;
+    bool inside = region >= 0 && world_region_at(w, p->feet.y) == region;
+    region = game_enter_dimension(g, dim);
+    if (region < 0) return false;
+    int y0, y1, sx, sy;
+    world_region_rows(w, region, &y0, &y1);
+    for (int i = 0; i < MAX_MOBS; i++)
+        if (g->mobs[i].active && g->mobs[i].y >= y0 && g->mobs[i].y < y1) g->mobs[i].active = false;
+    for (int i = 0; i < MAX_STORAGES; i++)
+        if (g->storages[i].used && g->storages[i].y >= y0 && g->storages[i].y < y1) {
+            container_free(&g->inventory, g->storages[i].container);
+            g->storages[i].used = false;
+        }
+    for (int i = 0; i < MAX_DROPS; i++)
+        if (g->drops[i].active && (int)g->drops[i].y >= y0 && (int)g->drops[i].y < y1) {
+            container_free(&g->inventory, g->drops[i].container);
+            g->drops[i].active = false;
+        }
+    if (!world_dungeon_build(w, region, dungeon, difficulty, game_random(g), &sx, &sy)) return false;
+    dungeon_fill_chest(g, y0, y1, &content.dungeons[dungeon], &content.rules.difficulties[difficulty]);
+    if (!inside) {
+        g->gate_from = from;
+        g->gate_from_set = true;
+    }
+    game_cancel_actions(g);
+    game_close_bench(g);
+    game_wake(g);
+    p->feet = p->step_to = (TilePos){ sx, sy };
+    p->activity = ACTIVITY_IDLE;
+    p->climbing = false;
+    g->travels++;
+    game_reveal(g, sx, sy - 1);
+    return true;
+}
+
+bool game_dungeon_leave(Game *g)
+{
+    World *w = &g->world;
+    Player *p = &g->player;
+    int region = world_region_at(w, p->feet.y);
+    if (region < 0 || w->regions[region].dim < 0 || content.dimensions[w->regions[region].dim].generator != DIM_DUNGEON) return false;
+    TilePos to = { w->spawn_x, w->spawn_y };
+    if (g->gate_from_set && world_region_at(w, g->gate_from.y) < 0) to = g->gate_from;
+    portal_standing(g, to, &to);
+    game_cancel_actions(g);
+    game_close_bench(g);
+    game_wake(g);
+    p->feet = p->step_to = to;
+    p->activity = ACTIVITY_IDLE;
+    p->climbing = false;
+    g->travels++;
+    game_reveal(g, to.x, to.y - 1);
+    return true;
+}
+
+/* A run under way: those who wait in the rooms that can be reached come out as somebody nears, and a door opens once
+ * nothing hostile is left on the near side of it. (Nothing is kept on the side: it is all in what the place holds.) */
+static void dungeon_tick(Game *g)
+{
+    World *w = &g->world;
+    if (g->tick % 5 != 0 || content.dungeon_count == 0) return;
+    if (g->tick % 20 == 0) roll_everything(g);
+    int hard = 0, dungeon = game_alive(g) ? world_dungeon_run(w, g->player.feet.y, &hard) : -1;
+    if (dungeon < 0) return;
+    const DungeonDef *d = &content.dungeons[dungeon];
+    float tough = hard < content.rules.difficulty_count ? content.rules.difficulties[hard].health : 1.0f;
+    int y0, y1, sx = w->spawn_x, reach = w->width - 40 < 900 ? w->width - 40 : 900;
+    world_region_rows(w, world_region_at(w, g->player.feet.y), &y0, &y1);
+    int at = world_dx(w, sx, g->player.feet.x), door = reach + 1, threat = reach + 1;
+    for (int dx = -8; dx < reach; dx++)
+        for (int y = y0 + 1; y < y1 - 1; y++)
+            if (tile_def(world_get(w, sx + dx, y))->dungeon_door && dx < door) door = dx;
+    for (int i = 0; i < MAX_MOBS; i++)
+        if (g->mobs[i].active && !g->mobs[i].owned && g->mobs[i].y >= y0 && g->mobs[i].y < y1 && world_dx(w, sx, g->mobs[i].x) < threat) threat = world_dx(w, sx, g->mobs[i].x);
+    for (int dx = -8; dx < reach; dx++)
+        for (int y = y0 + 1; y < y1 - 1; y++)
+            for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
+                int kind = tile_def(world_get_at(w, layer, sx + dx, y))->dungeon_spawn;
+                if (kind == 0) continue;
+                /* (Not those behind a door that is still shut.) */
+                if (dx > door || abs(dx - at) > 26) {
+                    if (dx < threat) threat = dx;
+                    continue;
+                }
+                world_set_at(w, layer, sx + dx, y, TILE_AIR);
+                int who = mob_id(kind == 2 || d->mob_count < 2 ? d->mobs[d->mob_count - 1] : d->mobs[game_random(g) % (uint32_t)(d->mob_count - 1)]);
+                int m = who >= 0 ? mob_spawn(g, who, sx + dx, y, false, false) : -1;
+                if (m < 0) continue;
+                float hp = (float)g->mobs[m].hp * tough;
+                g->mobs[m].hp = hp > 2.0e9f ? 2000000000 : (int32_t)hp;
+                if (dx < threat) threat = dx;
+            }
+    /* Every door with nothing left before it. */
+    for (int dx = -8; dx < reach && dx < threat; dx++)
+        for (int y = y0 + 1; y < y1 - 1; y++)
+            if (tile_def(world_get(w, sx + dx, y))->dungeon_door) world_set_at(w, LAYER_FOREGROUND, sx + dx, y, TILE_AIR);
+}
+
 /* The foot of the way to another place in a square, and what it is: TILE_AIR if there is none. */
 static TileType gate_at(const World *w, int x, int y, int *bottom)
 {
@@ -3161,6 +3479,8 @@ bool game_travel(Game *g, int x, int y)
     Player *p = &g->player;
     int bottom = y;
     TileType gate = gate_at(w, x, y, &bottom);
+    /* (The way out of a dungeon leads only out.) */
+    if (gate != TILE_AIR && game_alive(g) && tile_def(gate)->dungeon_exit) return game_dungeon_leave(g);
     if (gate == TILE_AIR || !game_alive(g) || !game_gate_open(g, x, y)) return false;
     const TileDef *def = tile_def(gate);
     int here = world_dimension_at(w, bottom);
@@ -4391,6 +4711,7 @@ void game_tick(Game *g)
     }
 
     mobs_tick(g);
+    dungeon_tick(g);
     signal_tick(g);
     dao_world_tick(g);
     if (g->mount > 0 && (g->mount > MAX_MOBS || !g->mobs[g->mount - 1].active)) g->mount = 0; /* (what they rode is gone) */
