@@ -662,8 +662,11 @@ static void block_depth(const Game *g, int layer, const TileDef *def, int x, int
      * sown, or grows, or is the top of something that does; a thing that is worked at or holds things is one
      * thing and not material. (The picture settles the rest: see world3d.h.) */
     bool plant = def->soil_count > 0 || def->grows_into != TILE_AIR || def->grows_top != TILE_AIR || def->topped_by != TILE_AIR || def->cut_to != TILE_AIR;
-    bool thing = def->bench || def->trade || def->storage_columns > 0;
-    World3dModel model = def->model != 0 ? (World3dModel)def->model : plant ? W3D_CROSS : thing ? W3D_BOX : W3D_AUTO;
+    /* Only what is built and put down to be used has a shape made for it: benches, what holds things, beds, lamps,
+     * and the columns and stairs things are built of. Anything else that is not a block is its picture, a pixel deep. */
+    bool thing = def->bench || def->trade || def->storage_columns > 0 || def->sleep_speed > 0.0f || def->light > 0 || def->supports || def->steps ||
+                 (def->pair_of != TILE_AIR && tile_def(def->pair_of)->sleep_speed > 0.0f);
+    World3dModel model = def->model != 0 ? (World3dModel)def->model : plant ? W3D_CROSS : thing ? W3D_BOX : W3D_PANEL;
     if (layer == LAYER_FOREGROUND && def->solid && !stands_alone(def)) {
         /* Material goes all the way back; and shows no side that is against more of it. */
         static const int beside[4][3] = { { -1, 0, W3D_LEFT }, { 1, 0, W3D_RIGHT }, { 0, -1, W3D_TOP }, { 0, 1, W3D_BOTTOM } };
@@ -1339,8 +1342,8 @@ static void draw_mobs(const Game *g, Vector2 origin)
             float side = (float)m->size * TILE_SIZE;
             r = (Rectangle){ r.x + TILE_SIZE / 2.0f - side / 2, r.y + TILE_SIZE / 2.0f - side / 2, side, side };
         }
-        /* (A creature has some body to it, and is in among the characters.) */
-        world3d_solid(Z_BODY + 0.26f * TILE_SIZE, Z_BODY - 0.26f * TILE_SIZE, W3D_ALL, W3D_BODY);
+        /* (A creature is its picture, a pixel deep, in among the characters.) */
+        world3d_solid(Z_BODY + 0.26f * TILE_SIZE, Z_BODY - 0.26f * TILE_SIZE, W3D_ALL, W3D_PANEL);
         assets_draw_sprite(file, r, m->dir < 0);
         world3d_flat();
         /* One that has been hurt shows how much it has left. */
