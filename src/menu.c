@@ -279,28 +279,133 @@ static void draw_mod_icon(const ModInfo *mod, Rectangle r)
     DrawRectangleLinesEx(r, 2.0f, edge_color);
 }
 
-/* The mods, each with a switch. */
-static MainMenuResult mods_screen(MainMenu *m)
+/* One playset: its name, to be typed over, and every mod with a switch that puts it in or takes it out. */
+static void playset_edit_screen(MainMenu *m)
 {
-    title("Mods", 60, 40);
-    float wide = 520.0f, x = ((float)GetScreenWidth() - wide) / 2.0f, y = 150.0f;
+    Playset *set = &m->playsets.sets[m->playsets.active];
+    title("Playset", 60, 40);
+    char name[PLAYSET_NAME_MAX + 1];
+    snprintf(name, sizeof name, "%s", set->name);
+    size_t len = strlen(name);
+    for (int c = GetCharPressed(); c > 0; c = GetCharPressed()) {
+        bool ok = c >= 32 && c < 127 && c != '|' && !(c == ' ' && len == 0);
+        if (ok && len < PLAYSET_NAME_MAX) {
+            name[len++] = (char)c;
+            name[len] = '\0';
+        }
+    }
+    if ((IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) && len > 1) name[--len] = '\0';
+    if (strcmp(name, set->name) != 0) snprintf(set->name, sizeof set->name, "%s", name);
+
+    float wide = 520.0f, x = ((float)GetScreenWidth() - wide) / 2.0f, y = 120.0f;
+    Rectangle box = { x, y, wide, 44 };
+    DrawRectangleRec(box, (Color){ 18, 19, 24, 255 });
+    DrawRectangleLinesEx(box, 2.0f, RAYWHITE);
+    bool blink = (int)(GetTime() * 2.0) % 2 == 0;
+    DrawText(TextFormat("%s%s", set->name, blink ? "_" : ""), (int)box.x + 12, (int)box.y + 11, 22, RAYWHITE);
+    y += 60.0f;
     if (m->mods.count == 0) title("No mods found.", y + 10, 20);
-    for (int i = 0; i < m->mods.count; i++) {
-        ModInfo *mod = &m->mods.mods[i];
-        Rectangle row = { x, y, wide, 56 };
+    /* (As many as fit; the wheel brings the rest up.) */
+    int rows = (int)(((float)GetScreenHeight() - y - 90.0f) / 56.0f);
+    if (rows < 1) rows = 1;
+    int most = m->mods.count > rows ? m->mods.count - rows : 0;
+    m->set_scroll -= (int)GetMouseWheelMove();
+    if (m->set_scroll > most) m->set_scroll = most;
+    if (m->set_scroll < 0) m->set_scroll = 0;
+    for (int i = m->set_scroll; i < m->mods.count && i < m->set_scroll + rows; i++) {
+        const ModInfo *mod = &m->mods.mods[i];
+        Rectangle row = { x, y, wide, 50 };
+        bool in = playset_has(set, mod->id);
         DrawRectangleRec(row, (Color){ 30, 33, 46, 255 });
-        draw_mod_icon(mod, (Rectangle){ row.x + 4, row.y + 4, 48, 48 });
-        DrawText(mod->label, (int)row.x + 64, (int)row.y + 18, 20, RAYWHITE);
-        if (button((Rectangle){ row.x + row.width - 96, row.y + 10, 88, 36 }, mod->enabled ? "On" : "Off", true)) {
-            mod->enabled = !mod->enabled;
+        draw_mod_icon(mod, (Rectangle){ row.x + 4, row.y + 4, 42, 42 });
+        DrawText(mod->label, (int)row.x + 58, (int)row.y + 15, 20, RAYWHITE);
+        if (button((Rectangle){ row.x + row.width - 96, row.y + 8, 88, 34 }, in ? "On" : "Off", true)) {
+            playset_toggle(set, mod->id);
             m->mods_changed = true;
         }
-        if (mod->enabled) DrawRectangleRec((Rectangle){ row.x, row.y, 3, row.height }, (Color){ 90, 160, 100, 255 });
-        y += 64.0f;
+        if (in) DrawRectangleRec((Rectangle){ row.x, row.y, 3, row.height }, (Color){ 90, 160, 100, 255 });
+        y += 56.0f;
     }
-    if (!button(column_button(y + 24.0f, 0), "Done", true) && !IsKeyPressed(KEY_ESCAPE)) return MAIN_MENU_STAY;
+    if (button(column_button((float)GetScreenHeight() - 76.0f, 0), "Done", true) || IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_ENTER)) {
+        m->set_editing = false;
+        m->set_scroll = 0;
+    }
+}
+
+/* The playsets: the one in use is marked, and a click on another puts that one in use. */
+static MainMenuResult mods_screen(MainMenu *m)
+{
+    PlaysetList *sets = &m->playsets;
+    if (m->set_editing && sets->active > 0) {
+        playset_edit_screen(m);
+        return MAIN_MENU_STAY;
+    }
+    m->set_editing = false;
+    title("Playsets", 60, 40);
+    float wide = 620.0f, x = ((float)GetScreenWidth() - wide) / 2.0f, y = 130.0f;
+    int rows = (int)(((float)GetScreenHeight() - y - 150.0f) / 54.0f);
+    if (rows < 1) rows = 1;
+    int most = sets->count > rows ? sets->count - rows : 0;
+    m->set_scroll -= (int)GetMouseWheelMove();
+    if (m->set_scroll > most) m->set_scroll = most;
+    if (m->set_scroll < 0) m->set_scroll = 0;
+    for (int i = m->set_scroll; i < sets->count && i < m->set_scroll + rows; i++) {
+        const Playset *set = &sets->sets[i];
+        Rectangle row = { x, y, wide, 48 };
+        bool hot = CheckCollisionPointRec(GetMousePosition(), row);
+        DrawRectangleRec(row, i == sets->active ? (Color){ 44, 52, 70, 255 } : hot ? (Color){ 38, 42, 58, 255 } : (Color){ 30, 33, 46, 255 });
+        if (i == sets->active) DrawRectangleRec((Rectangle){ row.x, row.y, 4, row.height }, (Color){ 90, 160, 100, 255 });
+        DrawText(set->name, (int)row.x + 16, (int)row.y + 14, 20, RAYWHITE);
+        /* Its mods, as their icons, from the right. */
+        float icon_x = row.x + row.width - 8.0f;
+        for (int k = m->mods.count - 1; k >= 0; k--) {
+            if (!playset_has(set, m->mods.mods[k].id) || icon_x - 40.0f < row.x + 24.0f + (float)MeasureText(set->name, 20)) continue;
+            icon_x -= 40.0f;
+            draw_mod_icon(&m->mods.mods[k], (Rectangle){ icon_x, row.y + 6, 36, 36 });
+            icon_x -= 4.0f;
+        }
+        if (hot && IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && i != sets->active) {
+            sets->active = i;
+            m->mods_changed = true;
+        }
+        y += 54.0f;
+    }
+    /* New, Edit and Remove share a row; Done has one to itself. */
+    Rectangle bar = column_button((float)GetScreenHeight() - 140.0f, 0);
+    float third = (bar.width - 2 * BUTTON_GAP) / 3.0f;
+    if (button((Rectangle){ bar.x, bar.y, third, bar.height }, "New", sets->count < MAX_PLAYSETS)) {
+        int made = -1;
+        for (int n = sets->count; n < sets->count + MAX_PLAYSETS && made < 0; n++) {
+            /* (A name nothing else has, to be typed over.) */
+            const char *name = TextFormat("Playset %d", n);
+            bool taken = false;
+            for (int i = 0; i < sets->count; i++) taken = taken || strcmp(sets->sets[i].name, name) == 0;
+            if (!taken) made = playsets_add(sets, name, SAVES_DIR);
+        }
+        if (made >= 0) {
+            sets->active = made;
+            m->set_editing = true;
+            m->mods_changed = true;
+            m->set_scroll = 0;
+            while (GetCharPressed() > 0) {
+            }
+        }
+    }
+    if (button((Rectangle){ bar.x + third + BUTTON_GAP, bar.y, third, bar.height }, "Edit", sets->active > 0)) {
+        m->set_editing = true;
+        m->set_scroll = 0;
+        while (GetCharPressed() > 0) {
+        }
+    }
+    if (button((Rectangle){ bar.x + 2 * (third + BUTTON_GAP), bar.y, third, bar.height }, "Remove", sets->active > 0)) {
+        playsets_remove(sets, sets->active);
+        m->mods_changed = true;
+    }
+    if (!button(column_button((float)GetScreenHeight() - 76.0f, 0), "Done", true) && !IsKeyPressed(KEY_ESCAPE)) return MAIN_MENU_STAY;
     m->modding = false;
     m->listed = false;
+    m->set_scroll = 0;
+    playsets_save(sets, SAVES_DIR);
     if (!m->mods_changed) return MAIN_MENU_STAY;
     m->mods_changed = false;
     return MAIN_MENU_MODS;
@@ -487,10 +592,12 @@ MainMenuResult main_menu_frame(MainMenu *m)
     Rectangle last = column_button(buttons, 2);
     float third = (last.width - 2 * BUTTON_GAP) / 3.0f;
     if (button((Rectangle){ last.x, last.y, third, last.height }, "Delete", m->world_count > 0)) m->deleting = true;
-    if (button((Rectangle){ last.x + third + BUTTON_GAP, last.y, third, last.height }, "Mods", true)) m->modding = true, m->mods_changed = false;
+    if (button((Rectangle){ last.x + third + BUTTON_GAP, last.y, third, last.height }, "Playsets", true)) m->modding = true, m->mods_changed = false;
     if (button((Rectangle){ last.x + 2 * (third + BUTTON_GAP), last.y, third, last.height }, "Quit", true)) result = MAIN_MENU_QUIT;
 
-    /* The mods that are on, as their icons, in the corner. */
+    /* The playset in use, by name, and the mods that are on in it, as their icons, in the corner. */
+    const char *playing = m->playsets.sets[m->playsets.active >= 0 && m->playsets.active < m->playsets.count ? m->playsets.active : 0].name;
+    DrawText(playing, (int)sw - 16 - MeasureText(playing, 16), 62, 16, LIGHTGRAY);
     float icon_x = sw - 16.0f;
     for (int i = m->mods.count - 1; i >= 0; i--) {
         if (!m->mods.mods[i].enabled) continue;

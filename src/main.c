@@ -2073,6 +2073,9 @@ int main(void)
     /* The game's own data, and on top of it the mods that are on. */
     static MainMenu menu;
     mods_scan(&menu.mods, MODS_DIR, SAVE_DIR);
+    /* (Which are on is what the playset in use says.) */
+    playsets_load(&menu.playsets, &menu.mods, SAVE_DIR);
+    playsets_apply(&menu.playsets, &menu.mods);
     if (!mods_load_content(&menu.mods, DATA_DIR, error, sizeof error)) {
         fprintf(stderr, "could not load game data: %s\n", error);
         return 1;
@@ -2082,7 +2085,7 @@ int main(void)
         snprintf(menu.error, sizeof menu.error, "%.90s", error);
     }
     char saves[256];
-    mods_saves(&menu.mods, SAVE_DIR, saves, sizeof saves);
+    playsets_saves(&menu.playsets, SAVE_DIR, saves, sizeof saves);
     main_menu_set_saves(saves);
 
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
@@ -2109,6 +2112,7 @@ int main(void)
             if (r == MAIN_MENU_MODS) {
                 /* Other mods on: other content, other textures, and that playset's own worlds. */
                 menu.error[0] = '\0';
+                playsets_apply(&menu.playsets, &menu.mods);
                 if (!mods_load_content(&menu.mods, DATA_DIR, error, sizeof error)) {
                     fprintf(stderr, "could not load game data: %s\n", error);
                     quit = true;
@@ -2116,7 +2120,7 @@ int main(void)
                     if (error[0]) snprintf(menu.error, sizeof menu.error, "%.90s", error);
                     mods_remember(&menu.mods, SAVE_DIR);
                     assets_load_from(texture_dirs, mods_texture_dirs(&menu.mods, DATA_DIR, texture_dirs));
-                    mods_saves(&menu.mods, SAVE_DIR, saves, sizeof saves);
+                    playsets_saves(&menu.playsets, SAVE_DIR, saves, sizeof saves);
                     main_menu_set_saves(saves);
                     menu.listed = false;
                     menu.selected = 0;

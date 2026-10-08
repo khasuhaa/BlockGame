@@ -59,6 +59,11 @@ typedef struct {
     /* The mods there are and which are on; whether the screen that turns them on and off is up, and whether it has changed anything. */
     ModList mods;
     bool modding, mods_changed;
+    /* The playsets: named sets of mods, each with worlds of its own. Which is in use says which mods are on.
+     * `set_editing` is up while one is being named and filled; `set_scroll` is how far down the list has been wheeled. */
+    PlaysetList playsets;
+    bool set_editing;
+    int set_scroll;
     char name[WORLD_NAME_MAX + 1];
     char error[96];
     char path[256];

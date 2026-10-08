@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 /* Content is looked up by name: the engine has no ids of its own. */
 #define TILE_DIRT tile_id("dirt")
@@ -11440,6 +11441,82 @@ static void test_hands_and_full_bars(void)
     game_free(&g);
 }
 
+/* Playsets: named sets of mods, each with worlds of its own. */
+static void test_playsets(void)
+{
+    const char *root = "build/settest/saves";
+    char path[256];
+    static ModList mods;
+    static PlaysetList sets, again;
+    memset(&mods, 0, sizeof mods);
+    mods.count = 2;
+    snprintf(mods.mods[0].id, sizeof mods.mods[0].id, "alpha");
+    snprintf(mods.mods[0].label, sizeof mods.mods[0].label, "Alpha");
+    snprintf(mods.mods[1].id, sizeof mods.mods[1].id, "beta");
+    snprintf(mods.mods[1].label, sizeof mods.mods[1].label, "Beta thing");
+    /* Worlds from before playsets had names: a directory to each set of mods that had been on. */
+    mkdir("build/settest", 0755);
+    mkdir("build/settest/saves", 0755);
+    mkdir("build/settest/saves/playsets", 0755);
+    mkdir("build/settest/saves/playsets/alpha+beta", 0755);
+    mkdir("build/settest/saves/playsets/beta", 0755);
+    write_file("build/settest/saves/playsets/alpha+beta/keep.txt", "x");
+    write_file("build/settest/saves/playsets/beta/keep.txt", "x");
+    /* (And nothing of what this test itself made the last time it ran: an empty directory, and the list.) */
+    rmdir("build/settest/saves/playsets/set_my_base_2");
+    snprintf(path, sizeof path, "%s/playsets.txt", root);
+    remove(path);
+    mods.mods[1].enabled = true;
+    playsets_load(&sets, &mods, root);
+    /* The game by itself first, then one for each of those, called what its mods are called; the one in use is
+     * whichever the mods now on make. */
+    CHECK(sets.count == 3 && strcmp(sets.sets[0].name, "No mods") == 0 && sets.sets[0].dir[0] == '\0' && sets.sets[0].mod_count == 0);
+    CHECK(strcmp(sets.sets[1].dir, "playsets/alpha+beta") == 0 && strcmp(sets.sets[1].name, "Alpha + Beta thing") == 0 && sets.sets[1].mod_count == 2);
+    CHECK(strcmp(sets.sets[2].dir, "playsets/beta") == 0 && strcmp(sets.sets[2].name, "Beta thing") == 0 && playset_has(&sets.sets[2], "beta") && !playset_has(&sets.sets[2], "alpha"));
+    CHECK(sets.active == 2);
+    playsets_saves(&sets, root, path, sizeof path);
+    CHECK(strcmp(path, "build/settest/saves/playsets/beta") == 0);
+    /* A new one: a name of the player's own, no mods, and a directory nothing else has. */
+    int mine = playsets_add(&sets, "My Base 2", root);
+    CHECK(mine == 3 && sets.count == 4 && sets.sets[3].mod_count == 0 && strcmp(sets.sets[3].dir, "playsets/set_my_base_2") == 0);
+    CHECK(playsets_add(&sets, "", root) < 0 && playsets_add(&sets, "a|b", root) < 0 && playsets_add(&sets, " lead", root) < 0 &&
+          playsets_add(&sets, "this name is a good deal too long for one", root) < 0 && sets.count == 4);
+    int twin = playsets_add(&sets, "My Base 2", root);
+    CHECK(twin == 4 && strcmp(sets.sets[4].dir, "playsets/set_my_base_2_2") == 0); /* (the same name is allowed; the same directory is not) */
+    /* Mods are put in and taken out of it; which is in use says which are on. */
+    CHECK(playset_toggle(&sets.sets[mine], "alpha") && playset_has(&sets.sets[mine], "alpha") && sets.sets[mine].mod_count == 1);
+    CHECK(playset_toggle(&sets.sets[mine], "beta") && playset_toggle(&sets.sets[mine], "beta") && sets.sets[mine].mod_count == 1 && !playset_toggle(&sets.sets[mine], "../x"));
+    sets.active = mine;
+    playsets_apply(&sets, &mods);
+    CHECK(mods.mods[0].enabled && !mods.mods[1].enabled);
+    playsets_saves(&sets, root, path, sizeof path);
+    CHECK(strcmp(path, "build/settest/saves/playsets/set_my_base_2") == 0);
+    sets.active = 1;
+    playsets_apply(&sets, &mods);
+    CHECK(mods.mods[0].enabled && mods.mods[1].enabled);
+    sets.active = 0;
+    playsets_apply(&sets, &mods);
+    playsets_saves(&sets, root, path, sizeof path);
+    CHECK(!mods.mods[0].enabled && !mods.mods[1].enabled && strcmp(path, root) == 0);
+    /* Renamed; written down; read back the same. */
+    CHECK(playsets_rename(&sets, mine, "Winter house") && !playsets_rename(&sets, 0, "Mine") && !playsets_rename(&sets, mine, ""));
+    sets.active = mine;
+    CHECK(playsets_save(&sets, root));
+    playsets_load(&again, &mods, root);
+    CHECK(again.count == 5 && again.active == mine && strcmp(again.sets[mine].name, "Winter house") == 0 && playset_has(&again.sets[mine], "alpha") &&
+          strcmp(again.sets[mine].dir, "playsets/set_my_base_2") == 0 && strcmp(again.sets[1].name, "Alpha + Beta thing") == 0 && again.sets[1].mod_count == 2);
+    /* Taken off the list - never the first - the rest close up, and the one in use is still the one it was. Its
+     * worlds are not touched. */
+    CHECK(!playsets_remove(&again, 0) && playsets_remove(&again, 1) && again.count == 4 && again.active == mine - 1 &&
+          strcmp(again.sets[again.active].name, "Winter house") == 0);
+    CHECK(playsets_remove(&again, again.active) && again.active == 0 && again.count == 3);
+    FILE *kept = fopen("build/settest/saves/playsets/alpha+beta/keep.txt", "r");
+    CHECK(kept != NULL);
+    if (kept) fclose(kept);
+    snprintf(path, sizeof path, "%s/playsets.txt", root);
+    remove(path);
+}
+
 int main(void)
 {
     char err[256];
@@ -11573,6 +11650,7 @@ int main(void)
     test_pace_and_flight();
     test_no_dropping();
     test_hands_and_full_bars();
+    test_playsets();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;

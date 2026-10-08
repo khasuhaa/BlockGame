@@ -41,6 +41,47 @@ bool mods_remember(const ModList *list, const char *saves_dir);
 void mods_playset(const ModList *list, char *out, size_t size);
 /* Where that playset's worlds are kept; the directory is made if it is not there. */
 void mods_saves(const ModList *list, const char *saves_dir, char *out, size_t size);
+/* Playsets. A playset is a name, the mods that are on in it, and a directory
+ * of worlds of its own. They are made, named and filled by the player, so
+ * that a world is found again by what its playset is called and not by
+ * remembering which mods it was made with. The first is always there: the
+ * game by itself, with no mods, whose worlds are in SAVES_DIR. They are kept
+ * in a file in SAVES_DIR. Taking a playset off the list leaves its directory,
+ * and the worlds in it, where they are. */
+#define MAX_PLAYSETS 32
+#define PLAYSET_NAME_MAX 31
+
+typedef struct {
+    char name[PLAYSET_NAME_MAX + 1];
+    char dir[96];                                /* under the saves directory; empty for that directory itself */
+    char mods[MAX_MODS][MOD_NAME_MAX + 1];
+    int mod_count;
+} Playset;
+
+typedef struct {
+    Playset sets[MAX_PLAYSETS];
+    int count;
+    int active;
+} PlaysetList;
+
+/* Reads the playsets. Where none have been written down yet they are made from what is there: the game by itself,
+ * and one for every directory of worlds the mods that were on once made, named for those mods - and the one that
+ * is in use is whichever the mods now on make. */
+void playsets_load(PlaysetList *sets, const ModList *mods, const char *saves_dir);
+bool playsets_save(const PlaysetList *sets, const char *saves_dir);
+/* A new one, with no mods in it and a directory of its own. Returns which, or -1 if there is no room or the name will not do. */
+int playsets_add(PlaysetList *sets, const char *name, const char *saves_dir);
+/* Takes one off the list (never the first). Its worlds stay on the disk. */
+bool playsets_remove(PlaysetList *sets, int which);
+bool playsets_rename(PlaysetList *sets, int which, const char *name);
+/* Whether a mod is in a playset, and putting it in or taking it out (not the first: that is the game by itself). */
+bool playset_has(const Playset *set, const char *mod);
+bool playset_toggle(Playset *set, const char *mod);
+/* Turns on the mods of the playset in use, and every other off. */
+void playsets_apply(const PlaysetList *sets, ModList *mods);
+/* Where the worlds of the playset in use are kept; the directory is made if it is not there. */
+void playsets_saves(const PlaysetList *sets, const char *saves_dir, char *out, size_t size);
+
 /* Whether two mods cannot be on together: each defines something - a block,
  * an item, a creature or a tree - under a name the other also defines. `what`
  * gets that name. */
