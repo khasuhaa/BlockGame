@@ -75,3 +75,10 @@ int recipe_craft(Inventory *inv, const Recipe *r, int *crystals)
     }
     return inventory_add(inv, r->output.id, r->output.count);
 }
+
+ItemId recipe_shown(const Recipe *r, double seconds)
+{
+    if (r->one_of_count < 2) return r->output.id;
+    int turn = (int)(seconds / 0.8);
+    return r->one_of[(turn % r->one_of_count + r->one_of_count) % r->one_of_count].item;
+}

@@ -157,7 +157,7 @@ static float draw_recipe(const Recipe *r, float x, float y, float width, Rectang
     /* What comes out. */
     DrawText(">", (int)ix + 6, (int)(y + 20), 20, dim_text);
     Rectangle out = { ix + 28, y + 6, CELL, CELL };
-    slot(r->output.id, out, clip, r->output.count, true);
+    slot(recipe_shown(r, GetTime()), out, clip, r->output.count, true);
     if (r->tint > 0 && r->tint <= content.tint_count) {
         const unsigned char *c = content.tints[r->tint - 1];
         DrawRectangle((int)(out.x + CELL + 6), (int)(y + 18), 20, 20, (Color){ c[0], c[1], c[2], 255 });

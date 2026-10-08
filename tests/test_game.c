@@ -12328,6 +12328,26 @@ static void test_equip_selected(void)
     game_free(&g);
 }
 
+/* A recipe that makes one of several things is shown as each of them in turn. */
+static void test_recipe_shown(void)
+{
+    const Recipe *sluice = NULL, *plain = NULL;
+    for (int r = 0; r < content.recipe_count; r++) {
+        if (content.recipes[r].one_of_count > 1 && !sluice) sluice = &content.recipes[r];
+        if (content.recipes[r].one_of_count == 0 && !plain) plain = &content.recipes[r];
+    }
+    CHECK(sluice != NULL && plain != NULL);
+    if (!sluice || !plain) return;
+    CHECK(recipe_shown(plain, 0.0) == plain->output.id && recipe_shown(plain, 123.4) == plain->output.id);
+    bool seen[MAX_RECIPE_CHOICES] = { false };
+    for (int k = 0; k < sluice->one_of_count * 2; k++) {
+        ItemId now = recipe_shown(sluice, 0.8 * k + 0.1);
+        CHECK(now == sluice->one_of[k % sluice->one_of_count].item && recipe_shown(sluice, 0.8 * k + 0.7) == now);
+        seen[k % sluice->one_of_count] = true;
+    }
+    for (int k = 0; k < sluice->one_of_count; k++) CHECK(seen[k]);
+}
+
 /* A basket picked up goes in the bar before it goes inside another basket. */
 static void test_basket_slots(void)
 {
@@ -13152,6 +13172,7 @@ int main(void)
     test_workbench_only();
     test_all_caged();
     test_basket_slots();
+    test_recipe_shown();
     test_equip_selected();
     test_worn();
     test_trade_tiers();

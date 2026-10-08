@@ -28,4 +28,8 @@ int recipe_max_crafts(const Inventory *inv, const Recipe *r, int crystals);
  * inventory. */
 int recipe_craft(Inventory *inv, const Recipe *r, int *crystals);
 
+/* What a recipe is shown as making. For one that makes one of several things by chance it is each of them in
+ * turn, a little under a second apiece, by the time given: so that the picture goes through all it might be. */
+ItemId recipe_shown(const Recipe *r, double seconds);
+
 #endif

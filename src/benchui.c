@@ -132,10 +132,10 @@ static void draw_machine(const Game *g, Rectangle menu)
         words.width -= 68.0f;
     }
     if (r) {
-        const char *name = TextFormat("%s x%d", item_def(r->output.id)->label, r->output.count);
+        const char *name = TextFormat("%s x%d", item_def(recipe_shown(r, GetTime()))->label, r->output.count);
         int size = 16;
         while (size > 10 && MeasureText(name, size) > words.width - 34.0f) size--;
-        assets_draw_item_tones(r->output.id, (Rectangle){ words.x, words.y + 1, 28, 28 }, 0);
+        assets_draw_item_tones(recipe_shown(r, GetTime()), (Rectangle){ words.x, words.y + 1, 28, 28 }, 0);
         DrawText(name, (int)words.x + 34, (int)(words.y + (words.height - (float)size) / 2), size, RAYWHITE);
     } else {
         DrawText(chooses ? "Nothing" : "Idle", (int)words.x + 4, (int)words.y + 8, 16, GRAY);
@@ -540,7 +540,8 @@ static void draw_list(const BenchUi *ui, const Game *g, const Recipe **recipes, 
         DrawRectangleRec(cell, (Color){ 44, 47, 58, 255 });
         DrawRectangleLinesEx(cell, i == ui->selected ? 3.0f : 2.0f,
                              i == ui->selected ? RAYWHITE : edge_color);
-        hud_draw_item_icon(recipes[i]->output.id, cell);
+        /* (One that makes any of several things shows each of them in turn.) */
+        hud_draw_item_icon(recipe_shown(recipes[i], GetTime()), cell);
         /* What comes out in a colour shows the colour. */
         if (recipes[i]->tint > 0 && recipes[i]->tint <= content.tint_count) {
             const unsigned char *c = content.tints[recipes[i]->tint - 1];
@@ -599,8 +600,8 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
     float y = menu.y + MENU_HEADER + 70;
 
     /* What is being made, on a line of its own so a long name has room. */
-    hud_draw_item_icon(r->output.id, (Rectangle){ left, y - 3, 22, 22 });
-    DrawText(TextFormat("%s x%d", item_def(r->output.id)->label, r->output.count * amount),
+    hud_draw_item_icon(recipe_shown(r, GetTime()), (Rectangle){ left, y - 3, 22, 22 });
+    DrawText(TextFormat("%s x%d", item_def(recipe_shown(r, GetTime()))->label, r->output.count * amount),
              (int)left + 26, (int)y, 16, RAYWHITE);
     /* How long each takes, at the end of the line. */
     float secs = game_craft_seconds(g, r);
@@ -615,7 +616,7 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
     float cell = room / (float)INPUT_COLUMNS, icon = 26.0f;
     int cells = r->input_count + (r->crystals > 0 ? 1 : 0);
     const char *named = NULL;
-    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){ left, y - 30, 180, 24 })) named = item_def(r->output.id)->label;
+    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){ left, y - 30, 180, 24 })) named = item_def(recipe_shown(r, GetTime()))->label;
     for (int i = 0; i < cells; i++) {
         bool crystal = i >= r->input_count;
         int have = crystal ? g->crystals : recipe_input_held(&g->inventory, r->inputs[i]);
