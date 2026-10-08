@@ -407,7 +407,7 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
         }
     }
     for (int i = 0; i < INVENTORY_SLOTS; i++)
-        if (IsKeyPressed(KEY_ONE + i)) inventory_select_slot(&g->inventory, i);
+        if (IsKeyPressed(KEY_ONE + i) && !IsKeyDown(KEY_LEFT_SHIFT) && !IsKeyDown(KEY_RIGHT_SHIFT)) inventory_select_slot(&g->inventory, i);
     game_set_move_input(g, (int)IsKeyDown(k[BIND_RIGHT]) - (int)IsKeyDown(k[BIND_LEFT]),
                         (int)IsKeyDown(k[BIND_DOWN]) - (int)IsKeyDown(k[BIND_UP]));
 
@@ -673,6 +673,13 @@ static void draw_sky(const Game *g, Vector2 origin)
         else if (world_sky_top(w, w->regions[i].y0) >= 0) continue;
         DrawRectangle(0, (int)((origin.y + (float)w->regions[i].y0 * TILE_SIZE) * zoom), GetScreenWidth(),
                       (int)((float)w->regions[i].height * TILE_SIZE * zoom) + 1, back);
+        /* (Stars, in a place that has them at every hour: the same ones each time, a few of them brighter.) */
+        for (int k = 0; d && d->stars && k < 900; k++) {
+            uint32_t h = (uint32_t)k * 2654435761u ^ (uint32_t)i * 40503u;
+            float sx = (float)(h % 10007u) / 10007.0f * (float)GetScreenWidth(), sy = (origin.y + ((float)w->regions[i].y0 + (float)((h >> 8) % 1009u) / 1009.0f * (float)w->regions[i].height) * TILE_SIZE) * zoom;
+            int big = (h >> 20) % 7u == 0 ? 3 : 2;
+            DrawRectangle((int)sx, (int)sy, big, big, (Color){ 235, 235, 255, (unsigned char)(120 + (h >> 4) % 130u) });
+        }
     }
 
     bool day;
@@ -2225,6 +2232,37 @@ static void session_draw(Session *s)
     draw_fast_forward(g);
     playerui_draw(&s->player_ui, g);
     hud_draw(&s->hud, &g->inventory);
+    if (dao_ui.sight && dao_on() && g->dao.stage >= 1) {
+        /* Spirit sight: the qi of each square of what is in view, laid over it - thin places dim, thick ones bright. */
+        TilePos a = tile_at_screen(&s->cam, (Vector2){ 0, 0 }), b = tile_at_screen(&s->cam, (Vector2){ (float)GetScreenWidth(), (float)GetScreenHeight() });
+        static float seen[96][160];
+        static int at_x = -1, at_y = -1;
+        static uint64_t at_tick;
+        int wide = b.x - a.x + 2, tall = b.y - a.y + 2;
+        if (wide < 0) wide += g->world.width;
+        if (wide > 160) wide = 160;
+        if (tall > 96) tall = 96;
+        /* (Worked out afresh only when the view has moved or a while has gone by: it is a lot of looking.) */
+        if (at_x != a.x || at_y != a.y || g->tick - at_tick > 40) {
+            for (int ty = 0; ty < tall; ty += 2)
+                for (int tx = 0; tx < wide; tx += 2) seen[ty][tx] = game_qi_at(g, a.x + tx, a.y + ty);
+            at_x = a.x, at_y = a.y, at_tick = g->tick;
+        }
+        for (int ty = 0; ty < tall; ty += 2) {
+            for (int tx = 0; tx < wide; tx += 2) {
+                Vector2 p0 = view_tile_pos(&ui_view, (float)(a.x + tx), (float)(a.y + ty)), p1 = view_tile_pos(&ui_view, (float)(a.x + tx + 2), (float)(a.y + ty + 2));
+                float q = seen[ty][tx], t = q <= 1.0f ? 0.0f : q >= 9.0f ? 1.0f : (q - 1.0f) / 8.0f;
+                DrawRectangleV(p0, (Vector2){ p1.x - p0.x, p1.y - p0.y }, (Color){ (unsigned char)(40 + 215 * t), (unsigned char)(120 + 135 * t), (unsigned char)(170 + 60 * t), (unsigned char)(30 + 110 * (t < 0.6f ? t / 0.6f : 1.0f)) });
+            }
+        }
+    }
+    /* A soul that has left the body in meditation sees wherever the view is taken. */
+    if (dao_on() && g->vitals.rest == REST_MEDITATE && !s->cam.follow && g->dao.stage >= 1) {
+        int realm = dao_realm_of(g->dao.stage, NULL);
+        bool soul = false;
+        for (int i = 0; i <= realm && i < content.dao.realm_count; i++) soul = soul || content.dao.realms[i].soul;
+        if (soul) game_reveal(g, (int)(s->cam.center.x / TILE_SIZE), (int)(s->cam.center.y / TILE_SIZE));
+    }
     daoui_draw(&dao_ui, g);
     if (g->lightning > 0) {
         /* A bolt of a tribulation: down the column it struck, and the whole view white for a moment. */

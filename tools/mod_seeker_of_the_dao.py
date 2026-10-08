@@ -486,7 +486,7 @@ for kind, lab, grades, fuel in BENCHES:
     for g in range(1, grades + 1):
         n = kind if g == 1 else '%s_%d' % (kind, g)
         bench_pic(kind, TRIM[g - 1]).save('tiles', n); icon_of(n)
-        tile(n, lab, False, mine_time=0.4, bench=True, bench_kind=kind, bench_level=g, fuel_capacity=3000 if fuel else None, light=8 if fuel else None, light_needs_fuel=True if fuel else None,
+        tile(n, lab, False, mine_time=0.4, bench=True, bench_kind=kind, bench_level=g, fuel_capacity=3000 if fuel else None, comprehension={'pill_furnace': 'alchemy', 'spirit_forge': 'smithing', 'formation_table': 'formation'}.get(kind), light=8 if fuel else None, light_needs_fuel=True if fuel else None,
              upgrade={'to': '%s_%d' % (kind, g + 1), 'cost': [{'item': i, 'count': k} for i, k in GRADE_COST[g + 1]]} if g < grades else None)
         item(n, lab + (' ' + NUM[g] if grades > 1 else ''), lo(g), 'benches', 3.0, places=n)
 rec('workbench', 'pill_furnace', [('clay', 10), ('copper_ingot', 4), ('spirit_stone', 5)], level=2); rec('workbench', 'spirit_forge', [('stone', 20), ('iron_ingot', 5), ('spirit_stone', 5)], level=2)
@@ -854,11 +854,13 @@ artifact('jade_pendant', 'Jade pendant', 'pendant', '5fc89a', 1, [('spirit_jade'
 artifact('beast_bell', 'Beast-calming bell', 'bell', 'c8a040', 2, [('azure_copper_ingot', 3), ('beast_core_2', 1)], {'unseen': 0.5}, 'wanderer')
 artifact('azure_ring', 'Azure ring', 'ring', '2a8ad8', 2, [('azure_copper_ingot', 2), ('mid_spirit_stone', 1)], {'mine': 1.2}, 'wanderer')
 artifact('flying_sword', 'Flying sword', 'sword', '9ad0e8', 2, [('azure_copper_sword', 1), ('hawk_plume', 4), ('mid_spirit_stone', 4), ('beast_core_2', 2)], {'flight': 1.0})
+items[-1]['flight_qi'] = 0.5
 artifact('star_mirror', 'Star mirror', 'mirror', 'c8d0f0', 3, [('star_silver_ingot', 3), ('glass', 2), ('beast_core_3', 1)], {'sight': 1.0}, 'elder')
 artifact('spirit_gourd', 'Spirit gourd', 'gourd', 'c8a050', 3, [('tree_amber', 3), ('spirit_vine', 4), ('beast_core_3', 1)], {'regen': 1.5, 'appetite': 0.6}, 'elder')
 artifact('soul_seal', 'Soul seal', 'seal', 'b080ff', 4, [('soul_crystal', 2), ('void_gold_ingot', 2), ('guardian_rune', 1)], {'ward': 0.25, 'armor': 0.1}, 'elder')
 artifact('void_fan', 'Void fan', 'fan', '7a50b0', 4, [('wraith_silk', 4), ('void_gold_ingot', 1), ('crane_feather', 4)], {'walk': 1.25, 'glide': 1.0}, 'elder')
 artifact('void_flying_sword', 'Void-piercing sword', 'sword', 'c090e0', 4, [('flying_sword', 1), ('void_gold_sword', 1), ('soul_crystal', 2)], {'flight': 1.0, 'walk': 1.3, 'strength': 2})
+items[-1]['flight_qi'] = 20.0
 artifact('divine_crown', 'Divine crown', 'crown', 'ff6080', 5, [('dragonbone_ingot', 3), ('fallen_star', 2), ('lion_mane', 1)], {'qi': 1.5, 'breakthrough': 0.05})
 artifact('heavens_needle', "Heaven's needle", 'needle', 'fff8e8', 5, [('dragonbone_ingot', 2), ('lightning_glass', 2), ('beast_core_5', 1)], {'strength': 4, 'thorns': 6, 'luck': 0.15})
 artifact('four_symbols_seal', 'Four Symbols seal', 'seal', 'f8f8e0', 6, [(e[0], 1) for e in ESS] + [('immortal_jade', 4), ('chaos_iron_ingot', 4)], {'qi': 2.0, 'ward': 0.5, 'luck': 0.3, 'magnet': 1.0}, g=5, stage=51, trim=RED, tier=11)
@@ -912,11 +914,11 @@ for (short, lab, col), ess_col, need in zip(COURTS, ('2fd09a', 'ff5030', '4a5a8a
     gate(short + '_trial_gate', lab + ' trial gate', ramp('101010', ess_col, 'ffffff'), ramp('2a2a34', '8a849a', 'e8e0f0'), short + '_trial', 11, (11, short + '_trial_gate', [(short + '_summons', 1), ('heaven_brick', 16), ('supreme_spirit_stone', 2)], 1, 1500))
 
 # ---- the road itself ---------------------------------------------------------------------------------------------------------------
-REALMS = [{'label': 'Qi Refining', 'stages': 10, 'qi': 100, 'growth': 1.22, 'boons': {'regen': 1.2}},
-          {'label': 'Foundation Building', 'stages': 10, 'qi': 1000, 'growth': 1.22, 'boons': {'appetite': 0.5, 'lung': 2.0, 'regen': 1.5}, 'pill': 'foundation_pill', 'bolts': 3, 'bolt': 0.18},
-          {'label': 'Core Formation', 'stages': 10, 'qi': 10000, 'growth': 1.22, 'boons': {'appetite': 0.05, 'lung': 4.0, 'regen': 2.0, 'armor': 0.1}, 'pill': 'core_formation_pill', 'bolts': 6, 'bolt': 0.2},
-          {'label': 'Nascent Soul', 'stages': 10, 'qi': 100000, 'growth': 1.22, 'boons': {'appetite': 0.02, 'lung': 8.0, 'regen': 3.0, 'armor': 0.2, 'sight': 1.0}, 'pill': 'nascent_soul_pill', 'bolts': 9, 'bolt': 0.22, 'revives': True},
-          {'label': 'Divinity', 'stages': 10, 'qi': 1000000, 'growth': 1.2, 'boons': {'appetite': 0.01, 'lung': 20.0, 'regen': 4.0, 'armor': 0.3, 'sight': 1.0, 'flight': 1.0, 'fireproof': 1.0}, 'pill': 'divinity_pill', 'bolts': 12, 'bolt': 0.24, 'revives': True}]
+REALMS = [{'label': 'Qi Refining', 'stages': 10, 'qi': 100, 'growth': 1.22, 'boons': {'regen': 1.2}, 'temper_qi': 1.5},
+          {'label': 'Foundation Building', 'stages': 10, 'qi': 1000, 'growth': 1.22, 'boons': {'appetite': 0.5, 'lung': 2.0, 'regen': 1.5}, 'pill': 'foundation_pill', 'bolts': 3, 'bolt': 0.18, 'temper_qi': 2.5},
+          {'label': 'Core Formation', 'stages': 10, 'qi': 10000, 'growth': 1.22, 'boons': {'appetite': 0.05, 'lung': 4.0, 'regen': 2.0, 'armor': 0.1}, 'pill': 'core_formation_pill', 'bolts': 6, 'bolt': 0.2, 'temper_qi': 4.0, 'core': True},
+          {'label': 'Nascent Soul', 'stages': 10, 'qi': 100000, 'growth': 1.22, 'boons': {'appetite': 0.02, 'lung': 8.0, 'regen': 3.0, 'armor': 0.2, 'sight': 1.0}, 'pill': 'nascent_soul_pill', 'bolts': 9, 'bolt': 0.22, 'revives': True, 'temper_qi': 6.0, 'soul': True},
+          {'label': 'Divinity', 'stages': 10, 'qi': 1000000, 'growth': 1.2, 'boons': {'appetite': 0.01, 'lung': 20.0, 'regen': 4.0, 'armor': 0.3, 'sight': 1.0, 'flight': 1.0, 'fireproof': 1.0}, 'pill': 'divinity_pill', 'bolts': 12, 'bolt': 0.24, 'revives': True, 'temper_qi': 8.0, 'domain': 6}]
 HERB_OF = {r: [h[0] for h in HERBS[:10] if h[2] == r] for r in range(1, 6)}
 METAL_OF = {r: METALS[r - 1][0] + '_ingot' for r in range(1, 6)}
 needs = []
@@ -1003,7 +1005,7 @@ dimensions = [
      'grove': {'trunk': 'world_tree_bark', 'bough': B, 'leaf': 'world_tree_leaves', 'vine': 'spirit_vine', 'width': 9, 'gap': 64}, 'sky_day': [112, 176, 140], 'sky_night': [8, 34, 44], 'ambient': 6},
     {'name': 'fallen_heaven', 'label': 'The Fallen Heaven', 'generator': 'islands', 'height': 300, 'rock': HM, 'edge': 'heaven_wall', 'platform': 'heaven_paving', 'falls_home': True, 'climate_wavelength': 130, 'qi': 5.0,
      'islands': {'per_100_columns': 7, 'length': [14, 84], 'depth': [5, 22]}, 'structures': ['ruined_pavilion', 'broken_palace', 'star_altar', 'heaven_gatehouse', 'fallen_pagoda'], 'structure_share': 0.4, 'bridge': 'heaven_bridge',
-     'sky_day': [30, 22, 70], 'sky_night': [6, 4, 22], 'ambient': 7, 'geodes': [{'shell': 'star_glass', 'gem': 'fallen_star', 'per_100_columns': 0.9, 'radius': [3, 6]}]}]
+     'sky_day': [30, 22, 70], 'sky_night': [6, 4, 22], 'stars': True, 'ambient': 7, 'geodes': [{'shell': 'star_glass', 'gem': 'fallen_star', 'per_100_columns': 0.9, 'radius': [3, 6]}]}]
 for short, lab, col in COURTS:
     dimensions.append({'name': short + '_trial', 'label': "Heaven's Trial: the " + lab, 'generator': 'void', 'width': 128, 'height': 96, 'rock': short + '_court', 'edge': 'heaven_wall', 'platform': short + '_court', 'qi': 8.0,
                        'void': {'length': 48, 'depth': 9}, 'structures': [short + '_arena'], 'structure_share': 1.0, 'sky_day': SKY[short][0], 'sky_night': SKY[short][1], 'ambient': 8})
@@ -1124,7 +1126,7 @@ for e, (elab, ecol, names) in enumerate(ELEM):
             base = JADE if r == 1 else c('7ab0e0') if r == 2 else c('c8d0f0') if r == 3 else c('c090e0') if r == 4 else GOLD
             slip_of(n, base, c(ecol)).save('items', n)
             item(n, lab, min(10, (stage + 4) // 5), 'scriptures', 2.0, max_stack=1, uses=100, range=0 if 'effect' in does else 8 + r, cast=does.get('cast'), effect=does.get('effect'),
-                 technique=clean({'qi': qi, 'stage': stage, 'insight': stage * 3 if k >= 2 else None}))
+                 technique=clean({'qi': qi, 'stage': stage, 'element': e, 'insight': stage * 3 if k >= 2 else None}))
             rec('scripture_desk', n, [('blank_jade_slip', 1), ('cinnabar_ink', 1), (ELEM_THING[e][r - 1], 2)] + ([(CORE_OF(r), 1)] if k >= 2 else []), time=240)
 
 # ---- more talismans -------------------------------------------------------------------------------------------------------------------
@@ -1142,7 +1144,7 @@ F1, F2, F3 = 'formation_flag', 'jade_formation_flag', 'star_formation_flag'
 MORE_ARRAYS = [('spirit_spring_array', 'Spirit-spring array', '70d0c0', 'd0fff0', 1, F1, 'cross', [2, 4], {'qi': 0.5}, [('spirit_stone', 12), ('spirit_jade', 1)]),
                ('lightning_ward_array', 'Lightning-ward array', '6070d0', 'f0f060', 4, F1, 'square', [2, 6], {'aura': {'ward': 0.3}}, [('spirit_stone_block', 2), ('azure_copper_ingot', 6), ('hawk_plume', 2)]),
                ('concealment_array', 'Concealment array', '3a3a5a', '9090c0', 4, F1, 'square', [2, 8], {'aura': {'unseen': 1.0}}, [('mid_spirit_stone_block', 1), ('silver_moon_grass', 4), ('azure_silk', 2)]),
-               ('warding_array', 'Warding array', 'c8a040', 'fff0a0', 3, F1, 'square', [2, 8], {'harms': 2, 'aura': {'armor': 0.15}}, [('spirit_stone_block', 2), ('boar_tusk', 6), ('spirit_iron_ingot', 6)]),
+               ('warding_array', 'Warding array', 'c8a040', 'fff0a0', 3, F1, 'square', [2, 8], {'harms': 2, 'bars': True, 'aura': {'armor': 0.15}}, [('spirit_stone_block', 2), ('boar_tusk', 6), ('spirit_iron_ingot', 6)]),
                ('healing_array', 'Healing array', 'e06070', 'ffc0d0', 4, F1, 'cross', [2, 6], {'aura': {'regen': 3.0}}, [('mid_spirit_stone_block', 1), ('jade_ginseng', 4), ('mountain_ginseng', 6)]),
                ('calm_heart_array', 'Calm-heart array', '70c0a0', 'e0fff0', 5, F2, 'cross', [2, 6], {'aura': {'breakthrough': 0.1}}, [('mid_spirit_stone_block', 2), ('calm_heart_leaf', 8), ('tree_amber', 2)]),
                ('spirit_field_array', 'Spirit-field array', '5a9a3a', 'e0ff90', 6, F2, 'square', [3, 8], {'grows': 2.0}, [('mid_spirit_stone_block', 2), ('spirit_soil', 16), ('aged_spirit_grass', 2)]),
@@ -1152,9 +1154,10 @@ MORE_ARRAYS = [('spirit_spring_array', 'Spirit-spring array', '70d0c0', 'd0fff0'
                ('great_teleport_array', 'Great teleport array', '9060d0', 'f0d0ff', 9, F3, 'ring', [3, 8], {'gate': True, 'qi': 1.0}, [('high_spirit_stone_block', 2), ('soul_crystal', 4), ('fallen_star', 2)]),
                ('star_field_array', 'Star-field array', '7090ff', 'e0e8ff', 9, F3, 'ring', [3, 10], {'grows': 3.0, 'qi': 2.0}, [('high_spirit_stone_block', 2), ('star_crystal', 6), ('heaven_soil', 16)]),
                ('heaven_sword_array', 'Heaven-sword array', 'e0e8ff', 'ffffff', 10, F3, 'ring', [4, 12], {'harms': 80}, [('high_spirit_stone_block', 3), ('dragonbone_sword', 4), ('fallen_star', 4)]),
-               ('grand_protecting_formation', 'Sect-protecting grand formation', 'f0c840', 'ffffff', 10, F3, 'ring', [4, 14], {'qi': 3.0, 'harms': 40, 'aura': {'armor': 0.4, 'ward': 0.5, 'regen': 3.0}},
+               ('grand_protecting_formation', 'Sect-protecting grand formation', 'f0c840', 'ffffff', 10, F3, 'double', [3, 7], {'qi': 3.0, 'harms': 40, 'bars': True, 'aura': {'armor': 0.4, 'ward': 0.5, 'regen': 3.0}},
                 [('supreme_spirit_stone_block', 1), ('heaven_gathering_array', 1), ('sword_array', 1), ('protection_array', 1), ('dragonbone_block', 2)]),
                ('immortal_gathering_array', 'Immortal gathering array', 'ffffff', 'ffe890', 11, F3, 'ring', [4, 12], {'qi': 8.0}, [('supreme_spirit_stone_block', 2), ('heaven_tempered_essence', 1), ('immortal_jade', 4)]),
+               ('illusion_maze_array', 'Illusion maze', '9a70c0', 'f0c0ff', 6, F2, 'square', [3, 9], {'wanders': True}, [('mid_spirit_stone_block', 1), ('moonshade_cap', 6), ('moonweave', 2)]),
                ('insight_array', 'Dao-comprehension array', 'c0d0ff', 'ffffff', 8, F3, 'square', [3, 8], {'qi': 1.5, 'aura': {'breakthrough': 0.2}}, [('high_spirit_stone_block', 2), ('soul_crystal', 4), ('dream_butterfly_flower', 4)])]
 for n, lab, col, glow, tier, flags_, pattern, dist, does, ins in MORE_ARRAYS:
     array_pic(c(col), c(glow)).save('tiles', n); icon_of(n)
@@ -1201,19 +1204,24 @@ for kind, n, lab, body, acc, r, (pn, plab), where, mean in B2:
     walker = kind not in ('bird', 'phoenix')
     creature(kind, n, lab, body, acc, [0, 16, 36, 70, 150, 320][r] + (10 * r if mean else 0), [drop(pn, 1, 2), drop(CORE_OF(r), 0, 1), drop('beast_blood', 0, r), drop('spirit_beast_meat', 0, 2)], where,
              flies=None if walker else True, move_chance=0.2 if walker else 0.5, step_ticks=3 if mean else 4, hop=0.0 if kind in ('golem', 'serpent', 'dragon') else 0.06,
-             sting={'ticks': 30 + 25 * r, 'rest_ticks': 70, 'sight': 6 + r} if mean and walker else None, tame=r if walker else None, companion={'bite': BITE[r], 'sight': 7 + r} if walker else None, cap=2 if r >= 4 else 3)
+             sting={'ticks': 30 + 25 * r, 'rest_ticks': 70, 'sight': 6 + r} if mean and walker else None, tame=r, companion={'bite': BITE[r], 'sight': 7 + r}, cap=2 if r >= 4 else 3,
+             mount={'speed': round(1.3 + 0.15 * r, 2)} if kind in ('stag', 'tiger', 'lion', 'dragon') or n in ('wind_wolf', 'blood_wolf', 'star_wolf', 'golden_roc', 'storm_roc', 'heaven_crane') else None,
+             strike={'share': 0.12, 'range': 7, 'rest_ticks': 70} if n == 'abyss_wyrm' else None)
 # Those already made can be tamed too.
 for m in mobs:
     if m['name'] in ('spirit_fox', 'iron_boar', 'moon_rabbit', 'spirit_crane', 'star_stag', 'celestial_lion', 'stone_guardian', 'jade_serpent'):
         r = {'spirit_fox': 1, 'iron_boar': 1, 'jade_serpent': 2, 'moon_rabbit': 3, 'spirit_crane': 3, 'star_stag': 4, 'stone_guardian': 4, 'celestial_lion': 5}[m['name']]
         m['tame'] = r; m['companion'] = {'bite': BITE[r], 'sight': 7 + r}
+        if m['name'] in ('star_stag', 'celestial_lion'): m['mount'] = {'speed': 1.3 + 0.15 * r}
+    if m['name'] in ('thunder_hawk', 'azure_carp_fish', 'lake_wyrm'): m['tame'] = 2 if m['name'] == 'thunder_hawk' else 3; m['companion'] = {'bite': 6, 'sight': 8}
+    if m['name'].startswith('sacred_'): m['strike'] = {'share': 0.22, 'range': 9, 'rest_ticks': 50}
 # Rogue cultivators: the beasts that think.
 for n, lab, robe, sash, r, where, loot in (('rogue_disciple', 'Rogue disciple', '6a7a8a', 'c0c0c0', 1, on(['grass', 'sect_paving'], ['plains', 'maple_forest', 'cherry_grove'], 0.04), [('qi_gathering_pill', 0, 2), ('spirit_stone', 1, 4), ('fire_talisman', 0, 2)]),
                                            ('rogue_elder', 'Rogue elder', '6a2a7a', 'f0c840', 3, on([B], ['mistwood', 'amber_hollows'], 0.03), [('core_nourishing_pill', 0, 2), ('mid_spirit_stone', 1, 4), ('thunder_talisman', 0, 2), ('blank_jade_slip', 0, 2)]),
                                            ('fallen_immortal', 'Fallen immortal', 'e8e0f0', 'ff5030', 5, on(['heaven_paving'], ['shattered_court'], 0.02), [('divine_essence_pill', 0, 2), ('high_spirit_stone', 2, 5), ('fallen_star', 0, 1), ('soul_crystal', 0, 2)])):
     cultivator(c(robe), c(sash), 0).save('mobs', n); cultivator(c(robe), c(sash), 1).save('mobs', n + '_walk')
     mobs.append({'name': n, 'label': lab, 'texture': 'mobs/%s.png' % n, 'walk': ['mobs/%s_walk.png' % n, 'mobs/%s.png' % n], 'hop': 0.06, 'step_ticks': 2, 'move_chance': 0.25, 'turn_chance': 0.25, 'health': [0, 40, 0, 160, 0, 500][r], 'cap': 2,
-                 'spawn': where, 'sting': {'ticks': 40 * r, 'rest_ticks': 40, 'sight': 8 + r}, 'drops': [drop(i, a, b) for i, a, b in loot]})
+                 'spawn': where, 'sting': {'ticks': 40 * r, 'rest_ticks': 40, 'sight': 8 + r}, 'strike': {'share': 0.04 * r, 'range': 6 + r, 'rest_ticks': 60}, 'drops': [drop(i, a, b) for i, a, b in loot]})
 
 # ---- metal goods, weapons, jade ---------------------------------------------------------------------------------------------------------------
 for n, lab, realm, r, host, hard, power, speed, armor in METALS:
@@ -1290,7 +1298,9 @@ FLAMES = [('bone_cold_flame', 'Bone-cold flame', 'a0e0ff', 2, {'craft': 1.15}, '
           ('star_fall_flame', 'Star-fall flame', 'c0d0ff', 5, {'craft': 1.5, 'luck': 0.15}, 'star_river_reed'), ('nirvana_flame_seed', 'Nirvana flame', 'ff5030', 5, {'craft': 1.5, 'fireproof': 1.0}, 'nirvana_lotus'), ('chaos_flame', 'Primordial chaos flame', 'f0a0ff', 5, {'craft': 1.8, 'qi': 1.5}, 'chaos_seed_flower')]
 for n, lab, col, r, boons, herb_ in FLAMES:
     k = c(col); t = P().disc(7.5, 10, 3.6, k); t.r(6, 4, 9, 9, k); t.r(7, 2, 8, 4, k); t.p(7, 1, lt(k, 1.4)); t.disc(7.5, 10.5, 1.8, lt(k, 1.4)); t.p(7, 9, WHITE); t.outline().save('items', n)
-    item(n, lab, hi(r), 'artifacts', 4.0, max_stack=1, relic=True, boons=boons, set='spirit_flames', needs_stage=first(r), fuel=60000)
+    q = P().r(3, 13, 12, 15, c('5a5560')); q.r(4, 12, 11, 12, c('3a3540')); q.disc(7.5, 8, 3.2, k); q.r(6, 2, 9, 7, k); q.p(7, 1, lt(k, 1.4)); q.disc(7.5, 8.5, 1.6, lt(k, 1.4)); q.save('tiles', n)
+    tile(n, lab, False, mine_time=0.4, light=14, pulse=0.15, quickens={'speed': round(1.0 + 0.25 * r, 2), 'radius': 4, 'refines': round(0.06 * r, 2)})
+    item(n, lab, hi(r), 'artifacts', 4.0, max_stack=1, relic=True, boons=boons, set='spirit_flames', needs_stage=first(r), places=n)
     brew(n, [('ancient_' + herb_, 1), (CORE_OF(r), 3), (FLUX[r], 5)], r, 1, 900)
 sets.append({'name': 'spirit_flames', 'label': 'Tamed flames', 'bonuses': [{'pieces': 2, 'boons': {'warmth': 0.5}}, {'pieces': 4, 'boons': {'craft': 1.5, 'fireproof': 1.0}}]})
 SETS4 = [('tamer', 'Beast tamer', 2, 'c8a040', [('bell', 'whistle', {'unseen': 0.5}), ('pendant', 'fang charm', {'strength': 1}), ('ring', 'collar ring', {'luck': 0.08}), ('gourd', 'feed gourd', {'regen': 1.3})], [{'walk': 1.15}, {'strength': 2, 'luck': 0.15}], 'blood_fang'),
@@ -1355,17 +1365,104 @@ for n in ('sect_brick', 'jade_brick', 'heaven_marble', 'cloud_jade', 'heaven_bri
     t = P(k); t.r(0, 0, 15, 15, dk(k, 0.8)); t.r(1, 1, 14, 14, k); t.r(3, 3, 12, 12, dk(k, 0.85)); t.r(4, 4, 11, 11, k); t.line(5, 5, 10, 5, lt(k, 1.15)); t.line(10, 5, 10, 10, dk(k, 0.7)); t.line(5, 10, 10, 10, dk(k, 0.7)); t.line(5, 5, 5, 10, lt(k, 1.15)); t.r(7, 7, 8, 8, lt(k, 1.2))
     block(t, n + '_carved', 'Carved ' + lab.lower(), tier, 0.06); forge(n + '_carved', [(n, 4), ('cinnabar', 1)], 1, 4, 80)
 
+# ---- what the plan had and the mod did not: the last of it ------------------------------------------------------------------------------------
+# Techniques for getting about, and for working at a distance.
+technique('cloud_step', 'Cloud step', 14, 80, 'e0e8ff', [('crane_feather', 2), ('beast_core_2', 1)], 0, effect=lasts(240, flight=1.0, glide=1.0))
+technique('object_control', 'Object control', 15, 40, 'c0c8d8', [('spirit_iron_ingot', 2), ('mid_spirit_stone', 1)], 16, cast={'dig': 1})
+technique('earth_passage', 'Earth passage', 22, 300, 'b09050', [('rootstone', 8), ('beast_core_3', 1)], 9, cast={'blink': True})
+technique('shadow_flash', 'Shadow flash', 32, 3000, '4a3a7a', [('wraith_silk', 2), ('beast_core_4', 1)], 16, cast={'blink': True})
+for it in items[-4:]: it['technique']['element'] = {'cloud_step': 0, 'object_control': 0, 'earth_passage': 4, 'shadow_flash': 2}[it['name']]
+# Formulas and diagrams: what must have been found, in a world, before the thing can be made in it.
+def formula(name, label, col, ins, where='scripture_desk', tier=1):
+    thing(book(c('efe2b8'), c(col), c(col)) if name.startswith('formula') else trinket('paper', c('d8e8f0'), c(col)).line(5, 4, 10, 9, c(col)).line(10, 4, 5, 9, c(col)).outline(), name, label, tier, 'scriptures', 2.0, max_stack=1)
+    rec(where, name, ins, time=200)
+FORMULA = {}
+formula('formula_qi', 'Pill formula: gathering qi', '70d0a0', [('spirit_paper', 2), ('spirit_grass', 2)])
+formula('formula_realm', 'Pill formula: the great pills', 'ffd040', [('spirit_paper', 4), ('cinnabar_ink', 2), ('mountain_ginseng', 2)])
+formula('formula_meridian', 'Pill formula: the meridians', 'f0a030', [('spirit_paper', 4), ('cinnabar_ink', 1), ('meridian_root', 2)])
+for key, lab, col, (a, b), does, realms in FAMILIES:
+    formula('formula_' + key, 'Pill formula: ' + lab.replace(' pill', ''), col, [('spirit_paper', 3), ('cinnabar_ink', 1), (hh(realms[0], a), 2)], tier=lo(realms[0])); FORMULA[key] = 'formula_' + key
+PILL_OF = {i['name'] for i in items if i['category'] == 'pills'}
+for r_ in recipes:
+    o = r_['output']['item']
+    if r_['bench'] != 'pill_furnace' or o not in PILL_OF: continue
+    if o.endswith('_meridian_pill'): r_['formula'] = 'formula_meridian'
+    elif o in [q[0] for q in QI_PILLS] or o.startswith(('refined_', 'peak_')): r_['formula'] = 'formula_qi'
+    elif o in [q[0] for q in REALM_PILLS]: r_['formula'] = 'formula_realm'
+    else:
+        for key in FORMULA:
+            if o.endswith('_%s_pill' % key): r_['formula'] = FORMULA[key]
+DIAGRAMS = [('diagram_gathering', 'Formation diagram: gathering', '5fc89a', [('spirit_paper', 3), ('cinnabar_ink', 1), ('spirit_stone', 4)], lambda d: 'qi' in d and len(d) == 1),
+            ('diagram_growth', 'Formation diagram: growth', '5a9a3a', [('spirit_paper', 3), ('cinnabar_ink', 1), ('spirit_soil', 2)], lambda d: 'grows' in d),
+            ('diagram_killing', 'Formation diagram: killing', 'a02020', [('spirit_paper', 3), ('cinnabar_ink', 2), ('beast_blood', 2)], lambda d: 'harms' in d and 'qi' not in d),
+            ('diagram_warding', 'Formation diagram: warding', 'd0a020', [('spirit_paper', 3), ('cinnabar_ink', 2), ('spirit_jade', 1)], lambda d: 'aura' in d or 'wanders' in d),
+            ('diagram_travel', 'Formation diagram: travel', '7a50b0', [('spirit_paper', 6), ('cinnabar_ink', 3), ('crane_feather', 2)], lambda d: 'gate' in d)]
+for n, lab, col, ins, _ in DIAGRAMS: formula(n, lab, col, ins, 'formation_table', 2)
+for a_ in ARRAYS + MORE_ARRAYS:
+    want = next((d[0] for d in DIAGRAMS if d[4](a_[8])), 'diagram_warding')
+    for r_ in recipes:
+        if r_['output']['item'] == a_[0]: r_['formula'] = want
+# The natal artifact: bound at Core Formation, and worth more with every realm after.
+for n, lab, kind, col, boons, ins in (('natal_sword', 'Natal sword', 'sword', 'e0e8ff', {'strength': 2, 'mine': 1.2}, [('star_silver_sword', 1)]), ('natal_bell', 'Natal bell', 'bell', 'f0c840', {'ward': 0.15, 'armor': 0.1}, [('star_silver_plate', 3)]),
+                                      ('natal_gourd', 'Natal gourd', 'gourd', '60d0a0', {'regen': 1.5, 'craft': 1.2}, [('tree_amber', 4)])):
+    artifact(n, lab, kind, col, 3, ins + [('beast_core_3', 3), ('mid_spirit_stone_block', 1), ('aged_dragon_beard_grass', 1)], boons, stage=21, trim=RED); items[-1]['natal'] = True
+# For beasts: what makes one grow, and the bag one is carried in.
+pill_('beast_pill', 'Beast-nurturing pill', 2, 'c08040', [('spirit_beast_meat', 2), ('tiger_whisker_root', 1), ('beast_core_2', 1)], count=2, feeds=1)
+thing(trinket('gourd', c('8a6a4a'), GOLD), 'spirit_beast_bag', 'Spirit beast bag', 4, 'artifacts', 3.0, max_stack=1, cages=True, cages_kept=True); rec('spirit_loom', 'spirit_beast_bag', [('storm_leather', 4), ('azure_silk', 2), ('beast_core_2', 2)], time=300)
+# Spirit veins: seams of it through the rock, worth more left where they are.
+t = rock('spirit_vein', STONE, vein=c('7ad8c0')); t.line(0, 5, 15, 9, c('7ad8c0')); t.line(0, 6, 15, 10, c('b0fff0')); t.save('tiles', 'spirit_vein')
+tile('spirit_vein', 'Spirit vein', ore=True, mine_time=1.6, qi=1.0, qi_reach=6, light=7, drop=None, drops=[{'item': 'spirit_stone', 'count': 3}])
+veins.append({'name': 'dao_spirit_vein', 'tile': 'spirit_vein', 'in': ['stone'], 'shape': 'scar', 'size': [18, 50], 'per_100_columns': 0.7, 'depth': [20, 380]})
+# An inheritance: what somebody left for whoever came after and had got far enough.
+for n, lab, col, glyph, tier, stage, gain in (('inheritance_altar', 'Inheritance', '5fc89a', 'f0c840', 5, 11, 120), ('heaven_inheritance', "Immortal's inheritance", 'e8e0f0', 'ff5030', 9, 31, 500)):
+    for sfx, live in (('', True), ('_spent', False)):
+        q = P().r(3, 11, 12, 15, dk(c(col))); q.r(5, 8, 10, 10, c(col)); q.r(4, 10, 11, 11, lt(c(col)))
+        if live: q.disc(7.5, 4, 2.6, c(glyph)); q.p(7, 3, WHITE); q.p(4, 6, c(glyph)).p(11, 5, c(glyph))
+        q.save('tiles', n + sfx)
+    tile(n, lab, False, mine_time=3.0, light=10, pulse=0.12, insight=gain, bestows_qi=1.0, needs_stage=stage, use_becomes=n + '_spent', drop=n + '_spent'); tile(n + '_spent', lab + ' (taken)', False, mine_time=1.0)
+    icon_of(n + '_spent'); item(n + '_spent', lab + ' (taken)', tier, 'crafted', 0.5, places=n + '_spent')
+# A sect: a board of missions. What is handed in is paid in merit, and merit is spent at the same board on what the sect has; and a higher rank has more of both.
+q = P().r(2, 2, 13, 11, c('8a6a3a')); q.r(3, 3, 12, 10, c('c8b890')); q.r(4, 4, 7, 6, PAPER); q.r(9, 4, 11, 7, PAPER); q.r(5, 8, 8, 9, PAPER); q.p(5, 4, RED).p(10, 4, RED).p(6, 8, RED); q.r(3, 12, 4, 15, c('5a3a1a')); q.r(11, 12, 12, 15, c('5a3a1a'))
+SECT_RANKS = ['Outer disciple', 'Inner disciple', 'Core disciple', 'Elder', 'Patriarch']
+thing(trinket('seal', c('c8322a'), GOLD), 'sect_merit', 'Sect merit', 1, 'special', 1.0)
+for g_ in range(1, 6):
+    n = 'mission_board' if g_ == 1 else 'mission_board_%d' % g_
+    q.save('tiles', n); icon_of(n)
+    tile(n, 'Mission board', False, tool='axe', mine_time=0.4, bench=True, bench_kind='mission_board', bench_level=g_, upgrade={'to': 'mission_board_%d' % (g_ + 1), 'cost': [{'item': 'sect_merit', 'count': [0, 20, 60, 150, 400][g_]}]} if g_ < 5 else None)
+    item(n, 'Mission board (%s)' % SECT_RANKS[g_ - 1].lower(), lo(g_), 'benches', 2.0, places=n)
+rec('workbench', 'mission_board', [('vermilion_planks', 6), ('spirit_paper', 6), ('cinnabar_ink', 2)], level=2)
+def sect(out, ins, g_, count=1): rec('mission_board', out, ins, count, level=g_, time=60)
+for r in range(1, 6):
+    # Missions: beasts culled, herbs gathered, pills and metal made.
+    sect('sect_merit', [(CORE_OF(r), 3)], r, 2 * r); sect('sect_merit', [(hh(r, 0), 10)], r, r); sect('sect_merit', [(hh(r, 6), 6)], r, r); sect('sect_merit', [(QI_PILLS[r - 1][0], 6)], r, 2 * r)
+    sect('sect_merit', [(METALS[r - 1][0] + '_ingot', 6)], r, 2 * r); sect('sect_merit', [('beast_essence_%d' % r, 2)], r, 2 * r)
+    # The treasury: what a rank may draw.
+    sect(STONES[min(r - 1, 3)][0], [('sect_merit', 2 * r)], r, 6 if r < 5 else 2); sect(REALM_PILLS[min(r, 4) - 1][0], [('sect_merit', 12 * r)], r); sect('beast_taming_talisman_%d' % r, [('sect_merit', 3 * r)], r)
+    sect(['basic_breathing_manual', 'vajra_body_refining', 'five_phases_canon', 'nine_heavens_scripture', 'primordial_chaos_canon'][r - 1], [('sect_merit', 10 * r * r)], r); sect(ROBES[r - 1][0] + '_robe', [('sect_merit', 8 * r)], r)
+    sect('aged_' + hh(r, 1), [('sect_merit', 6 * r)], r); sect('%s_insight_pill' % rank(r), [('sect_merit', 5 * r)], r)
+for n_ in ('formula_healing', 'formula_warding', 'formula_tempering', 'formula_qi_drawing', 'diagram_travel', 'diagram_killing'): sect(n_, [('sect_merit', 8)], 2)
+# For a world made before any of this: nothing wild is in it, so every staple has another way in.
+portal(1, 'basic_breathing_manual', [('linen', 2), ('amethyst', 1)]); portal(1, 'spirit_stone', [('amethyst', 1), ('stone', 8)], 4); portal(1, 'cinnabar', [('clay', 4), ('coal', 1)], 2)
+portal(2, 'spirit_iron_ore', [('iron_ingot', 2), ('spirit_stone', 2)], 2); portal(3, 'spirit_jade', [('emerald', 1), ('spirit_stone', 4)], 2); portal(3, 'azure_copper_ore', [('copper_ingot', 4), ('mid_spirit_stone', 1)], 2)
+for nm_, src_ in (('spirit_grass', 'wheat'), ('spirit_rice', 'wheat'), ('spirit_cotton', 'flax'), ('mountain_ginseng', 'carrot')): art(nm_, [(src_, 4), ('spirit_stone', 1)], 1, 2, 120)
+for r in range(1, 5):
+    for j in range(12): art(HR[r + 1][j], [(HR[r][j], 4), ('aged_' + HR[r][(j + 1) % 12], 1), (FLUX[r + 1], 1)], r + 1, 2, 300) if not (r == 1 and j < 0) else None
+for j in range(2, 12): art(HR[1][j], [(HR[1][j - 1], 3), (HR[1][0], 3), ('spirit_stone', 1)], 1, 2, 200)
+cultivation_also = [{'item': 'spirit_stone', 'weight': 3}, {'item': 'spirit_grass', 'weight': 2}, {'item': 'cinnabar', 'weight': 1}, {'item': 'mountain_ginseng', 'weight': 1}]
+
 # ---- the new things set down in the world ---------------------------------------------------------------------------------------------------
+SECT['Q'] = {'wall': 'sect_brick', 'back': 'mission_board'}; SECT['i'] = {'wall': 'jade_brick', 'back': 'inheritance_altar'}; HEAVEN['I'] = {'wall': 'heaven_brick', 'back': 'heaven_inheritance'}
 SECT['T'] = {'wall': 'sect_brick', 'back': 'stele'}; SECT['t'] = {'wall': 'jade_brick', 'back': 'ancient_stele'}; SECT['B'] = {'wall': 'sect_brick', 'back': 'brazier'}; SECT['s'] = {'wall': 'jade_brick', 'back': 'spirit_spring'}
 HEAVEN['T'] = {'wall': 'heaven_brick', 'back': 'heaven_stele'}; HEAVEN['S'] = {'wall': 'heaven_brick', 'back': 'marble_statue'}; HEAVEN['a'] = {'back': 'heaven_altar'}
-PATCH = {'sect_hall': ('~D.C..M..M..A.D~', '~D.C..M..T..A.D~'), 'sect_library': ('~D..M..M..D~', '~D..T..M..D~'), 'sect_pagoda': ('~~D..A...D~~', '~~D..A.B.D~~'), 'cave_abode': ('~jmjcjjOj~', '~jmjctjsj~'),
-         'broken_palace': ('~~.M.C..,,~~A.r~~~', '~~.T.C.S,,~~A.r~~~'), 'fallen_pagoda': ('~~r.M..#~~', '~~r.T..#~~'), 'star_altar': ('~#~~~~~~~#~', '~#~~~a~~~#~')}
+PATCH = {'sect_hall': ('~D.C..M..M..A.D~', '~D.C.QM..T..A.D~'), 'cave_nook': ('~jjajj~', '~jiajj~'), 'heaven_gatehouse': ('~#l~~~~l#~', '~#l~~~~l#~'), 'sect_library': ('~D..M..M..D~', '~D..T..M..D~'), 'sect_pagoda': ('~~D..A...D~~', '~~D..A.B.D~~'), 'cave_abode': ('~jmjcjjOj~', '~jmjctjsj~'),
+         'broken_palace': ('~~.M.C..,,~~A.r~~~', '~~.T.CIS,,~~A.r~~~'), 'fallen_pagoda': ('~~r.M..#~~', '~~r.T..#~~'), 'star_altar': ('~#~~~~~~~#~', '~#~~~a~~~#~')}
 for st in structures:
     if st['name'] in PATCH:
         a, b = PATCH[st['name']]; assert a in st['rows'], st['name']; st['rows'] = [b if row == a else row for row in st['rows']]
     if st['name'].endswith('_arena'):
         k = st['name'][:-6] + '_court'; st['legend']['b'] = {'wall': k, 'back': 'brazier'}; st['legend']['S'] = {'wall': k, 'back': 'stone_guardian_statue'}
-        st['rows'][4] = 'Pb~~~~~~~~~~~~~~~~~~bP'; st['rows'][5] = 'PS~~~~~~~~~~~~~~~~~~SP'
+        st['legend']['h'] = {'wall': k, 'back': {'dragon': 'dragon_blood_ginseng_m', 'phoenix': 'nirvana_lotus_m', 'tortoise': 'primordial_lingzhi_m', 'tiger': 'moon_silver_bloom_m'}[st['name'][:-6]]}
+        st['rows'][4] = 'Pb~~~~~~~~~~~~~~~~~~bP'; st['rows'][5] = 'PS~~~~~~~~~h~~~~~~~~SP'
 decor.append({'name': 'dao_spirit_spring', 'tile': 'spirit_spring', 'per_100_columns': 0.8, 'depth': [30, 300], 'on_floor': True})
 decor.append({'name': 'dao_wt_spring', 'tile': 'spirit_spring', 'dimension': 'world_tree', 'per_100_columns': 3, 'depth': [0, 240], 'on_floor': True})
 # The herbs of the higher realms, wild where the qi is thick enough for them.
@@ -1378,7 +1475,7 @@ for s_ in needs:
     w_ = s_['stage'] - (s_['stage'] - 1) // 10 * 10
     if w_ == 9: s_['insight'] = s_['stage'] * 2
     if s_['stage'] == 50: s_['insight'] = 150
-cultivation['scorch'] = 'lightning_herb_0'
+cultivation['scorch'] = 'lightning_herb_0'; cultivation['manual_costs_stage'] = True; cultivation['death_costs_qi'] = True
 
 # ---- written out ---------------------------------------------------------------------------------------------------------------------
 def dump(name, obj):
@@ -1403,7 +1500,7 @@ for n, i in enumerate(items):
         items[n] = o
 dump('tiles.json', {'tiles': tiles}); dump('items.json', {'sets': sets, 'items': items}); dump('recipes.json', {'recipes': recipes}); dump('trees.json', {'trees': trees}); dump('mobs.json', {'mobs': mobs})
 dump('worldgen.json', {'structures': structures, 'villages': villages, 'dimensions': dimensions, 'biomes': biomes, 'biome_plants': plants, 'veins': veins, 'cave_decor': decor})
-dump('rules.json', {'cultivation': cultivation})
+dump('rules.json', {'cultivation': cultivation, 'meditation': {'also': cultivation_also}})
 dump('trade.json', {'categories': [{'name': 'pills', 'label': 'Pills'}, {'name': 'scriptures', 'label': 'Scriptures'}, {'name': 'artifacts', 'label': 'Artifacts'}]})
 json.dump({'label': 'Seeker of the Dao', 'icon': 'icon.png', 'description': 'Cultivate toward immortality: qi, manuals, pills, formations, techniques, spirit beasts, the World Tree and the Fallen Heaven.'}, open(os.path.join(mod, 'mod.json'), 'w'), indent=1)
 book(c('2a2a6a'), GOLD, RED).im.resize((48, 48), Image.NEAREST).save(os.path.join(mod, 'icon.png'))

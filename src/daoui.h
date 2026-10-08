@@ -8,6 +8,7 @@
 typedef struct {
     bool open;
     bool pressed;
+    bool sight; /* spirit sight: the world is shown tinted by its qi (drawn by whoever draws the world) */
 } DaoUi;
 
 /* True if the press was on it. */

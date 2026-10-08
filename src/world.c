@@ -2037,6 +2037,9 @@ float world_qi(const World *w, int x, int y)
             }
         }
     }
+    /* The lie of the land: richer here and poorer there, by the seed. (Nothing random is drawn for it.) */
+    qi += 0.125f * (ring_noise(w->seed ^ 0x51C0u, x, w->width, 70) + 1.0f);
+    if (w->qi_more) best += w->qi_more(w->qi_game, x, y);
     return qi + best;
 }
 

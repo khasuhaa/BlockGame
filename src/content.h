@@ -255,6 +255,10 @@ typedef struct {
      * be stood on - but a character's body goes through it. */
     bool passable;
     /* Work at a bench within so many blocks of this goes so many times faster; 0 for something that does no such thing. */
+    float refines;     /* "quickens": {"refines"}: what is made at a skilled bench within its radius has this much more chance of coming out double */
+    int comprehension; /* "comprehension": which craft is learned by making things at it (see DAO_CRAFTS), -1 for none */
+    float bestows_qi;  /* "bestows_qi": used, it fills so much of the stage's measure; "needs_stage": by somebody that far along */
+    int tile_needs_stage;
     float craft_speed;
     int craft_radius;
     /* A block that takes on the look of what it stands between: the same
@@ -351,7 +355,7 @@ typedef struct {
     /* "grow_one_in": it grows on only one time in so many that its turn comes (0 or 1: every time). "insight": what
      * using it gives somebody who cultivates (with "use_becomes", once). */
     int grow_one_in, insight;
-    bool formation, formation_gate;
+    bool formation, formation_gate, formation_bars, formation_wanders;
     TileType formation_flags;
     int formation_pattern, formation_min, formation_max; /* 0 a cross: four, level and plumb; 1 a square: four, at the corners; 2 a ring: all eight */
     float formation_qi, formation_grows, formation_harms;
@@ -532,6 +536,12 @@ typedef struct {
     bool milks;        /* used on a creature that gives milk, it milks it */
     bool ignites;      /* used on something that burns, it takes it down at once, and is used up */
     bool written;      /* the meter is which of the world's texts is written on it; 0 for a blank one */
+    bool cages_kept;   /* "cages_kept": it is not used up by taking a creature */
+    int feeds;         /* "feeds": given to a creature that is theirs, it grows */
+    bool natal;        /* "natal": worn, it gives more the further its wearer has got past the stage it needs */
+    float flight_qi;   /* "flight_qi": what holding its wearer up costs them a tick, off the ground */
+    int technique_element; /* "technique": {"element"}: 0 to 4, or -1 */
+    bool cast_blink;   /* "cast": {"blink"}: the caster is there */
     bool cages;        /* used on a creature of the land, it takes it up: the item that creature is when caged */
     int releases;      /* the kind of creature that is in it, to be let out where it is put down; -1 for none */
     /* Paint and what takes it off. A thing that paints colours the block or
@@ -666,6 +676,7 @@ typedef struct {
         int weight;
     } one_of[MAX_RECIPE_CHOICES];
     int one_of_count;
+    ItemId formula; /* "formula": it can be made only in a world where this has been found */
 } Recipe;
 
 /* One row of a full-grown tree's leaves. */
@@ -871,6 +882,10 @@ typedef struct {
     int bolts;         /* the tribulation that comes with it: so many bolts of lightning, */
     float bolt;        /* each this share of a health bar, before anything turns it */
     bool revives;      /* whoever has reached it survives a death, once a day */
+    float temper_qi;   /* "temper_qi": a stage of it broken through where the qi is at least this is tempered */
+    bool core;         /* "core": coming into it forms a core, of a grade that is kept */
+    int domain;        /* "domain": so many squares about them are under their strongest root's rule */
+    bool soul;         /* "soul": meditating, they see wherever the view is taken */
 } RealmDef;
 
 /* The road: the realms in order, and the rules of travelling it. A game with none has no cultivation at all. */
@@ -891,6 +906,7 @@ typedef struct {
     int need_insight[MAX_DAO_STAGES];
     TileType scorch;
     /* A tribulation called down on purpose: so many bolts of such a share, and what it leaves whoever lives. */
+    bool manual_costs, death_costs; /* "manual_costs_stage", "death_costs_qi" */
     int called_bolts;
     float called_bolt;
     RecipeItem called_leaves;
@@ -937,6 +953,7 @@ typedef struct {
     int geode_count;
     int ambient;         /* it is never darker there than this, 0..15 */
     bool has_sky_color;  /* its sky is of its own colours: by day, and by night */
+    bool stars;          /* "stars": there are stars in it at every hour */
     unsigned char sky_day[3], sky_night[3];
     float qi;            /* how rich in qi the whole of it is, beside the usual: 0 for no different */
     /* Things built that stand on its islands: so many islands in a hundred have one, chosen from these. And
@@ -1189,6 +1206,11 @@ typedef struct {
     bool swims, hunts;
     /* A creature of the air: it drifts about the open sky as one of the water does the sea, and never lands. */
     bool flies;
+    /* "mount": owned, it can be ridden, at so many times walking pace. "strike": it hits whoever it can see from afar. */
+    bool mount;
+    float mount_speed;
+    float strike_share;
+    int strike_range, strike_rest;
     /* "tame": what grade of thing that tames it takes (0: it cannot be). "companion": owned, it keeps by whoever is
      * nearest and goes for wild creatures it can see, doing so much to them at a time. */
     int tame;

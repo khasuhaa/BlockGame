@@ -52,4 +52,13 @@ bool game_formation_gate(Game *g, int x, int y);
 /* Whether the formation whose heart is in a square is lit, and how far it reaches. */
 int game_formation_reach(const Game *g, int x, int y);
 
+/* Which of the techniques they have learned an item is (0 to DAO_KNOWN - 1), or -1; and the one in hand to be cast, or ITEM_NONE. */
+int dao_known_slot(const Game *g, ItemId item);
+ItemId game_technique_armed(const Game *g);
+/* Uses the technique in a slot of the bar: one for themselves is done at once; one for a place is taken in hand (or put down again). */
+bool game_technique_use(Game *g, int slot);
+/* Adds to what they understand of an element or a craft (0 to DAO_COMP - 1). */
+void dao_learn(Game *g, int what, int by);
+/* Whether a square is inside a lit formation that keeps wild creatures out (0), or sets them wandering (1). */
+bool game_formation_rule(const Game *g, int x, int y, int rule);
 #endif

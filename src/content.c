@@ -323,6 +323,15 @@ static bool read_tiles(Reader *r, const cJSON *root)
         if (t->conveyor < 0 || t->draw < 0 || t->miner_ticks < 0 || t->sorts < 0 || (t->automat && (t->automat_inputs < 1 || t->automat_speed <= 0.0f)))
             return fail(r, "tile \"%s\": a conveyor, a draw, a miner, an automat's inputs and speed cannot be less than nothing", t->name);
         t->craft_speed = (float)num(field(e, "quickens"), "speed", 0.0);
+        t->refines = (float)num(field(e, "quickens"), "refines", 0.0);
+        {
+            static const char *crafts[3] = { "alchemy", "formation", "smithing" };
+            t->comprehension = -1;
+            for (int k = 0; str(e, "comprehension") && k < 3; k++)
+                if (strcmp(str(e, "comprehension"), crafts[k]) == 0) t->comprehension = 5 + k;
+            t->bestows_qi = (float)num(e, "bestows_qi", 0.0);
+            t->tile_needs_stage = (int)num(e, "needs_stage", 0);
+        }
         t->craft_radius = (int)num(field(e, "quickens"), "radius", 0);
         if (field(e, "quickens") && (t->craft_speed <= 0.0f || t->craft_radius < 1 || t->craft_radius > 12))
             return fail(r, "tile \"%s\": \"quickens\" needs a \"speed\" above 0 and a \"radius\" of 1 to 12", t->name);
@@ -375,9 +384,11 @@ static bool read_tiles(Reader *r, const cJSON *root)
             t->insight = (int)num(e, "insight", 0);
             t->formation = form != NULL;
             t->formation_gate = flag(form, "gate", false);
+            t->formation_bars = flag(form, "bars", false);
+            t->formation_wanders = flag(form, "wanders", false);
             t->formation_flags = TILE_AIR;
             if (!tile_ref(r, form, "flags", &t->formation_flags)) return false;
-            t->formation_pattern = !shape || strcmp(shape, "cross") == 0 ? 0 : strcmp(shape, "square") == 0 ? 1 : 2;
+            t->formation_pattern = !shape || strcmp(shape, "cross") == 0 ? 0 : strcmp(shape, "square") == 0 ? 1 : strcmp(shape, "double") == 0 ? 3 : 2;
             t->formation_min = 2, t->formation_max = 6;
             pair(form, "distance", &t->formation_min, &t->formation_max);
             t->formation_qi = (float)num(form, "qi", 0.0);
@@ -740,6 +751,10 @@ static bool read_items(Reader *r, const cJSON *root)
             it->meter_start = 0;
         }
         it->cages = flag(e, "cages", false);
+        it->cages_kept = flag(e, "cages_kept", false);
+        it->feeds = (int)num(e, "feeds", 0);
+        it->natal = flag(e, "natal", false);
+        it->flight_qi = (float)num(e, "flight_qi", 0.0);
         it->releases = -1;
         it->paints = flag(e, "paints", false);
         it->strips = flag(e, "strips", false);
@@ -766,6 +781,7 @@ static bool read_items(Reader *r, const cJSON *root)
         it->cast_freeze = (int)num(cast, "freeze", 0);
         it->cast_drain = (int)num(cast, "drain", 0);
         it->cast_hold = (int)num(cast, "hold", 0);
+        it->cast_blink = flag(cast, "blink", false);
         const char *sky = str(cast, "weather");
         it->cast_weather = !sky ? 0 : strcmp(sky, "rain") == 0 ? 1 : 2;
         it->cast_weather_ticks = (int)num(cast, "weather_ticks", 0);
@@ -789,6 +805,7 @@ static bool read_items(Reader *r, const cJSON *root)
             it->technique_qi = (float)num(technique, "qi", 0.0);
             it->technique_stage = (int)num(technique, "stage", 0);
             it->technique_insight = (int)num(technique, "insight", 0);
+            it->technique_element = (int)num(technique, "element", -1);
             it->tames = (int)num(e, "tames", 0);
             it->insight_gain = (int)num(e, "insight", 0);
             it->meridian = (int)num(e, "meridian", 0);
@@ -988,6 +1005,8 @@ static bool read_recipes(Reader *r, const cJSON *root)
         recipe.crystals = (int)num(e, "crystals", 0);
         recipe.characters = (int)num(e, "characters", 0);
         recipe.time = (float)num(e, "time", 0.0);
+        recipe.formula = ITEM_NONE;
+        if (!item_ref(r, e, "formula", &recipe.formula)) return false;
         /* "tint": what it makes comes out that colour. */
         const cJSON *tint = field(e, "tint");
         if (cJSON_GetArraySize(tint) == 3) {
@@ -1591,6 +1610,7 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         d->ambient = (int)num(e, "ambient", 0);
         const cJSON *day = field(e, "sky_day"), *night = field(e, "sky_night");
         d->has_sky_color = cJSON_GetArraySize(day) == 3 && cJSON_GetArraySize(night) == 3;
+        d->stars = flag(e, "stars", false);
         for (int k = 0; d->has_sky_color && k < 3; k++) {
             d->sky_day[k] = (unsigned char)cJSON_GetArrayItem(day, k)->valuedouble;
             d->sky_night[k] = (unsigned char)cJSON_GetArrayItem(night, k)->valuedouble;
@@ -1695,6 +1715,10 @@ static bool read_dao(Reader *r, const cJSON *road)
         realm->bolts = (int)num(e, "bolts", 0);
         realm->bolt = (float)num(e, "bolt", 0.2);
         realm->revives = flag(e, "revives", false);
+        realm->temper_qi = (float)num(e, "temper_qi", 0.0);
+        realm->core = flag(e, "core", false);
+        realm->domain = (int)num(e, "domain", 0);
+        realm->soul = flag(e, "soul", false);
         if (realm->stages < 1 || realm->qi_first <= 0.0f) return fail(r, "a realm has at least one stage, and holds some qi");
     }
     int total = 0;
@@ -1710,6 +1734,8 @@ static bool read_dao(Reader *r, const cJSON *road)
             if (!stack_ref(r, one, &d->needs[stage][d->need_count[stage]++])) return false;
         }
     }
+    d->manual_costs = flag(road, "manual_costs_stage", false);
+    d->death_costs = flag(road, "death_costs_qi", false);
     d->scorch = TILE_AIR;
     if (!tile_ref(r, road, "scorch", &d->scorch)) return false;
     const cJSON *called = field(road, "called");
@@ -1856,6 +1882,13 @@ static bool read_rules(Reader *r, const cJSON *root)
             u->loot[u->loot_count].weight = (int)num(e, "weight", 1);
             if (u->loot[u->loot_count++].weight < 1) return fail(r, "what meditation brings needs a \"weight\" of 1 or more");
         }
+        /* ("also": more that it brings, on top of whatever it brought before: how a mod adds to the list.) */
+        cJSON_ArrayForEach(e, field(meditation, "also")) {
+            ItemId item = ITEM_NONE;
+            if (u->loot_count >= MAX_LOOT || !str(e, "item") || !item_ref(r, e, "item", &item)) return fail(r, "\"also\": something meditation brings needs an \"item\", and there is room for %d", MAX_LOOT);
+            u->loot[u->loot_count].item = item;
+            u->loot[u->loot_count++].weight = (int)num(e, "weight", 1) > 0 ? (int)num(e, "weight", 1) : 1;
+        }
     }
     if (field(root, "players")) u->max_players = (int)num(field(root, "players"), "max", u->max_players);
     const cJSON *death = field(root, "death");
@@ -1956,6 +1989,11 @@ static bool read_mobs(Reader *r, const cJSON *root)
         if (m->spawn_time < 0) return fail(r, "mob \"%s\": the \"time\" it spawns at is \"day\" or \"night\"", name);
         m->flies = flag(e, "flies", false);
         m->tame = (int)num(e, "tame", 0);
+        m->mount = field(e, "mount") != NULL;
+        m->mount_speed = (float)num(field(e, "mount"), "speed", 1.5);
+        m->strike_share = (float)num(field(e, "strike"), "share", 0.0);
+        m->strike_range = (int)num(field(e, "strike"), "range", 6);
+        m->strike_rest = (int)num(field(e, "strike"), "rest_ticks", 60);
         m->companion = field(e, "companion") != NULL;
         m->companion_bite = (int)num(field(e, "companion"), "bite", 2);
         m->companion_sight = (int)num(field(e, "companion"), "sight", 8);

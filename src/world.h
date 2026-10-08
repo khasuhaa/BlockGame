@@ -59,6 +59,9 @@ typedef struct {
     /* Whoever is being moved about in it just now can fly: the air holds them up as water does a swimmer.
      * (Set by the game for the character in hand; not part of the world, and not saved.) */
     bool aloft;
+    /* What else adds to the qi of a square, beyond what the world itself knows (the game's formations): asked by world_qi. */
+    float (*qi_more)(const void *game, int x, int y);
+    const void *qi_game;
     bool glide;       /* and, the same way, whether a drop of any height is a step to them */
     /* Where the blocks are that have to do with signals (see signal.h): each square with one, kept up as blocks
      * come and go. Not saved: it is looked for again in a world that has just been made or loaded. */

@@ -12343,10 +12343,10 @@ static void test_seeker_mod(void)
         failures++;
         return;
     }
-    if (content.tile_count != tiles + 588 || content.item_count != items + 1084 || content.recipe_count != recipes + 1149 || content.mob_count != mobs + 62 || content.biome_count != biomes + 13)
+    if (content.tile_count != tiles + 608 || content.item_count != items + 1125 || content.recipe_count != recipes + 1322 || content.mob_count != mobs + 62 || content.biome_count != biomes + 13)
         printf("seeker counts: %d tiles %d items %d recipes %d mobs %d biomes\n", content.tile_count - tiles, content.item_count - items, content.recipe_count - recipes,
                content.mob_count - mobs, content.biome_count - biomes);
-    CHECK(content.tile_count == tiles + 588 && content.item_count == items + 1084 && content.recipe_count == recipes + 1149 && content.mob_count == mobs + 62 && content.biome_count == biomes + 13);
+    CHECK(content.tile_count == tiles + 608 && content.item_count == items + 1125 && content.recipe_count == recipes + 1322 && content.mob_count == mobs + 62 && content.biome_count == biomes + 13);
     /* Five realms of ten stages; pills, scriptures and artifacts are kinds of thing of their own to trade in. */
     CHECK(dao_on() && dao_stages() == 50 && content.dao.realm_count == 5 && content.dao.realms[3].revives && !content.dao.realms[1].revives);
     CHECK(strcmp(content.trade.categories[item_def(item_id("qi_gathering_pill"))->category].label, "Pills") == 0 &&
@@ -12459,7 +12459,11 @@ static void test_seeker_mod(void)
     g.dao.stage = 17;
     CHECK(!game_technique_ready(&g, item_id("sword_rain")));
     g.dao.insight = 60;
+    /* (Of its own element, for one that has an element: knowing other things does not serve.) */
+    CHECK(!game_technique_ready(&g, item_id("sword_rain")));
+    g.dao.comp[0] = 60;
     CHECK(game_technique_ready(&g, item_id("sword_rain")));
+    g.dao.comp[0] = 0;
     in_hand(&g, "lesser_insight_pill");
     CHECK(game_eat(&g) && g.dao.insight == 64);
     /* A stele is read once. */
@@ -12528,7 +12532,74 @@ static void test_seeker_mod(void)
     g.player.feet = g.player.step_to = (TilePos){ x + 20, r };
     ticks(&g, 400);
     CHECK(g.mobs[wolf].active && abs(world_dx(w, g.mobs[wolf].x, g.player.feet.x)) <= 4);
+    /* Fed, it grows; and one that can carry somebody is got up on, and goes where they go at its own pace. */
+    g.player.feet = g.player.step_to = (TilePos){ g.mobs[wolf].x - 1, r };
+    clear_inventory(&g);
+    in_hand(&g, "beast_pill");
+    int size_was = g.mobs[wolf].size;
+    CHECK(game_click_mob(&g, wolf));
+    run(&g, 2.0f);
+    CHECK(g.mobs[wolf].size == (size_was > 0 ? size_was : 1) + 1 && count_item(&g, item_id("beast_pill")) == 0);
+    clear_inventory(&g);
+    float afoot = game_boons(&g).walk;
+    g.player.feet = g.player.step_to = (TilePos){ g.mobs[wolf].x - 1, r };
+    CHECK(content.mobs[wolf_kind].mount && g.mount == 0 && game_click_mob(&g, wolf) && g.mount == wolf + 1 && game_boons(&g).walk > afoot * 1.3f);
+    g.player.feet = g.player.step_to = (TilePos){ x + 30, r };
+    ticks(&g, 2);
+    CHECK(g.mobs[wolf].x == x + 30 && g.mobs[wolf].y == r);
+    CHECK(game_click_mob(&g, wolf) && g.mount == 0);
+    CHECK(item_def(item_id("spirit_beast_bag"))->cages && item_def(item_id("spirit_beast_bag"))->cages_kept);
     g.mobs[wolf].active = false;
+
+    /* A technique studied is one they know: it has a place in the row, is cast from there, and gets better with use. */
+    g.dao.stage = 11;
+    g.dao.qi = 500.0f;
+    in_hand(&g, "spirit_bolt");
+    CHECK(game_can_eat(&g, item_id("spirit_bolt")) && game_eat(&g) && count_item(&g, item_id("spirit_bolt")) == 0 && dao_known_slot(&g, item_id("spirit_bolt")) == 0);
+    in_hand(&g, "spirit_bolt");
+    CHECK(!game_can_eat(&g, item_id("spirit_bolt")));
+    clear_inventory(&g);
+    CHECK(game_technique_armed(&g) == ITEM_NONE && game_technique_use(&g, 0) && game_technique_armed(&g) == item_id("spirit_bolt"));
+    dao_spend(&g, item_id("spirit_bolt"));
+    CHECK(g.dao.qi == 495.0f && g.dao.mastery[0] == 1);
+    g.dao.mastery[0] = 200;
+    dao_spend(&g, item_id("spirit_bolt"));
+    CHECK(g.dao.qi == 492.5f);
+    CHECK(game_technique_use(&g, 0) && game_technique_armed(&g) == ITEM_NONE);
+    in_hand(&g, "iron_body_art");
+    CHECK(game_eat(&g) && dao_known_slot(&g, item_id("iron_body_art")) == 1);
+    for (int i = 0; i < MAX_EFFECTS; i++) g.effects[i].ticks = 0;
+    float soft = game_boons(&g).armor;
+    CHECK(game_technique_use(&g, 1) && game_boons(&g).armor > soft + 0.29f && g.dao.qi == 462.5f && game_technique_armed(&g) == ITEM_NONE);
+    uint16_t metal = g.dao.comp[0];
+    dao_spend(&g, item_id("golden_needle"));
+    CHECK(g.dao.comp[0] == metal + 1);
+    /* A pill is made only where its formula has been found. */
+    const Recipe *heal = NULL;
+    for (int i = 0; i < content.recipe_count; i++)
+        if (content.recipes[i].output.id == item_id("common_healing_pill") && content.recipes[i].formula != ITEM_NONE) heal = &content.recipes[i];
+    CHECK(heal != NULL && heal->formula == item_id("formula_healing") && !game_recipe_known(&g, heal));
+    in_hand(&g, "formula_healing");
+    ticks(&g, 2);
+    CHECK(game_recipe_known(&g, heal));
+    /* Changing from one manual to another costs a stage. */
+    g.dao.stage = 13;
+    in_hand(&g, "sharp_metal_scripture");
+    CHECK(game_eat(&g) && g.dao.stage == 12 && g.dao.qi == 0.0f && g.dao.manual == item_id("sharp_metal_scripture"));
+    /* What somebody left behind is for whoever has got far enough. */
+    g.dao.stage = 5;
+    g.dao.insight = 0;
+    put(&g, "inheritance_altar", x + 1, r);
+    game_queue_action(&g, ACTION_USE, x + 1, r);
+    run(&g, 2.0f);
+    CHECK(is_block(&g, "inheritance_altar", x + 1, r) && g.dao.insight == 0);
+    g.dao.stage = 11;
+    game_queue_action(&g, ACTION_USE, x + 1, r);
+    run(&g, 2.0f);
+    CHECK(is_block(&g, "inheritance_altar_spent", x + 1, r) && g.dao.insight == 120 && g.dao.qi == game_dao_capacity(&g));
+    world_set_at(w, BG, x + 1, r, TILE_AIR);
+    CHECK(tile_def(tile_id("warding_array"))->formation_bars && tile_def(tile_id("illusion_maze_array"))->formation_wanders && tile_def(tile_id("grand_protecting_formation"))->formation_pattern == 3);
+    CHECK(tile_def(tile_id("mission_board"))->upgrade_to == tile_id("mission_board_2") && find_recipe(tile_id("mission_board_2"), "formula_healing") != NULL);
     g.player.feet = g.player.step_to = (TilePos){ x, r };
     g.vitals.health = 1.0f;
 
@@ -12547,6 +12618,8 @@ static void test_seeker_mod(void)
     put(&g, "formation_flag", fx, r - 3);
     ticks(&g, 20);
     CHECK(game_formation_reach(&g, fx, r) == 3 && game_qi_at(&g, fx + 2, r) == bare + 1.0f && game_qi_at(&g, fx + 5, r) == world_qi(w, fx + 5, r));
+    /* (What grows knows of it too: the world is told what the formations add.) */
+    CHECK(world_qi(w, fx + 2, r) == bare + 1.0f);
     game_close_bench(&g);
     /* It burns what it is fed, and goes out when that is gone. */
     ticks(&g, 1300);
@@ -12559,7 +12632,8 @@ static void test_seeker_mod(void)
     game_hurt(&g, 5.0f);
     CHECK(game_alive(&g) && g.dao.revived != 0);
     game_hurt(&g, 5.0f);
-    CHECK(!game_alive(&g));
+    /* (And dying, what was gathered toward the next stage is lost.) */
+    CHECK(!game_alive(&g) && g.dao.qi == 0.0f && content.dao.death_costs);
     game_free(&g);
 
     /* The last step, immortality, and what an immortal may call down. */
@@ -12571,6 +12645,22 @@ static void test_seeker_mod(void)
     CHECK(!game_can_eat(&g, item_id("primordial_chaos_canon")));
     in_hand(&g, "basic_breathing_manual");
     CHECK(game_eat(&g));
+    /* Stages broken through where the qi is thick are tempered, and the realm built on them is the better: a core of a high grade. */
+    g.dao.stage = 20;
+    g.dao.tempered = 8;
+    g.dao.foundation = 4;
+    g.dao.qi = game_dao_capacity(&g);
+    inventory_add(inv, item_id("core_formation_pill"), 1);
+    CHECK(game_breakthrough(&g) && g.dao.bolts == 6);
+    for (int i = 0; i < 1000 && g.dao.bolts > 0; i++) {
+        g.vitals.health = 1.0f;
+        game_tick(&g);
+    }
+    float plain_room = content.dao.realms[2].qi_first;
+    CHECK(g.dao.stage == 21 && g.dao.core >= 7 && g.dao.tempered == 0 && game_dao_capacity(&g) > plain_room * 1.3f);
+    in_hand(&g, "spirit_bolt");
+    CHECK(game_eat(&g));
+    clear_inventory(&g);
     g.dao.stage = 50;
     g.dao.foundation = 4;
     g.dao.qi = game_dao_capacity(&g);
@@ -12616,7 +12706,8 @@ static void test_seeker_mod(void)
     static Game back;
     CHECK(load_game(&back, "build/test_seeker.world"));
     CHECK(back.dao.stage == 51 && back.dao.qi == 1234.0f && memcmp(back.dao.roots, kept.roots, sizeof kept.roots) == 0 && back.dao.manual == item_id("basic_breathing_manual") &&
-          back.dao.foundation == kept.foundation);
+          back.dao.foundation == kept.foundation &&
+          back.dao.known[0] == item_id("spirit_bolt") && back.dao.core == kept.core);
     game_free(&back);
 
     /* The World Tree: trunks from a lake to the sky, boughs to walk, and things growing on them. */
@@ -12656,6 +12747,10 @@ static void test_seeker_mod(void)
     /* And one from before there was insight has somebody with none, and all else they had. */
     CHECK(load_game(&old, "tests/fixtures/v37_plain.world"));
     CHECK(old.dao.stage == 7 && old.dao.qi == 55.0f && old.dao.meridians == 3 && old.dao.insight == 0 && count_item(&old, item_id("diamond")) == 7);
+    game_free(&old);
+    /* And one from before techniques were learned: what was understood is kept, and nothing is known yet. */
+    CHECK(load_game(&old, "tests/fixtures/v38_plain.world"));
+    CHECK(old.dao.stage == 7 && old.dao.insight == 41 && old.dao.known[0] == 0 && old.dao.core == 0 && old.dao.comp[0] == 0);
     game_free(&old);
 
     /* It clashes with nothing else the game comes with. */

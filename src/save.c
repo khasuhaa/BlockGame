@@ -7,7 +7,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 38u
+#define SAVE_VERSION 39u
 
 /* Up to version 28 a world had room for a quarter as many of these, and they
  * were written out whole: every reader of an older version goes by these. */
@@ -545,6 +545,12 @@ bool save_game(const Game *g, const char *path)
         if (dao.manual > 0 && dao.manual < content.item_count) snprintf(manual, sizeof manual, "%s", item_def((ItemId)dao.manual)->name);
         uint32_t size = sizeof dao;
         ok = fwrite(&size, sizeof size, 1, f) == 1 && fwrite(&dao, sizeof dao, 1, f) == 1 && fwrite(manual, sizeof manual, 1, f) == 1;
+        /* (From version 39: the techniques they have learned, by name too.) */
+        for (int k = 0; ok && k < DAO_KNOWN; k++) {
+            char known[CONTENT_NAME_LEN] = { 0 };
+            if (dao.known[k] > 0 && dao.known[k] < content.item_count) snprintf(known, sizeof known, "%s", item_def((ItemId)dao.known[k])->name);
+            ok = fwrite(known, sizeof known, 1, f) == 1;
+        }
     }
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
@@ -898,6 +904,15 @@ bool load_game(Game *g, const char *path)
             if (!ok) break;
             manual[CONTENT_NAME_LEN - 1] = '\0';
             dao.manual = manual[0] && item_id(manual) > 0 ? (uint16_t)item_id(manual) : 0;
+            dao.armed = 0;
+            for (int k = 0; k < DAO_KNOWN; k++) {
+                char known[CONTENT_NAME_LEN] = { 0 };
+                if (h.version >= 39 && fread(known, sizeof known, 1, f) != 1) ok = false;
+                known[CONTENT_NAME_LEN - 1] = '\0';
+                dao.known[k] = h.version >= 39 && known[0] && item_id(known) > 0 ? (uint16_t)item_id(known) : 0;
+                if (dao.known[k] == 0) dao.mastery[k] = 0;
+            }
+            if (!ok) break;
             if (c == g->live) g->dao = dao;
             else g->characters[c].dao = dao;
         }

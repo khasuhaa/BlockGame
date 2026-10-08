@@ -985,7 +985,8 @@ static int worn(const Game *g, const ItemDef *out[ARMOR_SLOTS + RELIC_SLOTS])
     if (box == 0 || box >= MAX_CONTAINERS || g->inventory.containers[box].used != CONTAINER_RELICS) return n;
     for (int i = 0; i < RELIC_SLOTS; i++) {
         const ItemStack *s = &g->inventory.containers[box].slots[i];
-        if (s->count > 0 && item_def((ItemId)s->id)->relic && item_def((ItemId)s->id)->needs_stage <= g->dao.stage) out[n++] = item_def((ItemId)s->id);
+        if (s->count > 0 && item_def((ItemId)s->id)->relic && item_def((ItemId)s->id)->needs_stage <= g->dao.stage &&
+            !(item_def((ItemId)s->id)->flight_qi > 0.0f && g->dao.qi <= 0.0f)) out[n++] = item_def((ItemId)s->id);
     }
     return n;
 }
@@ -1023,7 +1024,30 @@ Boons game_boons(const Game *g)
     Boons all = { .walk = 1.0f, .mine = 1.0f, .craft = 1.0f, .regen = 1.0f, .lung = 1.0f, .appetite = 1.0f, .stamina = 1.0f };
     const ItemDef *on[ARMOR_SLOTS + RELIC_SLOTS];
     int n = worn(g, on);
-    for (int i = 0; i < n; i++) add_boons(&all, &on[i]->boons);
+    for (int i = 0; i < n; i++) {
+        if (!on[i]->natal) {
+            add_boons(&all, &on[i]->boons);
+            continue;
+        }
+        /* Something that grows with them: half as much again for every realm past the one it was made in. */
+        Boons grown = on[i]->boons;
+        float k = 1.0f + 0.5f * (float)((g->dao.stage - on[i]->needs_stage) / 10);
+        if (k < 1.0f) k = 1.0f;
+        float *mult[] = { &grown.walk, &grown.mine, &grown.craft, &grown.regen, &grown.lung, &grown.stamina };
+        for (int m = 0; m < 6; m++)
+            if (*mult[m] > 1.0f) *mult[m] = 1.0f + (*mult[m] - 1.0f) * k;
+        grown.armor = grown.armor * k > 0.6f ? 0.6f : grown.armor * k;
+        grown.ward = grown.ward * k > 0.6f ? 0.6f : grown.ward * k;
+        grown.luck = grown.luck * k > 0.6f ? 0.6f : grown.luck * k;
+        grown.strength = (int)((float)grown.strength * k);
+        grown.thorns = (int)((float)grown.thorns * k);
+        add_boons(&all, &grown);
+    }
+    /* Riding: at the pace of what they ride, and in the air if it is of the air. */
+    if (g->mount > 0 && g->mount <= MAX_MOBS && g->mobs[g->mount - 1].active) {
+        all.walk *= content.mobs[g->mobs[g->mount - 1].kind].mount_speed;
+        if (content.mobs[g->mobs[g->mount - 1].kind].flies) all.flight = 1.0f;
+    }
     all.qi = 0.0f;
     for (int i = 0; i < n; i++)
         if (on[i]->boons.qi > 0.0f) all.qi = (all.qi > 0.0f ? all.qi : 1.0f) * on[i]->boons.qi;
@@ -1325,6 +1349,16 @@ bool game_click_mob(Game *g, int mob)
     bool milk = held->count > 0 && item_def((ItemId)held->id)->milks && content.mobs[m->kind].milk_item != ITEM_NONE;
     bool cage = held->count > 0 && item_def((ItemId)held->id)->cages && content.mobs[m->kind].caged != ITEM_NONE;
     bool tame = held->count > 0 && item_def((ItemId)held->id)->tames > 0 && content.mobs[m->kind].tame > 0 && !m->owned;
+    /* One of their own: fed with what makes it grow; or, with nothing of the sort in hand, got up on or down from. */
+    if (held->count > 0 && item_def((ItemId)held->id)->feeds > 0 && m->owned && content.mobs[m->kind].companion) tame = true;
+    if (!tame && m->owned && content.mobs[m->kind].mount && game_technique_armed(g) == ITEM_NONE &&
+        !(held->count > 0 && (item_def((ItemId)held->id)->cages || item_def((ItemId)held->id)->shears || item_def((ItemId)held->id)->milks)) &&
+        abs(world_dx(&g->world, g->player.feet.x, m->x)) <= 3 && abs(g->player.feet.y - m->y) <= 3) {
+        g->mount = g->mount == mob + 1 ? 0 : mob + 1;
+        return true;
+    }
+    /* A technique in hand is cast at where the creature is. */
+    if (game_technique_armed(g) != ITEM_NONE) return game_click_tile(g, m->x, m->y);
     Action a = { .type = ACTION_ATTACK, .target = { m->x, m->y }, .drop = mob, .drop_id = m->id,
                  .amount = shear || milk || cage || tame ? 0 : game_attack_range(g),
                  .arg = tame ? HAND_TAME : shear ? HAND_SHEAR : milk ? HAND_MILK : cage ? HAND_CAGE : HAND_HIT };
@@ -1375,6 +1409,12 @@ bool game_click_tile(Game *g, int tx, int ty)
     int holds = held->count > 0 && item_def((ItemId)held->id)->holds_water ? inventory_meter(&g->inventory, held) : -1;
     int wet = world_water(&g->world, tx, ty);
     const ItemDef *spell = item_def(held->count > 0 ? (ItemId)held->id : ITEM_NONE);
+    /* A technique taken in hand from those they know: it is cast where they point, whatever else they hold. */
+    if (game_technique_armed(g) != ITEM_NONE && world_in_bounds(&g->world, tx, ty)) {
+        a.type = ACTION_CAST;
+        a.item = game_technique_armed(g);
+        return queue_checked(g, pos, a);
+    }
     if (spell->casts && world_in_bounds(&g->world, tx, ty) &&
         (spell->cast_water > 0 || spell->cast_dig > 0 || spell->cast_shield > 0.0f || spell->cast_time >= 0 || spell->cast_grow > 0 ||
          spell->cast_freeze > 0 || spell->cast_drain > 0 || spell->cast_hold > 0 || spell->cast_weather != 0 || spell->cast_places != TILE_AIR ||
@@ -2089,7 +2129,11 @@ static void finish_activity(Game *g)
                     deny(g, (TilePos){ m->x, m->y });
             } else if (g->current.arg == HAND_TAME) {
                 /* Taming: with something strong enough for it, a wild creature is theirs from then on. */
-                if (with->tames < content.mobs[m->kind].tame || content.mobs[m->kind].tame <= 0 || m->owned ||
+                if (m->owned && with->feeds > 0 && content.mobs[m->kind].companion && in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y }) && inventory_remove(&g->inventory, held->id, 1) == 1) {
+                    /* Fed: it is well again, and - up to a point - bigger. */
+                    if (m->size < 3) m->size = (uint8_t)((m->size > 0 ? m->size : 1) + 1);
+                    m->hp = (content.mobs[m->kind].health > 0 ? content.mobs[m->kind].health : 1) * (m->size > 0 ? m->size : 1);
+                } else if (with->tames < content.mobs[m->kind].tame || content.mobs[m->kind].tame <= 0 || m->owned ||
                     !in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y }) || inventory_remove(&g->inventory, held->id, 1) != 1)
                     deny(g, (TilePos){ m->x, m->y });
                 else
@@ -2098,9 +2142,10 @@ static void finish_activity(Game *g)
                 /* Caging: the creature is gone from the world and is an item in hand, in place of the cage. */
                 ItemId caged = content.mobs[m->kind].caged;
                 if (!with->cages || caged == ITEM_NONE || !in_use_range(&g->world, p->feet, (TilePos){ m->x, m->y }) ||
-                    inventory_remove(&g->inventory, held->id, 1) != 1) {
+                    (!with->cages_kept && inventory_remove(&g->inventory, held->id, 1) != 1)) {
                     deny(g, (TilePos){ m->x, m->y });
                 } else {
+                    if (g->mount == g->current.drop + 1) g->mount = 0;
                     m->active = false;
                     game_give_items(g, caged, 1);
                 }
@@ -2213,17 +2258,18 @@ static void use_paint(Game *g, ItemId item, TilePos at)
 }
 
 static bool working(const Game *g);
+static float spell_power = 1.0f; /* how much more the spell being cast does, for the practice its caster has had */
 
 /* Uses up one use of the spell in an item; the item goes when it has none left. */
 static void wear_spell(Game *g, ItemId item)
 {
-    ItemStack *held = inventory_find(&g->inventory, item);
-    if (!held) return;
     /* (A technique is not used up: it is qi that it costs.) */
     if (item_def(item)->technique) {
         dao_spend(g, item);
         return;
     }
+    ItemStack *held = inventory_find(&g->inventory, item);
+    if (!held) return;
     int left = inventory_meter(&g->inventory, held);
     if (left <= 1) inventory_remove(&g->inventory, item, 1);
     else inventory_set_meter(&g->inventory, held, left - 1);
@@ -2240,7 +2286,7 @@ static void spell_on_mobs(Game *g, const ItemDef *it, int x, int y)
         if (!m->active) continue;
         int dx = world_dx(&g->world, x, m->x), dy = m->y - y;
         if (dx * dx + dy * dy > reach * reach + reach) continue;
-        int harm = mob_weak_to(g, i, it->cast_element) ? it->cast_bane : it->cast_damage;
+        int harm = (int)((float)(mob_weak_to(g, i, it->cast_element) ? it->cast_bane : it->cast_damage) * spell_power + 0.5f);
         mob_hurt_by(g, i, harm, it->cast_element, it->cast_cooks);
     }
 }
@@ -2257,13 +2303,22 @@ static void cast_spell(Game *g, ItemId item, TilePos at)
 {
     const ItemDef *it = item_def(item);
     World *w = &g->world;
-    if (!it->casts || inventory_count(&g->inventory, item) < 1) return;
+    if (!(it->casts || (it->technique && it->effect_ticks != 0)) || (inventory_count(&g->inventory, item) < 1 && dao_known_slot(g, item) < 0)) return;
     /* A technique wants a stage reached, and the qi to do it with. */
     if (!game_technique_ready(g, item)) {
         deny(g, at);
         return;
     }
     if (it->technique && it->effect_ticks != 0) take_effect(g, item);
+    /* (Practised, it does more.) */
+    spell_power = 1.0f;
+    if (dao_known_slot(g, item) >= 0) spell_power += g->dao.mastery[dao_known_slot(g, item)] > 200 ? 0.5f : (float)g->dao.mastery[dao_known_slot(g, item)] / 400.0f;
+    /* To be there: if there is room to stand, they are. */
+    if (it->cast_blink && world_in_bounds(w, at.x, at.y) && body_fits(w, at.x, at.y)) {
+        g->player.feet = g->player.step_to = at;
+        g->player.activity = ACTIVITY_IDLE;
+        g->travels++;
+    }
     if (it->cast_water > 0 && !world_is_solid(w, at.x, at.y)) water_add(w, at.x, at.y, it->cast_water);
     if (it->cast_shield > 0.0f && g->shield < it->cast_shield) g->shield = it->cast_shield;
     if (it->cast_time >= 0) {
@@ -2461,7 +2516,17 @@ static bool start_next_activity(Game *g)
                         TilePos used = g->current.target;
                         g->has_current = false;
                         /* (Something to read: whoever cultivates is the wiser for it.) */
-                        if (g->dao.stage >= 1) g->dao.insight += (uint32_t)tile_def(game_bench_at(g, used.x, used.y))->insight;
+                        const TileDef *read = tile_def(game_bench_at(g, used.x, used.y));
+                        /* (Something left for whoever has got far enough: for anybody else it stays as it is.) */
+                        if (read->tile_needs_stage > g->dao.stage) {
+                            deny(g, used);
+                            continue;
+                        }
+                        if (g->dao.stage >= 1) g->dao.insight += (uint32_t)read->insight;
+                        if (g->dao.stage >= 1 && read->bestows_qi > 0.0f) {
+                            g->dao.qi += game_dao_capacity(g) * read->bestows_qi;
+                            if (g->dao.qi > game_dao_capacity(g)) g->dao.qi = game_dao_capacity(g);
+                        }
                         game_use_block(g, used.x, used.y);
                         continue;
                     }
@@ -2536,7 +2601,7 @@ static bool craft_now(Game *g, const Recipe *r, int count)
     if (g->vitals.energy <= 0.0f) return false;
     /* Only what this bench makes, at the level it has reached. */
     TileType bench = game_bench_at(g, g->bench_pos.x, g->bench_pos.y);
-    if (strcmp(r->bench, tile_def(bench)->bench_kind) != 0 || recipe_locked(bench, r)) return false;
+    if (strcmp(r->bench, tile_def(bench)->bench_kind) != 0 || recipe_locked(bench, r) || !game_recipe_known(g, r)) return false;
     if (game_bench_fuel(g, NULL) == 0) return false; /* out of fuel */
     int max = recipe_max_crafts(&g->inventory, r, g->crystals);
     if (max < 1) return false;
@@ -2627,6 +2692,26 @@ static bool upgrade_now(Game *g)
 float game_craft_time(const Recipe *r)
 {
     return r && r->time > 0.0f ? r->time : CRAFT_TIME;
+}
+
+bool game_recipe_known(const Game *g, const Recipe *r)
+{
+    return r->formula == ITEM_NONE || (r->formula > 0 && r->formula < MAX_ITEMS && g->discovered[r->formula]);
+}
+
+bool game_technique_use(Game *g, int slot)
+{
+    if (slot < 0 || slot >= DAO_KNOWN || g->dao.known[slot] == 0 || !game_alive(g)) return false;
+    ItemId item = (ItemId)g->dao.known[slot];
+    const ItemDef *it = item_def(item);
+    /* One for themselves: done here and now. */
+    if (!it->casts || spell_on_self(it)) {
+        if (!game_technique_ready(g, item)) return false;
+        cast_spell(g, item, g->player.feet); /* (which sees to what it costs) */
+        return true;
+    }
+    g->dao.armed = (uint8_t)(g->dao.armed == slot + 1 ? 0 : slot + 1);
+    return true;
 }
 
 float game_craft_boost(const Game *g, int x, int y)
@@ -3093,6 +3178,24 @@ static void update_bench(Game *g, float dt)
         }
         for (int i = 0; i < left; i++) spawn_drop(g, rolled.output.id, g->player.feet);
         g->craft_remaining--;
+        {
+            /* A craft that is learned by doing: each making teaches a little, and now and then, for skill, a better
+             * bench than the thing needs, or a flame kept by, one more comes out of the same stuff. */
+            const TileDef *at = tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y));
+            if (at->comprehension >= 0 && g->dao.stage >= 1) {
+                float more = (float)g->dao.comp[at->comprehension] / 400.0f + 0.08f * (float)(at->bench_level - rolled.level), flame = 0.0f;
+                for (int dy = -12; dy <= 12; dy++)
+                    for (int dx = -12; dx <= 12; dx++)
+                        for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
+                            const TileDef *by = tile_def(world_get_at(&g->world, layer, g->bench_pos.x + dx, g->bench_pos.y + dy));
+                            if (by->refines > flame && dx * dx + dy * dy <= by->craft_radius * by->craft_radius) flame = by->refines;
+                        }
+                more += flame;
+                if (more > 0.75f) more = 0.75f;
+                if (more > 0.0f && (float)(game_random(g) % 10000u) / 10000.0f < more) game_give_items(g, rolled.output.id, 1);
+                dao_learn(g, at->comprehension, 1);
+            }
+        }
     }
 }
 
@@ -3428,6 +3531,9 @@ static void die(Game *g)
     Vitals *v = &g->vitals;
     /* (Somebody far enough along the road survives it, once in a while.) */
     if (dao_revive(g)) return;
+    /* (What they had gathered toward the next stage is gone.) */
+    if (content.dao.death_costs) g->dao.qi = 0.0f;
+    g->mount = 0;
     train_unseat(g, -1);
     v->health = v->death = 0.0f;
     v->respawn = content.rules.respawn_ticks > 0 ? content.rules.respawn_ticks : 1;

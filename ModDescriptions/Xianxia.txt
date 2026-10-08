@@ -443,3 +443,29 @@ Still short of the plan, said plainly:
   - The herb plants are small simple drawings; the 100 new technique slips differ only in colour and marks.
   - Nothing has been played: every number is a guess. Taming, the steles, the furniture and the three-row bench
     menu were looked at in a screenshot or driven in a test, not used in play.
+
+
+13. THE REST OF THE PLAN
+
+Asked for every piece of function listed as missing, and built (608 blocks, 1,125 items, 1,322 recipes now):
+understanding by element and by craft; tempering, core grades, natal artifacts, the domain, the soul's sight; a
+manual changed at the cost of a stage and death at the cost of qi; formulas and diagrams; skill, furnace and flame
+giving more from a making, and flames set down by the furnace; techniques learned onto a row of their own with
+keys and mastery, and arts of movement; sword flight spending qi; double formations, warding that bars, the
+illusion maze, herbs feeling formations; fliers and swimmers tamed, beasts fed and ridden, the beast bag; the
+Sacred Beasts striking from afar with an immortal herb in each court; qi by the seed and spirit veins; spirit sight
+and the qi readout; inheritances; a sect as a mission board with merit and five ranks; stars; other sources for
+old worlds.
+
+Where what was built is less than the plan's words:
+  - Pill "grade" is how many come out, not a stronger pill; a flame is set beside the furnace, not under it.
+  - The sect is a board, not people: no elders, rivals or missions that are given - only things handed in.
+  - The technique keys are Shift and a number, fixed; they are not in the key-bindings menu.
+  - A rider is drawn standing in the beast rather than seated on it; riding is not saved (they are on foot after
+    a reload). A swimmer that is tamed stays in its water.
+  - The domain does two things (growth, harm), not the plan's four; object control digs at a distance but does
+    not place; the soul's scouting uncovers the map and no more.
+  - Core grade does not depend on what is "fed to it in the forming" beyond the pill's toxin.
+  - Items 1,125 of about 1,150 and recipes 1,322 of about 1,400.
+  - Tested by test and by a few screenshots (the screen, the technique row, spirit sight, the stars); mounts,
+    the board, strikes, the maze and the three-row menu with a recipe chosen have not been seen in play.

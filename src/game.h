@@ -217,6 +217,8 @@ typedef enum {
 } MobState;
 
 /* How far a character has got in cultivation (see dao.h). A mortal is at stage 0. */
+#define DAO_COMP 8
+#define DAO_KNOWN 8
 typedef struct {
     int32_t stage;       /* 0 a mortal; 1 the first stage of the first realm; one past the last, an immortal */
     float qi;            /* what they hold, of what the stage holds */
@@ -232,6 +234,13 @@ typedef struct {
     float bolt_share;    /* and the share of a health bar each is */
     uint64_t revived;    /* the tick they last survived a death at; 0 for never */
     uint32_t insight;    /* what they have understood: from techniques used, steles read, steps taken (from version 38) */
+    /* From version 39: what they understand of each element (0-4) and craft (5 alchemy, 6 formations, 7 smithing);
+     * how many stages of this realm were tempered; the grade of their core; the techniques they have learned (items;
+     * saved by name) and how practised each is; and which of them is in hand to be cast (1 to 8; not kept). */
+    uint16_t comp[DAO_COMP];
+    uint8_t tempered, core, armed, spare;
+    uint16_t known[DAO_KNOWN];
+    uint16_t mastery[DAO_KNOWN];
 } Dao;
 
 /* Something a character has taken that is still working on them: the item it was, and the ticks it has left
@@ -348,6 +357,7 @@ typedef struct {
     int open_vehicle;       /* the vehicle whose slots are open, plus one */
     int open_vehicle_cargo; /* and whether it is what it carries (1) or what it burns (0) */
     Dao dao; /* how far the live character has got in cultivation */
+    int mount; /* the creature they are riding: which of mobs, plus one; 0 for none. Not saved. */
     int lightning, lightning_x; /* a bolt has just struck: ticks it is still to be seen for, and the column. Not saved. */
     Effect effects[MAX_EFFECTS]; /* what the live character is under the effect of (see Effect) */
     /* Weather made to order: rain (1) or none (2) until a tick. And creatures held still: all within so far of a square, until a tick. Not saved. */
@@ -581,6 +591,8 @@ bool game_teleport(Game *g);
 bool game_gate_open(const Game *g, int x, int y);
 bool game_travel(Game *g, int x, int y);
 int game_enter_dimension(Game *g, int dim);
+/* Whether a recipe that wants a formula found can be made in this world yet. */
+bool game_recipe_known(const Game *g, const Recipe *r);
 /* Makes the game's own room for a world that has just been given more rows. False if there was not the memory. */
 bool game_world_grew(Game *g);
 /* What machinery does to the world (see signal.h). Digs the plain block in a square, leaving what it leaves;

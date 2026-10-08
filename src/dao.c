@@ -47,7 +47,30 @@ float game_dao_capacity(const Game *g)
 {
     int within, realm = dao_realm_of(g->dao.stage, &within);
     if (realm < 0 || realm >= content.dao.realm_count) return 0.0f;
-    return content.dao.realms[realm].qi_first * powf(content.dao.realms[realm].qi_growth, (float)(within - 1));
+    /* (A core of a better grade holds more.) */
+    return content.dao.realms[realm].qi_first * powf(content.dao.realms[realm].qi_growth, (float)(within - 1)) * (1.0f + 0.05f * (float)g->dao.core);
+}
+
+int dao_known_slot(const Game *g, ItemId item)
+{
+    for (int i = 0; i < DAO_KNOWN; i++)
+        if (item != ITEM_NONE && g->dao.known[i] == item) return i;
+    return -1;
+}
+
+ItemId game_technique_armed(const Game *g)
+{
+    int slot = (int)g->dao.armed - 1;
+    if (slot < 0 || slot >= DAO_KNOWN || g->dao.known[slot] == 0 || g->dao.known[slot] >= content.item_count) return ITEM_NONE;
+    return (ItemId)g->dao.known[slot];
+}
+
+void dao_learn(Game *g, int what, int by)
+{
+    if (!dao_on() || g->dao.stage < 1 || what < 0 || what >= DAO_COMP) return;
+    int most = g->dao.stage * 10;
+    if (g->dao.comp[what] >= most) return;
+    g->dao.comp[what] = (uint16_t)(g->dao.comp[what] + by > most ? most : g->dao.comp[what] + by);
 }
 
 /* The formation a block of storage is the heart of, if it is one: its definition, or NULL. */
@@ -82,14 +105,30 @@ static bool within_formation(const Game *g, const Storage *st, int x, int y)
     return reach > 0 && abs(world_dx(&g->world, st->x, x)) <= reach && abs(st->y - y) <= reach;
 }
 
-float game_qi_at(const Game *g, int x, int y)
+/* What the formations lit about a square add to its qi. (The world asks this through World.qi_more, so that what grows knows of it too.) */
+static float formation_qi(const void *game, int x, int y)
 {
-    float qi = world_qi(&g->world, x, y), most = 0.0f;
+    const Game *g = game;
+    float most = 0.0f;
     for (int i = 0; i < MAX_STORAGES; i++) {
         const TileDef *def = heart_of(g, &g->storages[i]);
         if (def && def->formation_qi > most && within_formation(g, &g->storages[i], x, y)) most = def->formation_qi;
     }
-    return qi + most;
+    return most;
+}
+
+float game_qi_at(const Game *g, int x, int y)
+{
+    return world_qi(&g->world, x, y) + (g->world.qi_more ? 0.0f : formation_qi(g, x, y));
+}
+
+bool game_formation_rule(const Game *g, int x, int y, int rule)
+{
+    for (int i = 0; i < MAX_STORAGES; i++) {
+        const TileDef *def = heart_of(g, &g->storages[i]);
+        if (def && (rule == 0 ? def->formation_bars : def->formation_wanders) && within_formation(g, &g->storages[i], x, y)) return true;
+    }
+    return false;
 }
 
 float game_dao_rate(const Game *g)
@@ -106,6 +145,7 @@ float game_dao_rate(const Game *g)
     if (manual->manual_element >= 0 && manual->manual_element < DAO_ELEMENTS) rate *= 0.6f + (float)me->roots[manual->manual_element] / 100.0f;
     rate *= 1.0f + 0.05f * (float)me->meridians;
     rate *= 0.8f + 0.1f * (float)me->foundation;
+    rate *= 1.0f + 0.05f * (float)me->core;
     Boons have = game_boons(g);
     if (have.qi > 0.0f) rate *= have.qi;
     rate *= 1.0f - (me->toxin > 0.9f ? 0.9f : me->toxin);
@@ -178,15 +218,24 @@ bool game_breakthrough(Game *g)
         call_down(g, bolts, share, true);
         return true;
     }
+    /* Done where the qi is thick, the stage is tempered: it tells, when the realm is left. */
+    if (d->realms[realm].temper_qi > 0.0f && game_qi_at(g, g->player.feet.x, g->player.feet.y) >= d->realms[realm].temper_qi && g->dao.tempered < 255) g->dao.tempered++;
     g->dao.stage++;
     g->dao.qi = 0.0f;
     g->dao.insight += 2;
     return true;
 }
 
+static int free_slot(const Game *g)
+{
+    for (int i = 0; i < DAO_KNOWN; i++)
+        if (g->dao.known[i] == 0) return i;
+    return -1;
+}
+
 bool dao_item(const ItemDef *def)
 {
-    return def->qi_gain > 0.0f || def->toxin != 0.0f || def->insight_gain > 0 || def->opens_meridian || def->washes_roots || def->calls_tribulation || def->manual;
+    return def->technique || def->qi_gain > 0.0f || def->toxin != 0.0f || def->insight_gain > 0 || def->opens_meridian || def->washes_roots || def->calls_tribulation || def->manual;
 }
 
 bool game_dao_can_take(const Game *g, ItemId item)
@@ -197,6 +246,8 @@ bool game_dao_can_take(const Game *g, ItemId item)
     if (def->needs_stage > 0 && g->dao.stage < def->needs_stage) return false;
     if (def->manual) return g->dao.manual != item;
     if (g->dao.stage < 1) return false;
+    /* A technique is learned once, by somebody with room for it. */
+    if (def->technique) return dao_known_slot(g, item) < 0 && free_slot(g) >= 0;
     if (def->opens_meridian) return g->dao.meridians < DAO_MERIDIANS && (def->meridian == 0 || def->meridian == g->dao.meridians + 1);
     if (def->calls_tribulation) return g->dao.bolts == 0 && content.dao.called_bolts > 0;
     return true;
@@ -235,7 +286,19 @@ void dao_take(Game *g, ItemId item)
             me->foundation = 2;
             find_roots(g);
         }
+        /* Changing from one method to another costs a stage of the realm they are in - though never the realm. */
+        else if (content.dao.manual_costs && me->manual != 0 && me->manual != item && me->stage <= dao_stages()) {
+            int within;
+            dao_realm_of(me->stage, &within);
+            if (within > 1) me->stage--;
+            me->qi = 0.0f;
+        }
         me->manual = (uint16_t)item;
+    }
+    if (def->technique && dao_known_slot(g, item) < 0 && free_slot(g) >= 0) {
+        int slot = free_slot(g);
+        me->known[slot] = (uint16_t)item;
+        me->mastery[slot] = 0;
     }
     if (def->washes_roots) find_roots(g);
     if (def->opens_meridian && me->meridians < DAO_MERIDIANS) me->meridians++;
@@ -330,6 +393,31 @@ void dao_tick(Game *g)
         me->qi += game_dao_rate(g);
         if (me->qi > room) me->qi = room;
     }
+    /* Held up by something that takes qi to do it: off the ground, it is spent. */
+    if (g->world.aloft && !world_is_solid(&g->world, g->player.feet.x, g->player.feet.y + 1) && game_alive(g)) {
+        uint16_t box = g->relic_box;
+        for (int i = 0; box > 0 && box < MAX_CONTAINERS && g->inventory.containers[box].used == CONTAINER_RELICS && i < RELIC_SLOTS; i++) {
+            const ItemStack *s = &g->inventory.containers[box].slots[i];
+            if (s->count > 0 && item_def((ItemId)s->id)->flight_qi > 0.0f && item_def((ItemId)s->id)->needs_stage <= me->stage) me->qi -= item_def((ItemId)s->id)->flight_qi;
+        }
+        if (me->qi < 0.0f) me->qi = 0.0f;
+    }
+    /* A domain: about them, their strongest root rules - wood makes things grow, metal and fire harm what is wild. */
+    {
+        int realm = dao_realm_of(me->stage, NULL), reach = realm >= d->realm_count ? d->realms[d->realm_count - 1].domain : realm >= 0 ? d->realms[realm].domain : 0, best = 0;
+        for (int i = 1; i < DAO_ELEMENTS; i++)
+            if (me->roots[i] > me->roots[best]) best = i;
+        if (reach > 0 && g->tick % 40 == 0 && game_alive(g)) {
+            if (best == 1) {
+                int gx = g->player.feet.x + (int)(game_random(g) % (uint32_t)(2 * reach + 1)) - reach, gy = g->player.feet.y + (int)(game_random(g) % 5u) - 2;
+                for (int layer = 0; layer < BLOCK_LAYERS; layer++) world_grow_plant(&g->world, layer, gx, gy);
+            } else if (best == 0 || best == 3) {
+                for (int m = 0; m < MAX_MOBS; m++)
+                    if (g->mobs[m].active && !g->mobs[m].owned && abs(world_dx(&g->world, g->mobs[m].x, g->player.feet.x)) <= reach && abs(g->mobs[m].y - g->player.feet.y) <= reach)
+                        mob_hurt(g, m, 4 + me->stage / 5);
+            }
+        }
+    }
     /* A tribulation: the bolts come one after another, each a share of a health bar that only wards turn. */
     if (me->bolts > 0 && game_alive(g)) {
         if (--me->bolt_wait > 0) return;
@@ -353,9 +441,18 @@ void dao_tick(Game *g)
         if (me->rising) {
             /* Through it. How well they came through is how good a foundation the new realm is built on. */
             int quality = 1 + (g->vitals.health > 0.3f) + (g->vitals.health > 0.6f) + (me->toxin < 0.2f);
-            me->foundation = (uint8_t)(quality > 4 ? 4 : quality);
+            /* (And how many of its stages were tempered: most of them, and it is the better; few, and the worse.) */
+            int was = dao_realm_of(me->stage, NULL);
+            if (was >= 0 && was < d->realm_count && d->realms[was].temper_qi > 0.0f) quality += me->tempered >= 7 ? 1 : me->tempered < 3 ? -1 : 0;
+            me->foundation = (uint8_t)(quality > 4 ? 4 : quality < 0 ? 0 : quality);
             me->stage++;
             me->qi = 0.0f;
+            /* A core, in the realm that forms one: its grade is what was built under it. */
+            if (was + 1 < d->realm_count && d->realms[was + 1].core) {
+                int grade = 1 + me->foundation + me->tempered / 3 + (me->toxin < 0.1f ? 1 : 0);
+                me->core = (uint8_t)(grade > 9 ? 9 : grade);
+            }
+            me->tempered = 0;
         } else if (d->called_leaves.id != ITEM_NONE) {
             game_give_items(g, d->called_leaves.id, d->called_leaves.count);
         }
@@ -372,6 +469,8 @@ void dao_tick(Game *g)
 void dao_world_tick(Game *g)
 {
     World *w = &g->world;
+    w->qi_more = formation_qi;
+    w->qi_game = g;
     if (g->lightning > 0) g->lightning--;
     if (g->tick % 10 != 0) return;
     static const int cross[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }, square[4][2] = { { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 } };
@@ -385,9 +484,14 @@ void dao_world_tick(Game *g)
             bool all = true;
             for (int k = 0; k < 4 && all && def->formation_pattern != 1; k++)
                 all = world_get_at(w, tile_def(def->formation_flags)->layer, st->x + cross[k][0] * far, st->y + cross[k][1] * far) == def->formation_flags;
-            for (int k = 0; k < 4 && all && def->formation_pattern != 0; k++)
+            /* (Somebody who understands formations well enough lays a ring with only its cross.) */
+            for (int k = 0; k < 4 && all && def->formation_pattern != 0 && !(def->formation_pattern == 2 && g->dao.comp[6] >= 100); k++)
                 all = world_get_at(w, tile_def(def->formation_flags)->layer, st->x + square[k][0] * far, st->y + square[k][1] * far) == def->formation_flags;
-            if (all) reach = far;
+            /* (A double formation has a second ring of the same, twice as far out.) */
+            for (int k = 0; k < 4 && all && def->formation_pattern == 3; k++)
+                all = world_get_at(w, tile_def(def->formation_flags)->layer, st->x + cross[k][0] * far * 2, st->y + cross[k][1] * far * 2) == def->formation_flags &&
+                      world_get_at(w, tile_def(def->formation_flags)->layer, st->x + square[k][0] * far * 2, st->y + square[k][1] * far * 2) == def->formation_flags;
+            if (all) reach = def->formation_pattern == 3 ? far * 2 : far;
         }
         st->work = (int16_t)reach;
         if (lit(st) == 0) continue;
@@ -409,17 +513,24 @@ bool game_technique_ready(const Game *g, ItemId item)
 {
     const ItemDef *def = item_def(item);
     if (!def->technique) return true;
-    return dao_on() && g->dao.stage >= def->technique_stage && g->dao.qi >= def->technique_qi && (int)g->dao.insight >= def->technique_insight;
+    int e = def->technique_element, slot = dao_known_slot(g, item);
+    /* (What it asks of understanding is of its own element, if it has one. Practice makes it cost less.) */
+    int knows = e >= 0 && e < DAO_ELEMENTS ? g->dao.comp[e] : (int)g->dao.insight;
+    float cost = def->technique_qi * (slot >= 0 ? 1.0f - (g->dao.mastery[slot] > 200 ? 0.5f : (float)g->dao.mastery[slot] / 400.0f) : 1.0f);
+    return dao_on() && g->dao.stage >= def->technique_stage && g->dao.qi >= cost && knows >= def->technique_insight;
 }
 
 void dao_spend(Game *g, ItemId item)
 {
     const ItemDef *def = item_def(item);
     if (!def->technique) return;
-    g->dao.qi -= def->technique_qi;
+    int slot = dao_known_slot(g, item);
+    g->dao.qi -= def->technique_qi * (slot >= 0 ? 1.0f - (g->dao.mastery[slot] > 200 ? 0.5f : (float)g->dao.mastery[slot] / 400.0f) : 1.0f);
     if (g->dao.qi < 0.0f) g->dao.qi = 0.0f;
+    if (slot >= 0 && g->dao.mastery[slot] < 1000) g->dao.mastery[slot]++;
     /* Using what they know teaches them something - up to a point, for the stage they are at. */
     if ((int)g->dao.insight < g->dao.stage * 10) g->dao.insight++;
+    dao_learn(g, def->technique_element, 1);
 }
 
 bool dao_revive(Game *g)

@@ -1,3 +1,4 @@
+#include "dao.h"
 #include "mob.h"
 
 #include <math.h>
@@ -345,6 +346,11 @@ static bool start_step(Game *g, Mob *m)
         m->dir = -m->dir;
         return false;
     }
+    /* A formation that keeps the wild out: it does not go in. */
+    if (!m->owned && dao_on() && game_formation_rule(g, nx, ny, 0) && !game_formation_rule(g, m->x, m->y, 0)) {
+        m->dir = -m->dir;
+        return false;
+    }
     m->to_x = world_wrap_x(w, nx);
     m->to_y = ny;
     m->step_total = m->step_left = content.mobs[m->kind].step_ticks;
@@ -601,7 +607,7 @@ static bool companion_tick(Game *g, int self, const MobDef *def)
         if (pdx != 0) m->dir = pdx > 0 ? 1 : -1;
         if (abs(pdx) <= 1) {
             if (m->timer == 0) {
-                mob_hurt(g, prey, def->companion_bite);
+                mob_hurt(g, prey, def->companion_bite * (m->size > 1 ? m->size : 1));
                 m->timer = 12;
             }
             return true;
@@ -665,7 +671,40 @@ void mobs_tick(Game *g)
             m->x = m->to_x;
             m->y = m->to_y;
         }
+        /* Ridden: it is wherever its rider is. */
+        if (g->mount == i + 1) {
+            const Player *rider = &g->player;
+            if (!game_alive(g)) g->mount = 0;
+            if (world_dx(w, m->x, rider->feet.x) != 0) m->dir = world_dx(w, m->x, rider->feet.x) > 0 ? 1 : -1;
+            m->x = m->to_x = rider->feet.x;
+            m->y = m->to_y = rider->feet.y;
+            m->step_left = 0;
+            continue;
+        }
+        /* One that strikes from afar: whoever it can see, every so often. (Its count is kept where milk's is: nothing has both.) */
+        if (def->strike_share > 0.0f && !m->owned && game_alive(g) && g->vitals.respawn == 0) {
+            if (m->state > 0) m->state--;
+            int sdx = world_dx(w, m->x, g->player.feet.x), sdy = g->player.feet.y - m->y;
+            if (m->state == 0 && abs(sdx) <= def->strike_range && abs(sdy) <= def->strike_range && game_boons(g).unseen <= 0.0f) {
+                game_attacked(g, def->strike_share);
+                g->shot.from_x = (float)m->x + 0.5f, g->shot.from_y = (float)m->y - 0.5f;
+                g->shot.to_x = (float)m->x + (float)sdx + 0.5f, g->shot.to_y = (float)g->player.feet.y - 0.5f;
+                g->shot.age = 0.0f;
+                g->shot.live = true;
+                m->state = (int16_t)(def->strike_rest > 0 ? def->strike_rest : 1);
+            }
+        }
         if (def->swims || def->flies) {
+            /* One of the air or the water that is somebody's: it keeps near them, as far as it can go. */
+            int fdx = world_dx(w, m->x, g->player.feet.x), fdy = g->player.feet.y - 2 - m->y;
+            if (m->owned && def->companion && game_alive(g) && (abs(fdx) > 4 || abs(fdy) > 4)) {
+                if (abs(fdx) > 30 || abs(fdy) > 20) {
+                    if (def->flies) m->x = m->to_x = g->player.feet.x, m->y = m->to_y = g->player.feet.y - 2, m->step_left = 0;
+                } else {
+                    if (fdx != 0) m->dir = fdx > 0 ? 1 : -1;
+                    if (swim_to(g, m, abs(fdx) > 1 ? m->dir : 0, fdy > 0 ? 1 : fdy < 0 ? -1 : 0) || swim_to(g, m, m->dir, 0)) continue;
+                }
+            }
             swim_tick(g, m, def);
             continue;
         }
@@ -682,7 +721,8 @@ void mobs_tick(Game *g)
             perch_tick(g, m, def);
             continue;
         }
-        if (!(m->owned && def->companion) && def->sting_ticks > 0 && game_alive(g) && g->vitals.respawn == 0 && game_boons(g).unseen <= 0.0f) {
+        /* (In a formation that confuses, it does not know where anybody is.) */
+        if (!(m->owned && def->companion) && def->sting_ticks > 0 && !(dao_on() && game_formation_rule(g, m->x, m->y, 1)) && game_alive(g) && g->vitals.respawn == 0 && game_boons(g).unseen <= 0.0f) {
             /* One that stings: a player beside it is stung; one it can see, it makes for. */
             const Player *p = &g->player;
             int pdx = world_dx(w, m->x, p->feet.x), pdy = p->feet.y - m->y;

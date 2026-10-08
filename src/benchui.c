@@ -426,7 +426,7 @@ bool benchui_handle_input(BenchUi *ui, Game *g, const View *v)
         int i = offset >= 0.0f && row >= 0 && row < list_rows ? column * list_rows + row : -1;
         /* A recipe the bench is not yet good enough for cannot be picked. */
         if (i >= 0 && i < count && offset - column * (LIST_CELL + LIST_GAP) <= LIST_CELL && m.y - list.y - row * (LIST_CELL + LIST_GAP) <= LIST_CELL &&
-            !recipe_locked(open_bench(g), recipes[i])) {
+            !recipe_locked(open_bench(g), recipes[i]) && game_recipe_known(g, recipes[i])) {
             ui->selected = i;
             ui->amount = 1;
         }
@@ -581,7 +581,7 @@ static void draw_list(const BenchUi *ui, const Game *g, const Recipe **recipes, 
             DrawRectangleLinesEx(corner, 1.0f, edge_color);
             hud_draw_item_icon(mark, corner);
         }
-        if (recipe_locked(open_bench(g), recipes[i])) {
+        if (recipe_locked(open_bench(g), recipes[i]) || !game_recipe_known(g, recipes[i])) {
             DrawRectangleRec(cell, Fade((Color){ 20, 21, 27, 255 }, 0.72f));
             draw_lock(cell);
             const char *need = TextFormat("Tier %d", recipes[i]->level);
