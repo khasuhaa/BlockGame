@@ -1,0 +1,299 @@
+DUNGEONEERING - PROPOSAL   (a dungeon-and-loot mod; MAJOR; for approval - nothing below is built)
+
+Ten dungeons, one behind each tier of portal. You go in, fight room by room to a boss, and come out with
+LOOT: weapons, armour and spells with numbers on them, rolled when they drop, in five grades from Common to
+Legendary. Better numbers let you clear the dungeon faster, then on a harder setting, then the next dungeon.
+And each dungeon drops the stone that raises your portal to the next tier - so the dungeons ARE the way up
+from Portal I to Portal X, for anyone who would rather fight for an amethyst than dig for one.
+
+    Portal I: the Rat Cellars  ->  amethysts  ->  Portal II: the Drowned Crypt  ->  sapphires  ->  ...  ->
+    Portal X: the Throne of Ash, and gear with numbers ten thousand times the first sword's
+
+The model is Dungeon Quest: short runs, a chest at the end, a number that goes up. Two classes, WARRIOR and
+MAGE, told apart by what they wear and wield, not chosen from a menu.
+
+(Proposal3, "The Undercroft", is also dungeons. That one is about fighting as a SKILL - reach, block, dodge,
+telegraphs - in mazes that are different every time. This one keeps the game's fighting as it is and is about
+LOOT and numbers. They could share rooms and enemies. They should not both be built as they stand: say which.)
+
+Size aimed at: ~260 blocks, ~900 items (about 700 of them loot), ~350 recipes, ~110 enemies, 10 bosses,
+10 dungeons, each in four difficulties.
+
+================================================================================================================
+0. QUESTIONS
+================================================================================================================
+
+Q1. PORTALS VII TO X. The game's own portal stops at VI (amethyst, sapphire, emerald, ruby, diamond raise it).
+    Dimensions, Seeker of the Dao and Beyond the Sky each add VII to X with stones of their own, and a mod may
+    not depend on another. Recommended: this mod adds its own VII to X as well, raised by four KEYSTONES that
+    only its dungeons VI to IX drop. So with nothing else on, the dungeons alone take a portal from I to X.
+    Dungeons I to V drop the game's own gems. Dungeon X drops no stone: it is the top.
+    Alternative: stop at six dungeons. Much less to it, and not what was asked.
+
+Q2. WHERE A DUNGEON IS. Two ways:
+      A. A PLACE OF ITS OWN, made new each time you go in and thrown away when you leave - a real instance,
+         different every run. The engine cannot do this yet: its other places are kept for good and saved.
+         It is the larger half of the engine work.
+      B. ONE KEPT PLACE for each dungeon, made once like any dimension, whose rooms REFILL (enemies, chest)
+         each time you enter by the door. Far less work; the layout is the same every run in that world.
+    Recommended: A. A dungeon you can memorise is a corridor. But B first is a fair way to get there.
+
+Q3. HOW YOU GET IN. Recommended: a DUNGEON GATE, a block made at the workbench (it is a thing to travel by,
+    as portals are), set down beside a portal. It offers the dungeons up to that portal's tier and no higher.
+    Click it, pick the dungeon and the difficulty, go. Leaving is by the boss's door or by dying.
+
+Q4. DYING. Recommended: you are put outside the gate, alive, with everything you brought - and nothing from
+    that run. Loot is only yours when you walk out with it. A HARDCORE difficulty where what is worn is lost
+    too is there for those who want it, and pays double.
+
+Q5. NUMBERS ON ITEMS. The game's items are all alike: one iron sword is every iron sword. This mod needs each
+    dropped item to carry its own rolled numbers. Recommended: one number kept with the stack (as a meter
+    is) that is the SEED of the roll - grade, power, health and upgrades all come from it and from the item's
+    definition, so nothing else in a save changes. Rolled items do not stack. Say if you would rather loot had
+    fixed numbers per item and grade (five sword definitions a tier): no engine work, and no reason to run a
+    dungeon twice.
+
+Q6. HOW BIG THE NUMBERS GET. Dungeon Quest's numbers grow without shame, and that is half its charm.
+    Recommended: each tier about 2.6 times the last, so tier X is some 5,000 times tier I (table in section
+    3). The base game's own creatures and tools stay as they are: dungeon gear is strong outside dungeons,
+    and that is the reward. Alternative: flatter (1.6 a tier), so that dungeon gear sits beside other mods'
+    endgame gear instead of over it. Say which matters more.
+
+Q7. WARRIOR AND MAGE. Recommended: no class is chosen. A weapon is a WARRIOR'S (physical power) or a MAGE'S
+    (spell power); armour gives health and a little of one power or the other. Wear what you like; mixed
+    sets work badly because each ability scales with one power only. A character can keep a set of each.
+    Alternative: pick a class at the gate and be barred from the other's gear.
+
+Q8. LEVELS. Dungeon Quest gates gear by character level. Recommended: yes, a DUNGEON LEVEL per character,
+    1 to 100, gained only in dungeons; gear has a level it needs; ten levels a tier. It is what stops a
+    Legendary from dungeon V being handed to a new character. Without it, the portal tier alone gates.
+
+Q9. ALONE OR TOGETHER. A world may have three characters. Recommended: one goes in, for now. A party that
+    follows and fights by rule is the Undercroft's hard problem and is left out here.
+
+Q10. DELIVERY. Recommended: four stages, each playable -
+      (1) the gate, dungeons I to III, rolled loot in five grades, the chest, selling and upgrading;
+      (2) abilities, dungeon levels, difficulties, dungeons IV to VI and the first keystone;
+      (3) dungeons VII to X, portals VII to X, legendaries with powers of their own;
+      (4) the endless one, enchanting, cosmetics, the board of best runs.
+    Or one sitting, as the last three mods were - with the same result: built wide, cut where it was hard,
+    and unplayed. Say which.
+
+================================================================================================================
+1. A RUN
+================================================================================================================
+
+Click the gate. Choose a dungeon and a difficulty. You arrive in the first room.
+
+A dungeon is a string of ROOMS - eight to fourteen of them - joined by doors that are shut until the room is
+cleared. Each room is a fight: enemies come in WAVES, from the doors and from the floor. Between rooms:
+corridors with traps, a side room now and then with a small chest, a shrine that heals once.
+
+The last room is the BOSS. The boss has a name, a health bar across the top of the screen, and three or four
+things it does, each with a warning: the floor it is about to hit goes red first. Kill it and the door behind
+it opens on the TREASURE ROOM: one great chest, and a way out.
+
+The chest gives: gold; three to six pieces of LOOT (section 3); this dungeon's portal stone, sometimes
+(section 5); and dungeon experience. Then you are home, and the run is over. Ten to fifteen minutes.
+
+DIFFICULTIES, each opened by clearing the one before:
+
+   EASY         enemies as written                         grades up to Rare
+   HARD         3x health, 2x damage, more waves           grades up to Epic; stone more likely
+   INSANE       10x health, 4x damage, elite enemies       Legendary can drop; stone certain
+   NIGHTMARE    30x health, 8x damage, every room elite    Legendary more likely; two stones; best rolls
+   (HARDCORE    any of the above, one life, worn gear at stake: everything doubled.)
+
+A dungeon's Nightmare is about as hard as the next dungeon's Easy, and drops a little worse. So there are
+always two sensible things to run.
+
+================================================================================================================
+2. THE TEN DUNGEONS
+================================================================================================================
+
+Each has its own blocks, its own rooms, a family of about ten enemies, a boss, and a look that can be told
+from across the room.
+
+    tier  dungeon               what it is                                   boss                    drops for the portal
+    I     The Rat Cellars       cellars, barrels, sewers                     The Rat King            amethyst
+    II    The Drowned Crypt     flooded tombs, the walking dead              The Lich of the Locks   sapphire
+    III   The Thornwood Deep    roots, spores, beasts, poison                The Elder Stag          emerald
+    IV    The Ember Forge       lava, anvils, fire imps and iron golems      Forgemaster Ghol        ruby
+    V     The Frozen Keep       ice halls, knights, breath that slows        The Pale Queen          diamond
+    VI    The Sunken Temple     serpent-folk, falling water, moving floors   Naga Matriarch          tidestone     (keystone VII)
+    VII   The Clockwork Vault   brass, pistons, sentries that never tire     The Regulator           gearstone     (keystone VIII)
+    VIII  The Pirate Hold       (if liked) a hold of ghosts and gunpowder    Captain No-Tide         stormstone    (keystone IX)
+    IX    The Star Observatory  glass, gravity that turns, mages             The Astronomer          voidstone     (keystone X)
+    X     The Throne of Ash     everything before it, and a king             The Ashen King          nothing: the crown
+
+ENEMIES, in every family: a grunt, a fast one, a ranged one, a tank, a healer or summoner, a bomber, a swarm,
+and an ELITE of each (bigger, a coloured glow, one extra trick, better drops). About 110 kinds in all. Their
+health and damage are numbers of the tier, not of the base game: a cellar rat has 40 health and a king's
+guard two million.
+
+BOSSES do things that must be walked out of, not just out-numbered: a charge along a line, a ring that
+closes, adds that must be killed first, a floor that goes in quarters. On Insane and above each has one more.
+
+TRAPS: spikes, darts, flame jets, crushers, floors that fall. Machinations has pistons and signals; this mod
+uses the same fields under names of its own and does not need it on.
+
+THE ENDLESS ONE (stage 4). A gate setting past X: floor after floor, each a room from any dungeon, each
+harder by a fixed share. How deep you got is kept. It drops tier X loot with better rolls the deeper it goes.
+
+================================================================================================================
+3. LOOT
+================================================================================================================
+
+WHAT DROPS
+
+   WARRIOR      greatsword, sword and shield, axe, hammer, spear          physical power
+   MAGE         staff, wand and tome, orb, scythe                         spell power
+   ARMOUR       helmet, chest, legs, boots - a warrior's (plate) and a mage's (robe) line each tier:
+                health, and some of its class's power
+   ABILITIES    spell and skill items (section 4): two worn at once
+   RINGS        the relic slots: small flat bonuses and odd ones
+
+Each dungeon has its own named gear - about 9 weapons, 2 armour sets and 6 abilities - so about 70 things a
+dungeon and 700 in all, every one a picture of its own.
+
+GRADES, by colour, on the item's name and its frame everywhere it is shown:
+
+   COMMON       grey      1.00 x the dungeon's base      most of what drops
+   UNCOMMON     green     1.15 x
+   RARE         blue      1.35 x
+   EPIC         purple    1.65 x                         Hard and above
+   LEGENDARY    gold      2.10 x, and a POWER            Insane and above; about 1 chest in 60, 1 in 25 on Nightmare
+
+Within a grade the number is ROLLED: 85% to 115% of the grade's figure. A good roll of a Rare beats a bad
+roll of an Epic by a little, which is why a chest is always worth opening. The item shows its roll.
+
+A LEGENDARY'S POWER is a rule of its own, one per item, named on it: "every fifth blow strikes twice",
+"your first spell in a room costs nothing", "at one health, once a run, you do not die". Sixty of them.
+
+THE NUMBERS (Q6, at 2.6 a tier; Common, mid roll):
+
+    tier   weapon power    armour health (a piece)    an Easy grunt's health    the boss's health
+    I             12                  40                         40                    1,500
+    II            30                 100                        110                    4,000
+    III           80                 270                        280                   10,000
+    IV           210                 700                        740                   27,000
+    V            550               1,800                      1,900                   70,000
+    VI         1,400               4,700                      5,000                  180,000
+    VII        3,700              12,000                     13,000                  470,000
+    VIII       9,700              32,000                     34,000                1,200,000
+    IX        25,000              83,000                     88,000                3,200,000
+    X         65,000             220,000                    230,000                8,300,000
+
+Big numbers are shown short: 1.2M, 65K.
+
+UPGRADING. Any piece of loot can be upgraded with gold at the FORGE OF FORTUNE: each upgrade adds a fixed
+share of its rolled number, the cost rises each time, and a piece takes as many upgrades as its grade allows
+(Common 10, Uncommon 15, Rare 20, Epic 30, Legendary 45). Fully upgraded it is worth about 1.6 times what it
+dropped as. Upgrades stay with the item.
+
+SELLING. Loot sells for gold by tier, grade and upgrades - at the forge, at once, in bulk ("sell all Common").
+Most of what drops is sold: that is where the gold for upgrades comes from. Dungeon loot is not dealt in at
+trade portals.
+
+SETS. A dungeon's plate set and its robe set each give something for 2 and 4 pieces, in the game's own way.
+
+================================================================================================================
+4. FIGHTING, WITH NUMBERS
+================================================================================================================
+
+The game's fighting is kept: click a creature to strike it with what is in hand. What changes is what a
+blow is worth, and what else there is to press.
+
+   PHYSICAL POWER   what a warrior's weapon and skills do
+   SPELL POWER      what a mage's weapon and spells do
+   HEALTH           the character's health becomes a number of the tier while in a dungeon: what is worn
+                    adds up, and the bar at the top shows it. Outside, the game's own health is as it was,
+                    and dungeon armour counts as armour in proportion.
+
+WARRIOR'S WEAPONS strike what is next to you; some reach two squares, some hit everything in an arc. A
+shield takes a share off every blow. MAGE'S WEAPONS throw a bolt at what is clicked, at range, for less,
+and the mage is worth less health. That is the whole difference, and it is enough: one stands in it, one
+does not.
+
+ABILITIES. An ability is an item worn in one of two ABILITY SLOTS (new, beside the relic slots) and used by a
+key (Q and E by default). Each has a cooldown shown on its slot, scales with one power, and has a grade and a
+roll like any loot.
+
+   a warrior's:  whirlwind, ground slam, charge, war cry (those near strike harder), taunt and guard, leap
+   a mage's:     fireball, chain lightning, ice nova (slows), meteor, blink, mend (the only heal)
+
+Six a dungeon, sixty in all, each tier's a stronger thing and not a bigger copy: tier I has a fireball,
+tier IX a sun.
+
+DUNGEON LEVEL (Q8). Experience from kills and from the chest. Each level: a little health, and a point to
+put into POWER, HEALTH or STAMINA (cooldowns). Points can be taken back for gold. Gear needs a level.
+
+================================================================================================================
+5. THE PORTAL
+================================================================================================================
+
+Dungeon N is opened by a portal of tier N and drops the stone that makes it tier N+1.
+
+   - I to V: the game's own gems, the same items that are mined. One amethyst raises a portal; the Rat
+     Cellars give one on about every third Easy run, every Hard run, and two on Nightmare.
+   - VI to IX: the keystones of Q1, found nowhere else, and the mod's own portals VII to X that take them.
+   - Spare stones are not waste: the forge takes them for the last few upgrades of that tier's gear.
+
+Trade portals follow the same tiers, as they do in the other mods that add them.
+
+So the mod is a second road up the portal: slower than a lucky dig at tier I, the ONLY road past VI with
+no other mod on, and one of several with them on.
+
+================================================================================================================
+6. AT HOME
+================================================================================================================
+
+   THE DUNGEON GATE        section 0, Q3. At the workbench.
+   THE FORGE OF FORTUNE    upgrade, sell, and - stage 4 - REFORGE: spend a stone to roll a piece again within
+                           its grade. Five grades, one for every two tiers.
+   THE ARMOURY STAND       holds one whole outfit - weapon, armour, abilities, rings - and swaps it with what
+                           you have on at a click. One for the warrior's, one for the mage's.
+   THE TROPHY WALL         a boss's head for each dungeon cleared, in the difficulty's colour.
+   THE RUN BOARD           each dungeon and difficulty: cleared or not, best time, deaths. Kept with the
+                           playset. The Endless one's deepest floor.
+   THE LOOT CHEST          storage that sorts by tier and grade and shows each piece's number.
+
+Things to make, not find (the ~350 recipes): the benches above and their grades; potions for a run (heal,
+power, haste: brewed from what dungeon enemies drop); keys that open a side vault in a dungeon; dungeon
+blocks for building with, each dungeon's wall, floor, door, torch and furniture; cosmetics - cloaks and
+auras that do nothing.
+
+================================================================================================================
+7. ENGINE
+================================================================================================================
+
+New, as data fields any mod could use:
+   - ROLLED ITEMS (Q5): a seed kept with a stack; grade, roll and upgrades worked out from it; a grade's
+     colour on the name and frame; items that do not stack because of it. This touches the inventory, the
+     bar, containers, tooltips and saving, and is the first thing to build.
+   - INSTANCES (Q2): a place made on entering from rooms joined by rule, not saved, thrown away on leaving.
+     Rooms are structures. Doors that open when a room's enemies are dead. Waves.
+   - POWER and big health: a character's attack and health as numbers set by what is worn while in such a
+     place; damage shown as it lands; numbers shown short.
+   - ABILITY SLOTS and cooldowns; abilities by key. (The game has spells that are cast from the hand, and
+     Seeker of the Dao has techniques on Shift and a number: this is a third row, and should be made the
+     same row.)
+   - BOSSES: a creature with a health bar across the screen and attacks that mark their squares first.
+     Enemy kinds as data (keeps away, heals others, explodes, summons) - the Undercroft asked for the same.
+   - A level and points for a character, kept in the save.
+   - The gate's menu, the forge's menu, the run board.
+Reused: other places (Dimensions), structures, `"extends"` for portal tiers, relic slots and sets, effects
+(run potions, slows, burns), cast spells, signals and pistons (traps), loot tables.
+
+HARD PARTS, honestly:
+   - Rolled items go through every place an item is handled. It is the mod, and it is not small.
+   - A run must be fun the fortieth time: that is room variety, and room variety is hand work - about
+     twenty rooms a dungeon, two hundred in all.
+   - Bosses whose attacks can be read and walked out of in a game moved by clicking.
+   - Ten tiers of numbers that stay in step: one table drives health, damage, gold and drop rates, so that
+     it can be tuned in one place. It will still need playing, which none of the last three mods has had.
+   - 700 loot pictures that are not recolours. The owner has said look-alikes of different stuff must not
+     be one picture in ten colours; with ten tiers of sword that is the art of the whole mod.
+
+SIZE, AS PROPOSED            blocks   items   recipes   enemies   bosses   dungeons   rooms   abilities
+   Dungeoneering              ~260     ~900     ~350      ~110       10        10      ~200       60
