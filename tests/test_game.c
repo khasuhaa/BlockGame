@@ -12343,10 +12343,10 @@ static void test_seeker_mod(void)
         failures++;
         return;
     }
-    if (content.tile_count != tiles + 608 || content.item_count != items + 1125 || content.recipe_count != recipes + 1322 || content.mob_count != mobs + 62 || content.biome_count != biomes + 13)
+    if (content.tile_count != tiles + 609 || content.item_count != items + 1209 || content.recipe_count != recipes + 1392 || content.mob_count != mobs + 62 || content.biome_count != biomes + 13)
         printf("seeker counts: %d tiles %d items %d recipes %d mobs %d biomes\n", content.tile_count - tiles, content.item_count - items, content.recipe_count - recipes,
                content.mob_count - mobs, content.biome_count - biomes);
-    CHECK(content.tile_count == tiles + 608 && content.item_count == items + 1125 && content.recipe_count == recipes + 1322 && content.mob_count == mobs + 62 && content.biome_count == biomes + 13);
+    CHECK(content.tile_count == tiles + 609 && content.item_count == items + 1209 && content.recipe_count == recipes + 1392 && content.mob_count == mobs + 62 && content.biome_count == biomes + 13);
     /* Five realms of ten stages; pills, scriptures and artifacts are kinds of thing of their own to trade in. */
     CHECK(dao_on() && dao_stages() == 50 && content.dao.realm_count == 5 && content.dao.realms[3].revives && !content.dao.realms[1].revives);
     CHECK(strcmp(content.trade.categories[item_def(item_id("qi_gathering_pill"))->category].label, "Pills") == 0 &&
@@ -12358,6 +12358,32 @@ static void test_seeker_mod(void)
           item_def(item_id("dragonbone_pickaxe"))->tier == 10);
     CHECK(tile_def(tile_id("pill_furnace"))->upgrade_to == tile_id("pill_furnace_2") && tile_def(tile_id("spirit_forge_5"))->bench_level == 5 &&
           find_recipe(tile_id("pill_furnace_5"), "nine_revolutions_pill")->level == 5 && find_recipe(tile_id("workbench_2"), "spirit_forge") != NULL);
+
+    /* The long makings: what is finished late is made of things made of things, a realm on the last. Each link here is one
+     * making: a dragonbone pickaxe is its head, which is tempered dragonbone, which is a billet, which has tempered void gold
+     * in it, and so down - and in the tempering is an oil, made of an extract, made of a powder with the last realm's extract in it. */
+    static const char *chain[][2] = { { "dragonbone_pickaxe", "dragonbone_tool_head" }, { "dragonbone_tool_head", "tempered_dragonbone" }, { "tempered_dragonbone", "dragonbone_billet" },
+        { "dragonbone_billet", "tempered_void_gold" }, { "tempered_void_gold", "void_gold_billet" }, { "void_gold_billet", "tempered_star_silver" }, { "tempered_star_silver", "greater_quenching_oil" },
+        { "greater_quenching_oil", "greater_extract" }, { "greater_extract", "greater_herb_powder" }, { "greater_herb_powder", "common_extract" }, { "common_extract", "common_herb_powder" },
+        { "divine_essence_pill", "supreme_pill_embryo" }, { "heavens_wrath", "supreme_inscription_kit" }, { "heaven_sword_array", "supreme_array_core" }, { "divine_crown", "supreme_setting" },
+        { "sovereign_robe", "supreme_spirit_thread" }, { "azure_dragon_mail", "dao_fruit" }, { "dao_fruit", "dao_seed" }, { "dao_seed", "immortal_embryo" }, { "immortal_embryo", "immortal_essence" },
+        { "immortal_essence", "tempered_dragonbone" }, { "chaos_iron_ingot", "tempered_dragonbone" }, { "heaven_cleaving_sword", "chaos_iron_blade" } };
+    for (size_t c = 0; c < sizeof chain / sizeof chain[0]; c++) {
+        bool every = item_id(chain[c][0]) > 0 && item_id(chain[c][1]) > 0, any = false;
+        for (int i = 0; i < content.recipe_count; i++) {
+            const Recipe *made = &content.recipes[i];
+            bool has = false, copy = false;
+            if (made->output.id != item_id(chain[c][0]) || strcmp(made->bench, "mission_board") == 0) continue;
+            for (int k = 0; k < made->input_count; k++) has = has || made->inputs[k].id == item_id(chain[c][1]), copy = copy || made->inputs[k].id == made->output.id;
+            if (copy) continue;
+            any = true;
+            every = every && has;
+        }
+        if (!(any && every)) printf("no link %s <- %s\n", chain[c][0], chain[c][1]);
+        CHECK(any && every);
+    }
+    /* (What Qi Refining makes is as short as it was, and the talisman that begins an immortal's makings needs none of them.) */
+    CHECK(find_recipe(tile_id("spirit_forge"), "spirit_iron_pickaxe")->input_count == 3 && find_recipe(tile_id("talisman_desk"), "heaven_calling_talisman") != NULL);
 
     static Game g;
     game_init(&g, 128, 60, 11, WORLD_FLAT);

@@ -1437,9 +1437,10 @@ for r in range(1, 6):
     sect('sect_merit', [(CORE_OF(r), 3)], r, 2 * r); sect('sect_merit', [(hh(r, 0), 10)], r, r); sect('sect_merit', [(hh(r, 6), 6)], r, r); sect('sect_merit', [(QI_PILLS[r - 1][0], 6)], r, 2 * r)
     sect('sect_merit', [(METALS[r - 1][0] + '_ingot', 6)], r, 2 * r); sect('sect_merit', [('beast_essence_%d' % r, 2)], r, 2 * r)
     # The treasury: what a rank may draw.
-    sect(STONES[min(r - 1, 3)][0], [('sect_merit', 2 * r)], r, 6 if r < 5 else 2); sect(REALM_PILLS[min(r, 4) - 1][0], [('sect_merit', 12 * r)], r); sect('beast_taming_talisman_%d' % r, [('sect_merit', 3 * r)], r)
-    sect(['basic_breathing_manual', 'vajra_body_refining', 'five_phases_canon', 'nine_heavens_scripture', 'primordial_chaos_canon'][r - 1], [('sect_merit', 10 * r * r)], r); sect(ROBES[r - 1][0] + '_robe', [('sect_merit', 8 * r)], r)
-    sect('aged_' + hh(r, 1), [('sect_merit', 6 * r)], r); sect('%s_insight_pill' % rank(r), [('sect_merit', 5 * r)], r)
+    sect(STONES[min(r - 1, 3)][0], [('sect_merit', 2 * r)], r, 6 if r < 5 else 2); sect('beast_blood', [('sect_merit', r)], r, 4)
+    sect(['talisman_paper', 'blank_jade_slip', 'spirit_spring_water', 'soul_crystal', 'fallen_star'][r - 1], [('sect_merit', 4 * r)], r, 2)
+    sect('aged_' + hh(r, 1), [('sect_merit', 6 * r)], r)
+sect('basic_breathing_manual', [('sect_merit', 5)], 1)
 for n_ in ('formula_healing', 'formula_warding', 'formula_tempering', 'formula_qi_drawing', 'diagram_travel', 'diagram_killing'): sect(n_, [('sect_merit', 8)], 2)
 # For a world made before any of this: nothing wild is in it, so every staple has another way in.
 portal(1, 'basic_breathing_manual', [('linen', 2), ('amethyst', 1)]); portal(1, 'spirit_stone', [('amethyst', 1), ('stone', 8)], 4); portal(1, 'cinnabar', [('clay', 4), ('coal', 1)], 2)
@@ -1449,6 +1450,120 @@ for r in range(1, 5):
     for j in range(12): art(HR[r + 1][j], [(HR[r][j], 4), ('aged_' + HR[r][(j + 1) % 12], 1), (FLUX[r + 1], 1)], r + 1, 2, 300) if not (r == 1 and j < 0) else None
 for j in range(2, 12): art(HR[1][j], [(HR[1][j - 1], 3), (HR[1][0], 3), ('spirit_stone', 1)], 1, 2, 200)
 cultivation_also = [{'item': 'spirit_stone', 'weight': 3}, {'item': 'spirit_grass', 'weight': 2}, {'item': 'cinnabar', 'weight': 1}, {'item': 'mountain_ginseng', 'weight': 1}]
+
+# ---- long makings: what each craft's finished things are made of, a realm on the last ------------------------------------------------------------
+# From Foundation Building on, nothing finished is made straight from what is dug and picked. Each craft has things of
+# its own that go into everything it makes - an extract, a tempered metal, an ink, a thread - and each realm's are made
+# with the realm's before, so that what is made late has all that came earlier under it. Qi Refining is left as it was.
+IT = {i['name']: i for i in items}
+def realm_of(name):
+    t = IT[name].get('tier', 1)
+    return 6 if t >= 11 else (t + 1) // 2
+def comp(pic, name, label, r, mult=0.8): thing(pic, name, label, lo(r) if r < 6 else 11, 'crafted', mult); IT[name] = items[-1]
+RC = [None, None, c('50a0f0'), c('c0d0ff'), c('c080f0'), c('ffb040')]
+MET = {m[2]: m[0] for m in METALS}
+FIBRE = [None, None, 'spirit_cotton', 'spirit_vine', 'wraith_silk', 'lion_mane']
+GEM = [None, None, 'spirit_jade', 'tree_amber', 'soul_crystal', 'fallen_star']
+WOODR = [None, None, 'stick', 'spirit_wood', 'star_wood', 'star_wood']
+for r in range(2, 6):
+    R_, k, m = RANK[r], RC[r], MET[r]
+    before = lambda what: [('%s_%s' % (rank(r - 1), what), 1)] if r > 2 else []
+    comp(trinket('dust', k), rank(r) + '_herb_powder', R_ + ' herb powder', r, 0.4); brew(rank(r) + '_herb_powder', [(hh(r, 0), 3), (hh(r, 7), 2)] + before('extract'), r, 2, 120)
+    comp(trinket('pot', k, c('d8e0e8')), rank(r) + '_extract', R_ + ' medicinal extract', r); brew(rank(r) + '_extract', [(rank(r) + '_herb_powder', 2), (hh(r, 2), 1)], r, 1, 160)
+    comp(trinket('pot', dk(k, 0.6), c('3a3a44')), rank(r) + '_quenching_oil', R_ + ' quenching oil', r); brew(rank(r) + '_quenching_oil', [(rank(r) + '_extract', 1), ('oil', 2)], r, 2, 120)
+    comp(orb(k, WHITE, False), rank(r) + '_pill_embryo', R_ + ' pill embryo', r); brew(rank(r) + '_pill_embryo', [(rank(r) + '_extract', 1), ('beast_essence_%d' % r, 1)], r, 3, 160)
+    comp(trinket('pot', mix(k, c('a02020')), GOLD), rank(r) + '_spirit_ink', R_ + ' spirit ink', r); rec('talisman_desk', rank(r) + '_spirit_ink', [(rank(r) + '_extract', 1), ('beast_blood_ink' if r == 2 else rank(r - 1) + '_spirit_ink', 1), ('beast_blood', 2)], 3, time=160)
+    comp(slip(k, c('a02020')).r(11, 9, 13, 14, WOODC).outline(), rank(r) + '_inscription_kit', R_ + ' inscription kit', r); rec('scripture_desk', rank(r) + '_inscription_kit', [(rank(r) + '_spirit_ink', 1), ('blank_jade_slip', 1), ('spirit_brush', 1)], 2, time=160)
+    comp(trinket('thread', k), rank(r) + '_spirit_thread', R_ + ' spirit thread', r); rec('spirit_loom', rank(r) + '_spirit_thread', [(FIBRE[r], 2), (rank(r) + '_extract', 1)], 3, time=120)
+    comp(bowl(mix(k, c('c8a060')), c('5a5560'), False), rank(r) + '_spirit_stock', R_ + ' spirit stock', r); rec('spirit_kitchen', rank(r) + '_spirit_stock', [('spirit_beast_meat', 2), (rank(r) + '_extract', 1), ('spirit_rice', 2)], 3, time=120)
+    comp(trinket('seal', k, WOODC), rank(r) + '_haft', R_ + ' haft', r, 0.5); art(rank(r) + '_haft', [(WOODR[r], 2), (LEATHER[r - 1][0], 1)], r, 2, 100)
+    # The metal of the realm: a billet folded with the last realm's tempered metal, then tempered in the oil.
+    col = c('%02x%02x%02x' % MR[m](0.6))
+    comp(ingot(dk(col, 0.8)), m + '_billet', IT[m + '_ingot']['label'].replace(' ingot', ' billet'), r); forge(m + '_billet', [(m + '_ingot', 2), (FLUX[r], 1)] + ([('tempered_' + MET[r - 1], 1)] if r > 2 else []), r, 1, 200)
+    comp(ingot(lt(col, 1.15)).p(9, 8, WHITE).p(10, 9, WHITE), 'tempered_' + m, 'Tempered ' + IT[m + '_ingot']['label'].replace(' ingot', '').lower(), r, 1.5); forge('tempered_' + m, [(m + '_billet', 1), (rank(r) + '_quenching_oil', 1)], r, 1, 240)
+    comp(trinket('plate', k, GOLD).r(6, 6, 9, 9, c('2a2a34')).p(7, 7, lt(k)), rank(r) + '_array_plate', R_ + ' array plate', r); forge(rank(r) + '_array_plate', [('tempered_' + m, 1), ('spirit_jade', 2)], r, 2, 200)
+    comp(orb(c('2a2a34'), k).line(3, 8, 12, 8, GOLD), rank(r) + '_array_core', R_ + ' array core', r, 1.5); rec('formation_table', rank(r) + '_array_core', [(rank(r) + '_array_plate', 1), (rank(r) + '_spirit_ink', 1), (STONES[min(r - 1, 2)][0] + '_block', 1)], time=240)
+    comp(trinket('ring', k, lt(col)), rank(r) + '_setting', R_ + ' setting', r); art(rank(r) + '_setting', [('tempered_' + m, 1), (GEM[r], 1)], r, 2, 200)
+    comp(orb(CORE[r], GOLD), rank(r) + '_awakened_core', R_ + ' awakened core', r, 1.5); art(rank(r) + '_awakened_core', [(CORE_OF(r), 2), (rank(r) + '_spirit_ink', 1)], r, 1, 200)
+# An immortal's: made of what a called tribulation leaves, and the best of every craft.
+for r_ in recipes:
+    if r_['output']['item'] == 'chaos_iron_ingot': r_['inputs'] = [{'item': 'tempered_dragonbone', 'count': 2}, {'item': 'heaven_tempered_essence', 'count': 1}, {'item': 'supreme_spirit_stone', 'count': 1}]
+XI = c('f0f0ff')
+comp(orb(XI, c('ffe060')), 'immortal_essence', 'Immortal essence', 6); brew('immortal_essence', [('heaven_tempered_essence', 1), ('supreme_extract', 2), ('tempered_dragonbone', 2)], 5, 2, 600)
+comp(orb(c('ffe890'), WHITE), 'immortal_embryo', 'Immortal embryo', 6); brew('immortal_embryo', [('immortal_essence', 1), ('immortal_jade', 2), ('supreme_pill_embryo', 2)], 5, 2, 600)
+comp(trinket('egg', c('ffe890'), RED), 'dao_seed', 'Dao seed', 6); art('dao_seed', [('immortal_embryo', 1), ('ancient_world_root', 1), ('supreme_awakened_core', 1)], 5, 2, 900)
+comp(P().disc(7.5, 9, 4.2, c('ffd0a0')).p(6, 7, WHITE).r(7, 3, 8, 5, c('5a3a2a')).r(9, 3, 11, 4, GOLD).p(9, 11, RED).outline(), 'dao_fruit', 'Dao fruit', 6, 2.0); rec('formation_table', 'dao_fruit', [('dao_seed', 1), ('supreme_spirit_ink', 1), ('supreme_array_core', 1)], 2, time=1200)
+col = c('%02x%02x%02x' % MR['chaos_iron'](0.6))
+comp(ingot(dk(col, 0.8)), 'chaos_iron_billet', 'Chaos iron billet', 6); forge('chaos_iron_billet', [('chaos_iron_ingot', 2), ('tempered_dragonbone', 1), ('supreme_spirit_stone', 1)], 5, 1, 400)
+comp(ingot(lt(col, 1.3)).p(9, 8, WHITE), 'tempered_chaos_iron', 'Tempered chaos iron', 6, 1.5); forge('tempered_chaos_iron', [('chaos_iron_billet', 1), ('supreme_quenching_oil', 1), ('immortal_essence', 1)], 5, 2, 600)
+# Parts: a head, a blade, a plate of each metal, of its tempered stuff.
+for n, lab, realm, r, host, hard, power, speed, armor in METALS[1:]:
+    col = c('%02x%02x%02x' % r(0.6)); g = min(realm, 5)
+    comp(P().r(3, 5, 12, 8, col).r(3, 5, 12, 5, lt(col)).r(2, 6, 3, 9, col).r(7, 9, 8, 11, dk(col)).outline(), n + '_tool_head', lab + ' tool head', realm); forge(n + '_tool_head', [('tempered_' + n, 1), (n + '_ingot', 1)], g, 1, 160)
+    comp(P().line(3, 13, 12, 3, col).line(4, 13, 13, 3, lt(col, 1.3)).line(3, 12, 11, 3, dk(col)).p(13, 2, WHITE).outline(), n + '_blade', lab + ' blade', realm); forge(n + '_blade', [('tempered_' + n, 2)], g, 1, 200)
+    comp(trinket('plate', col).r(5, 6, 10, 9, lt(col)).p(4, 5, WHITE), n + '_armor_plate', lab + ' armour plate', realm); forge(n + '_armor_plate', [('tempered_' + n, 1), (n + '_plate', 1)], g, 1, 200)
+def needs_also(r_, name, count=1):
+    if all(i['item'] != name for i in r_['inputs']): r_['inputs'].append({'item': name, 'count': count})
+def without(r_, name): r_['inputs'] = [i for i in r_['inputs'] if i['item'] != name]
+METAL_NAMES = [m[0] for m in METALS[1:]]
+ARRAY_TIER = {a_[0]: a_[4] for a_ in ARRAYS + MORE_ARRAYS}
+for r_ in list(recipes):
+    o = r_['output']['item']; it = IT.get(o)
+    if not it or any(i['item'] == o for i in r_['inputs']) or r_['bench'] in ('mission_board', 'portal', 'workbench'): continue
+    r = realm_of(o) if o not in ARRAY_TIER else (6 if ARRAY_TIER[o] >= 11 else (ARRAY_TIER[o] + 1) // 2)
+    k = rank(min(r, 5)) if r >= 2 else None
+    metal = next((m for m in METAL_NAMES if o.startswith(m + '_')), None)
+    if r_['bench'] == 'spirit_forge' and metal and it['category'] in ('tools', 'clothing'):
+        what = o[len(metal) + 1:]; had = sum(i['count'] for i in r_['inputs'] if i['item'] == metal + '_ingot'); hr = rank(min(realm_of(metal + '_ingot'), 5))
+        without(r_, metal + '_ingot'); without(r_, 'stick')
+        if what in ('pickaxe', 'axe', 'shovel', 'machete'): needs_also(r_, metal + '_tool_head', 1 + (what == 'pickaxe')); needs_also(r_, hr + '_haft')
+        elif what in ('sword', 'sabre'): needs_also(r_, metal + '_blade', 1 + (what == 'sabre')); needs_also(r_, hr + '_haft')
+        elif what == 'spear': needs_also(r_, metal + '_blade'); needs_also(r_, hr + '_haft', 2)
+        elif what == 'needles': needs_also(r_, 'tempered_' + metal)
+        else: needs_also(r_, metal + '_armor_plate', max(1, had // 2)); needs_also(r_, hr + '_spirit_thread')
+    elif r < 2: continue
+    elif r_['bench'] == 'pill_furnace' and it['category'] == 'pills': needs_also(r_, k + '_pill_embryo')
+    elif r_['bench'] == 'pill_furnace' and it.get('relic'): needs_also(r_, k + '_awakened_core')
+    elif r_['bench'] == 'scripture_desk' and (it.get('technique') or it.get('manual')): needs_also(r_, k + '_inscription_kit')
+    elif r_['bench'] == 'talisman_desk' and it['category'] == 'scriptures': needs_also(r_, k + '_spirit_ink')
+    elif r_['bench'] == 'formation_table' and o in ARRAY_TIER: needs_also(r_, k + '_array_core')
+    elif r_['bench'] == 'artificers_table' and it['category'] == 'artifacts': needs_also(r_, k + '_setting'); needs_also(r_, k + '_awakened_core') if it.get('relic') else None
+    elif r_['bench'] == 'artificers_table' and it['category'] == 'tools': needs_also(r_, k + '_haft'); needs_also(r_, k + '_spirit_thread')
+    elif r_['bench'] == 'spirit_loom' and (it['category'] == 'clothing' or o in [c_[0] for c_ in CLOTHS]): needs_also(r_, k + '_spirit_thread')
+    elif r_['bench'] == 'spirit_kitchen' and it.get('cooked'): needs_also(r_, k + '_spirit_stock')
+    # What only an immortal makes has a Dao fruit in it - all but the talisman that calls the tribulation down, which comes before any.
+    if r == 6 and it['category'] in ('tools', 'clothing', 'pills', 'scriptures', 'artifacts', 'benches') and o != 'heaven_calling_talisman': needs_also(r_, 'dao_fruit')
+# Three things at the very end of it all.
+thing(trinket('sword', c('f0f0ff'), RED), 'heaven_cleaving_sword', 'Heaven-cleaving sword', 11, 'tools', 3.0, max_stack=1, damage=400, range=3); IT['heaven_cleaving_sword'] = items[-1]
+forge('heaven_cleaving_sword', [('chaos_iron_blade', 3), ('supreme_haft', 1), ('white_tiger_essence', 1), ('dao_fruit', 1), ('natal_sword', 1)], 5, 1, 1800)
+q = P().r(3, 5, 12, 13, c('5a3a8a')); q.r(2, 7, 13, 11, c('5a3a8a')); q.r(3, 5, 12, 5, GOLD); q.r(5, 2, 10, 4, c('3a2a5a')); q.r(7, 1, 8, 1, RED); q.r(6, 8, 9, 10, c('f0a0ff')); q.p(7, 8, WHITE); q.r(3, 14, 4, 15, GOLD); q.r(11, 14, 12, 15, GOLD); q.save('tiles', 'immortal_cauldron'); icon_of('immortal_cauldron')
+tile('immortal_cauldron', 'Immortal cauldron', False, mine_time=0.6, light=14, pulse=0.12, qi=1.0, qi_reach=6, quickens={'speed': 3.0, 'radius': 8, 'refines': 0.4}); item('immortal_cauldron', 'Immortal cauldron', 11, 'artifacts', 4.0, places='immortal_cauldron'); IT['immortal_cauldron'] = items[-1]
+forge('immortal_cauldron', [('chaos_iron_armor_plate', 6), ('pill_furnace_5', 1), ('vermilion_phoenix_essence', 1), ('dao_fruit', 2), ('chaos_flame', 1)], 5, 1, 2400)
+artifact('myriad_dao_disc', 'Myriad-Dao disc', 'mirror', 'ffe890', 6, [('four_symbols_seal', 1), ('dao_fruit', 2), ('supreme_array_core', 2), ('tempered_chaos_iron', 2)], {'qi': 3.0, 'breakthrough': 0.2, 'craft': 2.0, 'sight': 1.0}, g=5, stage=51, trim=RED, tier=11); IT['myriad_dao_disc'] = items[-1]
+
+# How long each making is: the fewest makings, one under another, that a thing can be had by (what is dug, picked, grown or left by a beast is none).
+NATURAL = {d_['item'] for t_ in tiles for d_ in t_.get('drops', [])} | {t_['drop'] for t_ in tiles if t_.get('drop')} | {d_['item'] for m_ in mobs for d_ in m_['drops']} | {t_['fruit'] for t_ in trees} | set(BI) | {'heaven_tempered_essence'}
+NATURAL -= {i['name'] for i in items if i['category'] in ('pills', 'scriptures', 'artifacts', 'tools', 'clothing', 'benches') or (i.get('places') and i['name'] not in HERB_NAMES)}
+BY = {}
+for r_ in recipes:
+    if all(i['item'] != r_['output']['item'] for i in r_['inputs']): BY.setdefault(r_['output']['item'], []).append([i['item'] for i in r_['inputs']])
+DEPTH = {}
+def steps(i, seen=()):
+    if i in DEPTH: return DEPTH[i]
+    if i in NATURAL or i not in BY or i in seen: return 0
+    d = min(1 + max((steps(x, seen + (i,)) for x in ins), default=0) for ins in BY[i])
+    if not seen: DEPTH[i] = d
+    return d
+FINISHED = [i for i in items if i['name'] in BY and (i['category'] in ('tools', 'clothing', 'pills', 'artifacts') or i.get('technique') or i.get('manual') or i['name'] in ARRAY_TIER or i.get('cooked')) and not i['name'].startswith(('formula_', 'diagram_'))]
+table = {}
+for i in FINISHED:
+    r = realm_of(i['name']) if i['name'] not in ARRAY_TIER else (6 if ARRAY_TIER[i['name']] >= 11 else (ARRAY_TIER[i['name']] + 1) // 2)
+    table.setdefault(r, []).append((steps(i['name']), i['name']))
+for r in sorted(table):
+    ds = sorted(table[r]); print('realm %d: %d finished things, makings %d to %d (middle %d); shortest: %s' % (r, len(ds), ds[0][0], ds[-1][0], ds[len(ds) // 2][0], ', '.join('%s %d' % (n, d) for d, n in ds[:4])))
+WANT = {3: 6, 5: 10, 6: 15}
+short = [(r, n, d) for r in WANT for d, n in table.get(r, []) if d < WANT[r]]
+assert not short, short[:20]
 
 # ---- the new things set down in the world ---------------------------------------------------------------------------------------------------
 SECT['Q'] = {'wall': 'sect_brick', 'back': 'mission_board'}; SECT['i'] = {'wall': 'jade_brick', 'back': 'inheritance_altar'}; HEAVEN['I'] = {'wall': 'heaven_brick', 'back': 'heaven_inheritance'}

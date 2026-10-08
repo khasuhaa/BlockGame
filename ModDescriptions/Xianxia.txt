@@ -469,3 +469,27 @@ Where what was built is less than the plan's words:
   - Items 1,125 of about 1,150 and recipes 1,322 of about 1,400.
   - Tested by test and by a few screenshots (the screen, the technique row, spirit sight, the stars); mounts,
     the board, strikes, the maze and the three-row menu with a recipe chosen have not been seen in play.
+
+
+14. LONGER MAKINGS
+
+The owner found it still thin, and asked above all for deeper crafting trees: 6 or more makings in midgame, 10 or
+more near the end, 15 or more at the end. Done by giving each craft intermediate things of its own that every
+finished thing of the craft takes, each realm's made with the realm's before (powder, extract, quenching oil, pill
+embryo; billet, tempered metal, tool head, blade, armour plate, haft; spirit ink, inscription kit; array plate,
+array core; setting, awakened core; spirit thread; spirit stock; and for an immortal: immortal essence, immortal
+embryo, Dao seed, Dao fruit, chaos billet, tempered chaos iron). 84 more items and 70 more recipes, and about 700
+existing recipes changed to take them. Now 609 blocks, 1,209 items, 1,392 recipes.
+
+Fewest makings, one under another, to a finished thing (tools, weapons, armour, robes, pills, dishes, manuals,
+techniques, talismans, arrays, artifacts), as the generator measures and enforces:
+
+    Qi Refining 1-3    Foundation Building 4-7    Core Formation 6-9    Nascent Soul 8-11    Divinity 10-14
+    Immortal 15-16
+
+To keep those honest the sect's board stopped giving finished pills, robes, manuals and talismans.
+
+What this pass did not do: it added depth, not breadth - the new things are components, and besides three last
+treasures there are no new kinds of finished thing. Building blocks, furniture, benches and portals are as short
+to make as before (their costs are upgrades, not trees). And none of it has been played: whether a twelve-step
+pill is a pleasure or a chore is not known.
