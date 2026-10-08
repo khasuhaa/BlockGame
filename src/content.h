@@ -22,6 +22,8 @@
 #define MAX_DECOR 64
 #define MAX_POLES 16
 #define MAX_DIMENSIONS 8
+#define MAX_BIOME_SPIKES 8
+#define MAX_GEODES 4
 #define MAX_STRATA 4
 #define MAX_CAVE_BIOMES 16
 #define MAX_CAVE_GROWTH 8 /* kinds of thing on the floor, or hanging from the roof, of one kind of cave */
@@ -507,6 +509,7 @@ typedef struct {
     int power;             /* a tool: what `hardness` of block it can dig */
     bool glides;           /* worn, a drop of any height is a step like another: they come down slowly */
     float cooling;         /* worn, how much of the environment score it keeps where it is hot: a share, 0 to 1 */
+    bool pack;             /* worn, it is a pack on the back as well: a box there, drawn from the top right of its picture */
     bool lifts;            /* worn, it lets them fly: the air holds them up wherever they go in it */
     /* Something that runs on rails: put down on them, it is not a block but a vehicle (see train.h). */
     struct {
@@ -691,6 +694,17 @@ typedef struct {
     bool hot;          /* here wears it down indoors and out, and it is what cools that keeps it, not what warms */
     char dimension_name[CONTENT_NAME_LEN]; /* the dimension it is country of; empty for the world as it began */
     int dimension;     /* which of content.dimensions; -1 for none */
+    /* In a dimension: things that stand up out of its ground, or hang from whatever is over it - a column of a
+     * block so many high, on one spot in so many. An arch is two of them with a beam across their tops. */
+    struct {
+        TileType tile;
+        int one_in, min, max;
+        bool hang, arch;
+    } spikes[MAX_BIOME_SPIKES];
+    int spike_count;
+    /* And something left lying on its ground, here and there: a chest with things in it, say. */
+    TileType treasure;
+    int treasure_one_in;
     int tree_one_in, tree_spacing;
     struct {
         int tree, weight;
@@ -741,6 +755,16 @@ typedef struct {
         float from;
     } strata[MAX_STRATA];
     int strata_count;
+    /* Geodes: hollow balls of a rock of their own, set in the rock, with a gem growing all over the inside. */
+    struct {
+        TileType shell, gem;
+        float per_100_columns;
+        int min_radius, max_radius, min_depth, max_depth;
+    } geodes[MAX_GEODES];
+    int geode_count;
+    int ambient;         /* it is never darker there than this, 0..15 */
+    bool has_sky_color;  /* its sky is of its own colours: by day, and by night */
+    unsigned char sky_day[3], sky_night[3];
     /* The void: what grows on its one island. */
     char tree_name[CONTENT_NAME_LEN];
     int tree;

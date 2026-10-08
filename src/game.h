@@ -409,6 +409,7 @@ typedef struct {
     /* Scratch space for planning. */
     World sim;
     /* Where the character in hand last went from into a place that is only so wide: where they come back out. Not saved. */
+    int travels;      /* how many times anybody has gone from one place to another: the view watches it. Not saved. */
     TilePos gate_from;
     bool gate_from_set;
     int32_t *bfs_parent;

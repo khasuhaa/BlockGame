@@ -154,11 +154,23 @@ def worn(name, slot, icon):
         if has('jetpack'):
             # Two tanks on the back with a burner under each, and the straps that hold them on.
             shell, tank, flame = (141, 142, 146), (48, 50, 58), (240, 120, 40)
-            band(im, 'body', 1, 12, lambda c, r: (flame if c in (1, 2, 5, 6) else None) if r > 9 else None if r == 9 else
-                 shell if c in (0, 3, 4, 7) or r in (1, 8) else tank, sides=('back',))
-            band(im, 'body', 0, 9, lambda c, r: tank if c in (1, 6) or r == 7 else None, sides=('front',))
+            # (The pack itself is a box of its own on the back - the game draws it from 32,0 of this picture, laid
+            # out as the body's parts are - and the flame under each tank from 52,0. On the body there are only the straps.)
+            band(im, 'body', 0, 9, lambda c, r: tank if c in (1, 6) or r == 7 else None, sides=('front', 'back'))
             band(im, 'body', 7, 8, tank, sides=('left', 'right'))
             lid(im, 'body', lambda c, r: tank if c in (1, 6) else None)
+            lit, hot = (255, 220, 110), (255, 250, 200)
+            for y in range(12):
+                for x in range(18):
+                    r = y - 3  # the row of a side; above that, the top and the underside
+                    if y < 3: col = shell if 3 <= x < 9 else (tank if (x - 9) % 3 != 1 else flame) if 9 <= x < 15 else None
+                    elif 12 <= x: col = shell if r in (0, 8) or (x - 12) % 3 == 1 and r % 4 == 1 else tank  # the back of it: two tanks
+                    else: col = tank if r not in (0, 8) else shell
+                    if col: im.putpixel((32 + x, y), col + (255,))
+            for y in range(12):
+                for x in range(8):
+                    col = (flame if y < 2 else hot if y < 5 else lit if y < 8 else flame)
+                    im.putpixel((52 + x, y), col + (255,))
         elif has('plate'):
             # A breastplate and a guard on each shoulder.
             band(im, 'body', 0, 12, lambda c, r: light if r in (2, 3) and 1 <= c <= 6 else mid, edge=dark)

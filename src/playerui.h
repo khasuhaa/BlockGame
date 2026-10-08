@@ -14,6 +14,7 @@ typedef struct {
     bool open;
     bool pressed;  /* a press that began on it */
     bool switched; /* set for the frame control passes to another character */
+    bool tapped;   /* set for the frame the button of the character being played is pressed: the view goes to them */
     int death_open; /* the dead character whose menu is out beside their button, plus one; 0 for none */
     int confirm;    /* the one whose "Remove" has been pressed once and wants pressing again, plus one */
 } PlayerUi;

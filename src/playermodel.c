@@ -140,7 +140,7 @@ static int by_depth(const void *a, const void *b)
     return x > y ? -1 : x < y ? 1 : 0;
 }
 
-void playermodel_draw(Vector2 feet, float scale, const BodyPose *pose, const char *skin, const char *const *worn, int worn_count)
+void playermodel_draw(Vector2 feet, float scale, const BodyPose *pose, const char *skin, const char *const *worn, int worn_count, unsigned packs)
 {
     /* Head, body, the arm and the leg on the near side, and the ones on the far side. */
     Part parts[6] = {
@@ -165,6 +165,15 @@ void playermodel_draw(Vector2 feet, float scale, const BodyPose *pose, const cha
         Texture2D over = worn[k] && worn[k][0] ? assets_texture(worn[k]) : (Texture2D){ 0 };
         /* (Each thing worn a little larger than the last, so that one goes over another.) */
         for (int i = 0; i < 6 && over.id; i++) add_part(&parts[i], pose, 0.45f + 0.2f * (float)k, over.id);
+        if (!over.id || !(packs & (1u << k))) continue;
+        /* A pack: a box on the back, going wherever the body goes; and the flames under it, if it is burning. */
+        Part pack = { { 0, 12, 0 }, { -3, 2, -5.6f }, { 6, 9, 3 }, 32, 0, false, true, 0.0f };
+        add_part(&pack, pose, 0.0f, over.id);
+        float jet = pose->jet > 9.0f ? 9.0f : pose->jet;
+        for (int side = 0; side < 2 && jet > 0.0f; side++) {
+            Part flame = { { 0, 12, 0 }, { side ? 0.5f : -2.5f, 2.0f - jet, -5.1f }, { 2, jet, 2 }, 52, 0, false, true, 0.0f };
+            add_part(&flame, pose, 0.0f, over.id);
+        }
     }
     qsort(quads, (size_t)quad_count, sizeof quads[0], by_depth);
     for (int i = 0; i < quad_count; i++) {

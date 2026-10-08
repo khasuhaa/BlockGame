@@ -434,6 +434,11 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
         cam->follow = true;
         cam->anchored = false;
     }
+    if (player->tapped) {
+        /* Their own button: the view comes back to them, wherever it had been taken. */
+        cam->follow = true;
+        cam->anchored = false;
+    }
     if (on_players) return;
     if (tradeui_handle_input(trade, g, &ui_view)) return;
     if (trainui_handle_input(&train_ui, g, &ui_view)) return;
@@ -561,6 +566,19 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
 
 static void update_camera(const Game *g, MapCamera *cam, float dt)
 {
+    /* Gone to another place altogether - through a portal, or out of the bottom of the sky: the view goes with
+     * them at once, whatever it was doing. */
+    static const Game *seen_game;
+    static int seen_travels;
+    if (seen_game != g || seen_travels != g->travels) {
+        if (seen_game == g) {
+            cam->follow = true;
+            cam->anchored = cam->dragging = false;
+            cam->center = (Vector2){ ((float)g->player.feet.x + 0.5f) * TILE_SIZE, (float)g->player.feet.y * TILE_SIZE };
+        }
+        seen_game = g;
+        seen_travels = g->travels;
+    }
     if (cam->follow) {
         Vector2 target = player_center(g);
         float k = fminf(1.0f, dt * CAMERA_FOLLOW_SPEED);
@@ -580,6 +598,18 @@ static void update_camera(const Game *g, MapCamera *cam, float dt)
     }
     /* No limit sideways: the world goes all the way round. */
     cam->center.y = fminf(fmaxf(cam->center.y, 0.0f), (float)g->world.height * TILE_SIZE);
+    /* In a world with more places than one, the view keeps to the place it is in: nothing past its top or its
+     * bottom is to be seen - not the edge of it, nor the sky of the place over it. */
+    if (g->world.region_count > 0) {
+        const World *w = &g->world;
+        int row = (int)floorf(cam->center.y / TILE_SIZE), r0, r1, in = world_region_at(w, row < 0 ? 0 : row >= w->height ? w->height - 1 : row);
+        world_region_rows(w, in, &r0, &r1);
+        float half = (float)GetScreenHeight() / 2.0f / (cam->scale / TILE_SIZE);
+        float lo = (float)(r0 + (in >= 0 ? 1 : 0)) * TILE_SIZE + half, hi = (float)r1 * TILE_SIZE - half;
+        if (in < 0) lo = 0.0f;
+        if (lo > hi) cam->center.y = in < 0 ? fminf(cam->center.y, hi > 0.0f ? hi : 0.0f) : (lo + hi) / 2.0f;
+        else cam->center.y = fminf(fmaxf(cam->center.y, lo), hi);
+    }
 }
 
 static Color mix(Color a, Color b, float t)
@@ -605,11 +635,16 @@ static void draw_sky(const Game *g, Vector2 origin)
     Color sky = mix((Color){ 12, 16, 40, 255 }, (Color){ 135, 190, 235, 255 }, light);
     /* (Drawn straight to the screen, not through the zoom.) */
     DrawRectangle(0, (int)(origin.y * zoom), GetScreenWidth(), (int)(w->height * TILE_SIZE * zoom) + 1, sky);
-    /* (A place with no sky has the dark behind it.) */
-    for (int i = 0; i < w->region_count; i++)
-        if (world_sky_top(w, w->regions[i].y0) < 0)
-            DrawRectangle(0, (int)((origin.y + (float)w->regions[i].y0 * TILE_SIZE) * zoom), GetScreenWidth(),
-                          (int)((float)w->regions[i].height * TILE_SIZE * zoom) + 1, (Color){ 10, 9, 14, 255 });
+    /* (A place with no sky has the dark behind it; and some have a sky of their own colours.) */
+    for (int i = 0; i < w->region_count; i++) {
+        const DimensionDef *d = w->regions[i].dim >= 0 ? &content.dimensions[w->regions[i].dim] : NULL;
+        Color back = { 10, 9, 14, 255 };
+        if (d && d->has_sky_color)
+            back = mix((Color){ d->sky_night[0], d->sky_night[1], d->sky_night[2], 255 }, (Color){ d->sky_day[0], d->sky_day[1], d->sky_day[2], 255 }, d->sky ? light : 1.0f);
+        else if (world_sky_top(w, w->regions[i].y0) >= 0) continue;
+        DrawRectangle(0, (int)((origin.y + (float)w->regions[i].y0 * TILE_SIZE) * zoom), GetScreenWidth(),
+                      (int)((float)w->regions[i].height * TILE_SIZE * zoom) + 1, back);
+    }
 
     bool day;
     float phase = game_day_phase(g, &day);
@@ -1421,13 +1456,16 @@ static void draw_body(const Game *g, float x, float ground, BodyPose pose)
     static const int order[ARMOR_SLOTS] = { EQUIP_LEGS, EQUIP_BOOTS, EQUIP_CHEST, EQUIP_HEAD };
     const char *worn[ARMOR_SLOTS];
     int count = 0;
+    unsigned packs = 0;
     for (int i = 0; i < ARMOR_SLOTS; i++) {
         const ItemStack *on = &g->inventory.armor[order[i]];
-        if (on->count > 0 && item_def((ItemId)on->id)->worn[0]) worn[count++] = item_def((ItemId)on->id)->worn;
+        if (on->count <= 0 || !item_def((ItemId)on->id)->worn[0]) continue;
+        if (item_def((ItemId)on->id)->pack) packs |= 1u << count;
+        worn[count++] = item_def((ItemId)on->id)->worn;
     }
     /* (In the world they have depth, and stand at their place in it.) */
     playermodel_depth(world3d_active(), Z_BODY);
-    playermodel_draw((Vector2){ x, ground }, TILE_SIZE / 16.0f, &pose, content.rules.player_skin, worn, count);
+    playermodel_draw((Vector2){ x, ground }, TILE_SIZE / 16.0f, &pose, content.rules.player_skin, worn, count, packs);
     playermodel_depth(false, 0.0f);
 }
 
@@ -1598,7 +1636,7 @@ static void draw_player(const Game *g, Vector2 origin)
     bool busy = p->activity == ACTIVITY_MINING || p->activity == ACTIVITY_PLACING || p->activity == ACTIVITY_ATTACKING;
     int facing = grip != 0 && !busy ? grip : p->facing;
     BodyPose to = { .tint = WHITE };
-    float side = e->idle > 0.18f ? 0.0f : (float)facing * PLAYERMODEL_SIDE, shift = 0.0f, bob = 0.0f;
+    float side = e->idle > 0.18f ? 0.0f : (float)facing * PLAYERMODEL_SIDE, shift = 0.0f, bob = 0.0f, jet = 0.0f;
     int rise = stepping ? p->step_to.y - p->feet.y : 0;
     if (dead) {
         /* Dead: laid out on the ground, the colour gone from them. */
@@ -1627,13 +1665,8 @@ static void draw_player(const Game *g, Vector2 origin)
         to.leg[0] = going ? -14.0f : 6.0f, to.leg[1] = going ? -24.0f : -6.0f;
         bob = sinf(now * 5.0f) * 1.2f;
         if (!going && !stepping) side = 0.0f;
-        /* (What is holding them up: two jets of flame from the pack.) */
-        float flick = 6.0f + 4.0f * sinf(now * 31.0f), back = cx - (float)facing * (fabsf(e->side) / PLAYERMODEL_SIDE) * 8.0f;
-        for (int k = -1; k <= 1; k += 2) {
-            float fx = back + (float)k * 4.0f * (1.0f - fabsf(e->side) / PLAYERMODEL_SIDE) - 2.0f, fy = ground - 34.0f;
-            DrawRectangleRec((Rectangle){ fx, fy, 4.0f, flick + 4.0f }, (Color){ 240, 120, 40, 255 });
-            DrawRectangleRec((Rectangle){ fx + 1.0f, fy, 2.0f, flick }, (Color){ 255, 220, 110, 255 });
-        }
+        /* (What is holding them up: two jets of flame from the pack, which the body's own drawing puts under it.) */
+        jet = 7.0f + 2.0f * sinf(now * 31.0f);
     } else if (swimming) {
         /* Afloat: leaning into it, kicking, and riding up and down a little. */
         float kick = sinf(now * 5.0f);
@@ -1720,6 +1753,7 @@ static void draw_player(const Game *g, Vector2 origin)
     pose.facing = e->side < 0.0f ? -1 : 1;
     pose.turn = PLAYERMODEL_SIDE - fabsf(e->side);
     if (meditating) draw_calm(cx, ground);
+    pose.jet = jet;
     draw_body(g, cx + e->shift, ground - e->bob, pose);
     if (asleep) draw_sleep(px, ground, lie);
     if (meditating) draw_meditation(g, cx, ground - e->bob);

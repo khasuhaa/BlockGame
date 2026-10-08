@@ -1200,6 +1200,28 @@ static void region_plant(World *w, int region, uint32_t *rng)
         for (int y = g->y0 + 6; y < g->y0 + g->height - 2; y++) {
             if (world_get(w, x, y + 1) != b->surface || world_get(w, x, y) != TILE_AIR || world_is_water(w, x, y)) continue;
             if (world_get(w, x, y - 1) != TILE_AIR || world_get(w, x, y - 2) != TILE_AIR) continue;
+            /* What stands up out of the ground here: a column of something, or two with a beam across them. */
+            bool stood = false;
+            for (int i = 0; i < b->spike_count && !stood; i++) {
+                if (b->spikes[i].hang || b->spikes[i].one_in <= 0 || rng_range(rng, 0, b->spikes[i].one_in - 1) != 0) continue;
+                int tall = rng_range(rng, b->spikes[i].min, b->spikes[i].max), span = b->spikes[i].arch ? rng_range(rng, 3, 5) : 0;
+                int layer = tile_def(b->spikes[i].tile)->layer;
+                if (b->spikes[i].arch && (world_get(w, x + span, y + 1) != b->surface || world_get(w, x + span, y) != TILE_AIR)) continue;
+                for (int k = 0; k < tall && world_get(w, x, y - k) == TILE_AIR && y - k > g->y0 + 3; k++) {
+                    world_set_at(w, layer, x, y - k, b->spikes[i].tile);
+                    if (span > 0 && world_get_at(w, layer, x + span, y - k) == TILE_AIR) world_set_at(w, layer, x + span, y - k, b->spikes[i].tile);
+                    if (span > 0 && k == tall - 1)
+                        for (int dx = 1; dx < span; dx++)
+                            if (world_get_at(w, layer, x + dx, y - k) == TILE_AIR) world_set_at(w, layer, x + dx, y - k, b->spikes[i].tile);
+                }
+                stood = true;
+            }
+            if (stood) continue;
+            if (b->treasure != TILE_AIR && b->treasure_one_in > 0 && rng_range(rng, 0, b->treasure_one_in - 1) == 0 &&
+                world_get_at(w, tile_def(b->treasure)->layer, x, y) == TILE_AIR) {
+                world_set_at(w, tile_def(b->treasure)->layer, x, y, b->treasure);
+                continue;
+            }
             if (b->tree_one_in > 0 && rng_range(rng, 0, b->tree_one_in - 1) == 0 && world_get_at(w, LAYER_BACKGROUND, x - 1, y) == TILE_AIR &&
                 world_get_at(w, LAYER_BACKGROUND, x - 2, y) == TILE_AIR) {
                 int kind = pick_tree(b, rng);
@@ -1225,6 +1247,63 @@ static void region_plant(World *w, int region, uint32_t *rng)
                 for (TileType s = t; tile_def(s)->grows_into != TILE_AIR && stages < 16; s = tile_def(s)->grows_into) stages++;
                 for (int stage = rng_range(rng, 0, stages > 3 ? stages : 3); stage > 0 && world_grow_plant(w, layer, x, y); stage--) {}
                 break;
+            }
+        }
+    }
+}
+
+/* What hangs from the undersides of a dimension's ground and from the roofs of its caves. */
+static void region_hangings(World *w, int region, uint32_t *rng)
+{
+    const Region *g = &w->regions[region];
+    for (int x = 0; x < w->width; x++) {
+        const BiomeDef *b = &content.biomes[world_biome_at(w, x, g->y0 + 1)];
+        if (b->dimension != g->dim) continue;
+        for (int y = g->y0 + 6; y < g->y0 + g->height - 6; y++) {
+            if (world_get(w, x, y) != TILE_AIR || world_is_water(w, x, y)) continue;
+            TileType over = world_get(w, x, y - 1);
+            if (over == TILE_AIR || !tile_def(over)->wall || tile_def(over)->harm > 0.0f) continue;
+            for (int i = 0; i < b->spike_count; i++) {
+                if (!b->spikes[i].hang || b->spikes[i].one_in <= 0 || rng_range(rng, 0, b->spikes[i].one_in - 1) != 0) continue;
+                int tall = rng_range(rng, b->spikes[i].min, b->spikes[i].max), layer = tile_def(b->spikes[i].tile)->layer;
+                /* (Never right down to what is under it: there is always a way past.) */
+                for (int k = 0; k < tall && world_get(w, x, y + k) == TILE_AIR && world_get(w, x, y + k + 3) == TILE_AIR && y + k < g->y0 + g->height - 6; k++)
+                    world_set_at(w, layer, x, y + k, b->spikes[i].tile);
+                break;
+            }
+        }
+    }
+}
+
+/* Geodes: hollow balls of a rock of their own, with a gem growing over the inside of each. */
+static void region_geodes(World *w, int region, uint32_t *rng)
+{
+    const Region *g = &w->regions[region];
+    const DimensionDef *d = &content.dimensions[g->dim];
+    for (int k = 0; k < d->geode_count; k++) {
+        int count = (int)(d->geodes[k].per_100_columns * (float)w->width / 100.0f + rng_unit(rng));
+        int lo = g->y0 + 14 + d->geodes[k].min_depth, hi = g->y0 + d->geodes[k].max_depth;
+        if (hi > g->y0 + g->height - 16) hi = g->y0 + g->height - 16;
+        for (int n = 0; n < count && lo <= hi; n++) {
+            int cx = rng_range(rng, 0, w->width - 1), cy = rng_range(rng, lo, hi), r = rng_range(rng, d->geodes[k].min_radius, d->geodes[k].max_radius);
+            for (int dy = -r - 2; dy <= r + 2; dy++) {
+                for (int dx = -r - 3; dx <= r + 3; dx++) {
+                    /* (Wider than it is high.) */
+                    float far = sqrtf((float)(dx * dx) * 0.7f + (float)(dy * dy));
+                    size_t cell = (size_t)(cy + dy) * w->width + world_wrap_x(w, cx + dx);
+                    if (far > (float)r + 2.0f) continue;
+                    if (far > (float)r) {
+                        put_rock(w, cx + dx, cy + dy, d->geodes[k].shell);
+                    } else {
+                        w->layers[LAYER_FOREGROUND][cell] = TILE_AIR;
+                        w->layers[LAYER_WALL][cell] = (uint16_t)d->geodes[k].shell;
+                        w->layers[LAYER_BACKGROUND][cell] = TILE_AIR;
+                        world_set_water(w, cx + dx, cy + dy, 0);
+                        /* The gem, on whatever of the inside is against the shell. */
+                        if (d->geodes[k].gem != TILE_AIR && far > (float)r - 1.3f && rng_range(rng, 0, 2) == 0)
+                            w->layers[tile_def(d->geodes[k].gem)->layer][cell] = (uint16_t)d->geodes[k].gem;
+                    }
+                }
             }
         }
     }
@@ -1281,21 +1360,32 @@ static void region_riches(World *w, int region, uint32_t *rng)
     }
 }
 
-/* One island: a lens of ground, flat-topped and ragged, its top the biome's surface and its heart the rock. */
-static void region_island(World *w, int region, uint32_t *rng, int cx, int cy, int length, int depth)
+/* The shapes an island comes in. */
+enum { ISLE_LENS, ISLE_MESA, ISLE_SPIRE, ISLE_HILL, ISLE_BASIN, ISLE_KINDS };
+
+/* One island: ground with its top the biome's surface and its heart the rock. A lens is flat-topped and ragged
+ * and thins to nothing at its ends; a mesa is a slab, as thick at its edge as its middle; a spire is a peak on
+ * top of a long point; a hill humps up in the middle; a basin is a level lens with a lake let into its top. */
+static void region_island(World *w, int region, uint32_t *rng, int cx, int cy, int length, int depth, int kind)
 {
     const Region *g = &w->regions[region];
     const DimensionDef *d = &content.dimensions[g->dim];
     int rise = 0;
+    if (kind == ISLE_BASIN && length < 22) kind = ISLE_LENS;
     for (int i = 0; i < length; i++) {
         int x = cx - length / 2 + i;
         const BiomeDef *b = &content.biomes[world_biome_at(w, x, g->y0 + 1)];
-        float t = ((float)i + 0.5f) / (float)length * 2.0f - 1.0f;
-        int thick = (int)((float)depth * sqrtf(1.0f - t * t) + rng_unit(rng) * 1.5f);
-        if (i % 3 == 0) rise += rng_range(rng, -1, 1);
+        float t = ((float)i + 0.5f) / (float)length * 2.0f - 1.0f, edge = 1.0f - fabsf(t);
+        float lens = sqrtf(1.0f - t * t), body = lens;
+        int hump = 0;
+        if (kind == ISLE_MESA) body = edge < 0.12f ? edge / 0.12f : 1.0f;
+        if (kind == ISLE_SPIRE) body = edge * edge, hump = (int)(edge * (float)depth * 0.35f);
+        if (kind == ISLE_HILL) hump = (int)(lens * lens * (float)depth * 0.8f);
+        int thick = (int)((float)depth * body + rng_unit(rng) * 1.5f) + hump;
+        if (i % 3 == 0 && kind != ISLE_MESA && kind != ISLE_BASIN) rise += rng_range(rng, -1, 1);
         if (rise > 2) rise = 2;
         if (rise < -2) rise = -2;
-        int top = cy + rise, soil = rng_range(rng, 2, 3);
+        int top = cy + rise - hump, soil = rng_range(rng, 2, 3);
         for (int k = 0; k < thick; k++) {
             int y = top + k;
             if (y <= g->y0 + 4 || y >= g->y0 + g->height - 4 || world_get(w, x, y) != TILE_AIR) continue;
@@ -1306,8 +1396,23 @@ static void region_island(World *w, int region, uint32_t *rng, int cx, int cy, i
             put_rock(w, x, y, tile);
         }
     }
+    /* A basin has a lake in the top of it: the middle of its surface taken out, and water put there. */
+    if (kind == ISLE_BASIN) {
+        int half = length / 4, deep = depth >= 8 ? 3 : 2;
+        for (int dx = -half; dx <= half; dx++) {
+            int lip = abs(dx) > half - 2 ? 1 : deep;
+            for (int k = 0; k < lip; k++) {
+                size_t cell = (size_t)(cy + k) * w->width + world_wrap_x(w, cx + dx);
+                if (cy + k >= g->y0 + g->height - 4 || world_get(w, cx + dx, cy + k + 1) == TILE_AIR) break;
+                w->layers[LAYER_FOREGROUND][cell] = TILE_AIR;
+                w->layers[LAYER_WALL][cell] = TILE_AIR;
+                world_set_water(w, cx + dx, cy + k, WATER_FULL);
+            }
+        }
+        return;
+    }
     /* A big one is hollow at the heart. */
-    if (length >= 26 && depth >= 9) {
+    if (kind != ISLE_SPIRE && length >= 26 && depth >= 9) {
         int rx = length / 5, ry = depth / 4, oy = cy + depth / 2;
         for (int dy = -ry; dy <= ry; dy++)
             for (int dx = -rx; dx <= rx; dx++)
@@ -1322,9 +1427,9 @@ static void region_islands(World *w, int region, uint32_t *rng)
     const Region *g = &w->regions[region];
     const DimensionDef *d = &content.dimensions[g->dim];
     int count = (int)(d->island_rate * (float)w->width / 100.0f);
-    int top = g->y0 + 24, bottom = g->y0 + g->height - 44;
+    int top = g->y0 + 48, bottom = g->y0 + g->height - 44;
     /* One where the world began, so that whoever comes first has somewhere to come to. */
-    region_island(w, region, rng, w->spawn_x, (top + bottom) / 2, d->island_max_length, d->island_max_depth);
+    region_island(w, region, rng, w->spawn_x, (top + bottom) / 2, d->island_max_length, d->island_max_depth, ISLE_LENS);
     for (int n = 0; n < count && bottom > top; n++) {
         int length = rng_range(rng, d->island_min_length, d->island_max_length);
         /* (Most are small: the big ones are the rarer.) */
@@ -1332,7 +1437,38 @@ static void region_islands(World *w, int region, uint32_t *rng)
         int depth = length / 3 + rng_range(rng, 0, 2);
         if (depth < d->island_min_depth) depth = d->island_min_depth;
         if (depth > d->island_max_depth) depth = d->island_max_depth;
-        region_island(w, region, rng, rng_range(rng, 0, w->width - 1), rng_range(rng, top, bottom), length, depth);
+        int x = rng_range(rng, 0, w->width - 1), y = rng_range(rng, top, bottom), kind = rng_range(rng, 0, ISLE_KINDS + 2);
+        if (kind == ISLE_SPIRE) {
+            /* A spire is narrow, and goes a long way down. */
+            length = rng_range(rng, 5, 11);
+            depth = rng_range(rng, 14, 34);
+            region_island(w, region, rng, x, y, length, depth, ISLE_SPIRE);
+        } else if (kind == ISLE_KINDS) {
+            /* A scatter of little ones: stepping stones, with cloud between some of them to walk on. */
+            int stones = rng_range(rng, 4, 8), at = x, level = y;
+            for (int k = 0; k < stones; k++) {
+                int size = rng_range(rng, 3, 8), gap = rng_range(rng, 3, 7);
+                region_island(w, region, rng, at, level, size, rng_range(rng, 2, 4), ISLE_LENS);
+                for (int dx = size / 2 + 1; d->cloud != TILE_AIR && k + 1 < stones && rng_range(rng, 0, 1) && dx < size / 2 + gap; dx++)
+                    if (world_get(w, at + dx, level) == TILE_AIR) w->layers[LAYER_FOREGROUND][(size_t)level * w->width + world_wrap_x(w, at + dx)] = (uint16_t)d->cloud;
+                at += size + gap;
+                level += rng_range(rng, -3, 3);
+                if (level < top) level = top;
+                if (level > bottom) level = bottom;
+            }
+        } else if (kind == ISLE_KINDS + 1) {
+            /* A great one: a country to itself. */
+            region_island(w, region, rng, x, y, d->island_max_length + rng_range(rng, 20, 70), d->island_max_depth + rng_range(rng, 2, 8), rng_range(rng, 0, 1) ? ISLE_HILL : ISLE_LENS);
+        } else {
+            region_island(w, region, rng, x, y, length, depth, kind > ISLE_KINDS ? ISLE_LENS : kind);
+        }
+    }
+    /* Small clouds at every height: something to stand on between one island and the next. */
+    for (int n = 0; d->cloud != TILE_AIR && n < w->width / 14; n++) {
+        int cx = rng_range(rng, 0, w->width - 1), cy = rng_range(rng, top, bottom + 20), rx = rng_range(rng, 2, 6);
+        for (int dx = -rx; dx <= rx; dx++)
+            for (int dy = 0; dy <= (abs(dx) < rx - 1 ? 1 : 0); dy++)
+                if (world_get(w, cx + dx, cy + dy) == TILE_AIR) w->layers[LAYER_FOREGROUND][(size_t)(cy + dy) * w->width + world_wrap_x(w, cx + dx)] = (uint16_t)d->cloud;
     }
     /* Banks of cloud along the bottom. */
     for (int n = 0; d->cloud != TILE_AIR && n < w->width / 10; n++) {
@@ -1435,7 +1571,7 @@ static void region_void(World *w, int region, uint32_t *rng)
         for (int y = g->y0 + 1; y < g->y0 + g->height; y++) w->layers[LAYER_FOREGROUND][(size_t)y * w->width + x] = (uint16_t)d->edge;
     }
     int cy = g->y0 + g->height / 2;
-    region_island(w, region, rng, w->spawn_x, cy, 15, 5);
+    region_island(w, region, rng, w->spawn_x, cy, 15, 5, ISLE_LENS);
     /* (Level under the tree, whatever the island's top did.) */
     if (d->tree >= 0) {
         int y = cy - 4;
@@ -1495,7 +1631,9 @@ int world_add_region(World *w, int dim, const char *name, int height, bool gener
     if (d->generator == DIM_ISLANDS) region_islands(w, region, &rng);
     else if (d->generator == DIM_CAVERNS) region_caverns(w, region, &rng);
     else region_void(w, region, &rng);
+    region_geodes(w, region, &rng);
     region_riches(w, region, &rng);
+    region_hangings(w, region, &rng);
     region_plant(w, region, &rng);
     memset(w->water_awake, 0, (size_t)w->width);
     w->water_stirring = false;

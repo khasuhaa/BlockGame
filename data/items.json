@@ -297,7 +297,7 @@
     {"name": "carbon_fiber_wing", "label": "Carbon fiber wing", "texture": "items/carbon_fiber_wing.png", "category": "energy", "price": 2450, "tier": 6},
     {"name": "jetpack_chassis", "label": "Jetpack chassis", "texture": "items/jetpack_chassis.png", "category": "energy", "price": 9350, "tier": 6},
     {"name": "jet_engine", "label": "Jet engine", "texture": "items/jet_engine.png", "category": "energy", "price": 9300, "tier": 6},
-    {"name": "jetpack", "label": "Jetpack", "texture": "items/jetpack.png", "category": "energy", "equip": "chest", "worn": "worn/jetpack.png", "max_stack": 1, "price": 38500, "tier": 6, "warmth": 0.25, "lifts": true},
+    {"name": "jetpack", "label": "Jetpack", "texture": "items/jetpack.png", "category": "energy", "equip": "chest", "worn": "worn/jetpack.png", "max_stack": 1, "price": 38500, "tier": 6, "warmth": 0.25, "lifts": true, "pack": true},
     {"name": "workbench", "label": "Workbench", "places": "workbench", "texture": "items/workbench.png", "category": "benches", "price": 10},
     {"name": "acorn", "label": "Acorn", "plants": "oak", "texture": "items/acorn.png", "category": "special", "food": 0.05, "price": 10},
     {"name": "workbench_2", "label": "Workbench II", "places": "workbench_2", "texture": "items/workbench_2.png", "category": "benches", "price": 60},

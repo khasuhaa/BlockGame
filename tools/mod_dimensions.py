@@ -54,7 +54,8 @@ def recolor(src, dst, r, sel='all', r2=None):
             p = px[x, y]
             if not pick(p): continue
             t = (lum(p) - lo) / (hi - lo) if hi > lo else 0.5
-            c = (r2 if sel == 'ore' and grey(p) and r2 else r)(t)
+            # (In an ore, the grey is the rock - but a speck of pure white in it is a glint of the other.)
+            c = (r2 if sel == 'ore' and grey(p) and r2 and lum(p) < 0.92 else r)(1.0 if sel == 'ore' and grey(p) and lum(p) >= 0.92 else t)
             if sel == 'tint': c = tuple((p[k] * 2 + c[k] * 3) // 5 for k in range(3))
             px[x, y] = c + (p[3],)
     os.makedirs(os.path.dirname(dst), exist_ok=True); im.save(dst)
@@ -317,6 +318,20 @@ block('solar_panel', 'wind_turbine', 'Wind turbine', METAL['skysteel'], 7, 30000
 block('solar_panel', 'lightning_rod', 'Lightning rod', METAL['galvanite'], 8, 90000, 'tint', bench_kind='lightning_rod', generator={'power': 80, 'needs': 'sky'})
 block('steam_generator', 'geothermal_generator', 'Geothermal generator', METAL['cinderite'], 9, 250000, 'tint', bench_kind='geothermal_generator', generator={'power': 150, 'needs': 'heat'}, fuel_capacity=None, texture_lit=None, lit_fps=None)
 
+# ---- what stands about in each place, and what is left lying there ----------------------------------------------
+block('diamond_block', 'sky_crystal', 'Sky crystal', GEM['zephyrite'], 7, 900, light=8, pulse=0.1, drop='zephyrite_shard', mine_time=1.2)
+block('diamond_block', 'lumite_crystal', 'Lumite crystal', GEM['lumite'], 9, 9000, light=11, pulse=0.12, drop='lumite', mine_time=1.5, hardness=9)
+block('stone', 'weepstone', 'Weepstone', ramp('3a3430', '6a5e54', 'a8988a'), 9, 600)
+def vault(name, label, r, tier, loot):
+    block('chest', name, label, r, tier, TIER_PRICE[tier], 'tint', iover={'container': {'slots': 16}}, burns=None, loot=loot)
+def some(*names): return {'one_of': [{'item': n, 'weight': w} for n, w in names], 'min': 1, 'max': 3}
+vault('sky_vault', 'Sky vault', SKY['ruin_brick'], 7, [{'item': 'zephyrite_shard', 'min': 2, 'max': 6}, {'item': 'skysteel_ingot', 'min': 1, 'max': 4},
+      some(('zephyrite', 4), ('heliodor_shard', 3), ('aerite_ingot', 3), ('galvanite_ingot', 3), ('moonsilver_ingot', 1), ('stardust', 2)),
+      some(('gold_coin', 6), ('platinum_coin', 1), ('time_crystal', 3), ('wind_essence', 3), ('sky_feather', 3))])
+vault('deep_vault', 'Deep vault', DEEP['bonestone'], 9, [{'item': 'lumite', 'min': 1, 'max': 4}, {'item': 'deepiron_ingot', 'min': 1, 'max': 4},
+      some(('umbrite_shard', 4), ('umbrite', 2), ('cinderite_ingot', 3), ('adamant_ore', 1), ('amber', 3), ('fossil', 3)),
+      some(('platinum_coin', 2), ('time_crystal', 4), ('shadow_essence', 3), ('old_bone', 4), ('golem_core', 1))])
+
 # ---- the benches -------------------------------------------------------------------------------------------------
 zc, hc, uc, ec = GEM['zephyrite'], GEM['heliodor'], GEM['umbrite'], GEM['emberheart']
 ext('workbench_4', 'aether_workbench', 'Aether workbench', METAL['skysteel'], [('skysteel_ingot', 5), ('zephyrite', 1)])
@@ -344,12 +359,13 @@ bench('compost_bin', 'fungal_vat', 'Fungal vat', ramp('4a3a5a', '8a70a0', 'd0b8e
 bench('woodwork_bench', 'bone_carver', 'Bone carver', DEEP['bonestone'])
 
 # ---- the ways through -------------------------------------------------------------------------------------------
-def gate(name, label, r, leads, **over):
-    tile('portal_6', name, label, r, bench=None, bench_kind=None, bench_level=None, leads_to=leads, **over)
-    item('portal_6', name, label, r, cat='portals', price=TIER_PRICE[7] * 10, places=name)
-gate('aether_portal', 'Aether portal', ramp('5a8ad0', 'b0e0ff', 'ffffff'), 'aether', opens_above=80)
-gate('deep_portal', 'Deep portal', ramp('5a0c08', 'd03818', 'ffb060'), 'deep', opens_below=20)
-gate('world_seed', 'World seed', ramp('1a6a3a', '50d080', 'e0ffd0'), 'pocket')
+def gate(name, label, r, frame, leads, **over):
+    """A portal of the game's, its swirl in one colour and the stone round it in another."""
+    tile('portal_6', name, label, r, 'ore', frame, bench=None, bench_kind=None, bench_level=None, leads_to=leads, **over)
+    item('portal_6', name, label, r, 'ore', frame, cat='portals', price=TIER_PRICE[7] * 10, places=name)
+gate('aether_portal', 'Aether portal', ramp('2a6ad8', '70c8ff', 'ffffff'), ramp('9aa6c0', 'dfe6f2', 'ffffff'), 'aether', opens_above=80)
+gate('deep_portal', 'Deep portal', ramp('8a1408', 'ff5a18', 'ffe070'), ramp('0c0a12', '2a2436', '5a4e6e'), 'deep', opens_below=20)
+gate('world_seed', 'World seed', ramp('147a3a', '50e080', 'f0ffd0'), ramp('4a3a26', '8a7048', 'c8b080'), 'pocket')
 
 # ---- creatures ---------------------------------------------------------------------------------------------------
 def mob(base, name, label, r, sel='tint', **over):
@@ -626,6 +642,27 @@ biome('magma_fields', 'Magma fields', 'deep', 'magmarock', 'magmarock', 'magmaro
 biome('the_roots', 'The Roots', 'deep', 'rootsoil', 'rootsoil', 'deepslate', [('rootwood', 3), ('shelf_wood', 1)], 4, [('blindroot_0', 8), ('deep_lichen_0', 10)])
 biome('the_abyss', 'The abyss', 'deep', 'ashstone', 'obsidian_rock', 'obsidian_rock', [], 0, [], hot=True)
 biome('pocket_isle', 'A world of your own', 'pocket', 'grass', 'dirt', 'stone')
+def spikes(biome_, *rows): next(b for b in biomes if b['name'] == biome_)['spikes'] = [clean({'tile': t, 'one_in': n, 'height': h, 'hang': hang or None, 'arch': arch or None}) for t, n, h, hang, arch in rows]
+def treasure(biome_, tile_, one_in): next(b for b in biomes if b['name'] == biome_)['treasure'] = {'tile': tile_, 'one_in': one_in}
+spikes('cloudmeadow', ('aetherstone', 7, [1, 4], True, False))
+spikes('skywood', ('aetherstone', 6, [1, 5], True, False), ('windwood_log', 30, [2, 6], True, False))
+spikes('stormreach', ('storm_slate', 5, [2, 7], False, False), ('storm_slate', 3, [2, 8], True, False), ('galvanite_block', 60, [3, 6], False, False))
+spikes('crystal_spires', ('sky_crystal', 3, [3, 12], False, False), ('sky_crystal', 3, [2, 9], True, False), ('skymarble', 6, [2, 5], False, False))
+spikes('sunpetal_gardens', ('cloudstone_column', 26, [3, 6], False, True), ('cloudstone', 8, [1, 3], True, False))
+spikes('frostveil', ('frost_glass', 5, [2, 7], False, False), ('frost_glass', 3, [2, 9], True, False))
+spikes('sky_ruins', ('ruin_brick_column', 7, [3, 8], False, False), ('ruin_brick', 9, [4, 7], False, True), ('ruin_brick', 6, [1, 4], True, False))
+spikes('cloud_shoals', ('dense_cloud', 6, [1, 3], False, False))
+treasure('sky_ruins', 'sky_vault', 16); treasure('crystal_spires', 'sky_vault', 60); treasure('stormreach', 'sky_vault', 70)
+spikes('fungal_forest', ('weepstone', 9, [1, 4], False, False), ('weepstone', 6, [2, 7], True, False))
+spikes('glowmoss_grotto', ('glowmoss', 12, [1, 3], False, False), ('weepstone', 7, [2, 6], True, False))
+spikes('crystal_cathedral', ('lumite_crystal', 3, [3, 14], False, False), ('lumite_crystal', 3, [3, 12], True, False), ('lumerock', 6, [2, 5], False, False))
+spikes('bone_hollows', ('bonestone', 8, [5, 11], False, True), ('bonestone_column', 8, [2, 6], False, False), ('bonestone', 6, [2, 6], True, False))
+spikes('sunken_lake', ('weepstone', 5, [2, 9], True, False), ('ashstone', 10, [1, 4], False, False))
+spikes('obsidian_flats', ('obsidian_glass', 5, [2, 9], False, False), ('obsidian_rock', 5, [2, 8], True, False))
+spikes('magma_fields', ('magmarock', 6, [2, 6], False, False), ('magma', 14, [2, 6], True, False), ('cinderite_block', 80, [2, 4], False, False))
+spikes('the_roots', ('rootwood_log', 3, [3, 14], True, False), ('rootwood_log', 9, [2, 6], False, False))
+spikes('the_abyss', ('obsidian_rock', 5, [3, 10], False, False), ('magma', 18, [2, 7], True, False), ('obsidian_rock', 4, [3, 10], True, False))
+treasure('bone_hollows', 'deep_vault', 22); treasure('obsidian_flats', 'deep_vault', 40); treasure('the_abyss', 'deep_vault', 30); treasure('crystal_cathedral', 'deep_vault', 60)
 
 SKY_ROCK, DEEP_ROCK = ['aetherstone', 'cloudstone', 'skymarble', 'moonrock', 'storm_slate'], ['deepslate', 'obsidian_rock', 'magmarock', 'lumerock', 'bonestone', 'ashstone']
 def vein(name, tile_, dim, hosts, size, per, depth): veins.append({'name': name, 'tile': tile_, 'dimension': dim, 'in': hosts, 'size': size, 'per_100_columns': per, 'depth': depth})
@@ -634,6 +671,7 @@ vein('aerite', 'aerite_ore', 'aether', SKY_ROCK, [2, 5], 14, [0, 300]); vein('mo
 vein('sky_frost_seam', 'frost_glass', 'aether', ['aetherstone', 'moonrock'], [4, 10], 6, [0, 140]); vein('sky_marble_seam', 'skymarble', 'aether', ['aetherstone'], [6, 16], 8, [0, 300]); vein('sky_moonrock_seam', 'moonrock', 'aether', ['aetherstone', 'cloudstone'], [6, 16], 8, [0, 160])
 vein('deepiron', 'deepiron_ore', 'deep', DEEP_ROCK, [3, 8], 70, [0, 240]); vein('cinderite', 'cinderite_ore', 'deep', DEEP_ROCK, [2, 6], 40, [140, 320])
 vein('adamant', 'adamant_ore', 'deep', DEEP_ROCK, [2, 4], 14, [250, 320]); vein('deep_bone_seam', 'bonestone', 'deep', ['deepslate'], [8, 20], 20, [0, 200])
+vein('deep_glow_seam', 'lumerock', 'deep', ['deepslate', 'obsidian_rock'], [3, 9], 40, [0, 320]); vein('deep_magma_pocket', 'magma', 'deep', ['magmarock', 'obsidian_rock'], [3, 8], 24, [180, 320])
 vein('deep_ash_seam', 'ashstone', 'deep', ['deepslate', 'obsidian_rock'], [8, 20], 20, [100, 320]); vein('deep_fossil', 'bone_gravel', 'deep', ['deepslate', 'bonestone'], [3, 8], 16, [0, 320])
 def dec(name, tile_, dim, per, depth, **over): decor.append(dict({'name': name, 'tile': tile_, 'dimension': dim, 'per_100_columns': per, 'depth': depth}, **over))
 dec('zephyrite', 'zephyrite', 'aether', 5, [0, 300]); dec('heliodor', 'heliodor', 'aether', 2.5, [0, 110]); dec('sky_vine', 'sky_vine', 'aether', 12, [0, 300], hang=[2, 7])
@@ -649,10 +687,15 @@ for t in tiles:
 
 dimensions = [
     {'name': 'aether', 'label': 'The Aether', 'generator': 'islands', 'height': 300, 'rock': 'aetherstone', 'edge': 'void_wall', 'platform': 'cloudstone', 'cloud': 'dense_cloud',
-     'falls_home': True, 'climate_wavelength': 150, 'islands': {'per_100_columns': 7, 'length': [8, 76], 'depth': [4, 20]}},
+     'falls_home': True, 'climate_wavelength': 150, 'islands': {'per_100_columns': 8, 'length': [8, 76], 'depth': [4, 20]},
+     'sky_day': [150, 214, 246], 'sky_night': [38, 26, 86], 'ambient': 5,
+     'geodes': [{'shell': 'skymarble', 'gem': 'zephyrite', 'per_100_columns': 0.9, 'radius': [3, 6]}, {'shell': 'moonrock', 'gem': 'heliodor', 'per_100_columns': 0.4, 'radius': [3, 5], 'depth': [0, 110]}]},
     {'name': 'deep', 'label': 'The Deep', 'generator': 'caverns', 'height': 320, 'sky': False, 'rock': 'deepslate', 'edge': 'void_wall', 'platform': 'deepslate', 'magma': 'magma',
      'magma_rows': 7, 'climate_wavelength': 170, 'strata': [{'tile': 'obsidian_rock', 'from': 0.62}, {'tile': 'magmarock', 'from': 0.88}],
-     'caverns': {'per_100_columns': 4.5, 'length': [50, 170], 'radius_min': 6, 'radius_max': 15, 'lakes': 0.22}},
+     'caverns': {'per_100_columns': 4.5, 'length': [50, 170], 'radius_min': 6, 'radius_max': 15, 'lakes': 0.22},
+     'ambient': 3, 'sky_day': [17, 12, 26], 'sky_night': [17, 12, 26],
+     'geodes': [{'shell': 'lumerock', 'gem': 'lumite', 'per_100_columns': 1.4, 'radius': [5, 10], 'depth': [0, 220]}, {'shell': 'obsidian_glass', 'gem': 'umbrite', 'per_100_columns': 0.7, 'radius': [4, 8], 'depth': [120, 300]},
+                {'shell': 'magmarock', 'gem': 'emberheart', 'per_100_columns': 0.4, 'radius': [3, 5], 'depth': [250, 300]}]},
     {'name': 'pocket', 'label': 'A world of your own', 'generator': 'void', 'width': 128, 'height': 128, 'rock': 'stone', 'edge': 'void_wall', 'platform': 'stone', 'tree': 'diamond_tree'}]
 
 # ---- written out -------------------------------------------------------------------------------------------------

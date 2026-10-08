@@ -140,6 +140,7 @@ bool playerui_handle_input(PlayerUi *ui, Game *g)
     shown_for = g->controlled;
     shown_count = g->character_count;
     ui->switched = false;
+    ui->tapped = false;
     if (ui->death_open > 0 && !game_character_dead(g, ui->death_open - 1)) ui->death_open = 0;
     if (ui->confirm > 0 && !game_character_dead(g, ui->confirm - 1)) ui->confirm = 0;
     if (game_character_dead(g, g->controlled)) ui->open = false;
@@ -188,6 +189,7 @@ bool playerui_handle_input(PlayerUi *ui, Game *g)
         ui->switched = true;
     } else if (who == g->controlled) {
         ui->open = !ui->open;
+        ui->tapped = true;
     }
     return true;
 }

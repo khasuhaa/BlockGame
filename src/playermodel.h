@@ -23,6 +23,7 @@ typedef struct {
     float sink;        /* how far the hips are let down, in the model's units (12 is sat on the ground) */
     float turn;        /* how far round toward the viewer they are turned, in degrees; PLAYERMODEL_SIDE is face on */
     Color tint;        /* WHITE for as they are */
+    float jet;         /* how long the flames under a pack on their back are, in the model's units (9 at most); 0 for none */
 } BodyPose;
 
 /* Draws them with their feet at a point of the world, `scale` world units to
@@ -32,6 +33,8 @@ typedef struct {
  * or flat, as a picture of it. (In depth nothing of it is left out for being turned away: what is behind is
  * hidden by what is in front.) */
 void playermodel_depth(bool on, float z);
-void playermodel_draw(Vector2 feet, float scale, const BodyPose *pose, const char *skin, const char *const *worn, int worn_count);
+/* (`packs` says which of the things worn are packs as well, a bit for each: a box on the back, whose picture is
+ * laid out at 32,0 of the thing's own - and the flame under it at 52,0.) */
+void playermodel_draw(Vector2 feet, float scale, const BodyPose *pose, const char *skin, const char *const *worn, int worn_count, unsigned packs);
 
 #endif

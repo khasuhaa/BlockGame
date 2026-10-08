@@ -11711,7 +11711,7 @@ static void test_dimensions_mod(void)
         failures++;
         return;
     }
-    CHECK(content.tile_count == tiles + 402 && content.item_count == items + 562 && content.recipe_count == recipes + 400);
+    CHECK(content.tile_count == tiles + 407 && content.item_count == items + 567 && content.recipe_count == recipes + 400);
     CHECK(content.biome_count == biomes + 18 && content.mob_count == kinds + 27 && content.dimension_count == 3 && content.tree_count == 32);
     for (int i = items; i < content.item_count; i++) {
         const ItemDef *d = item_def((ItemId)i);
@@ -11840,7 +11840,15 @@ static void test_dimensions_mod(void)
         }
     world_set(w, 60, 800, TILE_AIR);
     world_set(w, 60, 799, TILE_AIR);
-    CHECK(light_at(&g, 60, 800) <= content.rules.light_minimum + 1 && light_at(&g, x, ground) > 8);
+    /* (As dark as the Deep gets, which is not quite black: it has a little light of its own.) */
+    CHECK(light_at(&g, 60, 800) == content.dimensions[deep].ambient && content.dimensions[deep].ambient == 3 && light_at(&g, x, ground) > 8);
+    /* What makes the places worth seeing: pillars and hanging rock, geodes with gems all over the inside, things left lying about. */
+    CHECK(content.dimensions[deep].geode_count == 3 && content.dimensions[aether].geode_count == 2 && content.dimensions[aether].has_sky_color);
+    CHECK(content.biomes[biome_named("crystal_cathedral")].spike_count == 3 && content.biomes[biome_named("sky_ruins")].treasure == tile_id("sky_vault") &&
+          tile_def(tile_id("sky_vault"))->loot_count == 4 && tile_def(tile_id("deep_vault"))->storage_columns > 0);
+    CHECK(count_in_rows(w, tile_id("lumerock"), 700, 1020) > 40 && count_in_rows(w, tile_id("weepstone"), 700, 1020) + count_in_rows(w, tile_id("lumite_crystal"), 700, 1020) +
+          count_in_rows(w, tile_id("bonestone"), 700, 1020) + count_in_rows(w, tile_id("rootwood_log"), 700, 1020) > 20);
+    CHECK(count_in_rows(w, tile_id("skymarble"), 400, 700) > 0);
     /* What burns takes health from whoever stands on it. */
     world_set(w, 60, 801, tile_id("magma"));
     g.player.feet = g.player.step_to = (TilePos){ 60, 800 };

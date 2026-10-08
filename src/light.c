@@ -154,7 +154,10 @@ void light_compute(const Game *g, int x0, int y0, int width, int height, uint8_t
     for (int cy = 0; cy < height; cy++) {
         for (int cx = 0; cx < width; cx++) {
             int v = level[(cy + pad) * bw + cx + pad];
-            out[cy * width + cx] = (uint8_t)(v < u->light_minimum ? u->light_minimum : v);
+            /* (Some places are never quite dark.) */
+            int least = u->light_minimum, dim = world_dimension_at(w, y0 + cy);
+            if (dim >= 0 && dim < content.dimension_count && content.dimensions[dim].ambient > least) least = content.dimensions[dim].ambient;
+            out[cy * width + cx] = (uint8_t)(v < least ? least : v);
         }
     }
     free(level);

@@ -704,6 +704,7 @@ static bool read_items(Reader *r, const cJSON *root)
         copy_name(it->worn, sizeof it->worn, str(e, "worn"));
         it->walk_speed = (float)num(e, "walk_speed", 0.0);
         it->lifts = flag(e, "lifts", false);
+        it->pack = flag(e, "pack", false);
         it->glides = flag(e, "glides", false);
         it->power = (int)num(e, "power", 0);
         it->cooling = (float)num(e, "cooling", 0.0);
@@ -1067,6 +1068,19 @@ static bool read_worldgen(Reader *r, const cJSON *root)
             b->plants[b->plant_count].tile = tile;
             b->plants[b->plant_count++].one_in = (int)num(one, "one_in", 20);
         }
+        cJSON_ArrayForEach(one, field(e, "spikes")) {
+            if (b->spike_count >= MAX_BIOME_SPIKES) return fail(r, "biome \"%s\" has too many spikes", name);
+            if (!tile_ref(r, one, "tile", &b->spikes[b->spike_count].tile) || b->spikes[b->spike_count].tile == TILE_AIR)
+                return fail(r, "biome \"%s\": a spike needs a \"tile\"", name);
+            b->spikes[b->spike_count].one_in = (int)num(one, "one_in", 20);
+            b->spikes[b->spike_count].min = 2, b->spikes[b->spike_count].max = 5;
+            pair(one, "height", &b->spikes[b->spike_count].min, &b->spikes[b->spike_count].max);
+            b->spikes[b->spike_count].hang = flag(one, "hang", false);
+            b->spikes[b->spike_count++].arch = flag(one, "arch", false);
+        }
+        const cJSON *treasure = field(e, "treasure");
+        if (treasure && !tile_ref(r, treasure, "tile", &b->treasure)) return false;
+        b->treasure_one_in = (int)num(treasure, "one_in", 0);
     }
 
     /* "biome_plants": more for biomes that are already there to grow - what a mod adds to one without saying it all over again. */
@@ -1336,6 +1350,25 @@ static bool read_worldgen(Reader *r, const cJSON *root)
             if (d->strata_count >= MAX_STRATA) return fail(r, "dimension \"%s\" has too many strata", name);
             if (!tile_ref(r, layer, "tile", &d->strata[d->strata_count].tile)) return false;
             d->strata[d->strata_count++].from = (float)num(layer, "from", 0.5);
+        }
+        const cJSON *geode;
+        cJSON_ArrayForEach(geode, field(e, "geodes")) {
+            if (d->geode_count >= MAX_GEODES) return fail(r, "dimension \"%s\" has too many kinds of geode", name);
+            if (!tile_ref(r, geode, "shell", &d->geodes[d->geode_count].shell) || !tile_ref(r, geode, "gem", &d->geodes[d->geode_count].gem)) return false;
+            if (d->geodes[d->geode_count].shell == TILE_AIR) return fail(r, "dimension \"%s\": a geode needs a \"shell\"", name);
+            d->geodes[d->geode_count].per_100_columns = (float)num(geode, "per_100_columns", 1.0);
+            d->geodes[d->geode_count].min_radius = 4, d->geodes[d->geode_count].max_radius = 8;
+            pair(geode, "radius", &d->geodes[d->geode_count].min_radius, &d->geodes[d->geode_count].max_radius);
+            d->geodes[d->geode_count].max_depth = d->height;
+            pair(geode, "depth", &d->geodes[d->geode_count].min_depth, &d->geodes[d->geode_count].max_depth);
+            d->geode_count++;
+        }
+        d->ambient = (int)num(e, "ambient", 0);
+        const cJSON *day = field(e, "sky_day"), *night = field(e, "sky_night");
+        d->has_sky_color = cJSON_GetArraySize(day) == 3 && cJSON_GetArraySize(night) == 3;
+        for (int k = 0; d->has_sky_color && k < 3; k++) {
+            d->sky_day[k] = (unsigned char)cJSON_GetArrayItem(day, k)->valuedouble;
+            d->sky_night[k] = (unsigned char)cJSON_GetArrayItem(night, k)->valuedouble;
         }
         copy_name(d->tree_name, sizeof d->tree_name, str(e, "tree"));
         d->tree = -1;

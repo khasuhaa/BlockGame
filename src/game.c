@@ -2738,6 +2738,7 @@ bool game_travel(Game *g, int x, int y)
     p->feet = p->step_to = to;
     p->activity = ACTIVITY_IDLE;
     p->climbing = false;
+    g->travels++;
     game_reveal(g, to.x, to.y - 1);
     return true;
 }
@@ -3693,6 +3694,7 @@ static void vitals_tick(Game *g)
             g->player.feet = g->player.step_to = (TilePos){ at.x, 2 };
             g->player.activity = ACTIVITY_IDLE;
             g->player.climbing = false;
+            if (g->live == g->controlled) g->travels++;
             game_reveal(g, at.x, 2);
         }
     }
