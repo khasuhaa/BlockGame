@@ -243,9 +243,11 @@ static float draw_detail(const RecipeUi *ui, Rectangle area)
     assets_draw_item(ui->shown, big);
     DrawText(def->label, (int)x + 84, (int)y + 6, 30, RAYWHITE);
     char about[200] = "";
-    if (def->category >= 0)
-        snprintf(about, sizeof about, "%s. Sold at the trade portal for %d.", content.trade.categories[def->category].label,
-                 trade_price(ui->shown));
+    if (def->category >= 0) {
+        char price[96];
+        trade_price_text(trade_price(ui->shown), price, sizeof price);
+        snprintf(about, sizeof about, "%s. Sold at the trade portal for %s.", content.trade.categories[def->category].label, price);
+    }
     else if (def->crystals > 0)
         snprintf(about, sizeof about, "Turns into %d time crystal%s when picked up.", def->crystals, def->crystals == 1 ? "" : "s");
     DrawText(about, (int)x + 84, (int)y + 42, 10, dim_text);

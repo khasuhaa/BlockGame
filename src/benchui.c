@@ -36,12 +36,25 @@ static TileType open_bench(const Game *g)
     return game_bench_at(g, g->bench_pos.x, g->bench_pos.y);
 }
 
+/* What a recipe takes is set out in rows of so many, each row so high: as many rows as it needs, and the menu
+ * is that much taller. (How many rows the recipe now shown has past the first is noted here each frame, for
+ * everything that asks where the menu is.) */
+#define INPUT_COLUMNS 4
+#define INPUT_ROW 30.0f
+static int extra_rows;
+
+static void note_rows(const Recipe *r)
+{
+    int cells = r ? r->input_count + (r->crystals > 0 ? 1 : 0) : 0;
+    extra_rows = cells > INPUT_COLUMNS ? (cells - 1) / INPUT_COLUMNS : 0;
+}
+
 /* The panel flying out of the open block: sized for crafting, or for a
  * storage block's grid of slots. */
 static Rectangle menu_rect(const Game *g, const View *v)
 {
     const TileDef *def = tile_def(open_bench(g));
-    float w = MENU_WIDTH, h = MENU_HEIGHT;
+    float w = MENU_WIDTH, h = MENU_HEIGHT + (def->storage_columns > 0 ? 0.0f : (float)extra_rows * INPUT_ROW);
     if (def->storage_columns > 0) {
         w = 2 * MENU_PAD + def->storage_columns * (STORAGE_SLOT + STORAGE_GAP) - STORAGE_GAP;
         h = MENU_HEADER + 2 * MENU_PAD + def->storage_rows * (STORAGE_SLOT + STORAGE_GAP) - STORAGE_GAP;
@@ -52,7 +65,10 @@ static Rectangle menu_rect(const Game *g, const View *v)
         }
     }
     Vector2 tile = view_tile_pos(v, (float)g->bench_pos.x, (float)g->bench_pos.y);
-    return (Rectangle){ tile.x + v->tile_size + 14.0f, tile.y + v->tile_size - h, w, h };
+    float top = tile.y + v->tile_size - h;
+    /* (A tall one is kept on the screen.) */
+    if (top < 4.0f) top = 4.0f;
+    return (Rectangle){ tile.x + v->tile_size + 14.0f, top, w, h };
 }
 
 int benchui_storage_slots(const Game *g, const View *v, Rectangle *rects, int max, uint16_t *container)
@@ -137,7 +153,7 @@ static Rectangle list_rect(Rectangle menu)
 
 static Rectangle slider_rect(Rectangle menu)
 {
-    return (Rectangle){ menu.x + MENU_PAD + 6, menu.y + MENU_HEADER + 144,
+    return (Rectangle){ menu.x + MENU_PAD + 6, menu.y + MENU_HEADER + 144 + (float)extra_rows * INPUT_ROW,
                         menu.width - 2 * MENU_PAD - 62, 20 };
 }
 
@@ -354,6 +370,7 @@ bool benchui_handle_input(BenchUi *ui, Game *g, const View *v)
 
     const Recipe *recipes[MAX_BENCH_RECIPES];
     int count = g->bench_open ? open_recipes(g, recipes) : 0;
+    note_rows(g->bench_open && ui->selected >= 0 && ui->selected < count ? recipes[ui->selected] : NULL);
     Rectangle menu = menu_rect(g, v);
     Rectangle list = list_rect(menu);
     if (ui->selected >= count) ui->selected = -1;
@@ -580,8 +597,9 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
     float y = menu.y + MENU_HEADER + 70;
 
     /* What is being made, on a line of its own so a long name has room. */
+    hud_draw_item_icon(r->output.id, (Rectangle){ left, y - 3, 22, 22 });
     DrawText(TextFormat("%s x%d", item_def(r->output.id)->label, r->output.count * amount),
-             (int)left, (int)y, 16, RAYWHITE);
+             (int)left + 26, (int)y, 16, RAYWHITE);
     /* How long each takes, at the end of the line. */
     float secs = game_craft_seconds(g, r);
     const char *takes = secs >= 60.0f ? ((int)secs % 60 ? TextFormat("%dm %ds each", (int)secs / 60, (int)secs % 60)
@@ -590,46 +608,24 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
     DrawText(takes, (int)(left + room) - MeasureText(takes, 12), (int)y + 2, 12, LIGHTGRAY);
     y += 24;
 
-    /* Inputs with how many are held against how many are needed, then the
-     * output. If the row would run off the menu it is drawn smaller. */
-    static const struct {
-        float icon;
-        int font;
-    } sizes[] = { { 36, 16 }, { 30, 14 }, { 24, 12 }, { 20, 10 } };
-    float icon = sizes[0].icon;
-    int font = sizes[0].font;
-    for (int k = 0; k < 4; k++) {
-        icon = sizes[k].icon;
-        font = sizes[k].font;
-        float width = 24 + icon;
-        if (r->crystals > 0)
-            width += icon + 8 + MeasureText(TextFormat("%d/%d", g->crystals, r->crystals * amount), font);
-        for (int i = 0; i < r->input_count; i++)
-            width += icon + 8 + MeasureText(TextFormat("%d/%d", recipe_input_held(&g->inventory, r->inputs[i]),
-                                                       r->inputs[i].count * amount), font);
-        if (width <= room) break;
-    }
-    float x = left, text_y = y + (36 - font) / 2.0f, icon_y = y + (36 - icon) / 2.0f;
-    for (int i = 0; i < r->input_count; i++) {
-        int have = recipe_input_held(&g->inventory, r->inputs[i]);
-        int need = r->inputs[i].count * amount;
-        hud_draw_item_icon(r->inputs[i].id, (Rectangle){ x, icon_y, icon, icon });
+    /* What it takes, with how many are held against how many are needed: set out four to a row, in as many
+     * rows as it takes. (A number too long for its place is drawn smaller.) */
+    float cell = room / (float)INPUT_COLUMNS, icon = 26.0f;
+    int cells = r->input_count + (r->crystals > 0 ? 1 : 0);
+    for (int i = 0; i < cells; i++) {
+        bool crystal = i >= r->input_count;
+        int have = crystal ? g->crystals : recipe_input_held(&g->inventory, r->inputs[i]);
+        int need = (crystal ? r->crystals : r->inputs[i].count) * amount;
+        float x = left + (float)(i % INPUT_COLUMNS) * cell, row_y = y + 3 + (float)(i / INPUT_COLUMNS) * INPUT_ROW;
+        Rectangle at = { x, row_y, icon, icon };
+        /* (Crystals are paid like an input, but come from the player, not the inventory.) */
+        if (crystal) assets_draw_image(content.trade.crystal_icon, at);
+        else hud_draw_item_icon(r->inputs[i].id, at);
         const char *text = TextFormat("%d/%d", have, need);
-        DrawText(text, (int)(x + icon + 2), (int)text_y, font,
-                 have >= need ? RAYWHITE : (Color){ 235, 90, 90, 255 });
-        x += icon + 8 + MeasureText(text, font);
+        int font = 14;
+        while (font > 8 && (float)MeasureText(text, font) > cell - icon - 6) font--;
+        DrawText(text, (int)(x + icon + 3), (int)(row_y + (icon - (float)font) / 2), font, have >= need ? RAYWHITE : (Color){ 235, 90, 90, 255 });
     }
-    if (r->crystals > 0) {
-        /* Crystals are paid like an input, but come from the player, not the inventory. */
-        int need = r->crystals * amount;
-        assets_draw_image(content.trade.crystal_icon, (Rectangle){ x, icon_y, icon, icon });
-        const char *text = TextFormat("%d/%d", g->crystals, need);
-        DrawText(text, (int)(x + icon + 2), (int)text_y, font,
-                 g->crystals >= need ? RAYWHITE : (Color){ 235, 90, 90, 255 });
-        x += icon + 8 + MeasureText(text, font);
-    }
-    DrawText(">", (int)x + 4, (int)(y + 8), 20, LIGHTGRAY);
-    hud_draw_item_icon(r->output.id, (Rectangle){ x + 24, icon_y, icon, icon });
 
     /* Slider over 1..99; the part past what can be afforded is greyed out. */
     Rectangle s = slider_rect(menu);

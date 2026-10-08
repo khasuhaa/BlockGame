@@ -1,12 +1,5 @@
 {
- "section": "discovery_road",
- "categories": [
-  {
-   "name": "discovery_road",
-   "label": "Discovery Road",
-   "also": [
-    "relics"
-   ]
-  }
- ]
+  "categories": [
+    {"name": "relics", "label": "Relics"}
+  ]
 }

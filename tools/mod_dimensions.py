@@ -669,11 +669,18 @@ for n, i in enumerate(items):
             o[k] = v
             if k == 'equip': o['worn'] = 'worn/%s.png' % i['name']
         items[n] = o
+# Where each thing is listed for trade: in the game's own categories, by what it is.
+SOLID = {t['name'] for t in tiles if t.get('solid') or t.get('steps') or t.get('supports')}
+POWER = ('wire', 'battery', 'turbine', 'lightning_rod', 'generator', 'capacitor', 'coil')
+for i in items:
+    if i.get('category') != 'materials': continue
+    n = i['name']
+    i['category'] = ('nature' if 'food' in i or 'sows' in i or 'plants' in i else 'energy' if any(w in n for w in POWER) else
+                     'blocks' if i.get('places') in SOLID else 'ores' if n.endswith(('_ore', '_ingot', '_shard')) or n in GEM else 'crafted')
 names = [t['name'] for t in items]; assert len(names) == len(set(names)), [n for n in names if names.count(n) > 1]
 dump('tiles.json', {'tiles': tiles}); dump('items.json', {'items': items}); dump('recipes.json', {'recipes': recipes}); dump('trees.json', {'trees': trees})
 dump('mobs.json', {'mobs': mobs}); dump('worldgen.json', {'dimensions': dimensions, 'biomes': biomes, 'veins': veins, 'cave_decor': decor})
 dump('rules.json', {'players': {'max': 3}})
-dump('trade.json', {'section': 'dimensions', 'categories': [{'name': 'dimensions', 'label': 'Dimensions'}]})
 json.dump({'label': 'Dimensions', 'icon': 'icon.png', 'description': 'The Aether and the Deep: two more places for a world, and all that is in them.'}, open(os.path.join(mod, 'mod.json'), 'w'), indent=1)
 recolor(os.path.join(DATA, 'textures/tiles/portal_6.png') if os.path.exists(os.path.join(DATA, 'textures/tiles/portal_6.png')) else os.path.join(DATA, 'textures/items/portal_6.png'),
         os.path.join(mod, 'icon.png'), ramp('5a8ad0', 'b0e0ff', 'ffffff'), 'tint')

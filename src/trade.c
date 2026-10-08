@@ -1,5 +1,7 @@
 #include "trade.h"
 
+#include <stdio.h>
+
 bool game_trade_open(const Game *g)
 {
     return g->bench_open && tile_def(game_bench_at(g, g->bench_pos.x, g->bench_pos.y))->trade;
@@ -56,6 +58,32 @@ bool game_trade_deals(const Game *g, ItemId item)
     int level = game_trade_level(g);
     if (level > 0 && def->trade_tier > level) return false;
     return !content.trade.discover || g->discovered[item];
+}
+
+int trade_coins(long amount, int *out)
+{
+    const TradeDef *t = &content.trade;
+    for (int i = t->currency_count - 1; i >= 0; i--) {
+        int value = t->currencies[i].value > 0 ? t->currencies[i].value : 1;
+        out[i] = (int)(amount / value);
+        amount -= (long)out[i] * value;
+    }
+    return t->currency_count;
+}
+
+void trade_price_text(long amount, char *out, size_t size)
+{
+    int parts[MAX_CURRENCIES], n = trade_coins(amount, parts);
+    size_t used = 0;
+    if (size > 0) out[0] = '\0';
+    for (int i = n - 1; i >= 0 && used < size; i--) {
+        if (parts[i] == 0) continue;
+        char label[CONTENT_NAME_LEN];
+        snprintf(label, sizeof label, "%s", item_def(content.trade.currencies[i].item)->label);
+        if (label[0] >= 'A' && label[0] <= 'Z') label[0] = (char)(label[0] - 'A' + 'a');
+        used += (size_t)snprintf(out + used, size - used, "%s%d %s%s", used > 0 ? ", " : "", parts[i], label, parts[i] == 1 ? "" : "s");
+    }
+    if (used == 0 && size > 0) snprintf(out, size, "nothing");
 }
 
 long trade_wallet(const Inventory *inv)

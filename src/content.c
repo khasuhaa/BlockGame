@@ -118,10 +118,6 @@ void content_reset(void)
 
 /* ---- reading JSON ------------------------------------------------------ */
 
-/* The trade section of the directory being read: the category everything it
- * defines that is traded is listed under. Empty if it has none. */
-static char loading_section[CONTENT_NAME_LEN];
-
 /* Where we are, for error messages. */
 typedef struct {
     const char *file;
@@ -603,7 +599,6 @@ static bool read_items(Reader *r, const cJSON *root)
             return fail(r, "item \"%s\": \"food\" is a share of the hunger bar, 0 to 1", it->name);
         /* The category is matched to the trade file once that has been read. */
         copy_name(it->category_name, sizeof it->category_name, str(e, "category"));
-        copy_name(it->section_name, sizeof it->section_name, loading_section);
         it->price = (int)num(e, "price", 0);
         it->tier = (int)num(e, "tier", 0);
         if (it->tier < 0) return fail(r, "item \"%s\": a \"tier\" is 1 or more", it->name);
@@ -1916,15 +1911,6 @@ static bool validate(Reader *r)
         for (int c = 0; c < content.trade.category_count && it->category < 0 && it->category_name[0]; c++)
             for (int a = 0; a < content.trade.categories[c].also_count; a++)
                 if (strcmp(content.trade.categories[c].also[a], it->category_name) == 0) it->category = c;
-        /* What a directory with a section of its own defines is listed there, whatever
-         * category it names - but for what is in one no trade portal deals in. */
-        if (it->section_name[0] && it->category >= 0 && !content.trade.categories[it->category].free_only) {
-            int section = -1;
-            for (int c = 0; c < content.trade.category_count; c++)
-                if (strcmp(content.trade.categories[c].name, it->section_name) == 0) section = c;
-            if (section < 0) return fail(r, "item \"%s\" is of the section \"%s\", which is not a category", it->name, it->section_name);
-            it->category = section;
-        }
         /* With no tier of its own, the highest whose price it reaches. */
         it->trade_tier = it->tier > 0 ? it->tier : 1;
         for (int k = 0; it->tier == 0 && k < content.trade.tier_count; k++)
@@ -2058,9 +2044,6 @@ bool content_load(const char *dir, char *error, size_t error_size)
     if (content.tile_count == 0) content_reset();
 
     for (int i = 0; i < FILE_COUNT; i++) roots[i] = parse_file(&r, dir, files[i]);
-    loading_section[0] = '\0';
-    for (int i = 0; i < FILE_COUNT; i++)
-        if (roots[i] && strcmp(files[i], "trade.json") == 0) copy_name(loading_section, sizeof loading_section, str(roots[i], "section"));
 
     /* Names first, across every file, then the definitions that use them. */
     for (int i = 0; i < FILE_COUNT && !r.failed; i++) {

@@ -33,6 +33,11 @@ bool game_trade_deals(const Game *g, ItemId item);
  * bought and sold). Where everything is given away, things with no category
  * of their own - the coins - are in the last one kept for such places. Returns how many, at most `max`. */
 int game_trade_listing(const Game *g, int category, ItemId *out, bool *found, int max);
+/* A sum as the coins that make it up, using the biggest there are: `out` (room for MAX_CURRENCIES) gets how many of
+ * each currency, smallest first. Returns how many currencies there are. */
+int trade_coins(long amount, int *out);
+/* The same in words: "1 platinum coin, 55 gold coins". */
+void trade_price_text(long amount, char *out, size_t size);
 /* Everything the player's coins are worth, in the smallest currency. */
 long trade_wallet(const Inventory *inv);
 

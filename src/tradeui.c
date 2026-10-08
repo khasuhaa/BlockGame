@@ -26,6 +26,24 @@ static const Color unknown_color = { 34, 36, 45, 255 };
 
 /* ---- layout ------------------------------------------------------------ */
 
+static float draw_coins(ItemId coin, int count, float right, float y, float icon, int size, Color c);
+
+/* A sum of money, in the biggest coins that make it up: so many of each, the biggest on the left. Drawn
+ * leftward from `right`; returns where it starts. */
+static float draw_price(long amount, float right, float y, float icon, int size, Color c)
+{
+    int parts[MAX_CURRENCIES];
+    int n = trade_coins(amount, parts);
+    float x = right;
+    bool any = false;
+    for (int i = 0; i < n; i++) {
+        if (parts[i] == 0 && (any || i + 1 < n || amount != 0)) continue;
+        x = draw_coins(content.trade.currencies[i].item, parts[i], x, y, icon, size, c) - 6.0f;
+        any = true;
+    }
+    return x + 6.0f;
+}
+
 static Rectangle panel_rect(const Game *g, const View *v)
 {
     Vector2 tile = view_tile_pos(v, (float)g->bench_pos.x, (float)g->bench_pos.y);
@@ -300,7 +318,6 @@ static void draw_items(const TradeUi *ui, const Game *g, Rectangle panel)
         draw_centered("Pick an item to buy or sell", note, 16, LIGHTGRAY);
         return;
     }
-    const TradeDef *t = &content.trade;
     int price = trade_price(ui->selected), back = trade_sell_price(ui->selected), held = inventory_count(&g->inventory, ui->selected);
     long wallet = trade_wallet(&g->inventory);
     assets_draw_item_tones(ui->selected, (Rectangle){ left, y, 40, 40 }, 0);
@@ -310,9 +327,9 @@ static void draw_items(const TradeUi *ui, const Game *g, Rectangle panel)
         DrawText("Free", (int)right - MeasureText("Free", 16), (int)y + 12, 16, (Color){ 140, 226, 140, 255 });
     } else {
         /* What it costs, and under that what it fetches. */
-        float x = draw_coins(t->currencies[0].item, price / t->currencies[0].value, right, y, 20, 14, RAYWHITE);
+        float x = draw_price(price, right, y, 20, 14, RAYWHITE);
         DrawText("Buy", (int)x - MeasureText("Buy", 12) - 6, (int)y + 4, 12, LIGHTGRAY);
-        x = draw_coins(t->currencies[0].item, back / t->currencies[0].value, right, y + 21, 20, 14, RAYWHITE);
+        x = draw_price(back, right, y + 21, 20, 14, RAYWHITE);
         DrawText("Sell", (int)x - MeasureText("Sell", 12) - 6, (int)y + 25, 12, LIGHTGRAY);
     }
 

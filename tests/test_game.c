@@ -10641,6 +10641,13 @@ static void test_trade_tiers(void)
             CHECK(tile_def(tile_def(t)->upgrade_to)->trade_level == tile_def(t)->trade_level + 1 && tile_def(tile_def(t)->upgrade_to)->trade &&
                   item_def(tile_def(tile_def(t)->upgrade_to)->drop)->places == tile_def(t)->upgrade_to);
         CHECK(levels == 6 && tile_def(tile_id("trade_portal_6"))->upgrade_to == TILE_AIR && tile_def(tile_id("trade_portal_5"))->upgrade_crystals == 200);
+        /* A sum is said in the biggest coins that make it up: 15,500 copper is 1 platinum and 55 gold. */
+        int parts[MAX_CURRENCIES];
+        char said[96];
+        CHECK(trade_coins(15500, parts) == 3 && parts[0] == 0 && parts[1] == 55 && parts[2] == 1);
+        CHECK(trade_coins(10199, parts) == 3 && parts[0] == 99 && parts[1] == 1 && parts[2] == 1 && trade_coins(99, parts) == 3 && parts[0] == 99 && parts[1] == 0 && parts[2] == 0);
+        trade_price_text(15500, said, sizeof said);
+        CHECK(strcmp(said, "1 platinum coin, 55 gold coins") == 0);
         /* What the tiers leave out is in a category of its own, which only a block that gives everything away has. */
         int special = item_def(item_id("workbench"))->category;
         /* (Four of them, by what the thing is: benches, portals, creatures, and whatever is left.) */
@@ -11613,7 +11620,8 @@ static void test_dimensions_mod(void)
     for (int i = items; i < content.item_count; i++) {
         const ItemDef *d = item_def((ItemId)i);
         CHECK(d->becomes_player || (d->category >= 0 && d->price >= 10));
-        if (d->category >= 0 && !content.trade.categories[d->category].free_only) CHECK(strcmp(content.trade.categories[d->category].name, "dimensions") == 0 && d->trade_tier >= 6);
+        /* (In the game's own categories, like any mod's things, at the tiers past the game's.) */
+        if (d->category >= 0 && !content.trade.categories[d->category].free_only) CHECK(d->category < item_def(item_id("workbench"))->category && d->trade_tier >= 6);
     }
 
     /* More levels, hung on the end of what the game has: each raised to from the one before, for what the new one costs. */
@@ -11819,83 +11827,6 @@ static void test_dimensions_mod(void)
     CHECK(content_load("data", err, sizeof err));
 }
 
-/* A mod's things are in a section of the trade that is its own. */
-static void test_mod_sections(void)
-{
-    char err[256];
-    const char *names[6] = { "magic_mayhem", "digital_storage", "culinary_delights", "explorers_delight", "discovery_road", "alchemie" };
-    content_reset();
-    CHECK(content_load("data", err, sizeof err));
-    int base_items = content.item_count, base_cats = content.trade.category_count, from[7];
-    for (int i = 0; i < base_items; i++) CHECK(!content.items[i].section_name[0]);
-    for (int m = 0; m < 6; m++) {
-        char dir[64];
-        snprintf(dir, sizeof dir, "mods/%s", names[m]);
-        from[m] = content.item_count;
-        if (!content_load(dir, err, sizeof err)) {
-            printf("FAIL %s does not load: %s\n", names[m], err);
-            failures++;
-            return;
-        }
-    }
-    from[6] = content.item_count;
-    CHECK(content.trade.category_count == base_cats + 6);
-    /* Nothing the game has by itself moved, and nothing a mod adds is among the game's own - but what no trade portal deals in. */
-    CHECK(strcmp(content.trade.categories[item_def(ITEM_DIRT)->category].name, "blocks") == 0);
-    int in_section[6] = { 0 }, kept[6] = { 0 };
-    for (int m = 0; m < 6; m++) {
-        for (int i = from[m]; i < from[m + 1]; i++) {
-            const ItemDef *d = item_def((ItemId)i);
-            if (d->category < 0) continue;
-            bool own = strcmp(content.trade.categories[d->category].name, names[m]) == 0;
-            CHECK(own || content.trade.categories[d->category].free_only);
-            in_section[m] += own;
-            kept[m] += !own;
-        }
-        CHECK(in_section[m] > 0);
-    }
-    CHECK(strcmp(content.trade.categories[item_def(item_id("quicksilver"))->category].label, "Alchemie") == 0);
-    CHECK(strcmp(content.trade.categories[item_def(item_id("alembic"))->category].name, "benches") == 0 && kept[5] == 4 && in_section[5] == 9);
-
-    /* A trade portal lists a mod's section, by tier like any other; the dev portal has it too, and the coins where they were. */
-    static Game g;
-    game_init(&g, 400, 100, 7, WORLD_FLAT);
-    int x = g.world.spawn_x;
-    memset(g.discovered, 1, sizeof g.discovered);
-    static ItemId all[1024];
-    static bool can[1024];
-    int alch = item_def(item_id("quicksilver"))->category;
-    CHECK(place_and_open(&g, "trade_portal", x + 6) && game_trade_open(&g));
-    int n = game_trade_listing(&g, alch, all, can, 1024), open = 0;
-    for (int i = 0; i < n; i++) open += can[i];
-    CHECK(n == 9 && open == 0 && game_trade_listing(&g, item_def(item_id("alembic"))->category, all, can, 1024) == 0);
-    game_close_bench(&g);
-    CHECK(place_and_open(&g, "trade_portal_6", x + 12) && game_trade_open(&g));
-    n = game_trade_listing(&g, alch, all, can, 1024);
-    for (int i = 0; i < n; i++) CHECK(can[i] && (i == 0 || item_def(all[i])->trade_tier >= item_def(all[i - 1])->trade_tier));
-    CHECK(n == 9);
-    game_close_bench(&g);
-    CHECK(place_and_open(&g, "dev_portal", x + 18) && game_trade_free(&g));
-    CHECK(game_trade_listing(&g, alch, all, can, 1024) == 9);
-    n = game_trade_listing(&g, item_def(item_id("north_hat"))->category, all, can, 1024);
-    bool coin = false;
-    for (int i = 0; i < n; i++) coin = coin || all[i] == item_id("copper_coin");
-    CHECK(coin);
-    game_close_bench(&g);
-    game_free(&g);
-
-    /* A section that is not a category is a mistake, and is said. */
-    content_reset();
-    CHECK(content_load("data", err, sizeof err));
-    mkdir("build/modtest", 0755);
-    mkdir("build/modtest/sectioned", 0755);
-    write_file("build/modtest/sectioned/trade.json", "{ \"section\": \"nowhere\" }");
-    write_file("build/modtest/sectioned/items.json", "{ \"items\": [ { \"name\": \"sectioned_thing\", \"label\": \"Thing\", \"category\": \"materials\", \"price\": 10 } ] }");
-    CHECK(!content_load("build/modtest/sectioned", err, sizeof err) && strstr(err, "nowhere"));
-    content_reset();
-    CHECK(content_load("data", err, sizeof err));
-}
-
 /* Discovery Road: relics, the slots they are carried in, sets, and chests that hold what belongs to where they stand. */
 static bool of_set(ItemId item, const char *set)
 {
@@ -11941,7 +11872,7 @@ static void test_discovery_mod(void)
         const Boons *b = &d->boons;
         bool does = b->walk > 0 || b->mine > 0 || b->craft > 0 || b->regen > 0 || b->lung > 0 || b->appetite > 0 || b->stamina > 0 || b->armor > 0 || b->warmth > 0 ||
                     b->luck > 0 || b->strength > 0 || b->thorns > 0;
-        CHECK(does && d->max_stack == 1 && d->set >= 0 && d->category >= 0 && d->price >= 1000 && strcmp(content.trade.categories[d->category].name, "discovery_road") == 0);
+        CHECK(does && d->max_stack == 1 && d->set >= 0 && d->category >= 0 && d->price >= 1000 && strcmp(content.trade.categories[d->category].name, "relics") == 0);
         if (d->set >= 0) in_set[d->set]++;
         /* Every one is found somewhere, and comes down to dust. */
         bool found = false;
@@ -12380,7 +12311,6 @@ int main(void)
     test_explorers_mod();
     test_discovery_mod();
     test_alchemie_mod();
-    test_mod_sections();
     test_dimensions_mod();
     test_worn();
     test_trade_tiers();
