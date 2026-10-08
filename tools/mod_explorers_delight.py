@@ -135,8 +135,8 @@ for part in ('column', 'stairs'):
     tint('tiles/platinum_%s.png' % part, n, MUDB); block_icon(n, n); item(n, 'Mud brick ' + part, 'building', 15, places=n)
 rec('builder_bench', 'mud_bricks', 4, [('mud', 4), ('dry_grass', 1)], 40)
 rec('builder_bench', 'mud_brick_column', 2, [('mud_bricks', 1)], 80); rec('builder_bench', 'mud_brick_stairs', 2, [('mud_bricks', 1)], 80)
-rec('workbench', 'red_sandstone', 1, [('red_sand', 4)], 20); rec('workbench', 'salt', 4, [('rock_salt', 1)], 10); rec('workbench', 'salt', 1, [('salt_crust', 1)], 10)
-rec('workbench', 'glacial_ice', 1, [('packed_snow', 4)], 20); rec('workbench', 'dirt', 1, [('mud', 1)], 5); rec('workbench', 'mossy_stone', 1, [('stone', 1), ('moss', 1)], 10)
+rec('builder_bench', 'red_sandstone', 1, [('red_sand', 4)], 20); rec('mixing_bench', 'salt', 4, [('rock_salt', 1)], 10); rec('mixing_bench', 'salt', 1, [('salt_crust', 1)], 10)
+rec('builder_bench', 'glacial_ice', 1, [('packed_snow', 4)], 20); rec('compost_bin', 'dirt', 1, [('mud', 1)], 5); rec('builder_bench', 'mossy_stone', 1, [('stone', 1), ('moss', 1)], 10)
 
 # ---- trees: name, label, bark, leaves, the base tree whose shape it takes, what it grows in, its seed (name, label, food)
 WOODS = [
@@ -185,7 +185,7 @@ for w, label, bark, leaf, like, soil, (seed, seed_label, food) in WOODS:
         n = '%s_%s' % (w, part); dd = copy.deepcopy(T['wood_' + part]); dd.update({'name': n, 'label': '%s %s' % (label, part), 'drop': n, 'texture': 'tiles/%s.png' % n}); tiles.append(dd)
         tint('tiles/platinum_%s.png' % part, n, bark); block_icon(n, n); item(n, '%s %s' % (label, part), 'building', 30, places=n)
         rec('builder_bench', n, 2, [(w + '_wood', 1)], 80)
-    rec('workbench', 'wood', 1, [(w + '_wood', 1)], 5)
+    rec('woodwork_bench', 'wood', 1, [(w + '_wood', 1)], 5)
 
 # ---- small things that grow wild: name, label, what it leaves, colour, what it grows in
 def bush(c, tall=False, dots=None):
@@ -206,7 +206,7 @@ for name, label, c, tall, dots, soil in (('reed', 'Reeds', (150, 170, 90, 255), 
                   'drops': [{'item': drop, 'count': 1}], 'soil': soil})
     if drop == name:
         bush(c, tall, dots).save('items', name); item(name, label, 'materials', 10, sows=name)
-rec('workbench', 'stick', 2, [('reed', 2)], 5)
+rec('woodwork_bench', 'stick', 2, [('reed', 2)], 5)
 
 # ---- under the sea, and in the caves: what grows there, and what is made of it
 def small(name, label, art, drop, like='emerald', **kw):
@@ -280,7 +280,7 @@ tiles_((150, 230, 240, 255)).save('tiles', 'prism_block'); block('prism_block', 
 rec('builder_bench', 'prism_block', 1, [('prism_shard', 4)], 60)
 eb = P(); eb.r(7, 10, 8, 15, (90, 40, 30, 255)); eb.r(5, 5, 10, 9, (240, 130, 40, 255)); eb.r(6, 4, 9, 10, (240, 130, 40, 255)); eb.r(7, 6, 8, 8, (255, 230, 120, 255)); eb.p(4, 7, (220, 80, 30, 255)); eb.p(11, 7, (220, 80, 30, 255))
 small('ember_bloom', 'Ember bloom', eb, 'ember', tool='machete', light=11)
-rec('workbench', 'dirt', 1, [('mycelium', 1)], 5)
+rec('compost_bin', 'dirt', 1, [('mycelium', 1)], 5)
 
 # ---- the new country itself: where it lies by heat and dryness, what it is made of, and what grows there
 # (A biome's own rock is its "soil": a block of it at the edge of the country, deepening to the full depth inside. The engine's
@@ -341,8 +341,8 @@ veins = [
  {'name': 'pumice_pocket', 'tile': 'pumice', 'in': ['stone'], 'size': [10, 30], 'per_100_columns': 1.5, 'depth': [90, 190]},
  {'name': 'red_sandstone_pocket', 'tile': 'red_sandstone', 'in': ['sandstone'], 'size': [8, 24], 'per_100_columns': 2.0, 'depth': [2, 30]},
 ]
-rec('workbench', 'permafrost', 2, [('dirt', 1), ('packed_snow', 1)], 10)
-rec('workbench', 'pumice', 2, [('scoria', 1), ('ash', 1)], 10)
+rec('builder_bench', 'permafrost', 2, [('dirt', 1), ('packed_snow', 1)], 10)
+rec('builder_bench', 'pumice', 2, [('scoria', 1), ('ash', 1)], 10)
 def dump(name, obj):
     with open(os.path.join(mod, name), 'w') as f:
         if isinstance(obj, dict) and len(obj) == 1 and isinstance(list(obj.values())[0], list):

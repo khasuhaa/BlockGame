@@ -10432,13 +10432,13 @@ static void test_explorers_mod(void)
         snprintf(wood, sizeof wood, "%s_wood", woods[k]);
         snprintf(name, sizeof name, "%s_log", woods[k]);
         CHECK(tile_def(tile_id(name))->drop == item_id(wood) && tile_def(tile_id(wood))->solid && item_def(item_id(wood))->fuel > 0);
-        CHECK(find_recipe_from(TILE_WORKBENCH, "wood", wood) != NULL);
+        CHECK(find_recipe_from(tile_id("woodwork_bench"), "wood", wood) != NULL);
         snprintf(name, sizeof name, "%s_stairs", woods[k]);
         CHECK(tile_def(tile_id(name))->steps && find_recipe_from(builder, name, wood));
         snprintf(name, sizeof name, "%s_tree", woods[k]);
         CHECK(tree_id(name) >= 0 && content.trees[tree_id(name)].fruit != ITEM_NONE && item_def(content.trees[tree_id(name)].fruit)->plants == tree_id(name));
     }
-    CHECK(tile_def(tile_id("glowcap_leaves"))->light > 0 && find_recipe_from(TILE_WORKBENCH, "salt", "rock_salt"));
+    CHECK(tile_def(tile_id("glowcap_leaves"))->light > 0 && find_recipe_from(tile_id("mixing_bench"), "salt", "rock_salt"));
 
     /* The world: each of the ten new kinds of country is in it, with its own ground on top, its own rock under that, and what grows there. */
     static const struct {
@@ -11601,6 +11601,35 @@ static bool go_through(Game *g, int x, int y)
     return true;
 }
 
+/* The workbench makes benches and nothing else: in the game, and in every mod it comes with. (A machine is a bench for this.) */
+static void test_workbench_only(void)
+{
+    char err[256];
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/settest/saves");
+    for (int m = -1; m < mods.count; m++) {
+        char dir[160];
+        content_reset();
+        CHECK(content_load("data", err, sizeof err));
+        if (m >= 0) {
+            snprintf(dir, sizeof dir, "%s/%s", MODS_DIR, mods.mods[m].id);
+            CHECK(content_load(dir, err, sizeof err));
+        }
+        for (int r = 0; r < content.recipe_count; r++) {
+            const Recipe *rc = &content.recipes[r];
+            if (strcmp(rc->bench, "workbench") != 0) continue;
+            const TileDef *made = tile_def(item_def(rc->output.id)->places);
+            bool bench = item_def(rc->output.id)->places != TILE_AIR && (made->bench || made->trade || made->automat || made->miner_ticks > 0);
+            if (!bench) {
+                printf("FAIL the workbench makes %s (%s), which is not a bench\n", item_def(rc->output.id)->name, m < 0 ? "the game" : mods.mods[m].id);
+                failures++;
+            }
+        }
+    }
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+}
+
 /* Dimensions: other places a world has, the ways into them, more levels of benches hung on the end of the game's, and blocks too hard for a lesser tool. */
 static void test_dimensions_mod(void)
 {
@@ -12312,6 +12341,7 @@ int main(void)
     test_discovery_mod();
     test_alchemie_mod();
     test_dimensions_mod();
+    test_workbench_only();
     test_worn();
     test_trade_tiers();
     test_environment();

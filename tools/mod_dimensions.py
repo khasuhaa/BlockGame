@@ -469,14 +469,14 @@ k = steps(6, None, [
     ('charged_capacitor', 'Charged capacitor', 'flywheel', zc, ('electric_press', 1), [('gold_block', 1)]),
     ('sky_lens', 'Sky lens', 'mirror', zc, ('electric_kiln', 1), [('glass', 4), ('diamond_shard', 2)]),
     ('gem_prism', 'Gem prism', 'time_crystal', ramp('8a3ab0', '60c0f0', 'ffffff'), ('press', 3), [('amethyst', 1), ('sapphire', 1), ('emerald', 1), ('ruby', 1), ('diamond', 1)]),
-    ('sky_compass', 'Sky compass', 'camera', zc, ('workbench', 4), [('magnet', 1), ('featherweight_plate', 1)]),
+    ('sky_compass', 'Sky compass', 'camera', zc, ('craft_bench', 4), [('magnet', 1), ('featherweight_plate', 1)]),
     ('keystone_core', 'Keystone core', 'silicon_crystal', zc, ('metalwork_bench', 2), [('diamond_block', 1), ('featherweight_plate', 2)]),
     ('aether_keystone', 'Aether keystone', 'time_crystal', zc, ('portal', 6), [('time_crystal', 10)]),
-    ('aether_frame', 'Aether frame', 'jetpack_chassis', SKY['cloudstone'], ('workbench', 4), [('marble_column', 4), ('featherweight_plate', 4)])])
+    ('aether_frame', 'Aether frame', 'jetpack_chassis', SKY['cloudstone'], ('metalwork_bench', 2), [('marble_column', 4), ('featherweight_plate', 4)])])
 make(('portal', 6), 'aether_portal', [(k, 1), ('glass', 8)], time=600, crystals=200)
 make(('tool_bench', 7), 'featherweight_pickaxe', [('stick', 1), ('featherweight_alloy', 5)], time=240)
 item('iron_pickaxe', 'featherweight_pickaxe', 'Featherweight pickaxe', ramp('7a8aa0', 'c0d0e8', 'ffffff'), 'gray', tier=6, price=30000, cat='tools', tool={'class': 'pickaxe', 'speed': 8.5}, power=7)
-part('glider', 'Glider', 'carbon_fiber_wing', SKY['cloudstone'], 6, ('workbench', 4), [('carbon_fiber_wing', 2), ('featherweight_plate', 2), ('linen', 6)], cat='clothing', equip='chest', max_stack=1, glides=True, warmth=0.1)
+part('glider', 'Glider', 'carbon_fiber_wing', SKY['cloudstone'], 6, ('tailor_bench', 2), [('carbon_fiber_wing', 2), ('featherweight_plate', 2), ('linen', 6)], cat='clothing', equip='chest', max_stack=1, glides=True, warmth=0.1)
 
 # The Deep portal: from the Aether.
 k = steps(8, None, [
@@ -487,10 +487,10 @@ k = steps(8, None, [
     ('charged_gravity_coil', 'Charged gravity coil', 'magnet', hc, 'sky_press', [('storm_battery', 1), ('wind_essence', 4)]),
     ('gravity_core', 'Gravity core', 'jet_engine', hc, 'skyforge', [('skysteel_block', 4), ('aerite_block', 2)]),
     ('storm_heart', 'Storm heart', 'time_crystal', ga, 'stargazer_table', [('storm_feather', 1), ('heliodor', 1)]),
-    ('deep_compass', 'Deep compass', 'camera', METAL['cinderite'], 'aether_workbench', [('sky_compass', 1), ('moonsilver_gear', 2)]),
+    ('deep_compass', 'Deep compass', 'camera', METAL['cinderite'], 'sky_craft_bench', [('sky_compass', 1), ('moonsilver_gear', 2)]),
     ('deep_keystone_core', 'Deep keystone core', 'silicon_crystal', hc, 'sky_metalwork_bench', [('heliodor_block', 1), ('moonsilver_plate', 4)]),
     ('deep_keystone', 'Deep keystone', 'time_crystal', METAL['cinderite'], 'dim_portal_8', [('zephyrite', 2)]),
-    ('deep_frame', 'Deep frame', 'jetpack_chassis', SKY['moonrock'], 'aether_workbench', [('moonrock_column', 8), ('moonsilver_plate', 4)])])
+    ('deep_frame', 'Deep frame', 'jetpack_chassis', SKY['moonrock'], 'sky_metalwork_bench', [('moonrock_column', 8), ('moonsilver_plate', 4)])])
 make('dim_portal_8', 'deep_portal', [(k, 1), ('moonrock_tile', 8)], time=900, crystals=400)
 
 # The World Seed, at the ninth portal: a place of one's own.
@@ -502,9 +502,9 @@ k = steps(9, None, [
     ('lumite_germ', 'Lumite germ', 'silicon_crystal', GEM['lumite'], 'crystal_lathe', [('lumite', 4), ('golem_core', 1)]),
     ('quickened_germ', 'Quickened germ', 'silicon_crystal', uc, 'deep_press', [('shadow_essence', 4), ('umbrite', 1)]),
     ('sky_graft', 'Sky graft', 'acorn', zc, 'stargazer_table', [('wind_nut', 4), ('star_apple_fruit', 4), ('heliodor_shard', 4)]),
-    ('diamond_graft', 'Diamond graft', 'acorn', ramp('5ac0d8', 'b0f0ff', 'ffffff'), 'deep_workbench', [('diamond_block', 2), ('diamond_shard', 20)]),
+    ('diamond_graft', 'Diamond graft', 'acorn', ramp('5ac0d8', 'b0f0ff', 'ffffff'), 'crystal_lathe', [('diamond_block', 2), ('diamond_shard', 20)]),
     ('void_shell', 'Void shell', 'time_crystal', uc, 'magma_forge', [('obsidian_glass', 16), ('umbral_plate', 4)]),
-    ('sleeping_seed', 'Sleeping seed', 'coconut', ramp('1a6a3a', '50d080', 'e0ffd0'), 'deep_workbench', [('umbrite_block', 1), ('gravity_core', 1)])])
+    ('sleeping_seed', 'Sleeping seed', 'coconut', ramp('1a6a3a', '50d080', 'e0ffd0'), 'fungal_vat', [('umbrite_block', 1), ('gravity_core', 1)])])
 make('dim_portal_9', 'world_seed', [(k, 1), ('time_crystal', 50)], time=1200, crystals=800)
 
 # And the third character, at the tenth: the end of it all.
@@ -517,7 +517,7 @@ k = steps(10, None, [
     ('lumite_eye', 'Lumite eye', 'mirror', GEM['lumite'], 'crystal_lathe', [('lumite', 4), ('sky_lens', 2)]),
     ('thinking_lattice', 'Thinking lattice', 'silicon_wafer', hc, 'deep_craft_bench', [('silicon_wafer', 20), ('galvanite_wire', 40), ('heliodor', 2)]),
     ('waking_spark', 'Waking spark', 'time_crystal', ga, 'stargazer_table', [('storm_heart', 1), ('charged_gravity_coil', 1)]),
-    ('quiet_body', 'Quiet body', 'new_player', METAL['adamant'], 'deep_workbench', [('adamant_helmet', 1), ('adamant_chestplate', 1), ('adamant_leggings', 1), ('adamant_boots', 1)], ),
+    ('quiet_body', 'Quiet body', 'new_player', METAL['adamant'], 'deep_metalwork_bench', [('adamant_helmet', 1), ('adamant_chestplate', 1), ('adamant_leggings', 1), ('adamant_boots', 1)], ),
     ('dreaming_body', 'Dreaming body', 'new_player', ec, 'dim_portal_10', [('emberheart_block', 1), ('time_crystal', 100)])])
 for nm in ('quiet_body', 'dreaming_body'): items[[i['name'] for i in items].index(nm)].pop('becomes_player', None)
 item('new_player', 'third_blockhead', 'Third blockhead', ec, 'tint', cat=None, price=None, becomes_player=True)
@@ -563,13 +563,13 @@ wear('moleskin_boots', 'Moleskin boots', 'fur_boots', ramp('2a2420', '5a4a40', '
 make(('workbench', 4), 'skyforge', [('aetherstone', 20), ('featherweight_plate', 2)]); make('aether_workbench', 'cloud_loom', [('windwood_wood', 10), ('skysteel_rod', 2)])
 make('aether_workbench', 'stargazer_table', [('moonrock_tile', 6), ('skyglass', 2), ('zephyrite', 1)]); make('aether_workbench', 'wind_turbine', [('skysteel_plate', 4), ('cloud_cloth', 4), ('electric_motor', 1)])
 make('aether_workbench', 'lightning_rod', [('galvanite_rod', 6), ('galvanite_block', 1)]); make('aether_workbench', 'storm_battery', [('galvanite_block', 2), ('storm_glass', 4)])
-make('aether_workbench', 'galvanite_wire', [('galvanite_ingot', 1)], 8); make('aether_workbench', 'sky_lantern', [('skyglass', 1), ('zephyrite_shard', 1)], 2)
-make('aether_workbench', 'cloud_bed', [('cloud_cloth', 6), ('windwood_wood', 4)]); make('aether_workbench', 'skysteel_chest', [('skysteel_plate', 6)])
+make('sky_metalwork_bench', 'galvanite_wire', [('galvanite_ingot', 1)], 8); make('sky_craft_bench', 'sky_lantern', [('skyglass', 1), ('zephyrite_shard', 1)], 2)
+make('cloud_loom', 'cloud_bed', [('cloud_cloth', 6), ('windwood_wood', 4)]); make('sky_metalwork_bench', 'skysteel_chest', [('skysteel_plate', 6)])
 make('deep_workbench', 'magma_forge', [('magmarock_tile', 20), ('deepiron_plate', 4)]); make(('workbench', 4), 'magma_forge', [('magmarock', 30), ('moonsilver_plate', 4)])
 make('aether_workbench', 'crystal_lathe', [('deepiron_gear', 4), ('lumite', 2)]); make('aether_workbench', 'fungal_vat', [('bluecap_wood', 10), ('deepiron_rod', 2)])
 make('aether_workbench', 'bone_carver', [('bonestone', 10), ('old_bone', 6)]); make('deep_workbench', 'geothermal_generator', [('cinderite_block', 2), ('deepiron_gear', 4), ('electric_motor', 1)])
-make('deep_workbench', 'lumite_lamp', [('lumite', 1), ('magma_glass', 1)], 2); make('deep_workbench', 'cinder_torch', [('slug_cinder', 1), ('bonewood_wood_column', 1)], 4)
-make('deep_workbench', 'deepiron_chest', [('deepiron_plate', 8)])
+make('crystal_lathe', 'lumite_lamp', [('lumite', 1), ('magma_glass', 1)], 2); make('deep_craft_bench', 'cinder_torch', [('slug_cinder', 1), ('bonewood_wood_column', 1)], 4)
+make('deep_metalwork_bench', 'deepiron_chest', [('deepiron_plate', 8)])
 
 # ---- food --------------------------------------------------------------------------------------------------------
 def dish(name, label, icon, r, tier, where, ins, food, **over):
