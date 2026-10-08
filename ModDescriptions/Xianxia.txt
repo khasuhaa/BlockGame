@@ -300,3 +300,57 @@ SIZE, AS PROPOSED
   8. DIVINITY AND IMMORTALITY: the domain, the Immortal Ruins, the sacred beasts, the ninefold tribulation;
      balance; the README.
   Stage 1 is the foundation for all of it and the one to get right; I would stop after it for you to try.
+
+
+================================================================================================================
+10. REVISION - THE OWNER'S ANSWERS, AND WHAT THEY ADD   (the plan above stands except where this changes it)
+================================================================================================================
+
+ANSWERS. Q1-Q9, Q11: as recommended. Q10: it need not be made to work with the other mods. Q12: one sitting,
+no stops; the owner reviews at the end. Q13: the mod is SEEKER OF THE DAO.
+
+TIERS. Cultivation starts at tier I, unlike Dimensions, and the whole of the trade and the portals follow it:
+
+    Qi Refining          tiers I and II        Nascent Soul     tiers VII and VIII
+    Foundation Building  tiers III and IV      Divinity         tiers IX and X
+    Core Formation       tiers V and VI        Immortality      tier XI
+
+Everything the mod adds has a tier by the realm it belongs to (the lower of the pair for what the first half of
+a realm makes, the higher for the second). THE PORTAL AND THE TRADE PORTAL GO ON TO XI: five more levels of
+each, hung on the end of the game's six, raised with the spirit crystal of Nascent Soul (VII, VIII), of Divinity
+(IX, X) and with an immortal crystal (XI). Each new portal level makes something of its own.
+
+THREE TRADES MORE.
+  SPIRIT MINING   Spirit ore, one metal to a realm (spirit iron, jadesteel, starmetal, voidsilver, heavenly
+                  gold), each too hard for the pick before it; spirit stone veins in five grades, which are
+                  money, fuel for formations and the source of a place's qi; spirit jade. Spirit picks; a
+                  technique that shows ore through rock; veins that are worth more left alone than dug.
+  BLACKSMITHING   The SPIRIT FORGE, five grades: each realm's metal into tools, weapons and armour - and into
+                  the next grade of every bench the mod has.
+  ARTIFICING      The ARTIFICER'S TABLE, five grades: ARTIFACTS - things carried in the artifact slots (the
+                  four slots relics use) that do something while they are there: bells, mirrors, gourds,
+                  banners, seals, lamps. Each takes a beast core and belongs to a set.
+
+ENDGAME. For an Immortal:
+  - SETS with effects that are not just bigger numbers: of robes (four pieces) and of artifacts (four pieces),
+    one of each for every realm and three at the end - the Azure Dragon set (the air holds you up; breath never
+    runs out), the Vermilion Phoenix set (fire and magma do nothing; once dead, not dead), the Black Tortoise
+    set (most of every blow turned; tribulation lightning mostly spent on it), the White Tiger set (every blow
+    half again; ore and beasts shown through rock).
+  - CHALLENGES. Heaven's Trials: three sealed arenas reached by a token, each with one thing in it to beat.
+    The Four Sacred Beasts, one of each to a world. The Heavenly Tribulation can be CALLED DOWN again with a
+    talisman, on purpose, for what it leaves behind (heaven-tempered essence: the only source of tier XI
+    materials). And the last manual, which can only be written by an Immortal.
+
+OTHER PLACES - each unlike anything the game has:
+  THE WORLD TREE (the Spirit Realm, from Foundation Building). Not land at all: trunks as wide as houses rising
+      the whole height of the place out of a lake, with boughs for ground, leaves for hills, hollows in the wood
+      with springs in them, and vines to climb between. Everything in it is alive and thick with qi; nothing
+      there is stone.
+  THE FALLEN HEAVEN (from Nascent Soul). A palace that fell: halls, pagodas and broken bridges of white jade
+      on slabs that hang in a sky with no sun, only stars. What is left of its treasuries is still in it, and
+      so is what guards them.
+  HEAVEN'S TRIALS. Three small sealed places, each one arena.
+
+WHAT "ONE SITTING" COSTS. Sections 1-8 describe more than one sitting can build. Where the mod as built falls
+short of them, the README and section 11 (added when it is done) will say exactly where.
