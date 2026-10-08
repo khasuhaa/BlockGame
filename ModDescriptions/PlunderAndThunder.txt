@@ -1,0 +1,283 @@
+PLUNDER & THUNDER - PROPOSAL   (a pirate mod; MAJOR; for approval - nothing below is built)
+
+Turn the mod on and a new world is not land with a sea at its edges. It is SEA, with land in it: hundreds of
+small islands, each its own little country, a day's sail apart. On some of them, towns. Between them, ships -
+merchants to rob or to guard, the navy to run from, other pirates to fight. Under them, wrecks. And on a great
+many beaches, an X.
+
+You begin shipwrecked on a sandbar with a plank and a bottle. You end as the terror of the sea, or its admiral,
+or the richest merchant in it, with a fleet, a fort and a flag of your own design.
+
+    a raft  ->  a jolly boat  ->  a sloop and a crew of three  ->  a brig, a letter of marque or a black flag  ->
+    a frigate and a harbour of your own  ->  a man-of-war, a fleet, and the Kraken's hoard
+
+(Proposal1, "Tides of Fortune", is also about the sea. That one is a sailing-and-diving mod laid over the game's
+own worlds. This one REPLACES the world, and is about people: towns, crews, factions, robbery and reputation.
+They share an engine - boats - and little else. If both are wanted, this should be built first.)
+
+Size aimed at: ~450 blocks, ~900 items, ~1,100 recipes, ~50 creatures, 9 ships, ~70 kinds of island and building.
+
+================================================================================================================
+0. QUESTIONS
+================================================================================================================
+
+Q1. THE WORLD. Recommended: with the mod on, every new world is an OCEAN WORLD - about nine parts sea in ten,
+    islands 12 to 120 blocks long scattered by the seed, a few island CHAINS, one or two big islands with
+    mountains on them, and the game's own ores and caves under each. A world option says how many islands and how
+    far apart. Worlds made before the mod are left alone (and get nothing - a world cannot be re-made); say if you
+    would rather they got a "Far Isles" place to sail to, as Dimensions makes its places.
+
+Q2. WHAT A SHIP IS. As in Proposal1: recommended, a VEHICLE - built at a shipyard, launched, sailed with the
+    movement keys, with a hold, a hull that takes damage, and FITTINGS in slots (sails, guns, a figurehead). Not a
+    thing made of blocks that moves: the engine cannot move a piece of the world. But the ship's DECK is somewhere
+    you can stand and walk and fight - without that there is no boarding, and a pirate mod without boarding is
+    not one.
+
+Q3. HOW FIGHTING AT SEA WORKS. Recommended, and it must be played by clicks as the rest of the game is:
+      - GUNS fire broadsides at what is clicked on: slow to reload, a range, three kinds of shot (round for the
+        hull, chain for the sails - a ship with no sails cannot run - grape for the crew);
+      - a ship has HULL, SAILS and CREW, each a bar; lose the hull and she sinks (and leaves a wreck to dive);
+        lose the sails and she is caught; lose the crew and she strikes her colours;
+      - close enough, GRAPPLE and BOARD: the two decks are joined and it is a fight on foot, yours against theirs;
+      - a ship that strikes can be PLUNDERED (her hold), RANSOMED (coin, and she remembers you kindly), SUNK, or
+        TAKEN AS A PRIZE - sailed home by some of your crew and added to your fleet or sold.
+    Say if you would rather sea fights were quicker and simpler: guns only, no boarding.
+
+Q4. A CREW. The game allows three characters. A brig wants twenty hands. Recommended: your characters are the
+    OFFICERS; the CREW are hired in taverns and are not characters - they are a number on the ship with a morale,
+    a wage and a share of the plunder, plus a few NAMED hands with a skill each (gunner, bosun, carpenter,
+    surgeon, cook, navigator, lookout, quartermaster) who stand at their posts and can be seen. Unpaid, unfed or
+    beaten too often, they mutiny.
+
+Q5. WHOSE SIDE. Recommended: four POWERS on the sea - the Crown (navy; law; forts), the Company (merchants;
+    money), the Brethren (pirates; free ports), the Islanders (the people who were here first; they hold the old
+    maps) - and a standing with each, from Hunted to Honoured, moved by everything you do. It decides which
+    harbours let you in, what they charge, who attacks on sight, and which of the three long roads below you are
+    on. Alternative: no powers; everyone is neutral until fired on.
+
+Q6. BURIED TREASURE. Recommended: real digging. A map is a drawing of an island's outline with a mark; you must
+    find the island that matches (the game shows you the outline of each island you have seen), land, pace it
+    out from the landmark the map names, and dig. No arrow, no glowing spot. Riddles and half-maps for the big
+    ones. Alternative: a map simply shows where.
+
+Q7. RUM, AND TASTE. Pirates drink, fight, rob and are hanged. Recommended tone: storybook - rum is a drink with
+    an effect, nobody is tortured, surrender is always possible, a hanging is a wanted poster and a gaol you can
+    be broken out of. Say if you want it rougher.
+
+Q8. WITH OTHER MODS. It depends on none. With Rags to Riches on, its villages do not also appear (this mod's
+    towns are the towns); its trade rules apply in them. With Machinations, ships' guns can be loaded by its
+    machinery. Seeker of the Dao and Beyond the Sky are simply further things to do from an island.
+
+Q9. DELIVERY. This is not one sitting unless it is cut hard. Recommended: five stages, each playable -
+    (1) the ocean world and small boats; (2) towns, trade, taverns, the four powers; (3) big ships, guns, crews,
+    sea fights and boarding; (4) treasure, maps, wrecks, the islands' secrets; (5) forts, fleets, your own
+    harbour, the three endgames. Say if you want it in one, and what to drop.
+
+================================================================================================================
+1. THE WORLD
+================================================================================================================
+
+ISLANDS, by kind - each is a small biome with its own ground, trees and reason to land (about 30 kinds):
+   sandbar            nothing but sand and a palm: where you begin
+   cay                palms, turtles, coconuts, fresh water if you dig
+   jungle isle        thick, tall, loud; fruit, hardwood, parrots, things in the undergrowth
+   volcano            a cone with a crater lake of lava; obsidian, sulphur, hot springs; it rumbles
+   atoll              a ring of reef round a lagoon; pearls; one way in, and that at high tide
+   mangrove           trees standing in the sea; a maze for small boats; crabs; a smugglers' landing
+   cliff isle         sheer on every side; seabirds; a cave at the waterline that goes right through
+   skull rock         it looks like one. The eyes are caves.
+   plantation isle    cane, tobacco, cotton, a great house; the Company's
+   fortress rock      the Crown's: walls, a battery, a gaol, a governor
+   free port          the Brethren's: no law, every flag, the best tavern on the sea
+   stilt village      the Islanders': houses over the water, canoes, a carved pole, a keeper of maps
+   whaling station, fishing hamlet, lighthouse rock, leper isle, hermit's isle, marooner's rock,
+   shipwreck shoal, the sargasso (weed so thick a ship sticks), a fog bank that never lifts, a graveyard of
+   ships, an isle that is the back of something, an isle that is only there at low tide, and THE ISLE THAT
+   IS NOT ON ANY CHART.
+
+THE SEA: shallows you can run aground in, reefs that hole a hull, deep channels, currents (the trade routes),
+a wind that shifts through the day and blows steady in the trades. Tides, two a day: they open sea caves, float
+grounded ships, and cover the low isles. Weather: squalls, gales, calms (a becalmed crew drinks the water), fog,
+waterspouts, and once or twice a year a HURRICANE that changes the beaches.
+
+UNDER IT ALL the game's own ground, ores and caves - reached from an island's own mine, or a sea cave.
+
+================================================================================================================
+2. SHIPS
+================================================================================================================
+
+   RAFT          logs and rope. Paddled. Sinks in a squall. The first hour.
+   JOLLY BOAT    four oars and a little sail: goes up creeks; every big ship carries one
+   CANOE         the Islanders': fast, narrow, two aboard, no hold - and rides a reef that would sink a sloop
+   SLOOP         one mast, 4 guns, hold of 16, crew of 6. The first real ship. Fast; runs from anything
+   SCHOONER      two masts fore-and-aft, 8 guns: the smuggler's and the pirate's favourite
+   BRIG          two masts, 14 guns, hold of 48, crew of 20
+   MERCHANTMAN   fat, slow, hold of 120, 8 guns: the prize, and the trader's ship
+   FRIGATE       three masts, 28 guns, crew of 50: the navy's hunter
+   MAN-OF-WAR    two gun decks, 60 guns: a floating fort. There are three on the sea, and you may come to own one
+
+EVERY SHIP is yours to fit out, in slots: SAILS (canvas, patched, silk, black - black is seen from less far),
+GUNS (swivels, sakers, long nines, carronades, a mortar that fires over walls), the HULL (plank, tarred,
+copper-sheathed, ironbound), a FIGUREHEAD (each a small boon: the mermaid calms the crew, the lion frightens a
+merchant into striking sooner, the saint mends in a storm), a RAM, boarding nets, a crow's nest (see further), a
+ship's bell, a pump, a galley, a surgeon's table, a brig for prisoners, a captain's cabin with a chest and a bed
+- and a FLAG, which you design: a field, a device from thirty, a colour. Ships that have heard of you strike
+when they see it.
+
+A ship wears: weed on the hull slows her until she is CAREENED on a beach; shot holes leak until a carpenter
+plugs them; sails tear. A ship has a NAME (you give it) and a reputation of her own.
+
+YOUR FLEET. Prizes can be kept: up to five ships, each with a captain from among your named hands, following
+the flagship, or sent on errands - to carry a cargo, to guard a harbour, to cruise for prizes on their own and
+come back with what they took, or not come back.
+
+================================================================================================================
+3. TOWNS, TRADE AND THE FOUR POWERS
+================================================================================================================
+
+About forty towns in a world, of six kinds, each built from buildings drawn by hand (the structure system):
+   HARBOUR      quay, warehouses, a market, a chandler, a shipyard, a customs house, a church, a tavern
+   FORT TOWN    all that under the guns of a fort: the governor, the gaol, the gallows, the naval yard
+   PLANTATION   the great house, the mill, the barracoons turned to stores, a private jetty
+   FREE PORT    a town of taverns: fences who buy anything, a surgeon who asks nothing, a hall where the
+                captains vote
+   STILT TOWN   the Islanders': a longhouse, the map-keeper, the canoe sheds, a shrine on a rock
+   OUTPOST      a jetty, a store, a signal fire
+
+WHAT A TOWN DOES. It makes some things and wants others, and its prices say so (the game's trade engine, with
+each town its own prices as Rags to Riches' villages have): sugar is cheap where cane grows and dear where it
+does not, powder is dear everywhere the navy is not. CARGO in bulk - sugar, rum, tobacco, cotton, timber, salt
+fish, spice, cloth, tools, powder, silver - is the merchant's game. Prices move when you flood a market, and
+with war, storms and blockade.
+   THE TAVERN   hire hands; hear RUMOURS (a merchantman left Port Royal two days ago, low in the water; a man
+                in the corner has half a map; the navy's frigate is careening at Turtle Cay) - each a real thing
+                in the world for a while; gamble (liar's dice, a real game); buy a round for morale
+   THE SHIPYARD build, repair, fit out, careen, rename
+   THE GOVERNOR letters of marque, bounties, pardons (dear), a daughter or son with opinions
+   THE FENCE    sells what cannot be sold elsewhere, at a price
+   THE CHURCH   a pirate may bury a friend, or give to the poor (it is noticed)
+   THE GAOL     where you wake if taken. Bribe, wait, be broken out by your crew, or escape through the drain
+
+THE POWERS (Q5) hold towns, send ships, and are at war or peace with one another, which changes through a game.
+A town can CHANGE HANDS: sack it for the Brethren, take it for the Crown, buy it for the Company - and the sea
+is a different sea afterwards. Your standing with each is on a page of its own.
+
+THREE LONG ROADS, and they can be mixed:
+   THE BLACK FLAG   Rob merchants, sack towns, grow a legend. NOTORIETY is a number the whole sea knows: it
+                    makes merchants strike sooner, hands cheaper to hire, and the navy send more and better
+                    ships. At the end: the pirate round-table, and the title King (or Queen) of the Brethren.
+   THE KING'S COMMISSION  Hunt pirates, escort convoys, take enemy forts. Rank: lieutenant to admiral. At the
+                    end: the flagship, a governorship, and the Brethren's last stronghold to break.
+   THE COMPANY LEDGER  Buy cheap, sell dear, own warehouses, then plantations, then the shipyards, then the
+                    governors. At the end: a monopoly, and the choice of what to do with it.
+   And under all three, the Islanders' road: the old maps, and what they lead to (5).
+
+================================================================================================================
+4. FIGHTING, CREW AND A PIRATE'S LIFE
+================================================================================================================
+
+AT SEA, as Q3. Wind matters: the ship upwind chooses the range. A lookout calls sails before you see them; a
+spyglass tells you what she is, what she flies, how low she rides. False colours are allowed, and remembered.
+
+ON DECK, boarding: cutlass, boarding axe, pistols (one shot, slow to load - carry a brace), blunderbuss, pike,
+grenadoes, a belaying pin. Cut the halyards and a sail comes down on them. Fight the captain and the rest give
+in. Your named hands fight beside you.
+
+ASHORE: sack a town - land, take the battery from behind, hold the square till the governor pays. Or do it
+quietly: over the wall at night for the strongroom.
+
+THE CREW (Q4). Articles are SIGNED at the start of a cruise: shares, rules, what a lost arm is worth. Morale
+rises with prizes, rum, shore leave, fair shares and a captain who fights; falls with short rations, long
+calms, lost fights and a hoarding captain. Low: desertion in port. Lower: a black spot, and a vote.
+   Named hands grow in their trades, have a home island, a grudge, a thing they want. Some are found, not
+   hired: a marooned navigator, a gunner in the gaol at Fort Royal, a cook who is more than he says.
+
+SICKNESS AND STORES. Water and food for the crew by the day (a hold of plunder is no use to a starving ship);
+scurvy without fruit; rum is water that keeps. Stores are what decides how far from port you dare go.
+
+BEING WANTED. A price on your head, shown on posters in every Crown town with a drawing that gets more like you
+as it rises. Bounty hunters. At the top, the three men-of-war are sent, together.
+
+================================================================================================================
+5. TREASURE, AND WHAT IS OUT THERE
+================================================================================================================
+
+BURIED TREASURE (Q6). Maps come from rumours, from prizes' cabins, from the fence, from a dying man. Kinds:
+   a plain map      an island's shape and an X
+   a paced map      "from the split rock, forty paces to the dead palm, then dig in its noon shadow"
+   a torn map       in two, three or four pieces, held by people who do not like each other
+   a riddle         no drawing at all
+   a false map      someone wanted you on that beach
+A chest is dug for with a shovel, through sand and whatever was laid over it. Some are trapped. Some are
+guarded - by crabs, by the dead who buried them, by the other crew who had the other half of the map.
+And you may BURY YOUR OWN: what is in the ground cannot be taken with your ship, and the game draws you a map.
+
+WRECKS, on the sea floor: dive with a breath, a bell, a diving dress. Every ship sunk in the world - by you or
+by anyone - becomes one, with whatever she carried. The Plate Fleet went down in a hurricane a lifetime ago,
+eleven ships, and nobody has found the eleventh.
+
+THE ISLANDS' SECRETS, a long thread for those who look:
+   - carved stones on twelve islands that, read together (the Islanders teach the reading), give bearings;
+   - a sea cave that is a harbour, with a ship in it that is not rotten;
+   - a volcano's vault that opens when the lava is low;
+   - the Isle That Is Not On Any Chart, found only by sailing where the bearings cross, in fog;
+   - the GHOST SHIP, which hunts the most notorious captain on the sea, cannot be sunk by shot, and can be laid
+     to rest;
+   - the KRAKEN, in the deep channel, which has taken a great many ships and kept what was in them;
+   - and the Islanders' own treasure, which is not gold, and which they will show to someone they honour.
+
+CREATURES (about 50): parrots and monkeys (both tameable; a monkey can be sent aloft or through a window),
+turtles, crabs of five sizes, boars, snakes, caimans in the mangroves, sharks, rays, barracuda, a giant
+octopus, sea serpents, the drowned crews of wrecks, a white whale. Ship's cats. A dog that finds buried things.
+
+================================================================================================================
+6. WHAT IT MAKES
+================================================================================================================
+
+Materials: ship's timbers in three woods, pitch, tar, oakum, canvas, cordage, copper sheet, powder (charcoal,
+sulphur from volcanoes, saltpetre from cave floors), shot in three kinds, cane and sugar, molasses, RUM in six
+ages (a cask in a cellar gets better by the year), tobacco, cotton, indigo, spice, salt, salt pork, hardtack,
+limes, pearls, coral, ambergris, tortoiseshell, pieces of eight, doubloons, emeralds, idols.
+Benches: shipyard (5 grades), sawpit, ropewalk, sail loft, powder mill, gunfounder, cooperage, still and
+cellar, sugar mill, smokehouse, chart table, the captain's desk (articles, the log, the flag).
+Building, for a harbour of your own: quays, pilings, piers, cranes, warehouses, a careening beach, sea walls,
+palisades, bastions, gun batteries that fire on what you are at war with, a signal tower, a lighthouse, a
+tavern that draws hands, a governor's house if you mean to be one.
+Clothes that are a statement: tricorn, bandana, eyepatch (see in the dark below decks), a coat in the colour
+of your power, sea boots, a sash for the pistols, a wooden leg (it happens) - with sets.
+LONG MAKINGS, as the owner likes: a sloop is about eight makings deep (felled timber -> seasoned -> sawn ->
+frames -> keel -> hull -> masted -> rigged), a frigate about fourteen, a man-of-war cannot be made at all
+until a shipyard of the fifth grade stands in a harbour you own - about twenty.
+
+================================================================================================================
+7. ENGINE
+================================================================================================================
+
+New, as data fields any mod could use:
+   - a WORLD generator for sea with islands in it (the home world's generator is fixed today: this is the
+     biggest single piece, and it must leave worlds made without the mod exactly as they were);
+   - vehicles on water with a walkable deck, wind, hull/sails/crew, fittings, guns that fire at a target;
+   - vehicles that are not yours: ships with a purpose (a route, a patrol, a hunt), that fight, flee and strike;
+   - two decks joined for a fight; a number of fighters each side who are not creatures one by one;
+   - towns with an owner, stock, prices that move, and events (the rumours);
+   - factions and standing; notoriety; a bounty;
+   - crew as a quantity with morale, and named hands with posts;
+   - maps as items that carry a picture and a place, and island outlines the player has seen;
+   - tides and currents (as levels and fields, not as simulated water);
+   - things buried: an item put in the ground and remembered; casks that age.
+Reused: vehicles and riding (trains), structures and villages (towns), trade and per-place prices (Rags to
+Riches), effects (rum, scurvy), relic slots (figureheads), taming and companions (parrot, monkey, dog), sized
+creatures and swimming, strikes from afar (guns), formulas (charts and plans), sets, the mission board idea
+from Seeker of the Dao (bounty boards), signs (wanted posters).
+
+HARD PARTS, said now:
+   - the ocean world generator, and performance on a world that is mostly water;
+   - a deck you can walk on while it moves, and two of them locked together;
+   - ships with minds: forty towns and perhaps sixty ships going about their business without slowing the game
+     (they should be moved coarsely when far away and properly only when near);
+   - a sea fight that is fun by clicks (Q3) - prototype this before anything else is promised;
+   - treasure maps that can be solved by looking (Q6): the island outline picture is new interface;
+   - tone (Q7), and three endgames that are each worth reaching.
+
+SIZE, AS PROPOSED            blocks   items   recipes   creatures   ships   islands & buildings
+   Plunder & Thunder          ~450     ~900    ~1,100      ~50        9            ~70
