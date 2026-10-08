@@ -35,12 +35,15 @@
  * were written before the weather could touch them: so it is switched off as the content is loaded, and the test
  * of the weather itself (test_environment) puts back what the data says. */
 static int shipped_env_fall_ticks, shipped_max_drop;
-static float shipped_walk_time, shipped_climb_time, shipped_crawl_time;
+static float shipped_walk_time, shipped_climb_time, shipped_crawl_time, shipped_happy_slow;
 static bool calm_content_load(const char *dir, char *err, size_t size)
 {
     bool ok = content_load(dir, err, size);
     if (content.rules.env_fall_ticks > 0) shipped_env_fall_ticks = content.rules.env_fall_ticks;
     content.rules.env_fall_ticks = 0;
+    /* Nor did being hungry or hurt slow anybody: happiness is left out of their pace, and is test_environment's business too. */
+    if (content.rules.happy_slow > 0.0f) shipped_happy_slow = content.rules.happy_slow;
+    content.rules.happy_slow = 0.0f;
     /* They were timed, too, against the pace characters went at then - a step in 0.12 seconds, a climb in 0.16, a
      * crawl in 0.22 - and are kept at it: how fast the game ships is test_pace_and_flight's business. */
     if (content.rules.walk_time == 0.24f) {
@@ -10628,7 +10631,9 @@ static void test_environment(void)
     CHECK(content_load("data", err, sizeof err));
     content.rules.env_fall_ticks = shipped_env_fall_ticks; /* (the weather, as the game has it) */
     RulesDef *u = &content.rules;
-    CHECK(u->env_fall_ticks == 1200 && u->env_rise_ticks == 300 && u->env_slow == 0.5f && u->env_harm_ticks == 1200 && u->env_clothed == 0.1f);
+    u->happy_slow = shipped_happy_slow;
+    CHECK(u->env_fall_ticks == 1200 && u->env_rise_ticks == 300 && u->happy_slow == 0.5f && u->env_harm_ticks == 1200 && u->env_clothed == 0.1f);
+    u->hunger_ticks = 0; /* (nobody gets hungry here: what the weather does is looked at by itself, and hunger after) */
     static Game g;
     game_init(&g, 128, 64, 4, WORLD_FLAT);
     g.tick_rate = 0;
@@ -10636,7 +10641,7 @@ static void test_environment(void)
     clear_inventory(&g);
     World *w = &g.world;
     TilePos at = g.player.feet;
-    CHECK(game_environment(&g) == 1.0f && game_environment_floor(&g) == 0.0f && game_pace(&g) == 1.0f);
+    CHECK(game_environment(&g) == 1.0f && game_environment_floor(&g) == 0.0f && game_happiness(&g) == 1.0f && game_pace(&g) == 1.0f);
     /* A dry spell out of the cold: nothing gets at them. Then the cold season: it does, out of doors and not in. */
     u->rain_chance = 0.0f;
     CHECK(!u->seasons[game_season(&g)].cold && !game_exposed(&g));
@@ -10657,18 +10662,19 @@ static void test_environment(void)
     u->rain_chance = 0.0f;
     g.tick = winter;
 
-    /* With nothing on it runs all the way down, slowing them as it goes, and then it is health that goes. */
+    /* With nothing on it runs all the way down, and then it is health that goes. It does not slow them of itself:
+     * it goes into their happiness - the average of it and how well fed they are - and that is what does. */
     g.vitals.hunger = 1.0f;
     for (int t = 0; t < 600; t++) game_tick(&g);
-    CHECK(near(game_environment(&g), 0.5f) && near(game_pace(&g), 0.75f) && g.vitals.health == 1.0f);
+    CHECK(near(game_environment(&g), 0.5f) && near(game_happiness(&g), 0.75f) && near(game_pace(&g), 0.875f) && g.vitals.health == 1.0f);
     game_set_move_input(&g, 1, 0);
     game_update(&g, 0.001f);
-    CHECK(g.player.activity == ACTIVITY_STEPPING && near(g.player.duration, WALK_TIME / 0.75f));
+    CHECK(g.player.activity == ACTIVITY_STEPPING && near(g.player.duration, WALK_TIME / 0.875f));
     game_set_move_input(&g, 0, 0);
     run(&g, 1.0f);
     g.tick = winter;
     for (int t = 0; t < 700; t++) game_tick(&g);
-    CHECK(game_environment(&g) < 0.001f && near(game_pace(&g), 0.5f) && g.vitals.health < 0.95f && game_alive(&g));
+    CHECK(game_environment(&g) < 0.001f && near(game_happiness(&g), 0.5f) && near(game_pace(&g), 0.75f) && g.vitals.health < 0.95f && game_alive(&g));
     /* Working is as slow as walking. */
     inventory_add(&g.inventory, ITEM_DIRT, 1);
     inventory_select(&g.inventory, 0, -1);
@@ -10689,7 +10695,7 @@ static void test_environment(void)
     g.tick = winter;
     g.vitals.hunger = 1.0f;
     for (int t = 0; t < 1300; t++) game_tick(&g);
-    CHECK(near(game_environment(&g), 0.1f) && near(game_pace(&g), 0.55f) && g.vitals.health == 1.0f);
+    CHECK(near(game_environment(&g), 0.1f) && near(game_happiness(&g), 0.55f) && near(game_pace(&g), 0.775f) && g.vitals.health == 1.0f);
     /* What each suit keeps. */
     wear(&g, "linen_cap", "linen_shirt", "linen_pants", NULL);
     CHECK(near(game_environment_floor(&g), 0.15f));
@@ -10717,6 +10723,36 @@ static void test_environment(void)
     g.tick = winter;
     for (int t = 0; t < 600; t++) game_tick(&g);
     CHECK(near(game_environment(&g), 0.8f));
+
+    /* Happiness. Hunger is the other half of it: with the weather doing nothing, an empty stomach halves it. */
+    wear(&g, NULL, NULL, "grass_skirt", NULL);
+    for (int t = 0; t < 400; t++) game_tick(&g);
+    g.vitals.health = g.vitals.hunger = 1.0f;
+    CHECK(game_environment(&g) == 1.0f && game_happiness(&g) == 1.0f && game_pace(&g) == 1.0f);
+    g.vitals.hunger = 0.4f;
+    CHECK(near(game_happiness(&g), 0.7f) && near(game_pace(&g), 0.85f));
+    g.vitals.hunger = 0.0f;
+    CHECK(near(game_happiness(&g), 0.5f) && near(game_pace(&g), 0.75f));
+    /* Health is the most it can be: fed and warm but hurt, they are as happy as they are whole... */
+    g.vitals.hunger = 1.0f;
+    g.vitals.health = 0.8f;
+    CHECK(near(game_happiness(&g), 0.8f) && near(game_pace(&g), 0.9f));
+    g.vitals.health = 0.3f;
+    CHECK(near(game_happiness(&g), 0.3f) && near(game_pace(&g), 0.65f));
+    game_set_move_input(&g, 1, 0);
+    game_update(&g, 0.001f);
+    CHECK(g.player.activity == ACTIVITY_STEPPING && near(g.player.duration, WALK_TIME / 0.65f));
+    game_set_move_input(&g, 0, 0);
+    run(&g, 1.0f);
+    /* ...and no happier for being whole than hunger and the weather leave them. */
+    g.vitals.health = 0.8f;
+    g.vitals.hunger = 0.2f;
+    CHECK(near(game_happiness(&g), 0.6f));
+    g.vitals.health = g.vitals.hunger = 1.0f;
+    CHECK(game_character_happiness(&g, g.live) == 1.0f && game_character_happiness(&g, 7) == 1.0f);
+    wear(&g, NULL, "leather_jacket", "leather_pants", "leather_boots");
+    g.tick = winter;
+    for (int t = 0; t < 600; t++) game_tick(&g);
 
     /* It is kept with the world, a character at a time; a world from before there was any has everyone untouched. */
     CHECK(save_game(&g, "build/test_env.world"));

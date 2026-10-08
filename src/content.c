@@ -1278,10 +1278,12 @@ static bool read_rules(Reader *r, const cJSON *root)
     if (env) {
         u->env_fall_ticks = (int)num(env, "fall_ticks", u->env_fall_ticks);
         u->env_rise_ticks = (int)num(env, "rise_ticks", u->env_rise_ticks);
-        u->env_slow = (float)num(env, "slow", u->env_slow);
         u->env_harm_ticks = (int)num(env, "harm_ticks", u->env_harm_ticks);
         u->env_clothed = (float)num(env, "clothed", u->env_clothed);
-        if (u->env_slow < 0.0f || u->env_slow >= 1.0f) return fail(r, "\"environment\": \"slow\" is a share of speed lost, 0 up to but not 1");
+    }
+    if (field(root, "happiness")) {
+        u->happy_slow = (float)num(field(root, "happiness"), "slow", u->happy_slow);
+        if (u->happy_slow < 0.0f || u->happy_slow >= 1.0f) return fail(r, "\"happiness\": \"slow\" is a share of speed lost, 0 up to but not 1");
     }
     const cJSON *weather = field(root, "weather");
     if (weather) {

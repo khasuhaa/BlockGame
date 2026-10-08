@@ -3513,6 +3513,27 @@ float game_character_environment(const Game *g, int c)
     return 1.0f - (c == g->live ? g->chill : g->characters[c].chill);
 }
 
+/* How someone is doing, from how they are fed, how the weather has left them, and how much health they have. */
+static float happiness_of(const Vitals *v, float chill)
+{
+    if (v->respawn > 0) return 0.0f;
+    float hunger = v->hunger < 0.0f ? 0.0f : v->hunger > 1.0f ? 1.0f : v->hunger;
+    float health = v->health < 0.0f ? 0.0f : v->health > 1.0f ? 1.0f : v->health;
+    float made = (hunger + (1.0f - chill)) / 2.0f;
+    return made < health ? made : health;
+}
+
+float game_happiness(const Game *g)
+{
+    return happiness_of(&g->vitals, g->chill);
+}
+
+float game_character_happiness(const Game *g, int c)
+{
+    if (c < 0 || c >= g->character_count) return 1.0f;
+    return c == g->live ? game_happiness(g) : happiness_of(&g->characters[c].vitals, g->characters[c].chill);
+}
+
 float game_environment_floor(const Game *g)
 {
     float kept = 0.0f;
@@ -3545,7 +3566,7 @@ bool game_exposed(const Game *g)
 
 float game_pace(const Game *g)
 {
-    return 1.0f - content.rules.env_slow * g->chill;
+    return 1.0f - content.rules.happy_slow * (1.0f - game_happiness(g));
 }
 
 float game_walk_speed(const Game *g)

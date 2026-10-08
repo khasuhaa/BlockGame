@@ -18,7 +18,8 @@
   },
   "drops": { "fall_speed": 12.0, "pickup_delay": 0.45, "collect_time": 0.15, "lifetime": 600, "float_speed": 5.0 },
   "light": { "sun": 15, "moon": 5, "air_falloff": 1, "solid_falloff": 2, "minimum": 0, "glow": 8, "darkness": 0.98, "contrast": 1.5, "bloom": 0.25, "water_depth_per_level": 4 },
-  "environment": { "fall_ticks": 1200, "rise_ticks": 300, "slow": 0.5, "harm_ticks": 1200, "clothed": 0.1 },
+  "environment": { "fall_ticks": 1200, "rise_ticks": 300, "harm_ticks": 1200, "clothed": 0.1 },
+  "happiness": { "slow": 0.5 },
   "vitals": {
     "hunger_ticks": 36000, "energy_ticks": 1800, "sleep_ticks": 600,
     "health_regen_ticks": 6000, "starve_ticks": 3000, "starve_floor": 0.1,

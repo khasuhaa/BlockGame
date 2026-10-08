@@ -45,7 +45,7 @@ static Rectangle small_bar(int c, int row)
 /* The panel comes out beside the button of the character being played. */
 static Rectangle panel_rect_for(int c)
 {
-    float h = PANEL_PAD * 2 + ROW_HEIGHT * 5 + 8.0f + ACTION_HEIGHT;
+    float h = PANEL_PAD * 2 + ROW_HEIGHT * 6 + 8.0f + ACTION_HEIGHT;
     return (Rectangle){ BUTTON_X + BUTTON_SIZE + 10.0f, button_rect(c).y, PANEL_WIDTH, h };
 }
 
@@ -315,7 +315,10 @@ void playerui_draw(const PlayerUi *ui, const Game *g)
         /* Breath only shows while it is short. */
         if (v->oxygen < 1.0f) playerui_draw_bar(small_bar(c, 2), v->oxygen, BAR_BLUE);
         /* Nor what the weather has left them, unless it has taken some. */
-        if (game_character_environment(g, c) < 1.0f) playerui_draw_bar(small_bar(c, v->oxygen < 1.0f ? 3 : 2), game_character_environment(g, c), BAR_BLUE);
+        int row = 2 + (v->oxygen < 1.0f);
+        if (game_character_environment(g, c) < 1.0f) playerui_draw_bar(small_bar(c, row++), game_character_environment(g, c), BAR_BLUE);
+        /* And how they are doing all told, which is what slows them. */
+        if (game_character_happiness(g, c) < 1.0f) playerui_draw_bar(small_bar(c, row++), game_character_happiness(g, c), BAR_GREEN);
     }
     for (int c = 0; c < g->character_count; c++)
         if (death_showing(ui, g, c, 0)) draw_death(ui, g, c, death_rect(g, c, 0), false);
@@ -336,6 +339,7 @@ void playerui_draw(const PlayerUi *ui, const Game *g)
     draw_row(p, 2, "Energy", v->energy > 1.0f ? 1.0f : v->energy, v->energy > 1.0f ? BAR_GOLD : BAR_GREEN);
     draw_row(p, 3, "Oxygen", v->oxygen, BAR_BLUE);
     draw_row(p, 4, "Environment", game_environment(g), BAR_BLUE);
+    draw_row(p, 5, "Happiness", game_happiness(g), BAR_GREEN);
     draw_action(action_rect(0), v->rest == REST_SLEEP ? "Wake up" : "Sleep", can_sleep(g), v->rest == REST_SLEEP);
     draw_action(action_rect(1), v->rest == REST_MEDITATE ? "Stop" : "Meditate", true, v->rest == REST_MEDITATE);
 }

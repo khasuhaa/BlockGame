@@ -773,9 +773,10 @@ typedef struct {
     /* The environment score: it runs down out of doors in rain or cold, to no lower than what is worn keeps, and comes back under cover. */
     int env_fall_ticks;    /* ticks for it to run from full to nothing; 0 for no such thing */
     int env_rise_ticks;    /* and to come back */
-    float env_slow;        /* with none left, walking and working take this share longer... of their speed off: 0.5 is half as fast */
     int env_harm_ticks;    /* ticks for health to run down with none left */
     float env_clothed;     /* the least it can fall to with anything on at all */
+    /* Happiness: how they are doing, all told. It is what slows them. */
+    float happy_slow;      /* with none, they walk and work with this share of their speed gone: 0.5 is half as fast */
 
     /* Fog of war: the world is dark until the player has been near it. */
     bool fog_enabled; /* whether a new world starts with it */
