@@ -101,7 +101,7 @@ READ = {
     'Crafted VI': [('Chandeliers', [g + '_chandelier' for g in GEMS])],
     'Energy V': [('Copper boiler', ['copper_boiler']), ('magnet', ['magnet']), ('electric motor', ['electric_motor']), ('copper wire', ['copper_wire'])],
     'Energy VI': [('Steam engine', ['steam_engine']), ('steam generator', ['steam_generator']), ('solar panel', ['solar_panel']), ('flywheel', ['flywheel']),
-                  ('elevator shaft', ['elevator_shaft']), ('elevator motor', ['electric_elevator_motor']), ('rail', TRAIN[0:1]), ('train wheel', TRAIN[1:2]),
+                  ('elevator shaft', ['elevator_shaft']), ('elevator motor', ['electric_elevator_motor']), ('rail', TRAIN[0:1] + (['train_station'] if 'train_station' in BY else [])), ('train wheel', TRAIN[1:2]),
                   ('handcar', TRAIN[2:3]), ('steam locomotive', TRAIN[3:4]), ('freight cart', TRAIN[4:5]), ('passenger car', TRAIN[5:6]), ('fuel', ['fuel']), ('epoxy', ['epoxy']), ('resin', ['raw_resin']),
                   ('carbon fiber', ['carbon_fibers']), ('carbon fiber sheets', ['carbon_fiber_sheet']), ('carbon fiber wing', ['carbon_fiber_wing']),
                   ('jetpack chassis', ['jetpack_chassis']), ('jet engine', ['jet_engine']), ('jetpack', ['jetpack'])],
@@ -123,6 +123,7 @@ NOTES = [
     'The Platinum block with its column and stairs, which the document left out, is in Blocks VI after titanium (the owner said Building VI; the document has '
     'no Building, and columns and stairs are with their blocks).',
     'Everything in list A is in the category Special, which only the dev portal has.',
+    'The Train station, which the document does not name, is put with the rail in Energy VI: it is three pieces of rail and a sign.',
     'What the upgrades cost is all in the game already: the five gems, Gold and Platinum coins, and crystals.',
 ]
 

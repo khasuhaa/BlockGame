@@ -13,6 +13,8 @@
 #include "playermodel.h"
 #include "termui.h"
 #include "tradeui.h"
+#include "train.h"
+#include "trainui.h"
 #include "digital.h"
 #include "view.h"
 
@@ -30,6 +32,9 @@ static void sign_open(const Game *g, TilePos at);
 
 /* The screen of a storage network, when one is open. */
 static TermUi term_ui;
+
+/* The menu over something on the rails. */
+static TrainUi train_ui;
 
 /* The terminal of a storage network at a square, if there is one there. */
 static bool terminal_at(const Game *g, TilePos t)
@@ -112,6 +117,29 @@ static Vector2 view_origin(const MapCamera *cam)
     return view.origin;
 }
 
+/* The station whose board is over a square: the board is three squares wide, and the station is its middle. */
+static bool station_under(const Game *g, TilePos t, TilePos *out)
+{
+    for (int dx = -1; dx <= 1; dx++) {
+        if (!tile_def(world_get(&g->world, t.x + dx, t.y))->station) continue;
+        *out = (TilePos){ world_wrap_x(&g->world, t.x + dx), t.y };
+        return true;
+    }
+    return false;
+}
+
+/* Puts up the menu of whatever on the rails is under a square, if there is anything to be done with it from here. */
+static bool rail_menu(const Game *g, TilePos t)
+{
+    TrainOption scratch[TRAIN_MAX_OPTIONS];
+    const ItemStack *held = inventory_selected(&g->inventory);
+    int vehicle = train_under(g, t.x, t.y);
+    if (vehicle < 0 || (held->count > 0 && item_def((ItemId)held->id)->vehicle.is && !g->ride)) return false;
+    if (train_options(g, vehicle, t.x, scratch) == 0) return false;
+    trainui_show(&train_ui, vehicle, t.x);
+    return true;
+}
+
 /* The tile under a screen point. Its x is not wrapped into the world. */
 /* The sign drawn over a point of the world, given in blocks: where it is drawn, not the squares it is in. */
 static bool sign_under(const Game *g, float fx, float fy, TilePos *out)
@@ -155,7 +183,9 @@ static void sync_storage_slots(const Game *g, Hud *hud)
 {
     Rectangle rects[HUD_MAX_EXTRA_SLOTS];
     uint16_t container;
-    hud->extra_count = benchui_storage_slots(g, &ui_view, rects, HUD_MAX_EXTRA_SLOTS, &container);
+    /* (Something on the rails that is open has its slots there, as a chest has.) */
+    hud->extra_count = trainui_storage_slots(g, &ui_view, rects, HUD_MAX_EXTRA_SLOTS, &container);
+    if (hud->extra_count == 0) hud->extra_count = benchui_storage_slots(g, &ui_view, rects, HUD_MAX_EXTRA_SLOTS, &container);
     for (int i = 0; i < hud->extra_count; i++)
         hud->extra[i] = (HudSlot){ rects[i], { SLOT_CONTAINER, container, i } };
 }
@@ -367,6 +397,7 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
     }
     if (on_players) return;
     if (tradeui_handle_input(trade, g, &ui_view)) return;
+    if (trainui_handle_input(&train_ui, g, &ui_view)) return;
     bool on_bench = benchui_handle_input(bench, g, &ui_view);
     if (bench->teleported) {
         /* Gone with the player. */
@@ -458,6 +489,9 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
             else if (mob >= 0) game_click_mob(g, mob);
             /* A second click on a square with something queued takes it back. */
             else if (game_unqueue_tile(g, t.x, t.y)) {}
+            /* Something on the rails, near enough to do anything with: its menu. (With another to put down in hand, that
+             * is put down; from too far off, the click is somewhere to go.) */
+            else if (rail_menu(g, t)) {}
             /* Something in hand that reaches a storage network from a distance: its screen comes up. */
             else if (digital_remote(g, &sign)) termui_open(&term_ui, sign, true);
             /* A terminal: its screen, from close by; from further off the character goes to it. */
@@ -476,6 +510,8 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
             /* A sign is read and written on, not dug at. */
             else if (sign_under(g, (mouse.x / zoom - view.origin.x) / TILE_SIZE, (mouse.y / zoom - view.origin.y) / TILE_SIZE, &sign))
                 sign_open(g, sign);
+            /* So is a station's board, which is three squares wide. */
+            else if (station_under(g, t, &sign)) sign_open(g, sign);
             else game_click_tile(g, t.x, t.y);
         }
         cam->pressed = false;
@@ -603,6 +639,12 @@ static void draw_block(const Game *g, int layer, TileType t, int x, int y, float
             if ((mount == MOUNT_LEFT && right_half) || (mount == MOUNT_RIGHT && !right_half)) mount = MOUNT_WALL;
         }
         assets_draw_tile_mounted(t, wx, y, px, py, TILE_SIZE, dim, mount);
+    } else if (def->rail && def->texture_ramp[0] && !train_rail(&g->world, x + 1, y) && train_rail(&g->world, x + 1, y - 1)) {
+        /* Track that climbs to the next piece: a block up, to the right... */
+        assets_draw_sprite(def->texture_ramp, (Rectangle){ px, py - TILE_SIZE, TILE_SIZE, 2 * TILE_SIZE }, false);
+    } else if (def->rail && def->texture_ramp[0] && !train_rail(&g->world, x - 1, y) && train_rail(&g->world, x - 1, y - 1)) {
+        /* ...or to the left. */
+        assets_draw_sprite(def->texture_ramp, (Rectangle){ px, py - TILE_SIZE, TILE_SIZE, 2 * TILE_SIZE }, true);
     } else if (def->wire) {
         /* Wire runs to whatever beside it carries or takes electricity. */
         static const int beside[4][2] = { { 0, -1 }, { 1, 0 }, { 0, 1 }, { -1, 0 } };
@@ -707,7 +749,7 @@ static void draw_world(const Game *g, Vector2 origin)
     /* What is written on each sign, in one line across it. */
     for (int y = y0; y <= y1; y++) {
         for (int x = x0 - 2; x <= x1 + 1; x++) {
-            const SignText *text = tile_def(world_get(w, x, y))->written ? game_sign_at(g, x, y) : NULL;
+            const SignText *text = tile_def(world_get(w, x, y))->written && !tile_def(world_get(w, x, y))->station ? game_sign_at(g, x, y) : NULL;
             if (!text || !text->text[0]) continue;
             float px = origin.x + (float)(x * TILE_SIZE) + pair_shift(w, x, y), py = origin.y + (float)(y * TILE_SIZE);
             /* Written smaller when it would not otherwise fit, so that it never runs off the board. */
@@ -1307,6 +1349,54 @@ typedef struct {
 
 static BodyEase body_ease[MAX_CHARACTERS];
 
+/* What is on the rails. */
+static void draw_vehicles(const Game *g, Vector2 origin)
+{
+    for (int i = 0; i < MAX_VEHICLES; i++) {
+        const Vehicle *v = &g->vehicles[i];
+        if (!v->used) continue;
+        const ItemDef *def = item_def((ItemId)v->item);
+        Texture2D tex = assets_texture(def->vehicle.texture);
+        float x, y;
+        train_visual(g, i, &x, &y);
+        /* (Drawn at the size it was drawn at, standing on the bottom of its square of track, about the middle of it.) */
+        float wide = tex.id ? (float)tex.width : (float)(def->vehicle.width * TILE_SIZE), tall = tex.id ? (float)tex.height : 2.0f * TILE_SIZE;
+        float px = origin.x + view_near_x(&view, x) * TILE_SIZE + TILE_SIZE / 2.0f - wide / 2.0f, py = origin.y + (y + 1.0f) * TILE_SIZE - tall;
+        assets_draw_sprite(def->vehicle.texture, (Rectangle){ px, py, wide, tall }, false);
+        /* An engine with its fire lit: a glow at the firebox. */
+        if (def->vehicle.engine && v->dir != 0 && v->burn > 0)
+            DrawRectangleRec((Rectangle){ px + 6.0f, py + tall - 28.0f, 6.0f, 4.0f }, (Color){ 240, 120, 40, 255 });
+    }
+}
+
+/* The boards of the stations, over whatever has pulled in at them, and what each is called. */
+static void draw_stations(const Game *g, Vector2 origin)
+{
+    const World *w = &g->world;
+    int x0 = (int)floorf(-origin.x / TILE_SIZE) - 2, y0 = (int)floorf(-origin.y / TILE_SIZE) - 1;
+    int x1 = x0 + (int)((float)GetScreenWidth() / zoom / TILE_SIZE) + 5, y1 = y0 + (int)((float)GetScreenHeight() / zoom / TILE_SIZE) + 3;
+    if (y0 < 0) y0 = 0;
+    if (y1 >= w->height) y1 = w->height - 1;
+    for (int y = y0; y <= y1; y++) {
+        for (int x = x0; x <= x1; x++) {
+            TileType t = world_get(w, x, y);
+            if (!tile_def(t)->station) continue;
+            float px = origin.x + (float)(x * TILE_SIZE), py = origin.y + (float)(y * TILE_SIZE);
+            assets_draw_tile(t, world_wrap_x(w, x), y, px, py, TILE_SIZE, 0.0f, TILE_PART_BODY);
+            const SignText *text = game_sign_at(g, x, y);
+            if (!text || !text->text[0]) continue;
+            /* Written smaller when it would not otherwise fit on the board. */
+            float wide = (float)MeasureText(text->text, SIGN_TEXT_SIZE), room = 3.0f * TILE_SIZE - 22.0f;
+            float scale = wide > room ? room / wide : 1.0f;
+            rlPushMatrix();
+            rlTranslatef(px + TILE_SIZE / 2.0f, py + 10.0f, 0.0f);
+            rlScalef(scale, scale, 1.0f);
+            DrawText(text->text, (int)(-wide / 2.0f), -SIGN_TEXT_SIZE / 2, SIGN_TEXT_SIZE, (Color){ 40, 26, 14, 255 });
+            rlPopMatrix();
+        }
+    }
+}
+
 static void draw_player(const Game *g, Vector2 origin)
 {
     float x, y;
@@ -1321,6 +1411,26 @@ static void draw_player(const Game *g, Vector2 origin)
     if (g->vitals.respawn > 0) {
         /* Dead: laid out on the ground, the colour gone from them. */
         draw_body(g, px + 4.0f, ground, (BodyPose){ .facing = -1, .pitch = -90.0f, .tint = (Color){ 130, 134, 144, 255 } });
+        return;
+    }
+    if (g->ride > 0 && g->ride <= MAX_VEHICLES && g->vehicles[g->ride - 1].used) {
+        /* Riding: sat in a seat, looking out; or stood on a handcar, working the handle while it goes. */
+        const Vehicle *on = &g->vehicles[g->ride - 1];
+        if (item_def((ItemId)on->item)->vehicle.hand) {
+            float pump = on->dir != 0 ? sinf((float)GetTime() * 9.0f) * 28.0f : 0.0f;
+            draw_body(g, cx, ground - 22.0f,
+                      (BodyPose){ .facing = on->dir != 0 ? on->dir : p->facing, .turn = on->dir != 0 ? 0.0f : PLAYERMODEL_SIDE, .lean = on->dir != 0 ? 10.0f + pump * 0.3f : 0.0f,
+                                  .arm = { 62.0f + pump, 62.0f + pump }, .tint = WHITE });
+        } else {
+            /* (Only as much of them as is above the sill: a carriage is not as tall inside as they are.) */
+            float vx, vy;
+            train_visual(g, g->ride - 1, &vx, &vy);
+            float top = (origin.y + (vy - 1.0f) * TILE_SIZE) * zoom;
+            rlDrawRenderBatchActive();
+            BeginScissorMode(0, (int)top, GetScreenWidth(), (int)(26.0f * zoom));
+            draw_body(g, cx, ground - 9.0f, (BodyPose){ .facing = 1, .turn = PLAYERMODEL_SIDE, .sink = 10.0f, .leg = { 82.0f, 82.0f }, .arm = { 20.0f, 20.0f }, .tint = WHITE });
+            EndScissorMode();
+        }
         return;
     }
     if (g->vitals.rest == REST_SLEEP && settled) {
@@ -1708,13 +1818,20 @@ static void session_draw(Session *s)
         assets_set_season(game_season(g));
         draw_world(g, origin);
         draw_mobs(g, origin);
-        /* Every character, the one being played last so that it is on top. */
-        for (int n = 0; n < g->character_count; n++) {
-            int c = (g->controlled + 1 + n) % g->character_count;
-            game_use_character(g, c);
-            draw_player(g, origin);
-            if (g->character_count > 1 && c == g->controlled && game_alive(g)) draw_played_marker(g, origin);
+        /* Every character, the one being played last so that it is on top: first whoever is riding, then what they
+         * are riding in - so that they are seen through its windows - then everyone else. */
+        for (int pass = 0; pass < 2; pass++) {
+            for (int n = 0; n < g->character_count; n++) {
+                int c = (g->controlled + 1 + n) % g->character_count;
+                game_use_character(g, c);
+                if ((g->ride != 0) != (pass == 0)) continue;
+                draw_player(g, origin);
+                if (g->character_count > 1 && c == g->controlled && game_alive(g)) draw_played_marker(g, origin);
+            }
+            if (pass == 0) draw_vehicles(g, origin);
         }
+        if (g->character_count == 0) draw_vehicles(g, origin);
+        draw_stations(g, origin);
         draw_drops(g, origin);
         draw_weather(g, origin);
         /* An arrow in the air: a quick streak from the bow to what it was loosed at. */
@@ -1751,6 +1868,7 @@ static void session_draw(Session *s)
     if (!on_map) {
         benchui_draw(&s->bench, g, &ui_view);
         tradeui_draw(&s->trade, g, &ui_view);
+        trainui_draw(&train_ui, g, &ui_view);
     }
     playerui_set_view(&ui_view, !on_map);
     if (g->character_count == 0) {

@@ -447,7 +447,7 @@ Every recipe is in `data/recipes.json`, written out from the list in `recipes.tx
 | Metalwork bench | Workbench tier 3: 5 bronze ingot, 2 coal, 2m | 2: 1 iron block | 27 |
 | Mixing bench | Workbench tier 3: 1 stone, 1 tin bucket, 5 oil, 2m | - | 93 |
 | Pizza oven | Workbench tier 3: 5 clay, 1 sand, 1 red brick, 1 plaster, 2m | - | 2 |
-| Train yard | Workbench tier 3: 1 stone, 5 steel ingot, 2m | - | none yet |
+| Train yard | Workbench tier 3: 1 stone, 5 steel ingot, 2m | - | 8 |
 | Egg extractor | Workbench tier 4: 1 steel block, 1 electric motor, 1 dodo egg, 10 copper wire, 3m | - | none yet |
 | Electric furnace | Workbench tier 4: 1 steel block, 10 copper wire, 1 iron ingot, 3m | - | none yet |
 | Electric kiln | Workbench tier 4: 1 steel block, 1 red brick, 10 copper wire, 3m | - | none yet |
@@ -616,6 +616,23 @@ The **jetpack** is worn on the body, in the slot a breastplate goes in: straps o
 Whatever is in the four armour slots is drawn on them, each piece a shell a little larger than the part it covers, so a coat goes over the undershirt and a helmet over the hair: a helmet leaves the face open, a breastplate has a guard on each shoulder, a coat has sleeves to the wrist, leggings stop at the shin and boots cover the foot.
 
 The skin is one picture, 64 by 32, with each box opened out flat: the head's faces start at the top left corner (8 by 8 by 8), a leg at (0, 16), the body at (16, 16) and an arm at (40, 16), each laid out as right side, front, left side, back, with the top and the underside in the row above. The other arm and leg use the same part of the picture, turned about. Which picture is the skin is `"skin"` under `"players"` in `rules.json`; what an item looks like worn is its `"worn"` in `items.json`, a picture of the same shape with nothing drawn where the thing does not cover. A mod's clothes carry their own.
+
+### The railway
+
+Everything for it is made at the **train yard**: 10 rail from 1 wood and 2 steel ingots; a crowbar from 2 steel ingots (1m 40s); a train station from 3 wood and 3 rail; a train wheel from 3 steel ingots; a rail handcar from 4 train wheels and 2 wood; a steam locomotive from 6 train wheels, a steam engine, an iron block and 10 coal; a freight car from 4 train wheels, 1 wood and a chest; a passenger car from 4 train wheels, 1 wood and an iron block. Each takes 1m 20s but the crowbar.
+
+- **Rail** goes down on top of a block, and nowhere else. A piece joins the piece beside it, and also the piece beside it and one block up or down, so track climbs a staircase of blocks a block at a time; a climbing piece is drawn as a ramp on a trestle. A click on rail only takes it up with a **crowbar** in hand: without one the click is somewhere to walk to. Rail with something standing on it does not come up at all.
+- **A train station** is three blocks wide and two tall: three pieces of rail with a board over them. It is put up by a click on the square above where its middle rail is to go; it lays the three pieces itself (or uses rail already there), and they come up with it when it is taken down. A click on the board writes its name on it, as on a sign.
+- **Putting things on the track.** With a handcar, a locomotive or a car in hand, a click on a piece of rail within four blocks (or on the square over it) puts it there. A handcar stands on one piece; the others on three, and are two blocks tall. One put down within two squares of another is slid up against it. Things that touch end to end are **coupled**: whatever moves one moves them all, so a car is attached by putting it down behind a locomotive or another car.
+- **A click on anything on the rails**, from within reach or from a seat anywhere on the same train, brings up its menu. The last choice is always to remove it, which leaves it, and whatever it held, lying where it stood, and puts out whoever was in it.
+- **A rail handcar**: *Get in*, and then `A` and `D` send it left and right. It keeps going to the end of the track; the other direction, or `W` or `S`, stops it at the next square. *Get out* to leave.
+- **A steam locomotive**: *Move left* and *Move right* send it to the end of the track that way - or, where there is a station that way, the choice reads *Move to* and the station's name, and it stops with its middle at the station. While it is going the choice is *Stop*. *Fuel* opens its one slot: it burns what is in it, one thing at a time, each for as long as it burns in a furnace (coal 1,200 ticks, fuel 3,600), and only while it is moving. With nothing to burn it does not go, and stops where it runs out. *Get in* puts a character in the cab.
+- **A passenger car** has two seats, at its two windows: *Sit* takes the one clicked on. Seated, a click on the car offers *Get out*.
+- **A freight car** is a chest on wheels: *Open* shows its 16 slots.
+- Whoever is riding goes where the train goes, and can do nothing else until they get out; from their seat they can still work the menu of any part of their train. Dying puts a rider out.
+- A train stops where the track ends. It does not look for blocks in its way beyond the square ahead of it.
+
+In the data, track is a block with `"rail": true` (and `"texture_ramp"` for the climbing piece); `"needs_tool"` makes a block come up only with its tool in hand, and `"on_floor"` makes it go only on a block. A station is `"station": true`, `"written": true` and `"lays"` naming the track it lays. A vehicle is an item with `"vehicle"`: its `"width"` (1 or 3), whether it is an `"engine"` or worked by `"hand"`, its `"seats"`, `"cargo_slots"`, `"speed"` in squares a second, and its `"texture"`.
 
 ### Putting things up without a backwall
 
@@ -807,6 +824,8 @@ Under a beach, quite often - about one column in six, a dozen or more to a world
 - `src/hud.c` — the on-screen inventory bar
 - `src/benchui.c` — the bench popup and crafting menu
 - `src/tradeui.c` — the trade portal menu
+- `src/train.c` — the railway: track, and what runs on it
+- `src/trainui.c` — the menu over something on the rails, and its slots
 - `src/playerui.c` — the player's button, bars and the sleep and meditate panel
 - `src/playermodel.c` — the character: six boxes with a skin on them, and what is worn over them
 - `src/recipeui.c` — the recipe book

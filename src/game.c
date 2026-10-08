@@ -5,6 +5,7 @@
 
 #include "mob.h"
 #include "trade.h"
+#include "train.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -633,6 +634,8 @@ static bool target_valid(const World *w, Action a)
             return world_is_water(w, a.target.x, a.target.y) && !world_is_water(w, a.target.x, a.target.y - 1);
         /* A window goes on a backwall: it is a hole in one, and there has to be one to make a hole in. */
         if (tile_def(placed)->window) return bare_wall(w, a.target) != TILE_AIR;
+        /* Something that lays its own track stands on that: room for it is all it needs. */
+        if (tile_def(placed)->lays != TILE_AIR) return true;
         /* And something that floats, anywhere there is room for it. */
         if (tile_def(placed)->floats) return true;
         if (tile_def(placed)->layer == LAYER_BACKGROUND &&
@@ -883,6 +886,7 @@ static bool queue_checked(Game *g, Pose pos, Action a)
 
 bool game_queue_action(Game *g, ActionType type, int tx, int ty)
 {
+    if (g->ride) return false;
     Action a = { .type = type, .target = { world_wrap_x(&g->world, tx), ty } };
     if (uses_item(a)) a.item = inventory_selected(&g->inventory)->id;
     return queue_checked(g, sim_pending(g), a);
@@ -1018,7 +1022,13 @@ bool game_click_drop(Game *g, int drop)
 
 bool game_click_tile(Game *g, int tx, int ty)
 {
+    /* Riding, there is nowhere to go and nothing in reach: getting out comes first. */
+    if (g->ride) return false;
     if (game_unqueue_tile(g, tx, ty)) return true;
+    /* Something that runs on rails, in hand, and track here near enough to reach: it is put on it. */
+    if (inventory_selected(&g->inventory)->count > 0 && item_def((ItemId)inventory_selected(&g->inventory)->id)->vehicle.is &&
+        train_place(g, (ItemId)inventory_selected(&g->inventory)->id, tx, ty) >= 0)
+        return true;
 
     Pose pos = sim_pending(g);
     tx = world_wrap_x(&g->world, tx);
@@ -1067,6 +1077,13 @@ bool game_click_tile(Game *g, int tx, int ty)
         /* Wire in hand: it goes on whatever is here - a block, a bench, a backwall - rather than that being dug out. */
         a.type = ACTION_PLACE;
         a.item = held->id;
+    } else if (world_in_bounds(&g->world, tx, ty) && mine_layer(&g->sim, a.target) >= 0 &&
+               ((tile_def(world_get_at(&g->sim, mine_layer(&g->sim, a.target), tx, ty))->needs_tool &&
+                 (held->count <= 0 || item_def((ItemId)held->id)->tool_class < 0 ||
+                  item_def((ItemId)held->id)->tool_class != tile_def(world_get_at(&g->sim, mine_layer(&g->sim, a.target), tx, ty))->tool_class)) ||
+                train_at(g, tx, ty) >= 0)) {
+        /* Something that only comes up with its tool, and that not in hand - or track with something standing on it:
+         * the click is a click on the square, and they go to it. */
     } else if (world_in_bounds(&g->world, tx, ty) && mine_layer(&g->sim, a.target) >= 0) {
         /* A block here, in front or behind, is mined - or, with fire in hand and the block one that burns, burnt down. */
         a.type = ACTION_MINE;
@@ -1186,6 +1203,12 @@ void game_drop_item_sized(Game *g, ItemId id, int x, int y, int size)
     ItemStack one = { (uint16_t)id, 1, 0 };
     if (item_def(id)->meter_max > 0) inventory_set_meter(&g->inventory, &one, size);
     spawn_drop_stack(g, one, (TilePos){ world_wrap_x(&g->world, x), y });
+}
+
+void game_drop_stack(Game *g, ItemStack stack, int x, int y)
+{
+    /* (A drop is one of a thing: so many of them, the first with whatever is inside.) */
+    for (int i = 0; i < stack.count; i++) spawn_drop_stack(g, (ItemStack){ stack.id, 1, i == 0 ? stack.container : 0 }, (TilePos){ x, y });
 }
 
 void game_drop_item(Game *g, ItemId id, int x, int y)
@@ -1461,6 +1484,8 @@ static void place_tile(World *w, TilePos t, TileType tile)
     for (int i = 0; tile_def(tile)->mimics != MIMIC_NONE && i < tile_def(tile)->height; i++)
         if (world_meta(w, t.x, t.y - i) == 0) world_fix_look(w, t.x, t.y - i);
     if (tile_def(tile)->pair != TILE_AIR) world_set_at(w, tile_def(tile_def(tile)->pair)->layer, t.x + 1, t.y, tile_def(tile)->pair);
+    for (int dx = -1; tile_def(tile)->lays != TILE_AIR && dx <= 1; dx++)
+        world_set_at(w, tile_def(tile_def(tile)->lays)->layer, t.x + dx, t.y + 1, tile_def(tile)->lays);
     if (tile_def(tile)->wall && world_get_at(w, LAYER_WALL, t.x, t.y) == TILE_AIR)
         world_set_at(w, LAYER_WALL, t.x, t.y, tile);
     /* Put up not far above another block, it has backwall of itself run
@@ -1492,6 +1517,16 @@ static bool room_for(const World *w, TilePos t, TileType tile)
     for (int i = 0; i < tile_def(tile)->height; i++) {
         if (!world_in_bounds(w, t.x, t.y - i) || world_get(w, t.x, t.y - i) != TILE_AIR || world_is_solid(w, t.x, t.y - i) ||
             world_get_at(w, tile_def(tile)->layer, t.x, t.y - i) != TILE_AIR)
+            return false;
+    }
+    /* Something that only goes on a block needs one under it. */
+    if (tile_def(tile)->on_floor && !world_is_solid(w, t.x, t.y + 1)) return false;
+    /* Something that lays track under itself needs room for three pieces of it, each on a block - or the track there already. */
+    TileType lays = tile_def(tile)->lays;
+    for (int dx = -1; lays != TILE_AIR && dx <= 1; dx++) {
+        TileType there = world_get_at(w, tile_def(lays)->layer, t.x + dx, t.y + 1);
+        if (!world_in_bounds(w, t.x + dx, t.y + 2) || world_is_solid(w, t.x + dx, t.y + 1) || !world_is_solid(w, t.x + dx, t.y + 2) ||
+            (there != TILE_AIR && there != lays))
             return false;
     }
     /* Something two blocks wide needs the square to its right as well, and level ground under both. */
@@ -1615,6 +1650,10 @@ static void finish_activity(Game *g)
             replace_block(&g->world, layer, t, TILE_AIR);
             if (def->pair != TILE_AIR && world_get_at(&g->world, tile_def(def->pair)->layer, t.x + 1, t.y) == def->pair)
                 world_set_at(&g->world, tile_def(def->pair)->layer, t.x + 1, t.y, TILE_AIR);
+            /* What it laid under itself comes up with it, but for any piece something is standing on. */
+            for (int dx = -1; def->lays != TILE_AIR && dx <= 1; dx++)
+                if (world_get_at(&g->world, tile_def(def->lays)->layer, t.x + dx, t.y + 1) == def->lays && train_at(g, t.x + dx, t.y + 1) < 0)
+                    world_set_at(&g->world, tile_def(def->lays)->layer, t.x + dx, t.y + 1, TILE_AIR);
             /* The top of a wall taken away - a block with no backwall over
              * it - takes the backwall under it down too, as far as the next block or as far as walls are run. */
             if (layer == LAYER_FOREGROUND && def->solid && content.rules.wall_span > 0 &&
@@ -1828,6 +1867,9 @@ static bool start_next_activity(Game *g)
 {
     Player *p = &g->player;
     const World *w = &g->world;
+
+    /* Riding, they stay where they are put. */
+    if (g->ride) return false;
 
     if (is_supported(w, p->feet)) {
         p->climbing = false;
@@ -2478,6 +2520,8 @@ static void character_stash(Game *g, Character *c)
     c->menu_hold = g->menu_hold;
     c->shield = g->shield;
     c->chill = g->chill;
+    c->ride = g->ride;
+    c->ride_seat = g->ride_seat;
     c->upgrading = g->upgrading;
     c->upgrade_timer = g->upgrade_timer;
 }
@@ -2511,6 +2555,8 @@ static void character_fetch(Game *g, const Character *c)
     g->menu_hold = c->menu_hold;
     g->shield = c->shield;
     g->chill = c->chill;
+    g->ride = c->ride;
+    g->ride_seat = c->ride_seat;
     g->upgrading = c->upgrading;
     g->upgrade_timer = c->upgrade_timer;
 }
@@ -2699,6 +2745,7 @@ int game_create_character(Game *g, TilePos portal, const char *name)
 static void die(Game *g)
 {
     Vitals *v = &g->vitals;
+    train_unseat(g, -1);
     v->health = v->death = 0.0f;
     v->respawn = content.rules.respawn_ticks > 0 ? content.rules.respawn_ticks : 1;
     v->rest = REST_NONE;
@@ -3224,6 +3271,7 @@ void game_tick(Game *g)
     power_tick(g);
     industry_tick(g);
     digital_tick(g);
+    train_tick(g);
     /* Everybody gets hungry, whoever is being played. */
     for (int c = 0; c < g->character_count; c++) {
         game_use_character(g, c);
@@ -3504,6 +3552,7 @@ void game_update(Game *g, float dt)
         update_bench(g, frame);
     }
     game_use_character(g, g->controlled);
+    train_update(g, frame);
 }
 
 void game_set_move_input(Game *g, int dx, int dy)
@@ -3525,6 +3574,8 @@ void game_cancel_actions(Game *g)
 
 void game_player_visual_pos(const Game *g, float *x, float *y)
 {
+    /* Riding, they are wherever what they are riding is. */
+    if (train_rider_visual(g, x, y)) return;
     const Player *p = &g->player;
     float t = p->activity == ACTIVITY_STEPPING ? p->timer / p->duration : 0.0f;
     int dx = p->step_to.x - p->feet.x, dy = p->step_to.y - p->feet.y;

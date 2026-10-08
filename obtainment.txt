@@ -12,10 +12,10 @@ Everything is treated as an item unless it can actually be put down in the world
 (the "X block" things, benches, and the blocks the game already had). Beds, doors,
 columns, stairs, ladders and the like are items for now.
 
-Totals: 420 items, 497 recipes, 30 kinds of bench.
+Totals: 427 items, 505 recipes, 30 kinds of bench.
 
 ==============================================================================
-1. UNOBTAINABLE ITEMS  (10 of 420)
+1. UNOBTAINABLE ITEMS  (5 of 427)
 ==============================================================================
 The Workbench is made at any portal (1 dirt), so the benches can all be started.
 The list is split in two: what has no source at all (1a), and what has a recipe that
@@ -24,22 +24,21 @@ cannot be completed because of something in 1a (1b).
 Clay is now dug from veins in the dirt, which opens the kiln, and with it charcoal, the
 furnace, bronze and the press.
 
-410 of the 420 items can be got as things stand.
+422 of the 427 items can be got as things stand.
 
-1a. NOTHING MAKES OR GIVES THESE  (10) - the roots: settle these and most of 1b follows
+1a. NOTHING MAKES OR GIVES THESE  (5) - the roots: settle these and most of 1b follows
     (after each: what it is wanted for)
 
   - Carbon                 -> Compost
 
     Left over from before, wanted for nothing, and now with no recipe:
-      Bronze axe, Titanium axe, Trade portal II, Trade portal III, Trade portal IV
-      Trade portal V, Trade portal VI, Wooden pickaxe, Wooden spade
+      Bronze axe, Titanium axe, Wooden pickaxe, Wooden spade
 
 1b. HAVE A RECIPE, BUT IT CANNOT BE COMPLETED  (0)
     (after each: the bench, and what is missing)
 
 
-For reference, what CAN be got as things stand (410): 
+For reference, what CAN be got as things stand (422): 
     Acorn, Amethyst, Amethyst block, Amethyst chandelier, Amethyst column
     Amethyst dodo egg, Amethyst pickaxe, Amethyst shard, Amethyst stairs, Apple
     Armor bench, Armor bench II, Armor bench III, Basalt, Basalt column
@@ -71,26 +70,27 @@ For reference, what CAN be got as things stand (410):
     Emerald chandelier, Emerald column, Emerald dodo egg, Emerald green
     Emerald pickaxe, Emerald shard, Emerald stairs, Epoxy, Feeder chest, Fish curry
     Fishing rod, Flatbread, Flax, Flax seeds, Flint, Flint axe, Flint dodo egg
-    Flint machete, Flint pickaxe, Flint spade, Flint spear, Flour, Flywheel, Fuel
-    Fur, Fur boots, Fur coat, Furnace, Furnace II, Furnace III, Glass, Glass column
-    Glass stairs, Gold block, Gold bow & poison arrows, Gold coin, Gold column
-    Gold dodo egg, Gold ingot, Gold nugget, Gold pickaxe, Gold spade, Gold stairs
-    Golden chest, Grass skirt, Gravel, Green coffee bean, Ice, Ice column
-    Ice stairs, Indian yellow, Iron armor leggings, Iron axe, Iron block, Iron boots
-    Iron chestplate, Iron column, Iron dodo egg, Iron door, Iron helmet, Iron ingot
-    Iron machete, Iron ore, Iron pickaxe, Iron pot, Iron stairs, Iron sword
-    Iron trapdoor, Jet engine, Jetpack, Jetpack chassis, Kelp, Kiln, Ladder
-    Lapis dodo egg, Lapis lazuli, Lapis lazuli column, Lapis lazuli stairs, Leather
-    Leather boots, Leather jacket, Leather pants, Limestone, Limestone column
-    Limestone dodo egg, Limestone stairs, Linen, Linen brimmed hat, Linen cap
-    Linen pants, Linen shirt, Luminous plaster, Magnet, Mango, Maple seed, Marble
-    Marble column, Marble dodo egg, Marble stairs, Marble white, Metalwork bench
-    Metalwork bench II, Milk, Mirror, Mixing bench, Mozzarella, New player
-    North hat, Oil, Oil lantern, Orange, Paint, Paint stripper, Pig iron, Pine cone
-    Pizza, Pizza oven, Plaster, Plaster column, Plaster stairs, Platinum block
-    Platinum coin, Platinum column, Platinum dodo egg, Platinum ingot, Platinum ore
-    Platinum stairs, Poison, Pole boots, Portal, Portal II, Portal III, Portal IV
-    Portal V, Portal VI, Portal chest, Press, Press II, Press III, Prickly pear
+    Flint machete, Flint pickaxe, Flint spade, Flint spear, Flour, Flywheel
+    Freight car, Fuel, Fur, Fur boots, Fur coat, Furnace, Furnace II, Furnace III
+    Glass, Glass column, Glass stairs, Gold block, Gold bow & poison arrows
+    Gold coin, Gold column, Gold dodo egg, Gold ingot, Gold nugget, Gold pickaxe
+    Gold spade, Gold stairs, Golden chest, Grass skirt, Gravel, Green coffee bean
+    Ice, Ice column, Ice stairs, Indian yellow, Iron armor leggings, Iron axe
+    Iron block, Iron boots, Iron chestplate, Iron column, Iron dodo egg, Iron door
+    Iron helmet, Iron ingot, Iron machete, Iron ore, Iron pickaxe, Iron pot
+    Iron stairs, Iron sword, Iron trapdoor, Jet engine, Jetpack, Jetpack chassis
+    Kelp, Kiln, Ladder, Lapis dodo egg, Lapis lazuli, Lapis lazuli column
+    Lapis lazuli stairs, Leather, Leather boots, Leather jacket, Leather pants
+    Limestone, Limestone column, Limestone dodo egg, Limestone stairs, Linen
+    Linen brimmed hat, Linen cap, Linen pants, Linen shirt, Luminous plaster, Magnet
+    Mango, Maple seed, Marble, Marble column, Marble dodo egg, Marble stairs
+    Marble white, Metalwork bench, Metalwork bench II, Milk, Mirror, Mixing bench
+    Mozzarella, New player, North hat, Oil, Oil lantern, Orange, Paint
+    Paint stripper, Passenger car, Pig iron, Pine cone, Pizza, Pizza oven, Plaster
+    Plaster column, Plaster stairs, Platinum block, Platinum coin, Platinum column
+    Platinum dodo egg, Platinum ingot, Platinum ore, Platinum stairs, Poison
+    Pole boots, Portal, Portal II, Portal III, Portal IV, Portal V, Portal VI
+    Portal chest, Press, Press II, Press III, Prickly pear, Rail, Rail handcar
     Rainbow cake, Rainbow essence, Raw dodo meat, Raw fish, Raw resin, Razor
     Red brick, Red marble, Red marble column, Red marble dodo egg, Red marble stairs
     Red ochre, Refinery, Reinforced platform, Roasted coffee bean, Ruby, Ruby block
@@ -99,22 +99,23 @@ For reference, what CAN be got as things stand (410):
     Sandstone stairs, Sapphire, Sapphire block, Sapphire chandelier, Sapphire column
     Sapphire dodo egg, Sapphire pickaxe, Sapphire shard, Sapphire stairs, Shark head
     Shelf, Sign, Silicon crystal, Silicon ingot, Silicon wafer, Soft bed
-    Solar panel, Steam engine, Steam generator, Steel block, Steel column
-    Steel downlight, Steel ingot, Steel lantern, Steel pickaxe, Steel stairs
-    Steel uplight, Stick, Stone, Stone axe, Stone column, Stone dodo egg
-    Stone pickaxe, Stone spade, Stone stairs, String, Sunflower seed, Tailor's bench
-    Tailor's bench II, Time crystal, Tin armor leggings, Tin block, Tin boots
-    Tin bucket, Tin chestplate, Tin column, Tin dodo egg, Tin foil, Tin foil hat
-    Tin helmet, Tin ingot, Tin ore, Tin spade, Tin stairs, Titanium armor leggings
-    Titanium block, Titanium boots, Titanium chestplate, Titanium column
-    Titanium dodo egg, Titanium helmet, Titanium ingot, Titanium ore
-    Titanium pickaxe, Titanium stairs, Titanium sword, Tomato, Tool bench
-    Tool bench II, Tool bench III, Tool bench IV, Tool bench V, Tool bench VI
-    Tool bench VII, Trade portal, Train yard, Trapdoor, Tulip bulb, Tulip seed
-    Tyrian purple, Ultramarine blue, Vine, Wheat, Window, Wood, Wood column
-    Wood dodo egg, Wood stairs, Wooden bed, Wooden door, Wooden gate, Woodwork bench
-    Workbench, Workbench II, Workbench III, Workbench IV, Worms, Yak horn
-    Yak shavings, Yeast
+    Solar panel, Steam engine, Steam generator, Steam locomotive, Steel block
+    Steel column, Steel downlight, Steel ingot, Steel lantern, Steel pickaxe
+    Steel stairs, Steel uplight, Stick, Stone, Stone axe, Stone column
+    Stone dodo egg, Stone pickaxe, Stone spade, Stone stairs, String, Sunflower seed
+    Tailor's bench, Tailor's bench II, Time crystal, Tin armor leggings, Tin block
+    Tin boots, Tin bucket, Tin chestplate, Tin column, Tin dodo egg, Tin foil
+    Tin foil hat, Tin helmet, Tin ingot, Tin ore, Tin spade, Tin stairs
+    Titanium armor leggings, Titanium block, Titanium boots, Titanium chestplate
+    Titanium column, Titanium dodo egg, Titanium helmet, Titanium ingot
+    Titanium ore, Titanium pickaxe, Titanium stairs, Titanium sword, Tomato
+    Tool bench, Tool bench II, Tool bench III, Tool bench IV, Tool bench V
+    Tool bench VI, Tool bench VII, Trade portal, Trade portal II, Trade portal III
+    Trade portal IV, Trade portal V, Trade portal VI, Train station, Train wheel
+    Train yard, Trapdoor, Tulip bulb, Tulip seed, Tyrian purple, Ultramarine blue
+    Vine, Wheat, Window, Wood, Wood column, Wood dodo egg, Wood stairs, Wooden bed
+    Wooden door, Wooden gate, Woodwork bench, Workbench, Workbench II, Workbench III
+    Workbench IV, Worms, Yak horn, Yak shavings, Yeast
 
 ==============================================================================
 2. BENCHES WITH NO PURPOSE YET
@@ -124,7 +125,6 @@ teleports; a trade portal trades; a campfire, kiln and furnace also burn fuel).
 
   - Dye bench                    can be made
   - Easel                        can be made
-  - Train yard                   can be made
 
   Benches whose higher tiers unlock nothing:
   (none)
@@ -135,13 +135,13 @@ teleports; a trade portal trades; a campfire, kiln and furnace also burn fuel).
 An item has a purpose if it is an ingredient, pays for an upgrade, is food, fuel, a
 working tool, a weapon, money, can be planted, or carries something.
 
-3a. DO NOTHING AT ALL  (6)
+3a. DO NOTHING AT ALL  (9)
 
   Crafted (5):
     Camera, Carrot on a stick, Feeder chest, Fishing rod, Mirror
 
-  Tools (1):
-    Crowbar
+  Energy (4):
+    Freight car, Passenger car, Rail handcar, Steam locomotive
 
 3b. CAN BE WORN, BUT WEARING THEM DOES NOTHING  (6)
     (Everything else that is worn - linen, fur, leather, tin, iron, titanium and carbon
@@ -150,7 +150,6 @@ working tool, a weapon, money, can be planted, or carries something.
 
 3c. TOOLS THAT ARE TOOLS IN NAME ONLY
     (no kind of block is dug faster by them and they do no extra damage)
-    - Crowbar
 
 ==============================================================================
 4. BLOCKS THAT ARE NOT IN WORLD GENERATION
@@ -220,6 +219,7 @@ has in it: they only exist once a player makes and places them.
   - Platinum column              obtainable
   - Platinum stairs              obtainable
   - Portal chest                 obtainable
+  - Rail                         obtainable
   - Red marble column            obtainable
   - Red marble stairs            obtainable
   - Reinforced platform          obtainable
@@ -252,6 +252,7 @@ has in it: they only exist once a player makes and places them.
   - Titanium block               obtainable
   - Titanium column              obtainable
   - Titanium stairs              obtainable
+  - Train station                obtainable
   - Trapdoor                     obtainable
   - Window                       obtainable
   - Wood                         obtainable

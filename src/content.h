@@ -215,6 +215,14 @@ typedef struct {
     bool see_through;  /* though it is solid, the backwall behind it is drawn: it is not quite opaque */
     bool burns;        /* something that sets fire to things takes it down in a moment */
     bool afloat;       /* it can only be put down on water: on the top of it */
+    /* Track: things that run on rails go along it, from one square of it to the next beside it, or beside and one up or down. */
+    bool rail;
+    char texture_ramp[CONTENT_PATH_LEN]; /* how it looks where it climbs to the next piece, drawn rising to the right */
+    bool needs_tool;   /* it is only taken up with its tool in hand: otherwise a click on it is a click on the square */
+    bool on_floor;     /* it can only be put down on a block: one directly beneath */
+    /* A station: where a train sent that way stops, and what it is called is what is written on it. */
+    bool station;
+    TileType lays;     /* putting it up lays this under it, a piece each side as well, and taking it down takes those up */
     bool written;      /* it has words on it: the number kept with it says which of the world's texts */
     /* Two blocks wide: this one is put down with `pair` to the right of it, on
      * level ground under both, and the two come up as one. (`pair_of` is worked out: the block this is the right half of.) */
@@ -419,6 +427,17 @@ typedef struct {
     /* Worn: walking goes so many times as fast (0 or 1 for no faster); energy does not run down; hunger does not run down. */
     float walk_speed;
     bool tireless, sated;
+    /* Something that runs on rails: put down on them, it is not a block but a vehicle (see train.h). */
+    struct {
+        bool is;
+        int width;       /* squares of track it stands on: 1 or 3 */
+        bool engine;     /* it goes by itself, burning what is put in it */
+        bool hand;       /* it goes as whoever is on it says */
+        int cargo_slots; /* what it carries besides */
+        int seats;       /* places to ride */
+        float speed;     /* squares a second */
+        char texture[CONTENT_PATH_LEN];
+    } vehicle;
     float warmth;          /* worn, how much of the environment score it keeps whatever the weather: a share, 0 to 1 */
     ItemId cooks_into;     /* what it is when a spell that cooks has killed what dropped it; ITEM_NONE for no different */
     bool becomes_player; /* made at a bench, it is not an item at all but another character to play */

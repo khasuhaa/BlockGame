@@ -1,9 +1,9 @@
 TRADE OBTAINMENT
 The game's items (data/items.json, the game without mods) set against TradeTiers.txt.
-Written by tools/trade_obtain.py; how each entry of the document was read is at the end.
+Written by tools/trade_tiers.py; how each entry of the document was read is at the end.
 
-420 items in the game. 291 are in the document. 129 are not (list A).
-9 things in the document are not in the game (list B).
+427 items in the game. 298 are in the document. 129 are not (list A).
+3 things in the document are not in the game (list B).
 
 ==============================================================================
 A. IN THE GAME, NOT IN THE DOCUMENT  (129)
@@ -157,18 +157,12 @@ No category at all: coins, and things that are never held  (5)
     Time crystal
 
 ==============================================================================
-B. IN THE DOCUMENT, NOT IN THE GAME  (9)
+B. IN THE DOCUMENT, NOT IN THE GAME  (3)
 ==============================================================================
 
     Lime               (Nature II)
     water bucket       (Crafted IV)
     ice torch          (Crafted V)
-    rail               (Energy VI)
-    train wheel        (Energy VI)
-    handcar            (Energy VI)
-    steam locomotive   (Energy VI)
-    freight cart       (Energy VI)
-    passenger car      (Energy VI)
 
     A bucket holding water is the Tin bucket itself, which carries how full it is: there is no item
     "water bucket" to list.
@@ -203,10 +197,12 @@ HOW THE DOCUMENT WAS READ
     after titanium (the owner said Building VI; the document has no Building, and columns and
     stairs are with their blocks).
   - Everything in list A is in the category Special, which only the dev portal has.
+  - The Train station, which the document does not name, is put with the rail in Energy VI: it
+    is three pieces of rail and a sign.
   - What the upgrades cost is all in the game already: the five gems, Gold and Platinum coins,
     and crystals.
 
-In the document, tier by tier (291 items):
+In the document, tier by tier (298 items):
 
   Blocks I      Dirt, Wood, Wood column, Wood stairs, Stone, Stone column, Stone stairs, Sand
   Blocks II     Limestone, Limestone column, Limestone stairs, Sandstone, Sandstone column, Sandstone stairs, Marble, Marble column, Marble stairs, Red brick, Brick column, Brick stairs
@@ -245,4 +241,4 @@ In the document, tier by tier (291 items):
   Crafted V     Golden chest, Feeder chest, Safe, Iron door, Iron trapdoor, Black window, Display cabinet
   Crafted VI    Amethyst chandelier, Sapphire chandelier, Emerald chandelier, Ruby chandelier, Diamond chandelier
   Energy V      Copper boiler, Magnet, Electric motor, Copper wire
-  Energy VI     Steam engine, Steam generator, Solar panel, Flywheel, Elevator shaft, Electric elevator motor, Fuel, Epoxy, Raw resin, Carbon fibers, Carbon fiber sheet, Carbon fiber wing, Jetpack chassis, Jet engine, Jetpack
+  Energy VI     Steam engine, Steam generator, Solar panel, Flywheel, Elevator shaft, Electric elevator motor, Rail, Train station, Train wheel, Rail handcar, Steam locomotive, Freight car, Passenger car, Fuel, Epoxy, Raw resin, Carbon fibers, Carbon fiber sheet, Carbon fiber wing, Jetpack chassis, Jet engine, Jetpack

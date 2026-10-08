@@ -16,6 +16,8 @@
 #define MAX_TICKS_PER_UPDATE 200 /* so a slow frame cannot snowball */
 #define MAX_STORAGES 1024
 #define MAX_MOBS 256
+#define MAX_VEHICLES 64 /* things on rails in a world */
+#define VEHICLE_SEATS 2
 #define CHARACTER_NAME_MAX 16
 #define MAX_CHARACTERS 4 /* characters a world has room for; the rules say how many it may have */
 #define MAX_ATTACK_TRIES 32 /* times a hunt re-plans after its quarry has moved */
@@ -281,7 +283,24 @@ typedef struct {
     bool menu_hold;
     float shield;
     float chill;
+    int ride, ride_seat;
 } Character;
+
+/* Something on the rails. (Saved as it is: add to the end.) */
+typedef struct {
+    uint8_t used;
+    int8_t dir;        /* going left (-1) or right (1), or standing (0) */
+    int8_t pull;       /* being moved this step, by itself or by what it is coupled to: which way */
+    uint8_t has_dest;  /* it stops when its middle gets to `dest` */
+    uint16_t item;     /* the item it is, which says what kind of vehicle that is */
+    uint16_t fuel;     /* the container of what it burns, if it burns anything */
+    uint16_t cargo;    /* and of what it carries */
+    int8_t seats[VEHICLE_SEATS]; /* who is in each: a character plus one, or 0 */
+    int32_t x, y;      /* the square of track under its middle */
+    int32_t dest_x, dest_y;
+    int32_t burn;      /* ticks of fire left from the last thing burnt */
+    float step;        /* how far it has got toward the next square, 0 to 1 */
+} Vehicle;
 
 typedef struct {
     World world;
@@ -292,6 +311,11 @@ typedef struct {
     Storage storages[MAX_STORAGES];
     Mob mobs[MAX_MOBS];
     uint32_t next_mob_id;
+    /* What is on the world's rails (see train.h). */
+    Vehicle vehicles[MAX_VEHICLES];
+    int ride, ride_seat;    /* the vehicle the live character is riding, plus one (0 for none), and which seat */
+    int open_vehicle;       /* the vehicle whose slots are open, plus one */
+    int open_vehicle_cargo; /* and whether it is what it carries (1) or what it burns (0) */
 
     /* World time. Movement runs in real time; ticks drive the day, tree
      * growth and fruit. */
@@ -647,6 +671,8 @@ bool game_player_in_water(const Game *g);
 void game_drop_item_sized(Game *g, ItemId id, int x, int y, int size);
 /* Leaves one of an item lying in a tile. */
 void game_drop_item(Game *g, ItemId id, int x, int y);
+/* The same for a whole stack, with whatever is inside it. */
+void game_drop_stack(Game *g, ItemStack stack, int x, int y);
 /* The world's own random numbers, saved with it. */
 uint32_t game_random(Game *g);
 

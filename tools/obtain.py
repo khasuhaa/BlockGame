@@ -95,10 +95,11 @@ def reachable_tiles():
 def bench_level(kind):
     r = reachable_tiles()
     return max([t.get('bench_level', 1) for t in tiles if t.get('bench') and t['bench_kind'] == kind and t['name'] in r] or [0])
-tier_of = {}  # the item of a bench above its first tier: got by raising the bench and taking it up
+tier_of = {}  # the item of a bench above its first tier (or of anything else raised in place, as a trade portal is): got by raising it and taking it up
 for i in items:
     t = T.get(i['places']) if isinstance(i.get('places'), str) else None
     if t and t.get('bench') and t.get('bench_level', 1) > 1: tier_of[i['name']] = (t['bench_kind'], t['bench_level'], t['name'])
+    elif t and t.get('trade_level', 1) > 1: tier_of[i['name']] = ('trade', t['trade_level'], t['name'])
 def close():
     changed = True
     while changed:

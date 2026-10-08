@@ -347,6 +347,13 @@ static bool read_tiles(Reader *r, const cJSON *root)
             return fail(r, "tile \"%s\": a window goes in the background, on a backwall", t->name);
         t->burns = flag(e, "burns", false);
         t->afloat = flag(e, "afloat", false);
+        t->rail = flag(e, "rail", false);
+        copy_name(t->texture_ramp, sizeof t->texture_ramp, str(e, "texture_ramp"));
+        t->needs_tool = flag(e, "needs_tool", false);
+        t->on_floor = flag(e, "on_floor", false);
+        t->station = flag(e, "station", false);
+        t->lays = TILE_AIR;
+        if (!tile_ref(r, e, "lays", &t->lays)) return false;
         t->written = flag(e, "written", false);
         t->pair = t->pair_of = TILE_AIR;
         if (!tile_ref(r, e, "pair", &t->pair)) return false;
@@ -653,6 +660,23 @@ static bool read_items(Reader *r, const cJSON *root)
         }
         copy_name(it->worn, sizeof it->worn, str(e, "worn"));
         it->walk_speed = (float)num(e, "walk_speed", 0.0);
+        const cJSON *vehicle = field(e, "vehicle");
+        memset(&it->vehicle, 0, sizeof it->vehicle);
+        if (vehicle) {
+            it->vehicle.is = true;
+            it->vehicle.width = (int)num(vehicle, "width", 3);
+            it->vehicle.engine = flag(vehicle, "engine", false);
+            it->vehicle.hand = flag(vehicle, "hand", false);
+            it->vehicle.cargo_slots = (int)num(vehicle, "cargo_slots", 0);
+            it->vehicle.seats = (int)num(vehicle, "seats", 0);
+            it->vehicle.speed = (float)num(vehicle, "speed", 6.0);
+            copy_name(it->vehicle.texture, sizeof it->vehicle.texture, str(vehicle, "texture"));
+            if (it->vehicle.width != 1 && it->vehicle.width != 3)
+                return fail(r, "item \"%s\": a vehicle is 1 or 3 squares long", it->name);
+            if (it->vehicle.seats < 0 || it->vehicle.seats > 2 || it->vehicle.cargo_slots < 0 || it->vehicle.cargo_slots > 16 ||
+                it->vehicle.speed <= 0.0f)
+                return fail(r, "item \"%s\": a vehicle has up to 2 seats, up to 16 slots, and a speed above nothing", it->name);
+        }
         it->warmth = (float)num(e, "warmth", 0.0);
         if (it->warmth < 0.0f || it->warmth > 1.0f) return fail(r, "item \"%s\": \"warmth\" is a share, 0 to 1", it->name);
         it->tireless = flag(e, "tireless", false);

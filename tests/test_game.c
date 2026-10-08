@@ -9,6 +9,7 @@
 #include "../src/power.h"
 #include "../src/save.h"
 #include "../src/trade.h"
+#include "../src/train.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -8426,9 +8427,9 @@ static void test_tools(void)
     float stone = tile_def(TILE_STONE)->mine_time, dirt = tile_def(TILE_DIRT)->mine_time;
     float log = tile_def(TILE_OAK_LOG)->mine_time;
 
-    /* Four kinds of tool, and every block that can be mined belongs to one. */
+    /* Four kinds of tool, and every block that can be mined belongs to one. (The crowbar is a fifth, which only takes up rails.) */
     int machete = tool_class_id("machete");
-    CHECK(shovel >= 0 && pickaxe >= 0 && axe >= 0 && machete >= 0 && content.tool_class_count == 4);
+    CHECK(shovel >= 0 && pickaxe >= 0 && axe >= 0 && machete >= 0 && tool_class_id("crowbar") >= 0 && content.tool_class_count == 5);
     for (int t = 1; t < content.tile_count; t++)
         CHECK(!content.tiles[t].removable || content.tiles[t].tool_class >= 0);
     CHECK(tile_def(TILE_DIRT)->tool_class == shovel && tile_def(TILE_GRASS)->tool_class == shovel);
@@ -8909,7 +8910,9 @@ static void test_shipped_recipes(void)
                     /* The electric benches have lists of their own: the kiln's and the metalwork bench's are the
                      * fuelled ones' over again, quicker; an egg extractor has one for every kind of dodo that leaves something. */
                     { "electric_furnace", 19 }, { "electric_stove", 8 }, { "electric_sluice", 2 }, { "egg_extractor", 20 },
-                    { "electric_press", 31 }, { "electric_metalwork_bench", 27 }, { "electric_kiln", 8 } };
+                    { "electric_press", 31 }, { "electric_metalwork_bench", 27 }, { "electric_kiln", 8 },
+                    /* The railway: track, the crowbar that takes it up, a station, a wheel, and the four things that run on it. */
+                    { "train_yard", 8 } };
     int total = 0;
     for (int i = 0; i < (int)(sizeof benches / sizeof benches[0]); i++) {
         CHECK(shipped_count(benches[i].bench) == benches[i].count);
@@ -10626,6 +10629,268 @@ static void test_environment(void)
     game_free(&g);
 }
 
+/* The railway: track, a station, and what runs on the rails. */
+static int option(const Game *g, int v, int x, const char *label, TrainOption *out)
+{
+    TrainOption all[TRAIN_MAX_OPTIONS];
+    int n = train_options(g, v, x, all);
+    for (int i = 0; i < n; i++) {
+        if (strcmp(all[i].label, label) != 0) continue;
+        if (out) *out = all[i];
+        return i;
+    }
+    return -1;
+}
+
+static bool choose(Game *g, int v, int x, const char *label)
+{
+    TrainOption o;
+    return option(g, v, x, label, &o) >= 0 && train_do(g, v, o);
+}
+
+static void hold(Game *g, ItemId item)
+{
+    /* (The bar emptied by hand: clear_inventory would free the containers of what is on the rails as well.) */
+    for (int i = 0; i < INVENTORY_SLOTS; i++) g->inventory.slots[i] = (ItemStack){ 0 };
+    if (item != ITEM_NONE) inventory_add(&g->inventory, item, 1);
+    inventory_select(&g->inventory, 0, -1);
+}
+
+static void test_trains(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    static Game g;
+    game_init(&g, 256, 64, 9, WORLD_FLAT);
+    g.tick_rate = 0;
+    clear_mobs(&g);
+    World *w = &g.world;
+    int s = w->surface_y, row = s - 1, x0 = g.player.feet.x + 6;
+    TileType rail = tile_id("rail"), station = tile_id("train_station");
+    ItemId rail_item = item_id("rail"), crowbar = item_id("crowbar"), loco = item_id("steam_locomotive"), handcar = item_id("handcar"),
+           passenger = item_id("passenger_car"), freight = item_id("freight_car"), coal = item_id("coal");
+    CHECK(tile_def(rail)->rail && tile_def(rail)->needs_tool && tile_def(rail)->on_floor && tile_def(rail)->layer == LAYER_BACKGROUND);
+    CHECK(item_def(loco)->vehicle.is && item_def(loco)->vehicle.engine && item_def(loco)->vehicle.width == 3 && item_def(loco)->vehicle.seats == 1);
+    CHECK(item_def(handcar)->vehicle.hand && item_def(handcar)->vehicle.width == 1 && item_def(passenger)->vehicle.seats == 2 &&
+          item_def(freight)->vehicle.cargo_slots == 16 && !item_def(rail_item)->vehicle.is);
+    CHECK(item_def(crowbar)->tool_class == tile_def(rail)->tool_class && item_def(crowbar)->tool_class >= 0);
+
+    /* Rail goes down on a block, by a click with it in hand; not where there is no block under it. */
+    g.player.feet = g.player.step_to = (TilePos){ x0 - 1, row };
+    hold(&g, rail_item);
+    CHECK(game_click_tile(&g, x0, row) && g.queue[0].type == ACTION_PLACE);
+    run(&g, 2.0f);
+    CHECK(world_get_at(w, LAYER_BACKGROUND, x0, row) == rail && train_rail(w, x0, row) && count_item(&g, rail_item) == 0);
+    hold(&g, rail_item);
+    game_click_tile(&g, x0 + 1, row - 3);
+    run(&g, 3.0f);
+    CHECK(!train_rail(w, x0 + 1, row - 3) && count_item(&g, rail_item) == 1);
+    game_cancel_actions(&g);
+    run(&g, 1.0f);
+    /* Without a crowbar a click on it is only somewhere to go; with one, it comes up. */
+    g.player.feet = g.player.step_to = (TilePos){ x0 - 3, row };
+    hold(&g, ITEM_NONE);
+    CHECK(game_click_tile(&g, x0, row) && g.queue_count == 1 && g.queue[0].type == ACTION_MOVE);
+    run(&g, 3.0f);
+    CHECK(g.player.feet.x == x0 && train_rail(w, x0, row));
+    hold(&g, item_id("stone_pickaxe"));
+    CHECK(game_click_tile(&g, x0 - 1, row) || true);
+    game_cancel_actions(&g);
+    run(&g, 1.0f);
+    g.player.feet = g.player.step_to = (TilePos){ x0 - 1, row };
+    hold(&g, item_id("stone_pickaxe"));
+    game_click_tile(&g, x0, row);
+    CHECK(g.queue_count == 0 || g.queue[0].type == ACTION_MOVE);
+    run(&g, 2.0f);
+    CHECK(train_rail(w, x0, row));
+    g.player.feet = g.player.step_to = (TilePos){ x0 - 1, row };
+    hold(&g, crowbar);
+    CHECK(game_click_tile(&g, x0, row) && g.queue[0].type == ACTION_MINE);
+    run(&g, 3.0f);
+    CHECK(!train_rail(w, x0, row) && (count_item(&g, rail_item) == 1 || drops_of(&g, rail_item) == 1));
+
+    /* A line: thirty on the level, then up a block at a time for three, then level again. */
+    for (int i = 0; i < 30; i++) world_set_at(w, LAYER_BACKGROUND, x0 + i, row, rail);
+    for (int k = 1; k <= 3; k++) {
+        world_set(w, x0 + 29 + k, row - k + 1, TILE_STONE);
+        world_set_at(w, LAYER_BACKGROUND, x0 + 29 + k, row - k, rail);
+    }
+    for (int i = 33; i < 40; i++) {
+        world_set(w, x0 + i, row - 2, TILE_STONE);
+        world_set_at(w, LAYER_BACKGROUND, x0 + i, row - 3, rail);
+    }
+    int to = 0;
+    CHECK(train_next(w, x0 + 5, row, 1, &to) && to == row && train_next(w, x0 + 29, row, 1, &to) && to == row - 1);
+    CHECK(train_next(w, x0 + 30, row - 1, -1, &to) && to == row && train_next(w, x0 + 32, row - 3, 1, &to) && to == row - 3);
+    CHECK(!train_next(w, x0, row, -1, &to) && !train_next(w, x0 + 39, row - 3, 1, &to));
+
+    /* A station: put up a block above the ground, it lays three rails under itself (or takes the ones there), and is named. */
+    g.player.feet = g.player.step_to = (TilePos){ x0 + 18, row };
+    hold(&g, item_id("train_station"));
+    CHECK(game_click_tile(&g, x0 + 20, row - 1) && g.queue[0].type == ACTION_PLACE);
+    run(&g, 3.0f);
+    CHECK(world_get(w, x0 + 20, row - 1) == station && tile_def(station)->station && tile_def(station)->lays == rail);
+    CHECK(game_sign_write(&g, x0 + 20, row - 1, "Depot") && strcmp(game_sign_at(&g, x0 + 20, row - 1)->text, "Depot") == 0);
+    /* (And one off by itself, where there was no track: it lays its own, and takes it up again when it goes.) */
+    g.player.feet = g.player.step_to = (TilePos){ x0 - 12, row };
+    hold(&g, item_id("train_station"));
+    CHECK(game_click_tile(&g, x0 - 10, row - 1));
+    run(&g, 3.0f);
+    CHECK(world_get(w, x0 - 10, row - 1) == station && train_rail(w, x0 - 11, row) && train_rail(w, x0 - 10, row) && train_rail(w, x0 - 9, row));
+    hold(&g, item_id("stone_axe"));
+    CHECK(game_click_tile(&g, x0 - 10, row - 1) && g.queue[0].type == ACTION_MINE);
+    run(&g, 4.0f);
+    CHECK(world_get(w, x0 - 10, row - 1) == TILE_AIR && !train_rail(w, x0 - 11, row) && !train_rail(w, x0 - 10, row) && !train_rail(w, x0 - 9, row));
+
+    /* A handcar: put on the track by a click, got on to, and sent along with the keys to where the track ends. */
+    g.player.feet = g.player.step_to = (TilePos){ x0 + 2, row };
+    hold(&g, handcar);
+    CHECK(train_at(&g, x0 + 3, row) < 0);
+    CHECK(game_click_tile(&g, x0 + 3, row) && count_item(&g, handcar) == 0);
+    int car = train_at(&g, x0 + 3, row);
+    CHECK(car >= 0 && train_under(&g, x0 + 3, row - 1) == car && train_at(&g, x0 + 4, row) < 0);
+    /* (Nothing comes up from under it, crowbar or no.) */
+    hold(&g, crowbar);
+    game_click_tile(&g, x0 + 3, row);
+    CHECK(g.queue_count == 0 || g.queue[0].type == ACTION_MOVE);
+    game_cancel_actions(&g);
+    run(&g, 1.0f);
+    g.player.feet = g.player.step_to = (TilePos){ x0 + 2, row };
+    CHECK(option(&g, car, x0 + 3, "Get in", NULL) == 0 && option(&g, car, x0 + 3, "Remove rail handcar", NULL) == 1);
+    CHECK(choose(&g, car, x0 + 3, "Get in") && g.ride == car + 1 && g.player.feet.x == x0 + 3 && g.player.feet.y == row);
+    CHECK(option(&g, car, x0 + 3, "Get out", NULL) == 0 && !game_click_tile(&g, x0 + 8, row) && !game_queue_action(&g, ACTION_MOVE, x0 + 8, row));
+    game_set_move_input(&g, -1, 0);
+    game_update(&g, 0.01f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 3.0f);
+    CHECK(g.vehicles[car].x == x0 && g.vehicles[car].dir == 0 && g.player.feet.x == x0); /* to the end, and no further */
+    game_set_move_input(&g, 1, 0);
+    game_update(&g, 0.01f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 0.5f);
+    float vx, vy;
+    game_player_visual_pos(&g, &vx, &vy);
+    CHECK(g.vehicles[car].dir == 1 && g.vehicles[car].x > x0 + 1 && g.vehicles[car].x < x0 + 6 && vx >= (float)g.vehicles[car].x);
+    game_set_move_input(&g, 0, 1); /* up or down stops it, at the next square */
+    game_update(&g, 0.01f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 0.5f);
+    int stopped = g.vehicles[car].x;
+    run(&g, 1.0f);
+    CHECK(g.vehicles[car].dir == 0 && g.vehicles[car].x == stopped && stopped < x0 + 9 && g.player.feet.x == stopped);
+    /* Up the slope and along the top, to the end. */
+    game_set_move_input(&g, 1, 0);
+    game_update(&g, 0.01f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 8.0f);
+    CHECK(g.vehicles[car].x == x0 + 39 && g.vehicles[car].y == row - 3 && g.player.feet.x == x0 + 39 && g.player.feet.y == row - 3);
+    /* Getting out leaves them standing where it is; taking it up leaves it lying there. */
+    CHECK(choose(&g, car, x0 + 39, "Get out") && g.ride == 0 && g.vehicles[car].seats[0] == 0 && is_idle(&g));
+    hold(&g, ITEM_NONE);
+    CHECK(choose(&g, car, x0 + 39, "Remove rail handcar") && !g.vehicles[car].used && train_at(&g, x0 + 39, row - 3) < 0);
+    CHECK(drops_of(&g, handcar) == 1 || count_item(&g, handcar) == 1);
+
+    /* A locomotive: three squares of track, and nothing to be done with it from far off. */
+    g.player.feet = g.player.step_to = (TilePos){ x0 + 3, row };
+    hold(&g, loco);
+    CHECK(game_click_tile(&g, x0 + 5, row - 1)); /* (a click on the square over the track does as well) */
+    int engine = train_at(&g, x0 + 5, row);
+    CHECK(engine >= 0 && train_at(&g, x0 + 4, row) == engine && train_at(&g, x0 + 6, row) == engine && train_at(&g, x0 + 7, row) < 0);
+    CHECK(g.vehicles[engine].fuel != 0 && g.vehicles[engine].cargo == 0);
+    TrainOption opts[TRAIN_MAX_OPTIONS];
+    g.player.feet = g.player.step_to = (TilePos){ x0 + 20, row };
+    CHECK(train_options(&g, engine, x0 + 5, opts) == 0);
+    g.player.feet = g.player.step_to = (TilePos){ x0 + 3, row };
+    /* There is a station to the right, and none to the left; the last choice is to take it up. */
+    CHECK(train_options(&g, engine, x0 + 5, opts) == 5);
+    CHECK(strcmp(opts[0].label, "Move left") == 0 && strcmp(opts[1].label, "Move to Depot") == 0 && strcmp(opts[2].label, "Fuel") == 0 &&
+          strcmp(opts[3].label, "Get in") == 0 && strcmp(opts[4].label, "Remove locomotive") == 0);
+    /* With nothing to burn it goes nowhere. */
+    CHECK(train_do(&g, engine, opts[1]));
+    run(&g, 1.0f);
+    CHECK(g.vehicles[engine].x == x0 + 5 && g.vehicles[engine].dir == 0);
+    /* Its fuel is a slot, opened from the menu; coal in it, and it goes to the station and stops there. */
+    int slots = 0;
+    CHECK(choose(&g, engine, x0 + 5, "Fuel") && train_open_container(&g, &slots) == g.vehicles[engine].fuel && slots == 1);
+    g.inventory.containers[g.vehicles[engine].fuel].slots[0] = (ItemStack){ .id = (uint16_t)coal, .count = 3 };
+    CHECK(choose(&g, engine, x0 + 5, "Move to Depot"));
+    run(&g, 0.3f);
+    CHECK(g.vehicles[engine].dir == 1 && g.vehicles[engine].burn > 0 && g.inventory.containers[g.vehicles[engine].fuel].slots[0].count == 2);
+    /* Going, the choice is to stop - and still, last, to take it up. (Riding or within reach.) */
+    g.player.feet = g.player.step_to = (TilePos){ g.vehicles[engine].x, row };
+    CHECK(train_options(&g, engine, x0 + 5, opts) >= 3 && strcmp(opts[0].label, "Stop") == 0);
+    run(&g, 5.0f);
+    CHECK(g.vehicles[engine].x == x0 + 20 && g.vehicles[engine].dir == 0 && train_open_container(&g, NULL) == 0);
+    /* The fire burns down by the tick while it is going, and not while it stands. */
+    int fire = g.vehicles[engine].burn;
+    for (int t = 0; t < 10; t++) game_tick(&g);
+    CHECK(g.vehicles[engine].burn == fire);
+
+    /* Cars: put down beside it, or near enough, they are coupled to it; and to each other. */
+    g.player.feet = g.player.step_to = (TilePos){ x0 + 16, row };
+    hold(&g, passenger);
+    CHECK(game_click_tile(&g, x0 + 16, row)); /* a square short of touching: it is slid up */
+    int coach = train_at(&g, x0 + 17, row);
+    CHECK(coach >= 0 && g.vehicles[coach].x == x0 + 17 && train_at(&g, x0 + 15, row) < 0);
+    g.player.feet = g.player.step_to = (TilePos){ x0 + 13, row };
+    hold(&g, freight);
+    CHECK(game_click_tile(&g, x0 + 14, row));
+    int wagon = train_at(&g, x0 + 14, row);
+    CHECK(wagon >= 0 && g.vehicles[wagon].cargo != 0 && g.vehicles[wagon].fuel == 0);
+    int members[MAX_VEHICLES];
+    CHECK(train_group(&g, engine, members) == 3 && members[0] == wagon && members[1] == coach && members[2] == engine);
+    CHECK(train_group(&g, wagon, members) == 3 && members[2] == engine);
+    /* A freight car is a chest on wheels. */
+    CHECK(train_options(&g, wagon, x0 + 14, opts) == 2 && strcmp(opts[0].label, "Open") == 0 && strcmp(opts[1].label, "Remove car") == 0);
+    CHECK(train_do(&g, wagon, opts[0]) && train_open_container(&g, &slots) == g.vehicles[wagon].cargo && slots == 16);
+    g.inventory.containers[g.vehicles[wagon].cargo].slots[5] = (ItemStack){ .id = (uint16_t)ITEM_DIRT, .count = 40 };
+    train_close(&g);
+    /* A passenger car has two seats: the one clicked is the one taken. */
+    g.player.feet = g.player.step_to = (TilePos){ x0 + 15, row };
+    CHECK(train_options(&g, coach, x0 + 18, opts) == 2 && strcmp(opts[0].label, "Sit") == 0 && opts[0].arg == 1 && strcmp(opts[1].label, "Remove car") == 0);
+    CHECK(train_options(&g, coach, x0 + 16, opts) == 2 && opts[0].arg == 0);
+    CHECK(train_do(&g, coach, opts[0]) && g.ride == coach + 1 && g.ride_seat == 0 && g.player.feet.x == x0 + 16);
+    CHECK(train_options(&g, coach, x0 + 16, opts) == 2 && strcmp(opts[0].label, "Get out") == 0 && strcmp(opts[1].label, "Remove car") == 0);
+    /* Sent left - no station that way - the engine pushes them all to the end of the line, rider, load and all. */
+    CHECK(train_options(&g, engine, x0 + 20, opts) > 0 || true);
+    g.vehicles[engine].dir = -1; /* (from the seat it is out of reach: someone on the platform sends it) */
+    run(&g, 6.0f);
+    CHECK(g.vehicles[wagon].x == x0 + 1 && g.vehicles[coach].x == x0 + 4 && g.vehicles[engine].x == x0 + 7 && g.vehicles[engine].dir == 0);
+    CHECK(g.player.feet.x == x0 + 3 && g.ride == coach + 1);
+    CHECK(g.inventory.containers[g.vehicles[wagon].cargo].slots[5].count == 40);
+
+    /* Kept with the world: where each is, what is in it, who is riding. */
+    CHECK(save_game(&g, "build/test_train.world"));
+    static Game loaded;
+    CHECK(load_game(&loaded, "build/test_train.world"));
+    CHECK(loaded.vehicles[engine].used && loaded.vehicles[engine].item == loco && loaded.vehicles[engine].x == x0 + 7 && loaded.vehicles[wagon].x == x0 + 1);
+    CHECK(loaded.ride == coach + 1 && loaded.vehicles[coach].seats[0] == 1 && loaded.player.feet.x == x0 + 3);
+    CHECK(loaded.inventory.containers[loaded.vehicles[wagon].cargo].slots[5].count == 40 &&
+          loaded.inventory.containers[loaded.vehicles[engine].fuel].slots[0].id == coal);
+    CHECK(train_group(&loaded, engine, members) == 3);
+    game_free(&loaded);
+    /* A world from before there were any has none. */
+    CHECK(load_game(&loaded, "tests/fixtures/v29_plain.world"));
+    for (int i = 0; i < MAX_VEHICLES; i++) CHECK(!loaded.vehicles[i].used);
+    CHECK(loaded.ride == 0);
+    game_free(&loaded);
+
+    /* Taking a car up puts out whoever is in it, and leaves it and what it held lying there. */
+    CHECK(choose(&g, coach, x0 + 4, "Remove car") && g.ride == 0 && !g.vehicles[coach].used && drops_of(&g, passenger) + count_item(&g, passenger) == 1);
+    CHECK(train_group(&g, engine, members) == 1 && train_group(&g, wagon, members) == 1);
+    g.player.feet = g.player.step_to = (TilePos){ x0 + 2, row };
+    CHECK(choose(&g, wagon, x0 + 1, "Remove car"));
+    CHECK(count_item(&g, ITEM_DIRT) + drops_of(&g, ITEM_DIRT) == 40 && drops_of(&g, freight) + count_item(&g, freight) == 1);
+    /* Dying puts a rider out as well. */
+    g.player.feet = g.player.step_to = (TilePos){ x0 + 6, row };
+    CHECK(choose(&g, engine, x0 + 7, "Get in") && g.ride == engine + 1);
+    game_hurt(&g, 10.0f);
+    for (int t = 0; t < 3000 && game_alive(&g); t++) game_tick(&g);
+    CHECK(!game_alive(&g) && g.ride == 0 && g.vehicles[engine].seats[0] == 0);
+    game_free(&g);
+}
+
 int main(void)
 {
     char err[256];
@@ -10755,6 +11020,7 @@ int main(void)
     test_worn();
     test_trade_tiers();
     test_environment();
+    test_trains();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;

@@ -7,7 +7,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 30u
+#define SAVE_VERSION 31u
 
 /* Up to version 28 a world had room for a quarter as many of these, and they
  * were written out whole: every reader of an older version goes by these. */
@@ -504,6 +504,15 @@ bool save_game(const Game *g, const char *path)
     float chills[MAX_CHARACTERS] = { 0 };
     for (int c = 0; c < g->character_count && c < MAX_CHARACTERS; c++) chills[c] = c == g->live ? g->chill : g->characters[c].chill;
     ok = ok && fwrite(chills, sizeof chills, 1, f) == 1;
+    /* What is on the rails (each names its item by the place of that item's name above), and who is riding what. */
+    uint32_t vehicles = MAX_VEHICLES, vehicle_size = sizeof(Vehicle);
+    int32_t rides[MAX_CHARACTERS][2] = { { 0 } };
+    for (int c = 0; c < g->character_count && c < MAX_CHARACTERS; c++) {
+        rides[c][0] = c == g->live ? g->ride : g->characters[c].ride;
+        rides[c][1] = c == g->live ? g->ride_seat : g->characters[c].ride_seat;
+    }
+    ok = ok && fwrite(&vehicles, sizeof vehicles, 1, f) == 1 && fwrite(&vehicle_size, sizeof vehicle_size, 1, f) == 1 &&
+         fwrite(g->vehicles, sizeof g->vehicles, 1, f) == 1 && fwrite(rides, sizeof rides, 1, f) == 1;
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
         remove(tmp);
@@ -757,6 +766,35 @@ bool load_game(Game *g, const char *path)
                 float got = chills[c] >= 0.0f && chills[c] <= 1.0f ? chills[c] : 0.0f;
                 if (c == g->live) g->chill = got;
                 else g->characters[c].chill = got;
+            }
+        }
+        /* From version 31: what is on the rails. */
+        if (ok && h.version >= 31) {
+            uint32_t vehicles = 0, vehicle_size = 0;
+            int32_t rides[MAX_CHARACTERS][2];
+            ok = fread(&vehicles, sizeof vehicles, 1, f) == 1 && fread(&vehicle_size, sizeof vehicle_size, 1, f) == 1 &&
+                 vehicles == MAX_VEHICLES && vehicle_size == sizeof(Vehicle) && fread(g->vehicles, sizeof g->vehicles, 1, f) == 1 &&
+                 fread(rides, sizeof rides, 1, f) == 1;
+            for (int i = 0; ok && i < MAX_VEHICLES; i++) {
+                Vehicle *v = &g->vehicles[i];
+                ItemId now = v->used && v->item < MAX_ITEMS ? items[v->item] : ITEM_NONE;
+                /* (One of a kind the game no longer has is gone, and what it held with it.) */
+                if (!v->used || now == ITEM_NONE || !item_def(now)->vehicle.is || v->fuel >= MAX_CONTAINERS || v->cargo >= MAX_CONTAINERS) {
+                    memset(v, 0, sizeof *v);
+                    continue;
+                }
+                v->item = (uint16_t)now;
+                v->pull = 0;
+                v->step = 0.0f;
+                for (int s = 0; s < VEHICLE_SEATS; s++)
+                    if (v->seats[s] < 0 || v->seats[s] > MAX_CHARACTERS) v->seats[s] = 0;
+            }
+            for (int c = 0; ok && c < MAX_CHARACTERS; c++) {
+                int ride = rides[c][0], seat = rides[c][1];
+                /* (Only a seat that says the same of them.) */
+                if (ride < 1 || ride > MAX_VEHICLES || seat < 0 || seat >= VEHICLE_SEATS || g->vehicles[ride - 1].seats[seat] != c + 1) ride = seat = 0;
+                if (c == g->live) g->ride = ride, g->ride_seat = seat;
+                else g->characters[c].ride = ride, g->characters[c].ride_seat = seat;
             }
         }
         bool nobody = ok && h.version >= 15 && people[0] == 0;

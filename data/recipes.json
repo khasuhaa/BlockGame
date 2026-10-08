@@ -496,6 +496,14 @@
     {"bench": "refinery", "output": {"item": "raw_resin", "count": 1}, "inputs": [{"item": "oil", "count": 10}], "time": 240},
     {"bench": "refinery", "output": {"item": "carbon_fibers", "count": 1}, "inputs": [{"item": "coal", "count": 10}, {"item": "raw_resin", "count": 2}], "time": 240},
     {"bench": "refinery", "output": {"item": "epoxy", "count": 1}, "inputs": [{"item": "raw_resin", "count": 1}], "time": 240},
-    {"bench": "refinery", "output": {"item": "carbon_fiber_sheet", "count": 1}, "inputs": [{"item": "epoxy", "count": 1}, {"item": "carbon_fibers", "count": 1}], "time": 300}
+    {"bench": "refinery", "output": {"item": "carbon_fiber_sheet", "count": 1}, "inputs": [{"item": "epoxy", "count": 1}, {"item": "carbon_fibers", "count": 1}], "time": 300},
+    {"bench": "train_yard", "level": 1, "output": {"item": "rail", "count": 10}, "inputs": [{"item": "wood", "count": 1}, {"item": "steel_ingot", "count": 2}], "time": 80},
+    {"bench": "train_yard", "level": 1, "output": {"item": "crowbar", "count": 1}, "inputs": [{"item": "steel_ingot", "count": 2}], "time": 100},
+    {"bench": "train_yard", "level": 1, "output": {"item": "train_station", "count": 1}, "inputs": [{"item": "wood", "count": 3}, {"item": "rail", "count": 3}], "time": 80},
+    {"bench": "train_yard", "level": 1, "output": {"item": "train_wheel", "count": 1}, "inputs": [{"item": "steel_ingot", "count": 3}], "time": 80},
+    {"bench": "train_yard", "level": 1, "output": {"item": "handcar", "count": 1}, "inputs": [{"item": "train_wheel", "count": 4}, {"item": "wood", "count": 2}], "time": 80},
+    {"bench": "train_yard", "level": 1, "output": {"item": "steam_locomotive", "count": 1}, "inputs": [{"item": "train_wheel", "count": 6}, {"item": "steam_engine", "count": 1}, {"item": "iron_block", "count": 1}, {"item": "coal", "count": 10}], "time": 80},
+    {"bench": "train_yard", "level": 1, "output": {"item": "freight_car", "count": 1}, "inputs": [{"item": "train_wheel", "count": 4}, {"item": "wood", "count": 1}, {"item": "chest", "count": 1}], "time": 80},
+    {"bench": "train_yard", "level": 1, "output": {"item": "passenger_car", "count": 1}, "inputs": [{"item": "train_wheel", "count": 4}, {"item": "wood", "count": 1}, {"item": "iron_block", "count": 1}], "time": 80}
   ]
 }
