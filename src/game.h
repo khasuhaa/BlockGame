@@ -317,6 +317,7 @@ typedef struct {
     int ride, ride_seat;    /* the vehicle the live character is riding, plus one (0 for none), and which seat */
     int open_vehicle;       /* the vehicle whose slots are open, plus one */
     int open_vehicle_cargo; /* and whether it is what it carries (1) or what it burns (0) */
+    float flail[MAX_CHARACTERS]; /* seconds each character has still to throw their arms about, having just been attacked */
 
     /* World time. Movement runs in real time; ticks drive the day, tree
      * growth and fruit. */
@@ -652,6 +653,8 @@ int game_sky_floor(const Game *g, int x, bool water);
 float game_protection(const Game *g);
 /* An attack on the player: as game_hurt, less what their armor stops. */
 void game_attacked(Game *g, float amount);
+/* How long the character has still to flail, having just been attacked: seconds, 0 for not. */
+float game_flail(const Game *g);
 /* What is written on the sign in a square: its text, or NULL for a blank one or no sign. */
 const SignText *game_sign_at(const Game *g, int x, int y);
 /* The text with a number (what a carried sign's meter reads), or NULL. */

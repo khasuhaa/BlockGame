@@ -9,7 +9,7 @@
     ]
   },
   "player": {
-    "walk_time": 0.24, "fall_time": 0.07, "climb_time": 0.48, "hop_time": 0.2, "crawl_time": 0.48, "fly_time": 0.1, "hop_height": 0.35,
+    "walk_time": 0.24, "fall_time": 0.07, "climb_time": 0.48, "hop_time": 0.2, "crawl_time": 0.48, "fly_time": 0.1, "hop_height": 0.35, "max_drop": 1, "flail_time": 0.6,
     "max_wall_hop": 2, "place_time": 0.15, "craft_time": 0.1,
     "start_items": [
       { "item": "basket", "count": 1 },
@@ -20,7 +20,7 @@
   "light": { "sun": 15, "moon": 5, "air_falloff": 1, "solid_falloff": 2, "minimum": 0, "glow": 8, "darkness": 0.98, "contrast": 1.5, "bloom": 0.25, "water_depth_per_level": 4 },
   "environment": { "fall_ticks": 1200, "rise_ticks": 300, "slow": 0.5, "harm_ticks": 1200, "clothed": 0.1 },
   "vitals": {
-    "hunger_ticks": 3600, "energy_ticks": 1800, "sleep_ticks": 600,
+    "hunger_ticks": 36000, "energy_ticks": 1800, "sleep_ticks": 600,
     "health_regen_ticks": 6000, "starve_ticks": 3000, "starve_floor": 0.1,
     "food_health": 0.1, "saturation_ticks": 3600, "full_margin": 0.02, "rest_speed": 3, "energy_over": 0.5
   },

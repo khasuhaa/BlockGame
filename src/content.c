@@ -1303,6 +1303,8 @@ static bool read_rules(Reader *r, const cJSON *root)
     if (field(root, "crafting")) u->rush_seconds = (float)num(field(root, "crafting"), "rush_seconds_per_crystal", u->rush_seconds);
     if (player) {
         u->walk_time = (float)num(player, "walk_time", u->walk_time);
+        u->flail_time = (float)num(player, "flail_time", u->flail_time);
+        u->max_drop = (int)num(player, "max_drop", u->max_drop);
         u->fly_time = (float)num(player, "fly_time", u->fly_time > 0.0f ? u->fly_time : 0.1);
         u->fall_time = (float)num(player, "fall_time", u->fall_time);
         u->climb_time = (float)num(player, "climb_time", u->climb_time);

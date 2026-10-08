@@ -1290,21 +1290,17 @@ static void draw_body(const Game *g, float x, float ground, BodyPose pose)
     playermodel_draw((Vector2){ x, ground }, TILE_SIZE / 16.0f, &pose, content.rules.player_skin, worn, count);
 }
 
-/* Asleep: stretched out on the ground, toward whichever side there is room. */
-static void draw_player_asleep(const Game *g, float px, float py)
+/* Which side a sleeper lies down toward: wherever there is room, behind them for choice; 0 for nowhere. */
+static int sleeping_side(const Game *g)
 {
     const Player *p = &g->player;
-    int side = !world_is_solid(&g->world, p->feet.x - p->facing, p->feet.y) ? -p->facing
-               : !world_is_solid(&g->world, p->feet.x + p->facing, p->feet.y) ? p->facing : 0;
-    float ground = py + TILE_SIZE;
-    if (side == 0) {
-        /* Nowhere to lie: slumped where they sat. */
-        draw_body(g, px + TILE_SIZE / 2.0f, ground, (BodyPose){ .facing = p->facing, .lean = 25.0f, .sink = 10.0f, .leg = { 80.0f, 80.0f }, .arm = { 20.0f, 20.0f }, .turn = PLAYERMODEL_SIDE, .tint = WHITE });
-    } else {
-        /* On their back, feet where they stood and head on the square beside. */
-        draw_body(g, side > 0 ? px + 4.0f : px + TILE_SIZE - 4.0f, ground, (BodyPose){ .facing = -side, .pitch = -90.0f, .tint = WHITE });
-    }
-    /* Zs drifting up from the head. */
+    return !world_is_solid(&g->world, p->feet.x - p->facing, p->feet.y) ? -p->facing
+           : !world_is_solid(&g->world, p->feet.x + p->facing, p->feet.y) ? p->facing : 0;
+}
+
+/* Zs drifting up from a sleeper's head. */
+static void draw_sleep(float px, float ground, int side)
+{
     float hx = px + TILE_SIZE / 2 + side * (TILE_SIZE * 0.9f);
     for (int k = 0; k < 3; k++) {
         float t = fmodf((float)GetTime() * 0.5f + k / 3.0f, 1.0f);
@@ -1314,20 +1310,19 @@ static void draw_player_asleep(const Game *g, float px, float py)
     }
 }
 
-/* Meditating: sat cross-legged, with rings of calm spreading out. */
-static void draw_player_meditating(const Game *g, float px, float py)
+/* Round someone meditating: rings of calm spreading out behind them... */
+static void draw_calm(float cx, float ground)
 {
-    float ground = py + TILE_SIZE, cx = px + TILE_SIZE / 2;
-    float time = (float)GetTime(), lift = 2.0f + sinf(time * 1.8f) * 1.5f;
     for (int k = 0; k < 3; k++) {
-        float t = fmodf(time * 0.45f + k / 3.0f, 1.0f);
+        float t = fmodf((float)GetTime() * 0.45f + k / 3.0f, 1.0f);
         DrawRing((Vector2){ cx, ground - 22 }, 12.0f + t * 30.0f, 14.0f + t * 30.0f, 0.0f, 360.0f, 40,
                  Fade((Color){ 170, 220, 255, 255 }, (1.0f - t) * 0.55f));
     }
-    float y = ground - lift;
-    draw_body(g, cx, y, (BodyPose){ .facing = g->player.facing, .sink = 10.0f, .leg = { 82.0f, 82.0f }, .arm = { 35.0f, 35.0f }, .turn = PLAYERMODEL_SIDE, .tint = WHITE });
+}
 
-    /* How far along the meditation is, in a little box over the head. */
+/* ...and how far along the meditation is, in a little box over the head. */
+static void draw_meditation(const Game *g, float cx, float y)
+{
     Rectangle box = { cx - 34, y - 78, 68, 22 };
     DrawRectangleRec(box, (Color){ 30, 32, 42, 235 });
     DrawRectangleLinesEx(box, 1.0f, (Color){ 150, 200, 240, 255 });
@@ -1410,12 +1405,8 @@ static void draw_player(const Game *g, Vector2 origin)
     float px = origin.x + view_near_x(&view, x) * TILE_SIZE + grip * inset, py = origin.y + y * TILE_SIZE;
     float cx = px + TILE_SIZE / 2.0f, ground = py + TILE_SIZE;
     bool settled = p->activity == ACTIVITY_IDLE && !p->climbing;
-    if (g->vitals.respawn > 0) {
-        /* Dead: laid out on the ground, the colour gone from them. */
-        draw_body(g, px + 4.0f, ground, (BodyPose){ .facing = -1, .pitch = -90.0f, .tint = (Color){ 130, 134, 144, 255 } });
-        return;
-    }
-    if (g->ride > 0 && g->ride <= MAX_VEHICLES && g->vehicles[g->ride - 1].used) {
+    bool dead = g->vitals.respawn > 0;
+    if (!dead && g->ride > 0 && g->ride <= MAX_VEHICLES && g->vehicles[g->ride - 1].used) {
         /* Riding: sat in a seat, looking out; or stood on a handcar, working the handle while it goes. */
         const Vehicle *on = &g->vehicles[g->ride - 1];
         if (item_def((ItemId)on->item)->vehicle.hand) {
@@ -1436,14 +1427,8 @@ static void draw_player(const Game *g, Vector2 origin)
         }
         return;
     }
-    if (g->vitals.rest == REST_SLEEP && settled) {
-        draw_player_asleep(g, px, py);
-        return;
-    }
-    if (g->vitals.rest == REST_MEDITATE && settled) {
-        draw_player_meditating(g, px, py);
-        return;
-    }
+    bool asleep = !dead && g->vitals.rest == REST_SLEEP && settled, meditating = !dead && g->vitals.rest == REST_MEDITATE && settled;
+    int lie = asleep ? sleeping_side(g) : 0;
     /* What they are doing says how they should stand; they are then moved toward that a little each frame, so
      * that nothing about them jumps from one pose to the next. */
     BodyEase *e = &body_ease[g->live % MAX_CHARACTERS];
@@ -1467,7 +1452,21 @@ static void draw_player(const Game *g, Vector2 origin)
     int facing = grip != 0 ? grip : p->facing;
     BodyPose to = { .tint = WHITE };
     float side = e->idle > 0.18f ? 0.0f : (float)facing * PLAYERMODEL_SIDE, shift = 0.0f, bob = 0.0f;
-    if (crawling) {
+    int rise = stepping ? p->step_to.y - p->feet.y : 0;
+    if (dead) {
+        /* Dead: laid out on the ground, the colour gone from them. */
+        to.pitch = -90.0f, side = -PLAYERMODEL_SIDE, shift = -12.0f;
+    } else if (asleep && lie != 0) {
+        /* Asleep: on their back, feet where they stood and head on the square beside. */
+        to.pitch = -90.0f, side = -(float)lie * PLAYERMODEL_SIDE, shift = lie > 0 ? -12.0f : 12.0f;
+    } else if (asleep) {
+        /* Nowhere to lie: slumped where they sat. */
+        to.lean = 25.0f, to.sink = 10.0f, to.leg[0] = to.leg[1] = 80.0f, to.arm[0] = to.arm[1] = 20.0f, side = 0.0f;
+    } else if (meditating) {
+        /* Sat cross-legged, a little off the ground, rising and settling. */
+        to.sink = 10.0f, to.leg[0] = to.leg[1] = 82.0f, to.arm[0] = to.arm[1] = 35.0f, side = 0.0f;
+        bob = 2.0f + sinf(now * 1.8f) * 1.5f;
+    } else if (crawling) {
         /* On hands and knees, so that all of them fits under a block, head leading. */
         float shuffle = stepping ? swing : 0.0f;
         to.lean = 90.0f, to.head = 65.0f, to.sink = 6.0f, shift = -(float)p->facing * 4.0f;
@@ -1506,6 +1505,23 @@ static void draw_player(const Game *g, Vector2 origin)
         float reach = stepping ? swing * 25.0f : 0.0f;
         to.arm[0] = 125.0f + reach, to.arm[1] = 125.0f - reach;
         to.leg[0] = 18.0f - reach * 0.6f, to.leg[1] = 18.0f + reach * 0.6f;
+    } else if (stepping && p->step_hop) {
+        /* A hop across a gap: off one foot, knees up in the middle of it, the arms thrown with it. */
+        float air = sinf(t * PI);
+        to.lean = 12.0f;
+        to.leg[0] = 12.0f + air * 48.0f, to.leg[1] = -8.0f - air * 34.0f;
+        to.arm[0] = -air * 52.0f, to.arm[1] = air * 62.0f;
+    } else if (stepping && rise < 0) {
+        /* Up onto a block: leaning to it, the leading knee brought up and over, the hands out to the edge of it. */
+        float over = sinf(t * PI);
+        to.lean = 6.0f + (1.0f - t) * 16.0f;
+        to.leg[0] = over * 78.0f, to.leg[1] = -over * 20.0f;
+        to.arm[0] = 28.0f + (1.0f - t) * 46.0f, to.arm[1] = 16.0f + (1.0f - t) * 40.0f;
+    } else if (stepping && rise > 0) {
+        /* Down off one, or falling: leant back from it, arms out and up for balance, the knees giving to land. */
+        to.lean = -5.0f;
+        to.leg[0] = 26.0f - t * 10.0f, to.leg[1] = -14.0f;
+        to.arm[0] = 128.0f - t * 30.0f, to.arm[1] = 104.0f - t * 30.0f;
     } else if (walking) {
         /* Walking: arm and leg swing against each other, and the body rides up as each foot passes under it. */
         to.lean = 5.0f;
@@ -1527,6 +1543,14 @@ static void draw_player(const Game *g, Vector2 origin)
     /* Setting something down: a reach out and back. A blow: the arm swings through. */
     if (p->activity == ACTIVITY_PLACING) to.arm[0] = 55.0f + sinf(t * PI) * 40.0f;
     if (p->activity == ACTIVITY_ATTACKING) to.arm[0] = 150.0f - sinf(t * PI * 0.5f) * 120.0f, to.lean += sinf(t * PI) * 8.0f;
+    /* Just attacked: for a moment the arms go up and about, and they start back from it. */
+    if (!dead && game_flail(g) > 0.0f) {
+        float wave = sinf(now * 36.0f);
+        to.arm[0] = 138.0f + wave * 46.0f, to.arm[1] = 138.0f - wave * 46.0f;
+        to.leg[0] += wave * 12.0f, to.leg[1] -= wave * 12.0f;
+        to.lean -= 12.0f;
+        to.head += 10.0f;
+    }
     if (!e->set) {
         e->pose = to, e->side = side, e->shift = shift, e->bob = bob;
         e->set = true;
@@ -1539,14 +1563,19 @@ static void draw_player(const Game *g, Vector2 origin)
     e->pose.lean += (to.lean - e->pose.lean) * body;
     e->pose.head += (to.head - e->pose.head) * body;
     e->pose.sink += (to.sink - e->pose.sink) * body;
+    /* (Lying down and getting up take a little longer than the rest.) */
+    e->pose.pitch += (to.pitch - e->pose.pitch) * (1.0f - expf(-8.0f * dt));
     e->shift += (shift - e->shift) * body;
     e->bob += (bob - e->bob) * limb;
     e->side += (side - e->side) * round;
     BodyPose pose = e->pose;
-    pose.tint = WHITE;
+    pose.tint = dead ? (Color){ 130, 134, 144, 255 } : WHITE;
     pose.facing = e->side < 0.0f ? -1 : 1;
     pose.turn = PLAYERMODEL_SIDE - fabsf(e->side);
+    if (meditating) draw_calm(cx, ground);
     draw_body(g, cx + e->shift, ground - e->bob, pose);
+    if (asleep) draw_sleep(px, ground, lie);
+    if (meditating) draw_meditation(g, cx, ground - e->bob);
 }
 
 /* With more than one character about, a small arrow over the one being played. */

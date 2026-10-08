@@ -219,7 +219,7 @@ static Pose pose_after(const World *w, Pose p, Step s)
 }
 
 /* Every step open to a player at rest in pose `p`. `out` needs MAX_MOVES. */
-static int list_moves(const World *w, Pose p, Step *out)
+static int every_move(const World *w, Pose p, Step *out)
 {
     int n = 0;
     int x = p.feet.x, y = p.feet.y;
@@ -289,6 +289,30 @@ static int list_moves(const World *w, Pose p, Step *out)
     return n;
 }
 
+/* Whether a step would leave them falling further than they will let themselves: with nothing under where it
+ * takes them and nothing there to hold, and no ground within the drop the rules allow. */
+static bool drops_too_far(const World *w, Pose p, Step s)
+{
+    int most = content.rules.max_drop;
+    if (most <= 0) return false; /* (no limit set) */
+    TilePos to = { p.feet.x + s.dx, p.feet.y + s.dy };
+    for (int k = 0; k <= most; k++) {
+        TilePos at = { to.x, to.y + k };
+        if (!world_in_bounds(w, at.x, at.y)) return false;
+        if (is_supported(w, at) || can_cling(w, at)) return false;
+    }
+    return true;
+}
+
+/* Every step open to a player at rest in pose `p`, but for any that is only a way of falling. `out` needs MAX_MOVES. */
+static int list_moves(const World *w, Pose p, Step *out)
+{
+    int n = every_move(w, p, out), kept = 0;
+    for (int i = 0; i < n; i++)
+        if (!drops_too_far(w, p, out[i])) out[kept++] = out[i];
+    return kept;
+}
+
 static bool move_allowed(const World *w, Pose p, Step s)
 {
     Step moves[MAX_MOVES];
@@ -303,7 +327,7 @@ static bool move_allowed(const World *w, Pose p, Step s)
  * direction carries the player over whatever is in the way: across one-block
  * gaps, through gaps one block high, down and up walls, from wall to wall
  * across a pit, and along the underside of a row of blocks. */
-static Step key_step(const World *w, Pose p, int dx, int dy)
+static Step key_step_any(const World *w, Pose p, int dx, int dy)
 {
     const Step none = { 0, 0, false };
     int x = p.feet.x, y = p.feet.y;
@@ -367,6 +391,13 @@ static Step key_step(const World *w, Pose p, int dx, int dy)
     if (dy < 0 && body_fits(w, x, y - 1)) return (Step){ 0, -1, true };
     if (dy > 0 && hatch_below(w, p.feet)) return (Step){ 0, 1, true };
     return none;
+}
+
+/* (And never one that is only a way of falling.) */
+static Step key_step(const World *w, Pose p, int dx, int dy)
+{
+    Step s = key_step_any(w, p, dx, dy);
+    return drops_too_far(w, p, s) ? (Step){ 0, 0, false } : s;
 }
 
 bool game_in_mine_range(TilePos feet, TilePos target)
@@ -1992,6 +2023,13 @@ static bool start_next_activity(Game *g)
                     /* Someone else's hands, or a despawn, is not worth a complaint. */
                     if (there && (!in_use_range(w, p->feet, drop_tile(d)) || !collect_drop(g, d)))
                         break;
+                    /* The rest of the same thing lying in the same square comes up with it: as many as there is room for. */
+                    for (int i = 0; there && i < MAX_DROPS; i++) {
+                        Drop *more = &g->drops[i];
+                        if (more == d || !more->active || more->attached || more->collect != 0.0f || more->item != d->item) continue;
+                        if (more->x != d->x || (int)(more->y + 0.5f) != (int)(d->y + 0.5f)) continue;
+                        if (!collect_drop(g, more)) break;
+                    }
                     g->has_current = false;
                     continue;
                 }
@@ -3458,6 +3496,11 @@ void game_weather_event(Game *g, int x, int y)
     }
 }
 
+float game_flail(const Game *g)
+{
+    return g->live >= 0 && g->live < MAX_CHARACTERS ? g->flail[g->live] : 0.0f;
+}
+
 float game_environment(const Game *g)
 {
     return 1.0f - g->chill;
@@ -3537,6 +3580,8 @@ float game_protection(const Game *g)
 
 void game_attacked(Game *g, float amount)
 {
+    /* (They throw their arms about for a moment.) */
+    if (g->live >= 0 && g->live < MAX_CHARACTERS) g->flail[g->live] = content.rules.flail_time;
     game_hurt(g, amount * (1.0f - game_protection(g)));
 }
 
@@ -3576,6 +3621,8 @@ void game_update(Game *g, float dt)
     }
 
     update_drops(g, frame);
+    for (int c = 0; c < MAX_CHARACTERS; c++)
+        if (g->flail[c] > 0.0f) g->flail[c] = g->flail[c] > frame ? g->flail[c] - frame : 0.0f;
     if (g->shot.live && (g->shot.age += frame) > 0.2f) g->shot.live = false;
     /* Every character gets on with what they are doing, each in turn. */
     for (int c = 0; c < g->character_count; c++) {

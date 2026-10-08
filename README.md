@@ -93,7 +93,7 @@ Holding a direction, or a queued click, takes the player:
 - into a gap one block high wherever it is: one at head height is got into head first, with no need of room to rise in, and one further up a wall is climbed to and gone into from the wall - or straight in from beside it, off a tree or anything else being climbed;
 - along the underside of a row of blocks, hand over hand like monkey bars.
 
-To get onto a row of blocks overhead, press `W` under it: the player jumps and catches it if there is one clear block between their head and it. Holding a direction past the end of the row lets go. Pressing `W` at the end instead swings round onto the side of the last block, from where it is an ordinary climb onto the top; `S` on the side of a block swings back in under it rather than dropping off. A queued click uses all of these to find its way.
+To get onto a row of blocks overhead, press `W` under it: the player jumps and catches it if there is one clear block between their head and it. Holding a direction past the end of the row does not let go: nobody lets themselves fall (see below). Pressing `W` at the end instead swings round onto the side of the last block, from where it is an ordinary climb onto the top; `S` on the side of a block swings back in under it rather than dropping off. A queued click uses all of these to find its way.
 
 A step that goes up or down as well as across - onto a ledge, off one, over an edge onto a wall - is drawn going round the corner of the block: up and then across, or across and then down, whichever way the body has room. Nothing is drawn passing through a block. The player's legs and arm swing as they walk.
 
@@ -294,7 +294,7 @@ A **shark head** is a trophy the size of the shark it came from. It can be hung 
 
 **Dropbears** live at the top of trees. A random event on the trunk of a tree near the player can bring one, at most three near the player at once and one to a tree.
 
-- **Ambush.** When the player comes within two columns of its tree, below it, it lets go and drops on them - the whole height of the tree in one fall, gathering speed, landing beside them - and bites - 15% of the health bar, and enough to wake a sleeper - then runs back to the tree and up it in one unbroken climb. It then leaves the player alone for 150 ticks. If the player gets away for long enough it gives up and goes home.
+- **Ambush.** When the player comes within two columns of its tree, below it, it lets go and drops on them - the whole height of the tree in one fall, gathering speed, landing beside them - and bites - 15% of the health bar, and enough to wake a sleeper - then runs back to the tree and up it in one unbroken climb. Back at the top it waits a second - 10 ticks - and, if the player is still under it, comes down for another go, and again for as long as they stay. If the player gets away for long enough it gives up and goes home.
 - **Homeless.** If its tree is cut down it drops to the ground and runs for the nearest tree within 24 columns, and goes up that. With none in sight it runs about until one is.
 - Hunted like a dodo, it leaves 1 or 2 leather, and half the time a fur as well. Health never goes below nothing, and nothing more happens when it is at nothing.
 
@@ -386,7 +386,7 @@ Whoever is not being played carries on with whatever they were told to do - walk
 
 The button in the top left corner, under the readout, is the player. Under it are two small bars, health and hunger. Clicking it flies a panel out beside it with those two and a third, energy, and two buttons: **Sleep** and **Meditate**. Bars are green on dark red.
 
-- **Hunger** runs down all the time: a full bar lasts 3600 ticks. Selecting a food in the inventory puts an **Eat** button above it; eating one fills some of the bar, a cooked meal much more than a berry. Eating to full and then eating again turns the bar golden: nothing more can be eaten (the button reads "Full"), and hunger holds off until that wears off - longer the bigger the meal.
+- **Hunger** runs down all the time: a full bar lasts 36,000 ticks. Selecting a food in the inventory puts an **Eat** button above it; eating one fills some of the bar, a cooked meal much more than a berry. Eating to full and then eating again turns the bar golden: nothing more can be eaten (the button reads "Full"), and hunger holds off until that wears off - longer the bigger the meal.
 - **Health** mends by itself, slowly, and a little with everything eaten - much less than the food does for hunger. With hunger at nothing it runs down instead, though never below a tenth.
 - **Energy** runs down while awake: a full bar lasts 1800 ticks. It has no golden state.
 - **Sleeping** lays the player on the ground and brings energy back; they wake by themselves when it is full. The button is greyed out while energy is full.
@@ -616,6 +616,18 @@ The **jetpack** is worn on the body, in the slot a breastplate goes in: straps o
 Whatever is in the four armour slots is drawn on them, each piece a shell a little larger than the part it covers, so a coat goes over the undershirt and a helmet over the hair: a helmet leaves the face open, a breastplate has a guard on each shoulder, a coat has sleeves to the wrist, leggings stop at the shin and boots cover the foot.
 
 The skin is one picture, 64 by 32, with each box opened out flat: the head's faces start at the top left corner (8 by 8 by 8), a leg at (0, 16), the body at (16, 16) and an arm at (40, 16), each laid out as right side, front, left side, back, with the top and the underside in the row above. The other arm and leg use the same part of the picture, turned about. Which picture is the skin is `"skin"` under `"players"` in `rules.json`; what an item looks like worn is its `"worn"` in `items.json`, a picture of the same shape with nothing drawn where the thing does not cover. A mod's clothes carry their own.
+
+### Not falling, and being hit
+
+**Nobody lets themselves drop.** A step that would leave a character falling more than one block - off the end of a row they are hanging from, down from the underside of a block, off a ledge into the air - is not one they will take, by the keys or on the way to a click: they go over the side and climb down, or stay where they are. One block down is an ordinary step. They still fall when what they stand on or hold is taken away, and when a jetpack is taken off in the air. (How far they will let themselves drop is `"max_drop"` under `"player"` in `rules.json`; 0 is any distance.)
+
+**How they move** is drawn all the way through: going up onto a block they lean to it and bring the leading knee up and over; coming down off one, or falling, the arms go out and up; a hop tucks the knees; and lying down to sleep, sitting to meditate, and dying are gone into and come out of, not jumped to.
+
+**Attacked**, a character throws their arms about for a little over half a second (`"flail_time"`): a bite or a sting does it.
+
+**A creature that attacks, hit and not killed, goes for whoever hit it**, there and then: a dropbear comes down out of its tree for them from however far along they hit it from, and a scorpion or a shark that was resting from its last attack has done resting.
+
+**A click on something lying on the ground** picks up all of that thing that is lying in the square - the whole pile, or as much of it as there is room for.
 
 ### Pace, and flying
 

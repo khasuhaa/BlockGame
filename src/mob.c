@@ -275,6 +275,26 @@ bool mob_weak_to(const Game *g, int mob, int element)
     return content.mobs[g->mobs[mob].kind].weak_to == element;
 }
 
+static void drop_on(Game *g, Mob *m, int column);
+static bool trunk_for(const World *w, const MobDef *def, int x, int y);
+
+/* Something that attacks, hit and still alive, goes for whoever hit it there and then: one up a tree comes down
+ * on them, and one that was resting from its last attack has done resting. */
+static void provoke(Game *g, Mob *m)
+{
+    const MobDef *def = &content.mobs[m->kind];
+    if (!game_alive(g)) return;
+    if (def->perches && def->bite > 0.0f) {
+        bool up = m->state == MOB_PERCH && trunk_for(&g->world, def, m->x, m->y);
+        if (m->state == MOB_PERCH || m->state == MOB_SEEK) m->home_x = m->x;
+        m->state = MOB_HUNT;
+        m->timer = def->chase_ticks;
+        if (up && !world_is_solid(&g->world, m->x, m->y + 1)) drop_on(g, m, g->player.feet.x);
+    } else if (def->sting_ticks > 0 || def->hunts) {
+        m->timer = 0;
+    }
+}
+
 bool mob_hurt_by(Game *g, int mob, int damage, int element, bool cooks)
 {
     if (mob < 0 || mob >= MAX_MOBS || !g->mobs[mob].active || damage <= 0) return false;
@@ -282,7 +302,10 @@ bool mob_hurt_by(Game *g, int mob, int damage, int element, bool cooks)
     if (content.mobs[m->kind].immune && !mob_weak_to(g, mob, element)) return false;
     if (m->hp <= 0) m->hp = content.mobs[m->kind].health; /* (from before creatures had any) */
     m->hp -= damage;
-    if (m->hp > 0) return false;
+    if (m->hp > 0) {
+        provoke(g, m);
+        return false;
+    }
     kill_mob(g, mob, cooks);
     return true;
 }
@@ -392,13 +415,15 @@ static void perch_tick(Game *g, Mob *m, const MobDef *def)
 
     switch ((MobState)m->state) {
     case MOB_PERCH:
-        if (m->timer > 0) m->timer--;
         if (!on_trunk) {
             /* Its tree is gone from under it. */
             m->state = MOB_SEEK;
         } else if (trunk_for(w, def, m->x, m->y - 1)) {
-            go_up(m, w, def); /* the tree has grown */
-        } else if (game_alive(g) && m->timer == 0 && abs(pdx) <= def->ambush_range && pdy > 0 &&
+            go_up(m, w, def); /* the tree has grown, or it is still on its way back up it */
+        } else if (m->timer > 0) {
+            /* At the top again after an attack: it waits there a moment before it will come down for another. */
+            m->timer--;
+        } else if (game_alive(g) && abs(pdx) <= def->ambush_range && pdy > 0 &&
                    pdy <= def->ambush_depth) {
             /* Somebody is walking by underneath: it lets go and drops on them,
              * all the way down in one go. */
@@ -607,6 +632,7 @@ void mobs_tick(Game *g)
                 if (m->timer == 0) {
                     /* (What the player wears keeps some of it out.) */
                     game_poison(g, (int)((float)def->sting_ticks * (1.0f - game_protection(g)) + 0.5f));
+                    game_attacked(g, 0.0f); /* (no harm of itself: only that they know it) */
                     m->timer = def->sting_rest > 0 ? def->sting_rest : 1;
                 }
                 if (pdx != 0) m->dir = pdx > 0 ? 1 : -1;

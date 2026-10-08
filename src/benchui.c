@@ -648,23 +648,25 @@ static void draw_recipe(const BenchUi *ui, const Game *g, const Recipe *r, Recta
     } else if (game_craft_power(g, NULL) > 0) {
         /* An electric bench, waiting for what it needs to come down the wire. */
         int arrived, needs = game_craft_power(g, &arrived);
-        DrawRectangleRec(b, (Color){ 44, 47, 58, 255 });
-        DrawRectangleRec((Rectangle){ b.x, b.y, b.width * (float)arrived / (float)needs, b.height }, (Color){ 150, 120, 30, 255 });
         Rectangle stop = stop_rect(menu);
-        draw_centered("Waiting for power", (Rectangle){ b.x + stop.width, b.y, b.width - stop.width, b.height }, 18, (Color){ 250, 224, 110, 255 });
+        Rectangle bar = { b.x + stop.width + 4, b.y, b.width - stop.width - 4, b.height };
+        DrawRectangleRec(bar, (Color){ 44, 47, 58, 255 });
+        DrawRectangleRec((Rectangle){ bar.x, bar.y, bar.width * (float)arrived / (float)needs, bar.height }, (Color){ 150, 120, 30, 255 });
+        draw_centered("Waiting for power", bar, 18, (Color){ 250, 224, 110, 255 });
         DrawRectangleRec(stop, CheckCollisionPointRec(GetMousePosition(), stop) ? (Color){ 190, 80, 80, 255 } : (Color){ 150, 60, 60, 255 });
         draw_centered("Stop", stop, 14, RAYWHITE);
     } else if (g->craft_remaining > 0) {
         int done = g->craft_total - g->craft_remaining;
         float part = game_craft_progress(g);
-        DrawRectangleRec(b, (Color){ 44, 47, 58, 255 });
-        /* (Filling as the one being made comes along, not only as each is finished.) */
-        DrawRectangleRec((Rectangle){ b.x, b.y, b.width * ((float)done + (part > 0.0f ? part : 0.0f)) / (float)g->craft_total, b.height },
-                         button_color);
         int rush = game_craft_rush_cost(g);
         Rectangle hurry = rush_rect(menu);
         Rectangle stop = stop_rect(menu);
-        Rectangle words = { b.x + stop.width, b.y, b.width - stop.width - (rush >= 0 ? hurry.width : 0), b.height };
+        /* The bar is what lies between the two buttons, so that all of it shows: where it starts and where it ends. */
+        Rectangle words = { b.x + stop.width + 4, b.y, b.width - stop.width - 4 - (rush >= 0 ? hurry.width + 4 : 0), b.height };
+        DrawRectangleRec(words, (Color){ 44, 47, 58, 255 });
+        /* (Filling as the one being made comes along, not only as each is finished.) */
+        DrawRectangleRec((Rectangle){ words.x, words.y, words.width * ((float)done + (part > 0.0f ? part : 0.0f)) / (float)g->craft_total, words.height },
+                         button_color);
         draw_centered(TextFormat("Crafting %d/%d", done, g->craft_total), words, 18, RAYWHITE);
         DrawRectangleRec(stop, CheckCollisionPointRec(GetMousePosition(), stop) ? (Color){ 190, 80, 80, 255 } : (Color){ 150, 60, 60, 255 });
         draw_centered("Stop", stop, 14, RAYWHITE);

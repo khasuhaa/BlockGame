@@ -816,6 +816,8 @@ typedef struct {
      * a while - or sooner, for crystals. */
     float death_bar;       /* how much the second bar takes, in health bars */
     int respawn_ticks;     /* how long the dead stay dead */
+    float flail_time;      /* seconds someone attacked throws their arms about */
+    int max_drop;          /* how far they will let themselves fall by a step of their own: blocks; 0 for any distance */
     int respawn_cost;      /* crystals to come back at once, right after dying; less as the wait runs down */
     int hand_damage;       /* what a blow with nothing better in hand takes off a creature */
     float poison_damage;   /* share of the health bar each tick of being poisoned takes */

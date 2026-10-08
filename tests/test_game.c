@@ -34,7 +34,7 @@
 /* The tests of everything else are of characters with nothing on, out in whatever weather their seed brings, and
  * were written before the weather could touch them: so it is switched off as the content is loaded, and the test
  * of the weather itself (test_environment) puts back what the data says. */
-static int shipped_env_fall_ticks;
+static int shipped_env_fall_ticks, shipped_max_drop;
 static float shipped_walk_time, shipped_climb_time, shipped_crawl_time;
 static bool calm_content_load(const char *dir, char *err, size_t size)
 {
@@ -47,6 +47,9 @@ static bool calm_content_load(const char *dir, char *err, size_t size)
         shipped_walk_time = content.rules.walk_time, shipped_climb_time = content.rules.climb_time, shipped_crawl_time = content.rules.crawl_time;
         content.rules.walk_time = 0.12f, content.rules.climb_time = 0.16f, content.rules.crawl_time = 0.22f;
     }
+    /* And they let themselves drop from anything, as characters then did. */
+    if (content.rules.max_drop > 0) shipped_max_drop = content.rules.max_drop;
+    content.rules.max_drop = 0;
     return ok;
 }
 #define content_load calm_content_load
@@ -6180,12 +6183,15 @@ static void test_vitals(void)
     Inventory *inv = &g.inventory;
     ItemId apple = item_id("apple"), meat = item_id("cooked_dodo_meat");
 
-    CHECK(u->hunger_ticks == 3600 && u->energy_ticks == 1800 && u->meditation_ticks == 900 && u->rest_speed == 3);
+    CHECK(u->hunger_ticks == 36000 && u->energy_ticks == 1800 && u->meditation_ticks == 900 && u->rest_speed == 3);
     CHECK(v->health == 1.0f && v->hunger == 1.0f && v->energy == 1.0f && v->rest == REST_NONE);
 
-    /* A full hunger bar lasts 3600 ticks and a full energy bar 1800. */
+    /* A full hunger bar lasts 36000 ticks and a full energy bar 1800. */
     for (int i = 0; i < 360; i++) game_tick(&g);
-    CHECK(near(v->hunger, 0.9f) && near(v->energy, 0.8f) && v->health == 1.0f);
+    CHECK(near(v->hunger, 0.99f) && near(v->energy, 0.8f) && v->health == 1.0f);
+    /* (The rest of this was worked out for a hunger bar that lasted 3600: it is put back to that, and to where it would then have been.) */
+    content.rules.hunger_ticks = 3600;
+    v->hunger = 0.9f;
 
     /* Food is eaten from the selected slot, and only food. */
     clear_inventory(&g);
@@ -6406,22 +6412,43 @@ static void test_discard(void)
     int tapped = -1;
     for (int i = 0; i < MAX_DROPS; i++)
         if (g.drops[i].active) tapped = i;
-    CHECK(tapped >= 0 && game_click_drop(&g, tapped));
-    run(&g, 2.0f);
-    CHECK(count_drops(&g, ITEM_STONE) == 2 && inventory_count(inv, ITEM_STONE) == 18);
     /* The flag is kept by a save. */
     Game loaded;
     CHECK(save_game(&g, "build/test_discard.world") && load_game(&loaded, "build/test_discard.world"));
     int held = 0;
     for (int i = 0; i < MAX_DROPS; i++) held += loaded.drops[i].active && loaded.drops[i].held_off;
-    CHECK(held == 2);
+    CHECK(held == 3);
     game_free(&loaded);
     remove("build/test_discard.world");
+    /* (The tap takes all of the same thing that is lying in that square: the whole pile, not one of it.) */
+    CHECK(tapped >= 0 && game_click_drop(&g, tapped));
+    run(&g, 2.0f);
+    CHECK(count_drops(&g, ITEM_STONE) == 0 && inventory_count(inv, ITEM_STONE) == 20);
+    /* But only as many as there is room for: with the bar full but for 2 more in one stack, 2 of 5 come up. */
+    {
+        ItemStack kept[INVENTORY_SLOTS];
+        memcpy(kept, inv->slots, sizeof kept);
+        int most = item_def(ITEM_DIRT)->max_stack > 0 ? item_def(ITEM_DIRT)->max_stack : 99;
+        for (int i = 0; i < INVENTORY_SLOTS; i++) inv->slots[i] = (ItemStack){ .id = (uint16_t)ITEM_DIRT, .count = (uint16_t)(i == 0 ? most - 2 : most) };
+        for (int k = 0; k < 5; k++) game_drop_item(&g, ITEM_DIRT, g.player.feet.x + 1, g.player.feet.y);
+        run(&g, 1.0f);
+        int pile = -1;
+        for (int i = 0; i < MAX_DROPS; i++)
+            if (g.drops[i].active && g.drops[i].item == ITEM_DIRT) pile = i;
+        if (count_drops(&g, ITEM_DIRT) == 5) {
+            /* (Where a full bar keeps them from being picked up by standing there.) */
+            CHECK(pile >= 0 && game_click_drop(&g, pile));
+            run(&g, 2.0f);
+            CHECK(count_drops(&g, ITEM_DIRT) == 3 && inv->slots[0].count == most);
+        }
+        for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+        memcpy(inv->slots, kept, sizeof kept);
+    }
 
     /* Asking for more than there is drops the whole stack; an empty slot drops nothing. */
     for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
-    CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 99) == 18 && inv->slots[0].count == 0);
-    CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 1) == 0 && count_drops(&g, ITEM_STONE) == 18);
+    CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 99) == 20 && inv->slots[0].count == 0);
+    CHECK(game_discard(&g, (SlotRef){ SLOT_BAR, 0, 0 }, 1) == 0 && count_drops(&g, ITEM_STONE) == 20);
 
     /* A basket goes with what is in it, and comes back with it. */
     for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
@@ -6555,6 +6582,32 @@ static void test_coffee_and_dropbears(void)
     for (int i = 0; i < 200; i++) game_tick(&g);
     CHECK(m->active && m->x == tx && m->y == top && m->state == MOB_PERCH && v->health == 1.0f);
 
+    /* Hit where it sits - an arrow would do it - it comes down and goes for whoever did that, from further off than
+     * it would ever have troubled them; and whoever it bites throws their arms about for a moment. */
+    {
+        TilePos stood = g.player.feet;
+        CHECK(abs(world_dx(w, stood.x, tx)) > def->ambush_range && game_flail(&g) == 0.0f);
+        CHECK(!mob_hurt(&g, bear, 1) && m->active && m->state == MOB_HUNT);
+        bool got = false;
+        for (int i = 0; i < 400 && !got; i++) {
+            game_tick(&g);
+            got = v->health < 0.99f;
+        }
+        CHECK(got && game_flail(&g) > 0.0f && game_flail(&g) <= content.rules.flail_time);
+        float flailing = game_flail(&g);
+        game_update(&g, 0.2f);
+        CHECK(game_flail(&g) < flailing && game_flail(&g) > 0.0f);
+        game_update(&g, 0.6f);
+        CHECK(game_flail(&g) == 0.0f);
+        /* (They go off out of its sight - though not so far that the world stops troubling with it - and it goes home.) */
+        g.player.feet = g.player.step_to = (TilePos){ tx - 30, ground };
+        for (int i = 0; i < 600 && !(m->state == MOB_PERCH && m->y == top && m->timer == 0); i++) game_tick(&g);
+        CHECK(m->x == tx && m->y == top && m->state == MOB_PERCH);
+        m->hp = def->health;
+        v->health = 1.0f;
+        g.player.feet = g.player.step_to = stood;
+    }
+
     /* Walk under it and it runs down the tree, bites, and runs back up. */
     g.player.feet = g.player.step_to = (TilePos){ tx - 2, ground };
     bool came_down = false, bitten = false;
@@ -6566,10 +6619,27 @@ static void test_coffee_and_dropbears(void)
     CHECK(came_down && bitten && m->state == MOB_RETURN);
     CHECK(near(v->health, 1.0f - def->bite) || v->health > 1.0f - def->bite);
     float after = v->health;
-    for (int i = 0; i < 100; i++) game_tick(&g);
+    /* Back at the top it waits a second - ten ticks - and then, with them still under it, comes down for another go. */
+    CHECK(def->bite_rest == 10);
+    int back = 0;
+    for (; back < 200 && !(m->state == MOB_PERCH && m->y == top); back++) game_tick(&g);
+    CHECK(m->x == tx && m->y == top && m->state == MOB_PERCH && v->health >= after && m->timer == 10);
+    for (int i = 0; i < 9; i++) {
+        game_tick(&g);
+        CHECK(m->state == MOB_PERCH && m->y == top);
+    }
+    bool again = false;
+    for (int i = 0; i < 300 && !again; i++) {
+        game_tick(&g);
+        if (v->health < after - 0.01f) again = true;
+    }
+    CHECK(again);
+    /* (And once they have gone, it goes back up and stays there.) */
+    g.player.feet = g.player.step_to = (TilePos){ tx - 40, ground };
+    for (int i = 0; i < 300; i++) game_tick(&g);
     CHECK(m->x == tx && m->y == top && m->state == MOB_PERCH);
-    /* It does not come straight back down for another go. */
-    CHECK(v->health >= after);
+    g.player.feet = g.player.step_to = (TilePos){ tx - 2, ground };
+    v->health = 1.0f;
     /* Being attacked brings the player out of meditation... */
     m->timer = 0;
     CHECK(game_rest(&g, REST_MEDITATE));
@@ -8039,7 +8109,9 @@ static void test_characters(void)
 
     /* Each has needs of their own. Both get hungry; eating feeds the one who eats. */
     game_control(&g, 0);
+    content.rules.hunger_ticks = 3600; /* (a tenth of what a hunger bar lasts now, so that 360 ticks show) */
     for (int i = 0; i < 360; i++) game_tick(&g);
+    content.rules.hunger_ticks = 36000;
     CHECK(near(g.vitals.hunger, 0.9f) && near(game_character_vitals(&g, 1)->hunger, 0.9f));
     inventory_add(inv, apple, 1);
     for (int i = 0; i < INVENTORY_SLOTS; i++)
@@ -11083,6 +11155,85 @@ static void test_pace_and_flight(void)
     game_free(&g);
 }
 
+/* Nobody lets themselves fall: a step that would only be a drop is not one they take. */
+static void test_no_dropping(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    content.rules.max_drop = shipped_max_drop; /* (as the game has it) */
+    CHECK(content.rules.max_drop == 1 && content.rules.flail_time == 0.6f);
+    static Game g;
+    game_init(&g, 128, 64, 4, WORLD_FLAT);
+    g.tick_rate = 0;
+    clear_mobs(&g);
+    World *w = &g.world;
+    int s = w->surface_y, row = s - 1, x = g.player.feet.x + 6;
+    /* A row of blocks six up, and someone hanging from the middle of it. */
+    for (int i = 0; i < 5; i++) world_set(w, x + i, row - 8, TILE_STONE);
+    g.player.feet = g.player.step_to = (TilePos){ x + 2, row - 6 };
+    g.player.climbing = true;
+    run(&g, 0.5f);
+    CHECK(g.player.climbing && g.player.feet.y == row - 6);
+    /* Down is no way down: they stay where they are. Along to the end, and no further. */
+    game_set_move_input(&g, 0, 1);
+    run(&g, 2.0f);
+    CHECK(g.player.feet.x == x + 2 && g.player.feet.y == row - 6 && g.player.climbing);
+    game_set_move_input(&g, 1, 0);
+    run(&g, 4.0f);
+    game_set_move_input(&g, 0, 0);
+    CHECK(g.player.feet.y <= row - 6 && g.player.feet.x >= x + 4 && g.player.feet.x <= x + 5 && g.player.climbing);
+    /* Nor does a click on the ground under them find a way that is a fall. */
+    g.player.feet = g.player.step_to = (TilePos){ x + 2, row - 6 };
+    game_click_tile(&g, x + 2, row);
+    run(&g, 3.0f);
+    CHECK(g.player.feet.y < row || g.player.feet.x != x + 2 || g.player.climbing);
+    game_cancel_actions(&g);
+    /* (With the rule off they let go, as they used to.) */
+    g.player.feet = g.player.step_to = (TilePos){ x + 2, row - 6 };
+    g.player.climbing = true;
+    content.rules.max_drop = 0;
+    game_set_move_input(&g, 0, 1);
+    run(&g, 2.0f);
+    game_set_move_input(&g, 0, 0);
+    CHECK(g.player.feet.y == row && !g.player.climbing);
+    content.rules.max_drop = 1;
+    for (int i = 0; i < 5; i++) world_set(w, x + i, row - 8, TILE_AIR);
+    /* One block down is a step, not a drop: off a block onto the ground. */
+    world_set(w, x + 10, row, TILE_STONE);
+    g.player.feet = g.player.step_to = (TilePos){ x + 10, row - 1 };
+    g.player.climbing = false;
+    run(&g, 0.3f);
+    game_set_move_input(&g, 1, 0);
+    run(&g, 1.0f);
+    game_set_move_input(&g, 0, 0);
+    run(&g, 0.5f);
+    CHECK(g.player.feet.y == row && g.player.feet.x > x + 10);
+    /* Off the top of something taller they go over the side and climb down it: never through the air. */
+    for (int k = 0; k < 5; k++) world_set(w, x + 20, row - k, TILE_STONE);
+    g.player.feet = g.player.step_to = (TilePos){ x + 20, row - 5 };
+    run(&g, 0.3f);
+    game_set_move_input(&g, 1, 0);
+    bool fell = false;
+    for (int i = 0; i < 8 * 60 && g.player.feet.x <= x + 22; i++) {
+        game_update(&g, 1.0f / 60.0f);
+        /* (Every moment of it there is the wall beside them, or the ground under them.) */
+        TilePos at = g.player.feet;
+        if (at.y < row && at.x != x + 20 && !world_is_solid(w, at.x - 1, at.y) && !world_is_solid(w, at.x - 1, at.y - 1) && !world_is_solid(w, at.x, at.y + 1)) fell = true;
+    }
+    game_set_move_input(&g, 0, 0);
+    CHECK(!fell && g.player.feet.y == row && g.player.feet.x > x + 20);
+    /* With the ground dug from under them they fall all the same: that is not a step of theirs. */
+    world_set(w, x + 30, row - 3, TILE_STONE);
+    g.player.feet = g.player.step_to = (TilePos){ x + 30, row - 4 };
+    run(&g, 0.3f);
+    CHECK(g.player.feet.y == row - 4);
+    world_set(w, x + 30, row - 3, TILE_AIR);
+    run(&g, 2.0f);
+    CHECK(g.player.feet.y == row);
+    game_free(&g);
+}
+
 int main(void)
 {
     char err[256];
@@ -11214,6 +11365,7 @@ int main(void)
     test_environment();
     test_trains();
     test_pace_and_flight();
+    test_no_dropping();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;
