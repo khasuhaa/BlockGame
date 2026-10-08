@@ -7,7 +7,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 29u
+#define SAVE_VERSION 30u
 
 /* Up to version 28 a world had room for a quarter as many of these, and they
  * were written out whole: every reader of an older version goes by these. */
@@ -500,6 +500,10 @@ bool save_game(const Game *g, const char *path)
         uint32_t types = (uint32_t)c->types;
         ok = fwrite(&id, sizeof id, 1, f) == 1 && fwrite(&types, sizeof types, 1, f) == 1 && fwrite(c->held, sizeof c->held[0], types, f) == types;
     }
+    /* How far the weather has got to each character. */
+    float chills[MAX_CHARACTERS] = { 0 };
+    for (int c = 0; c < g->character_count && c < MAX_CHARACTERS; c++) chills[c] = c == g->live ? g->chill : g->characters[c].chill;
+    ok = ok && fwrite(chills, sizeof chills, 1, f) == 1;
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
         remove(tmp);
@@ -743,6 +747,16 @@ bool load_game(Game *g, const char *path)
                     c->held[c->types].id = (uint16_t)now;
                     c->held[c->types++].count = c->held[k].count;
                 }
+            }
+        }
+        /* From version 30: before it there was no weather to speak of, and everyone starts untouched by it. */
+        if (ok && h.version >= 30) {
+            float chills[MAX_CHARACTERS] = { 0 };
+            ok = fread(chills, sizeof chills, 1, f) == 1;
+            for (int c = 0; ok && c < MAX_CHARACTERS; c++) {
+                float got = chills[c] >= 0.0f && chills[c] <= 1.0f ? chills[c] : 0.0f;
+                if (c == g->live) g->chill = got;
+                else g->characters[c].chill = got;
             }
         }
         bool nobody = ok && h.version >= 15 && people[0] == 0;

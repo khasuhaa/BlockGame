@@ -280,6 +280,7 @@ typedef struct {
     float upgrade_timer;
     bool menu_hold;
     float shield;
+    float chill;
 } Character;
 
 typedef struct {
@@ -363,6 +364,8 @@ typedef struct {
      * item's meter says which), and the crafting jobs that are running. */
     struct CellStore *cells;
     struct NetJob *jobs;
+    /* How far the weather has got to the character: 0 for not at all, 1 for an environment score of nothing. */
+    float chill;
     /* A shield a spell has put round the character: so much of a health bar of harm it will still take for them. */
     float shield;
     /* What is open was opened by something queued, and is for the player to
@@ -596,6 +599,17 @@ void game_decay_tree(Game *g, int x, int y);
  * and which day of it (both from 1), and how many ticks into the day. */
 int game_season(const Game *g);
 void game_date(const Game *g, int *year, int *day, int *tick);
+/* The environment score: 1 at its best, running down out of doors in rain or
+ * cold and coming back under cover. */
+float game_environment(const Game *g);
+float game_character_environment(const Game *g, int c);
+/* The least it can fall to in what the character has on: 0 with nothing on,
+ * when the weather can kill; 1 when it cannot touch them. */
+float game_environment_floor(const Game *g);
+/* Whether the weather is getting at the character where they are. */
+bool game_exposed(const Game *g);
+/* How fast they walk and work for it, as a share of their usual speed. */
+float game_pace(const Game *g);
 /* How hard it is raining - or, in a season that snows, snowing - from 0 for
  * not at all to 1; it comes on and eases off at the ends of a spell. */
 float game_rain(const Game *g);

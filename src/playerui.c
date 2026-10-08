@@ -10,7 +10,8 @@
 #define BUTTON_SIZE 52.0f
 #define SMALL_BAR_HEIGHT 7.0f
 #define SMALL_BAR_GAP 3.0f
-#define PANEL_WIDTH 268.0f
+#define PANEL_WIDTH 300.0f
+#define LABEL_WIDTH 104.0f /* room for the longest name of a bar */
 #define PANEL_PAD 12.0f
 #define ROW_HEIGHT 26.0f
 #define ACTION_HEIGHT 34.0f
@@ -44,7 +45,7 @@ static Rectangle small_bar(int c, int row)
 /* The panel comes out beside the button of the character being played. */
 static Rectangle panel_rect_for(int c)
 {
-    float h = PANEL_PAD * 2 + ROW_HEIGHT * 4 + 8.0f + ACTION_HEIGHT;
+    float h = PANEL_PAD * 2 + ROW_HEIGHT * 5 + 8.0f + ACTION_HEIGHT;
     return (Rectangle){ BUTTON_X + BUTTON_SIZE + 10.0f, button_rect(c).y, PANEL_WIDTH, h };
 }
 
@@ -215,7 +216,7 @@ static void draw_row(Rectangle panel, int row, const char *label, float value, B
     bool golden = color == BAR_GOLD;
     float y = panel.y + PANEL_PAD + row * ROW_HEIGHT;
     DrawText(label, (int)(panel.x + PANEL_PAD), (int)y + 1, 16, RAYWHITE);
-    Rectangle bar = { panel.x + PANEL_PAD + 70.0f, y + 2.0f, panel.width - PANEL_PAD * 2 - 70.0f - 44.0f, 14.0f };
+    Rectangle bar = { panel.x + PANEL_PAD + LABEL_WIDTH, y + 2.0f, panel.width - PANEL_PAD * 2 - LABEL_WIDTH - 44.0f, 14.0f };
     playerui_draw_bar(bar, value, color);
     const char *text = golden ? "full" : TextFormat("%d%%", (int)(value * 100.0f + 0.5f));
     DrawText(text, (int)(panel.x + panel.width - PANEL_PAD) - MeasureText(text, 14), (int)y + 2, 14,
@@ -313,6 +314,8 @@ void playerui_draw(const PlayerUi *ui, const Game *g)
         playerui_draw_bar(small_bar(c, 1), v->hunger, v->saturation > 0.0f ? BAR_GOLD : BAR_GREEN);
         /* Breath only shows while it is short. */
         if (v->oxygen < 1.0f) playerui_draw_bar(small_bar(c, 2), v->oxygen, BAR_BLUE);
+        /* Nor what the weather has left them, unless it has taken some. */
+        if (game_character_environment(g, c) < 1.0f) playerui_draw_bar(small_bar(c, v->oxygen < 1.0f ? 3 : 2), game_character_environment(g, c), BAR_BLUE);
     }
     for (int c = 0; c < g->character_count; c++)
         if (death_showing(ui, g, c, 0)) draw_death(ui, g, c, death_rect(g, c, 0), false);
@@ -332,6 +335,7 @@ void playerui_draw(const PlayerUi *ui, const Game *g)
     /* (Past full - from a soft bed, or coffee - it shows gold until it has run back down to full.) */
     draw_row(p, 2, "Energy", v->energy > 1.0f ? 1.0f : v->energy, v->energy > 1.0f ? BAR_GOLD : BAR_GREEN);
     draw_row(p, 3, "Oxygen", v->oxygen, BAR_BLUE);
+    draw_row(p, 4, "Environment", game_environment(g), BAR_BLUE);
     draw_action(action_rect(0), v->rest == REST_SLEEP ? "Wake up" : "Sleep", can_sleep(g), v->rest == REST_SLEEP);
     draw_action(action_rect(1), v->rest == REST_MEDITATE ? "Stop" : "Meditate", true, v->rest == REST_MEDITATE);
 }

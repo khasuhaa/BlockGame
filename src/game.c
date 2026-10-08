@@ -1442,11 +1442,11 @@ static void begin_step(Game *g, Step s)
     p->step_boat = boat;
     if (boat) p->duration = content.rules.swim_time / (content.rules.boat_speed > 0.0f ? content.rules.boat_speed : 2.0f);
     else if (ride) p->duration = (content.rules.lift_time > 0.0f ? content.rules.lift_time : 0.04f) * (float)abs(s.dy);
-    else if (hop) p->duration = HOP_TIME / game_walk_speed(g);
-    else if (swim) p->duration = content.rules.swim_time * (s.dx != 0 && s.dy != 0 ? 1.4142f : 1.0f);
-    else if (s.climb || p->climbing) p->duration = CLIMB_TIME;
+    else if (hop) p->duration = HOP_TIME / game_walk_speed(g) / game_pace(g);
+    else if (swim) p->duration = content.rules.swim_time * (s.dx != 0 && s.dy != 0 ? 1.4142f : 1.0f) / game_pace(g);
+    else if (s.climb || p->climbing) p->duration = CLIMB_TIME / game_pace(g);
     else if (s.dy > 0) p->duration = FALL_TIME;
-    else p->duration = (crawl ? CRAWL_TIME : WALK_TIME) / game_walk_speed(g); /* (quicker in boots that make it so) */
+    else p->duration = (crawl ? CRAWL_TIME : WALK_TIME) / game_walk_speed(g) / game_pace(g); /* (quicker in boots that make it so) */
     if (s.dx != 0) p->facing = s.dx > 0 ? 1 : -1;
 }
 
@@ -1540,7 +1540,8 @@ static void begin_work(Game *g, Activity activity, float duration)
 {
     g->player.activity = activity;
     g->player.timer = 0.0f;
-    g->player.duration = duration;
+    /* (The weather having got to them, it takes longer.) */
+    g->player.duration = duration / game_pace(g);
 }
 
 static void finish_activity(Game *g)
@@ -2476,6 +2477,7 @@ static void character_stash(Game *g, Character *c)
     c->craft_power = g->craft_power;
     c->menu_hold = g->menu_hold;
     c->shield = g->shield;
+    c->chill = g->chill;
     c->upgrading = g->upgrading;
     c->upgrade_timer = g->upgrade_timer;
 }
@@ -2508,6 +2510,7 @@ static void character_fetch(Game *g, const Character *c)
     g->craft_power = c->craft_power;
     g->menu_hold = c->menu_hold;
     g->shield = c->shield;
+    g->chill = c->chill;
     g->upgrading = c->upgrading;
     g->upgrade_timer = c->upgrade_timer;
 }
@@ -2760,6 +2763,7 @@ static void revive(Game *g)
     p->climbing = false;
     float hunger = g->vitals.hunger > 0.5f ? g->vitals.hunger : 0.5f, energy = g->vitals.energy > 0.5f ? g->vitals.energy : 0.5f;
     g->vitals = (Vitals){ .health = 1.0f, .hunger = hunger, .energy = energy, .oxygen = 1.0f, .death = 1.0f };
+    g->chill = 0.0f;
     game_reveal(g, at.x, at.y - 1);
 }
 
@@ -3148,6 +3152,21 @@ static void vitals_tick(Game *g)
         v->oxygen = u->oxygen_refill_ticks > 0 ? clamp01(v->oxygen + 1.0f / (float)u->oxygen_refill_ticks) : 1.0f;
     }
 
+    /* The weather: out in the rain or the cold it gets to them, as far as what they have on lets it; under cover it
+     * wears off. With nothing on, and nothing left, it is health that goes. */
+    if (u->env_fall_ticks > 0) {
+        float most = 1.0f - game_environment_floor(g);
+        if (game_exposed(g)) g->chill += 1.0f / (float)u->env_fall_ticks;
+        else g->chill -= u->env_rise_ticks > 0 ? 1.0f / (float)u->env_rise_ticks : 1.0f;
+        if (g->chill > most) g->chill = most;
+        if (g->chill < 0.0f) g->chill = 0.0f;
+        if (g->chill >= 0.9999f && u->env_harm_ticks > 0) {
+            game_wake(g);
+            game_hurt(g, 1.0f / (float)u->env_harm_ticks);
+            if (v->respawn > 0) return;
+        }
+    }
+
     if (v->rest == REST_SLEEP) {
         /* In a bed it comes quicker; in a soft one it goes on past full. */
         bool over = false;
@@ -3343,6 +3362,52 @@ void game_weather_event(Game *g, int x, int y)
         world_set_water(w, x, y, level > 0 && level <= WATER_FULL ? level : WATER_FULL);
         water_wake(w, x);
     }
+}
+
+float game_environment(const Game *g)
+{
+    return 1.0f - g->chill;
+}
+
+float game_character_environment(const Game *g, int c)
+{
+    if (c < 0 || c >= g->character_count) return 1.0f;
+    return 1.0f - (c == g->live ? g->chill : g->characters[c].chill);
+}
+
+float game_environment_floor(const Game *g)
+{
+    float kept = 0.0f;
+    bool anything = false;
+    for (int i = 0; i < ARMOR_SLOTS; i++) {
+        if (g->inventory.armor[i].count <= 0) continue;
+        anything = true;
+        kept += item_def((ItemId)g->inventory.armor[i].id)->warmth;
+    }
+    /* (Anything on at all is enough to live through it.) */
+    if (anything && kept < content.rules.env_clothed) kept = content.rules.env_clothed;
+    return kept > 1.0f ? 1.0f : kept;
+}
+
+bool game_exposed(const Game *g)
+{
+    const RulesDef *u = &content.rules;
+    const World *w = &g->world;
+    TilePos at = g->player.feet;
+    /* Indoors is anywhere with a block overhead; and nothing falls on what is under water. */
+    for (int y = at.y - 1; y >= 0; y--)
+        if (world_is_solid(w, at.x, y)) return false;
+    if (world_is_water(w, at.x, at.y - 1)) return false;
+    if (game_rain(g) > 0.0f) return true;
+    if (u->season_count > 0 && u->seasons[game_season(g)].cold) return true;
+    if (u->snow_line > 0 && world_row_to_y(w, at.y) > u->snow_line) return true;
+    int biome = world_biome(w, at.x);
+    return biome >= 0 && biome < content.biome_count && content.biomes[biome].cold;
+}
+
+float game_pace(const Game *g)
+{
+    return 1.0f - content.rules.env_slow * g->chill;
 }
 
 float game_walk_speed(const Game *g)

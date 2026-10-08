@@ -653,6 +653,8 @@ static bool read_items(Reader *r, const cJSON *root)
         }
         copy_name(it->worn, sizeof it->worn, str(e, "worn"));
         it->walk_speed = (float)num(e, "walk_speed", 0.0);
+        it->warmth = (float)num(e, "warmth", 0.0);
+        if (it->warmth < 0.0f || it->warmth > 1.0f) return fail(r, "item \"%s\": \"warmth\" is a share, 0 to 1", it->name);
         it->tireless = flag(e, "tireless", false);
         it->sated = flag(e, "sated", false);
         if (it->walk_speed < 0.0f) return fail(r, "item \"%s\": \"walk_speed\" is not less than nothing", it->name);
@@ -903,6 +905,7 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         BiomeDef *b = &content.biomes[id];
         memset(b, 0, sizeof *b);
         copy_name(b->name, sizeof b->name, name);
+        b->cold = flag(e, "cold", b->cold);
         copy_name(b->label, sizeof b->label, str(e, "label") ? str(e, "label") : name);
         if (!tile_ref(r, e, "surface", &b->surface) || !tile_ref(r, e, "soil", &b->soil)) return false;
         if (b->surface == TILE_AIR || b->soil == TILE_AIR)
@@ -1234,9 +1237,19 @@ static bool read_rules(Reader *r, const cJSON *root)
                 return fail(r, "\"seasons\" lists at most %d, each with a \"name\"", MAX_SEASONS);
             copy_name(u->seasons[u->season_count].label, CONTENT_NAME_LEN, str(season, "name"));
             u->seasons[u->season_count].snows = flag(season, "snows", false);
+            u->seasons[u->season_count].cold = flag(season, "cold", flag(season, "snows", false));
             u->seasons[u->season_count].freezes = flag(season, "freezes", false);
             u->seasons[u->season_count++].thaws = flag(season, "thaws", false);
         }
+    }
+    const cJSON *env = field(root, "environment");
+    if (env) {
+        u->env_fall_ticks = (int)num(env, "fall_ticks", u->env_fall_ticks);
+        u->env_rise_ticks = (int)num(env, "rise_ticks", u->env_rise_ticks);
+        u->env_slow = (float)num(env, "slow", u->env_slow);
+        u->env_harm_ticks = (int)num(env, "harm_ticks", u->env_harm_ticks);
+        u->env_clothed = (float)num(env, "clothed", u->env_clothed);
+        if (u->env_slow < 0.0f || u->env_slow >= 1.0f) return fail(r, "\"environment\": \"slow\" is a share of speed lost, 0 up to but not 1");
     }
     const cJSON *weather = field(root, "weather");
     if (weather) {

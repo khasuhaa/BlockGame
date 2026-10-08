@@ -419,6 +419,7 @@ typedef struct {
     /* Worn: walking goes so many times as fast (0 or 1 for no faster); energy does not run down; hunger does not run down. */
     float walk_speed;
     bool tireless, sated;
+    float warmth;          /* worn, how much of the environment score it keeps whatever the weather: a share, 0 to 1 */
     ItemId cooks_into;     /* what it is when a spell that cooks has killed what dropped it; ITEM_NONE for no different */
     bool becomes_player; /* made at a bench, it is not an item at all but another character to play */
     int plants;      /* tree it grows into when planted, or -1 */
@@ -575,6 +576,7 @@ typedef struct {
     float seam_share;
     TileType surface, soil;
     float soil_depth;  /* a fixed depth of soil, or 0 for the usual rule */
+    bool cold;         /* out of doors here wears the environment score down whatever the season */
     int tree_one_in, tree_spacing;
     struct {
         int tree, weight;
@@ -688,6 +690,7 @@ typedef struct {
         bool snows;   /* what falls is snow, and it lies */
         bool freezes; /* open water turns to ice */
         bool thaws;   /* ice turns back to water */
+        bool cold;    /* out of doors in it wears the environment score down; as "snows" unless said */
     } seasons[MAX_SEASONS];
     int season_count;
     /* Weather. Time is cut into stretches of so many ticks; in each it rains
@@ -740,6 +743,12 @@ typedef struct {
     int oxygen_ticks;      /* ticks under water for a full oxygen bar to run out; 0 to need no air */
     int oxygen_refill_ticks; /* ticks in the air for it to fill again */
     int drown_ticks;       /* ticks for health to run down with no oxygen left */
+    /* The environment score: it runs down out of doors in rain or cold, to no lower than what is worn keeps, and comes back under cover. */
+    int env_fall_ticks;    /* ticks for it to run from full to nothing; 0 for no such thing */
+    int env_rise_ticks;    /* and to come back */
+    float env_slow;        /* with none left, walking and working take this share longer... of their speed off: 0.5 is half as fast */
+    int env_harm_ticks;    /* ticks for health to run down with none left */
+    float env_clothed;     /* the least it can fall to with anything on at all */
 
     /* Fog of war: the world is dark until the player has been near it. */
     bool fog_enabled; /* whether a new world starts with it */

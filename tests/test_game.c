@@ -30,6 +30,19 @@
 #define TILE_CHERRY_LEAVES tile_id("cherry_leaves")
 #define TILE_WOOD tile_id("wood")
 #define ITEM_BASKET item_id("basket")
+/* The tests of everything else are of characters with nothing on, out in whatever weather their seed brings, and
+ * were written before the weather could touch them: so it is switched off as the content is loaded, and the test
+ * of the weather itself (test_environment) puts back what the data says. */
+static int shipped_env_fall_ticks;
+static bool calm_content_load(const char *dir, char *err, size_t size)
+{
+    bool ok = content_load(dir, err, size);
+    if (content.rules.env_fall_ticks > 0) shipped_env_fall_ticks = content.rules.env_fall_ticks;
+    content.rules.env_fall_ticks = 0;
+    return ok;
+}
+#define content_load calm_content_load
+
 #define ITEM_DIRT item_id("dirt")
 #define ITEM_WORKBENCH item_id("workbench")
 #define ITEM_STONE item_id("stone")
@@ -9129,7 +9142,7 @@ static void test_poles(void)
                   *horn = item_def(item_id("cornucopia_hat"));
     CHECK(hat->equip == EQUIP_HEAD && boots->equip == EQUIP_BOOTS && skirt->equip == EQUIP_LEGS && horn->equip == EQUIP_HEAD);
     CHECK(hat->walk_speed == 0.0f && !hat->tireless && !hat->sated && hat->armor == 0.0f); /* the north hat is only to be worn */
-    CHECK(boots->walk_speed == 2.0f && skirt->tireless && horn->sated);
+    CHECK(boots->walk_speed == 2.0f && !skirt->tireless && skirt->warmth == 1.0f && horn->sated);
     game_init(&g, 128, 64, 4, WORLD_FLAT);
     g.tick_rate = 0;
     clear_mobs(&g);
@@ -9162,11 +9175,12 @@ static void test_poles(void)
     run(&g, 10.0f * WALK_TIME + 0.3f);
     CHECK(g.player.feet.x >= from + 19); /* twenty blocks in the time ten take */
     run(&g, 5.0f);
-    /* The grass skirt: energy stays where it is. The cornucopia hat: hunger does. Neither does the other's work. */
+    /* The grass skirt: the weather cannot touch whoever has it on (and it does nothing now for energy). The cornucopia
+     * hat: hunger stays where it is. Neither does the other's work. */
     inv->armor[EQUIP_LEGS] = (ItemStack){ .id = (uint16_t)item_id("grass_skirt"), .count = 1 };
     g.vitals.hunger = g.vitals.energy = 0.8f;
     for (int t = 0; t < 200; t++) game_tick(&g);
-    CHECK(game_tireless(&g) && !game_sated(&g) && g.vitals.energy == 0.8f && g.vitals.hunger < 0.8f);
+    CHECK(!game_tireless(&g) && !game_sated(&g) && g.vitals.energy < 0.8f && g.vitals.hunger < 0.8f && game_environment_floor(&g) == 1.0f);
     inv->armor[EQUIP_LEGS] = (ItemStack){ 0 };
     inv->armor[EQUIP_HEAD] = (ItemStack){ .id = (uint16_t)item_id("cornucopia_hat"), .count = 1 };
     g.vitals.hunger = g.vitals.energy = 0.8f;
@@ -10494,6 +10508,124 @@ static void test_trade_tiers(void)
     game_free(&g);
 }
 
+/* The environment score: what the weather does to a character out in it, and what they have on does about that. */
+static void wear(Game *g, const char *head, const char *chest, const char *legs, const char *boots)
+{
+    const char *names[ARMOR_SLOTS] = { 0 };
+    names[EQUIP_HEAD] = head, names[EQUIP_CHEST] = chest, names[EQUIP_LEGS] = legs, names[EQUIP_BOOTS] = boots;
+    for (int i = 0; i < ARMOR_SLOTS; i++)
+        g->inventory.armor[i] = names[i] ? (ItemStack){ .id = (uint16_t)item_id(names[i]), .count = 1 } : (ItemStack){ 0 };
+}
+
+static void test_environment(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    content.rules.env_fall_ticks = shipped_env_fall_ticks; /* (the weather, as the game has it) */
+    RulesDef *u = &content.rules;
+    CHECK(u->env_fall_ticks == 1200 && u->env_rise_ticks == 300 && u->env_slow == 0.5f && u->env_harm_ticks == 1200 && u->env_clothed == 0.1f);
+    static Game g;
+    game_init(&g, 128, 64, 4, WORLD_FLAT);
+    g.tick_rate = 0;
+    clear_mobs(&g);
+    clear_inventory(&g);
+    World *w = &g.world;
+    TilePos at = g.player.feet;
+    CHECK(game_environment(&g) == 1.0f && game_environment_floor(&g) == 0.0f && game_pace(&g) == 1.0f);
+    /* A dry spell out of the cold: nothing gets at them. Then the cold season: it does, out of doors and not in. */
+    u->rain_chance = 0.0f;
+    CHECK(!u->seasons[game_season(&g)].cold && !game_exposed(&g));
+    while (!u->seasons[game_season(&g)].cold) g.tick += 100;
+    CHECK(u->seasons[game_season(&g)].snows && game_exposed(&g));
+    world_set(w, at.x, at.y - 4, TILE_STONE);
+    CHECK(!game_exposed(&g));
+    world_set(w, at.x, at.y - 4, TILE_AIR);
+    /* Rain does the same in any season. */
+    uint64_t winter = g.tick;
+    g.tick = 0;
+    u->rain_chance = 1.0f;
+    g.tick = (uint64_t)u->weather_ticks / 2;
+    CHECK(game_rain(&g) > 0.0f && !u->seasons[game_season(&g)].cold && game_exposed(&g));
+    world_set(w, at.x, at.y - 4, TILE_STONE);
+    CHECK(!game_exposed(&g));
+    world_set(w, at.x, at.y - 4, TILE_AIR);
+    u->rain_chance = 0.0f;
+    g.tick = winter;
+
+    /* With nothing on it runs all the way down, slowing them as it goes, and then it is health that goes. */
+    g.vitals.hunger = 1.0f;
+    for (int t = 0; t < 600; t++) game_tick(&g);
+    CHECK(near(game_environment(&g), 0.5f) && near(game_pace(&g), 0.75f) && g.vitals.health == 1.0f);
+    game_set_move_input(&g, 1, 0);
+    game_update(&g, 0.001f);
+    CHECK(g.player.activity == ACTIVITY_STEPPING && near(g.player.duration, WALK_TIME / 0.75f));
+    game_set_move_input(&g, 0, 0);
+    run(&g, 1.0f);
+    g.tick = winter;
+    for (int t = 0; t < 700; t++) game_tick(&g);
+    CHECK(game_environment(&g) < 0.001f && near(game_pace(&g), 0.5f) && g.vitals.health < 0.95f && game_alive(&g));
+    /* Working is as slow as walking. */
+    inventory_add(&g.inventory, ITEM_DIRT, 1);
+    inventory_select(&g.inventory, 0, -1);
+    float health = g.vitals.health;
+    /* Under cover it comes back, and health stops going. */
+    at = g.player.feet;
+    world_set(w, at.x, at.y - 4, TILE_STONE);
+    for (int t = 0; t < 150; t++) game_tick(&g);
+    CHECK(near(game_environment(&g), 0.5f) && g.vitals.health >= health);
+    for (int t = 0; t < 200; t++) game_tick(&g);
+    CHECK(game_environment(&g) == 1.0f);
+    world_set(w, at.x, at.y - 4, TILE_AIR);
+
+    /* Anything on at all, and it cannot kill: it stops short, and they are only slowed. */
+    g.vitals.health = 1.0f;
+    wear(&g, "linen_cap", NULL, NULL, NULL);
+    CHECK(near(game_environment_floor(&g), 0.1f));
+    g.tick = winter;
+    g.vitals.hunger = 1.0f;
+    for (int t = 0; t < 1300; t++) game_tick(&g);
+    CHECK(near(game_environment(&g), 0.1f) && near(game_pace(&g), 0.55f) && g.vitals.health == 1.0f);
+    /* What each suit keeps. */
+    wear(&g, "linen_cap", "linen_shirt", "linen_pants", NULL);
+    CHECK(near(game_environment_floor(&g), 0.15f));
+    wear(&g, NULL, "leather_jacket", "leather_pants", "leather_boots");
+    CHECK(near(game_environment_floor(&g), 0.8f));
+    wear(&g, NULL, "fur_coat", "leather_pants", "fur_boots");
+    CHECK(near(game_environment_floor(&g), 0.8f));
+    wear(&g, "tin_helmet", "tin_chestplate", "tin_leggings", "tin_boots");
+    CHECK(near(game_environment_floor(&g), 0.6f));
+    wear(&g, "iron_helmet", "iron_chestplate", "iron_leggings", "iron_boots");
+    CHECK(near(game_environment_floor(&g), 0.8f));
+    wear(&g, "titanium_helmet", "titanium_chestplate", "titanium_leggings", "titanium_boots");
+    CHECK(near(game_environment_floor(&g), 1.0f));
+    wear(&g, "carbon_fiber_helmet", "carbon_fiber_chestplate", "carbon_fiber_leggings", "carbon_fiber_boots");
+    CHECK(near(game_environment_floor(&g), 1.0f));
+    wear(&g, "north_hat", "jetpack", "grass_skirt", "pole_boots");
+    CHECK(game_environment_floor(&g) == 1.0f);
+    /* The grass skirt by itself is as good as all of it. */
+    wear(&g, NULL, NULL, "grass_skirt", NULL);
+    CHECK(game_environment_floor(&g) == 1.0f);
+    for (int t = 0; t < 10; t++) game_tick(&g);
+    CHECK(game_environment(&g) == 1.0f && game_pace(&g) == 1.0f);
+    /* Putting more on brings the score up to what it keeps at once; taking it off lets it fall again. */
+    wear(&g, NULL, "leather_jacket", "leather_pants", "leather_boots");
+    g.tick = winter;
+    for (int t = 0; t < 600; t++) game_tick(&g);
+    CHECK(near(game_environment(&g), 0.8f));
+
+    /* It is kept with the world, a character at a time; a world from before there was any has everyone untouched. */
+    CHECK(save_game(&g, "build/test_env.world"));
+    static Game loaded;
+    CHECK(load_game(&loaded, "build/test_env.world") && near(game_environment(&loaded), 0.8f));
+    game_free(&loaded);
+    CHECK(load_game(&loaded, "tests/fixtures/v29_plain.world"));
+    CHECK(game_environment(&loaded) == 1.0f && loaded.vitals.hunger < 0.51f && count_item(&loaded, ITEM_DIRT) == 7 &&
+          loaded.inventory.armor[EQUIP_HEAD].id == item_id("linen_cap"));
+    game_free(&loaded);
+    game_free(&g);
+}
+
 int main(void)
 {
     char err[256];
@@ -10622,6 +10754,7 @@ int main(void)
     test_explorers_mod();
     test_worn();
     test_trade_tiers();
+    test_environment();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;
