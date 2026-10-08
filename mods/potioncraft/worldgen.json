@@ -1,0 +1,30 @@
+{
+  "veins": [
+    {"name": "potion_sulphur", "tile": "sulphur_ore", "in": ["stone"], "size": [2, 6], "per_100_columns": 10, "depth": [10, 180]},
+    {"name": "potion_saltpetre", "tile": "saltpetre_ore", "in": ["stone"], "size": [2, 6], "per_100_columns": 10, "depth": [10, 180]}
+  ],
+  "cave_decor": [
+    {"name": "potion_inkcap", "tile": "inkcap", "per_100_columns": 4, "depth": [6, 180], "on_floor": true},
+    {"name": "potion_puffball", "tile": "puffball", "per_100_columns": 4, "depth": [6, 180], "on_floor": true},
+    {"name": "potion_stinkhorn", "tile": "stinkhorn", "per_100_columns": 4, "depth": [6, 180], "on_floor": true},
+    {"name": "potion_brain_fungus", "tile": "brain_fungus", "per_100_columns": 4, "depth": [6, 180], "on_floor": true},
+    {"name": "potion_death_cap", "tile": "death_cap", "per_100_columns": 4, "depth": [6, 180], "on_floor": true}
+  ],
+  "biome_plants": [
+    {"biome": "plains", "tile": "feverfew_0", "one_in": 40},
+    {"biome": "cherry_grove", "tile": "bloodroot_0", "one_in": 40},
+    {"biome": "beach", "tile": "marshmallow_0", "one_in": 30},
+    {"biome": "maple_forest", "tile": "nightshade_0", "one_in": 45},
+    {"biome": "desert", "tile": "sunwort_0", "one_in": 30},
+    {"biome": "pine_forest", "tile": "frostcap_0", "one_in": 35},
+    {"biome": "plains", "tile": "kingsfoil_0", "one_in": 55},
+    {"biome": "orchard", "tile": "mandrake_0", "one_in": 70},
+    {"biome": "orchard", "tile": "dreamleaf_0", "one_in": 40},
+    {"biome": "desert", "tile": "firethorn_0", "one_in": 35},
+    {"biome": "beach", "tile": "sea_lavender_0", "one_in": 35},
+    {"biome": "pine_forest", "tile": "wolfsbane_0", "one_in": 45},
+    {"biome": "tropics", "tile": "ghost_orchid_0", "one_in": 70},
+    {"biome": "maple_forest", "tile": "goldenseal_0", "one_in": 50},
+    {"biome": "tropics", "tile": "bitterwort_0", "one_in": 40}
+  ]
+}

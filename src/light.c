@@ -60,7 +60,7 @@ void light_compute(const Game *g, int x0, int y0, int width, int height, uint8_t
         memset(out, LIGHT_MAX, (size_t)width * height);
         return;
     }
-    int sky = light_sky(g);
+    int sky = light_sky(g), seen = (int)game_boons(g).sight;
 
     for (int cx = 0; cx < bw; cx++) {
         /* The beam: lit from the top of the place down to the first block. (A place under another has a sky of
@@ -156,6 +156,8 @@ void light_compute(const Game *g, int x0, int y0, int width, int height, uint8_t
             int v = level[(cy + pad) * bw + cx + pad];
             /* (Some places are never quite dark.) */
             int least = u->light_minimum, dim = world_dimension_at(w, y0 + cy);
+            /* (Nor darker than whoever is looking can see by.) */
+            if (seen > least) least = seen;
             if (dim >= 0 && dim < content.dimension_count && content.dimensions[dim].ambient > least) least = content.dimensions[dim].ambient;
             out[cy * width + cx] = (uint8_t)(v < least ? least : v);
         }

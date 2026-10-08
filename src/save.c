@@ -7,7 +7,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 35u
+#define SAVE_VERSION 36u
 
 /* Up to version 28 a world had room for a quarter as many of these, and they
  * were written out whole: every reader of an older version goes by these. */
@@ -527,6 +527,17 @@ bool save_game(const Game *g, const char *path)
     if (w->region_count > 0)
         ok = ok && write_names(f, content.biome_count, content.biomes[0].name, sizeof content.biomes[0]) &&
              fwrite(w->biome + w->width, (size_t)w->width, (size_t)w->region_count, f) == (size_t)w->region_count;
+    /* What each character is under the effect of: each thing by its name, with the ticks it has left. */
+    for (int c = 0; ok && c < MAX_CHARACTERS; c++) {
+        const Effect *effects = c == g->live ? g->effects : g->characters[c].effects;
+        for (int i = 0; ok && i < MAX_EFFECTS; i++) {
+            char name[CONTENT_NAME_LEN] = { 0 };
+            bool on = c < g->character_count && effects[i].ticks != 0 && effects[i].item > 0 && effects[i].item < content.item_count;
+            int32_t ticks = on ? effects[i].ticks : 0;
+            if (on) snprintf(name, sizeof name, "%s", item_def((ItemId)effects[i].item)->name);
+            ok = fwrite(name, sizeof name, 1, f) == 1 && fwrite(&ticks, sizeof ticks, 1, f) == 1;
+        }
+    }
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
         remove(tmp);
@@ -855,6 +866,18 @@ bool load_game(Game *g, const char *path)
                 memcpy(g->sim.regions, w->regions, sizeof w->regions);
                 g->sim.region_count = w->region_count;
                 g->sim.home_height = w->home_height;
+            }
+        }
+        /* From version 36: what each character is under the effect of. (A thing the game no longer has is no effect.) */
+        for (int c = 0; ok && h.version >= 36 && c < MAX_CHARACTERS; c++) {
+            Effect *effects = c == g->live ? g->effects : g->characters[c].effects;
+            for (int i = 0; ok && i < MAX_EFFECTS; i++) {
+                char name[CONTENT_NAME_LEN];
+                int32_t ticks = 0;
+                ok = fread(name, sizeof name, 1, f) == 1 && fread(&ticks, sizeof ticks, 1, f) == 1;
+                name[CONTENT_NAME_LEN - 1] = '\0';
+                ItemId item = ok && name[0] ? item_id(name) : ITEM_NONE;
+                effects[i] = item > 0 && ticks != 0 ? (Effect){ (uint16_t)item, ticks } : (Effect){ 0 };
             }
         }
         bool nobody = ok && h.version >= 15 && people[0] == 0;

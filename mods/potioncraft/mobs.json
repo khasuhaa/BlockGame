@@ -1,0 +1,5 @@
+{
+  "mobs": [
+    {"name": "bog_witch", "label": "Bog witch", "texture": "mobs/bog_witch.png", "walk": ["mobs/bog_witch_walk_0.png", "mobs/bog_witch.png", "mobs/bog_witch_walk_1.png", "mobs/bog_witch.png"], "hop": 0.03, "step_ticks": 4, "move_chance": 0.2, "turn_chance": 0.3, "health": 40, "cap": 1, "spawn": {"above": ["sand", "grass"], "biome": ["beach", "tropics"], "time": "night", "chance": 0.02}, "sting": {"ticks": 80, "rest_ticks": 60, "sight": 8}, "drops": [{"item": "healing_tonic", "min": 0, "max": 2}, {"item": "snare_flask", "min": 0, "max": 2}, {"item": "ghost_orchid", "min": 1, "max": 2}, {"item": "mandrake", "min": 1, "max": 2}, {"item": "invisibility_draught", "min": 1, "max": 1, "chance": 0.2}, {"item": "herbal_extract", "min": 1, "max": 2, "chance": 0.5}], "caged": "caged_bog_witch"}
+  ]
+}

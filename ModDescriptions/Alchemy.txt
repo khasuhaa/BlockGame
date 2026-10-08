@@ -231,3 +231,25 @@ All as data fields the base game could use; no "if Alchemy is on".
   4. Stage 4 and 5: the strange ones, the world-changing flasks, the elixirs and their trees.
   5. The belt, the cabinet, the Herbal, the witch, furniture; prices; the README.
   Each stage tested, documented, committed and pushed.
+
+
+================================================================================================================
+8. WHAT WAS DECIDED, AND WHAT WAS BUILT
+================================================================================================================
+
+The owner's answers: Q1 - a new mod, Potioncraft. Q2 - yes, in the base engine for any mod to use, but none of
+the game's own food is to have an effect yet. Q3 - no toxicity. Q4 - yes, thrown flasks. Q5 - second sources
+to be had. Q6 - yes. Q7 - the size is good. And: a mod may have a trade category of its own where one clearly
+fits, as potions do.
+
+Built: mods/potioncraft - 83 blocks, 121 items (69 of them potions), 104 recipes. 15 herbs, 5 fungi, sulphur and
+saltpetre, 5 gem dusts; mortar, crock, still, cauldron I-IV, cabinet; 20 draughts (13 in three strengths, 3 in
+two), 5 tonics, 11 flasks, 5 elixirs behind a tree seven makings long, 4 more with Dimensions on; the bog witch.
+In the engine: timed and lasting effects, six new boons, six new things a spell can do, optional recipes, save
+version 36.
+
+Not built from this proposal: the toxicity bar (turned down); oils rubbed on a tool and salves on clothes (they
+are draughts that last a time); the drying rack, the infuser and tinctures for every herb (one herbal extract
+stands for them); the potion belt and its keys; the Herbal, and hiding what a potion does until it is drunk;
+the herb garden bed and the furniture; second wind, the gem-seed tonic, the weed-killer and the stoneshaper;
+new drops from the game's own creatures (a mod cannot add to a creature without redefining it).

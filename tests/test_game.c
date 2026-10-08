@@ -12096,6 +12096,187 @@ static void test_machinations_mod(void)
     CHECK(content_load("data", err, sizeof err));
 }
 
+/* Potioncraft: things taken that work for a while, things thrown, and things that never wear off. */
+static void test_potioncraft_mod(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count;
+    /* The game by itself has nothing that lasts: no food of its own does anything for a while. */
+    for (int i = 1; i < content.item_count; i++) CHECK(content.items[i].effect_ticks == 0 && !content.items[i].cures && !content.items[i].recalls);
+    if (!content_load("mods/potioncraft", err, sizeof err)) {
+        printf("FAIL potioncraft does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    /* (Four of its recipes are of what another mod has, and are left out without it.) */
+    CHECK(content.tile_count == tiles + 83 && content.item_count == items + 121 && content.recipe_count == recipes + 100);
+    int potions = 0, category = item_def(item_id("poultice"))->category;
+    for (int i = items; i < content.item_count; i++) potions += item_def((ItemId)i)->category == category;
+    CHECK(potions == 69 && strcmp(content.trade.categories[category].label, "Potions") == 0 && !content.trade.categories[category].free_only);
+    CHECK(tile_def(tile_id("cauldron"))->upgrade_to == tile_id("cauldron_2") && tile_def(tile_id("cauldron_4"))->bench_level == 4 &&
+          find_recipe(tile_id("cauldron"), "poultice") && find_recipe(tile_id("cauldron_4"), "elixir_of_vigour") && find_recipe(tile_id("cauldron_4"), "elixir_of_vigour")->level == 4);
+    CHECK(find_recipe(tile_id("cauldron_4"), "skywalker_draught") == NULL && item_id("skywalker_draught") > 0);
+
+    static Game g;
+    game_init(&g, 96, 60, 9, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    g.tick_rate = 20;
+    int x = w->spawn_x + 6, r = w->surface_y - 1;
+    g.player.feet = g.player.step_to = (TilePos){ x, r };
+    Effect on[MAX_EFFECTS];
+
+    /* A draught: drunk, it does what it does for as long as it lasts, and leaves the bottle. */
+    clear_inventory(&g);
+    CHECK(game_effects(&g, on, MAX_EFFECTS) == 0 && game_boons(&g).walk == 1.0f);
+    in_hand(&g, "swiftness_draught");
+    CHECK(game_is_food(item_id("swiftness_draught")) && game_can_eat(&g, item_id("swiftness_draught")) && game_eat(&g));
+    CHECK(count_item(&g, item_id("swiftness_draught")) == 0 && count_item(&g, item_id("glass_bottle")) == 1);
+    CHECK(game_effects(&g, on, MAX_EFFECTS) == 1 && on[0].item == item_id("swiftness_draught") && on[0].ticks == 3600 && game_boons(&g).walk == 1.25f);
+    for (int i = 0; i < 100; i++) game_tick(&g);
+    CHECK(game_effects(&g, on, MAX_EFFECTS) == 1 && on[0].ticks == 3500);
+    /* Another of the same starts it again from now; a different one runs beside it; a stronger one is its own thing. */
+    in_hand(&g, "swiftness_draught");
+    CHECK(game_eat(&g) && game_effects(&g, on, MAX_EFFECTS) == 1 && on[0].ticks == 3600);
+    in_hand(&g, "miners_draught_3");
+    CHECK(game_eat(&g) && game_effects(&g, on, MAX_EFFECTS) == 2 && game_boons(&g).mine == 1.5f && game_boons(&g).walk == 1.25f);
+    CHECK(item_def(item_id("miners_draught_3"))->effect_ticks == 7200 && item_def(item_id("miners_draught"))->effect.mine == 1.25f);
+    /* It wears off, and is gone. */
+    g.effects[0].ticks = 2;
+    game_tick(&g);
+    game_tick(&g);
+    CHECK(game_effects(&g, on, MAX_EFFECTS) == 1 && game_boons(&g).walk == 1.0f && !game_has_effect(&g, item_id("swiftness_draught")));
+
+    /* The boons that are new: seeing in the dark, a drop being a step, the air holding them up, things coming to them. */
+    clear_inventory(&g);
+    for (int dy = -3; dy <= 3; dy++)
+        for (int dx = -6; dx <= 6; dx++) world_set(w, x + 40 + dx, r + 20 + dy, tile_id("stone"));
+    world_set(w, x + 40, r + 20, TILE_AIR);
+    world_set(w, x + 40, r + 19, TILE_AIR);
+    int dark = light_at(&g, x + 40, r + 20);
+    in_hand(&g, "owl_sight_draught");
+    CHECK(game_eat(&g) && light_at(&g, x + 40, r + 20) == 8 && dark < 8 && light_at(&g, x, r) > 8);
+    in_hand(&g, "feather_fall_draught");
+    CHECK(game_eat(&g));
+    run(&g, 0.1f);
+    CHECK(g.world.glide && !g.world.aloft);
+    in_hand(&g, "skywalker_draught");
+    CHECK(game_eat(&g));
+    run(&g, 0.1f);
+    CHECK(g.world.aloft);
+    memset(g.effects, 0, sizeof g.effects);
+    clear_inventory(&g);
+    game_drop_item(&g, ITEM_DIRT, x + 5, r);
+    run(&g, 1.5f);
+    CHECK(count_item(&g, ITEM_DIRT) == 0);
+    in_hand(&g, "magnetism_draught");
+    CHECK(game_eat(&g));
+    run(&g, 1.5f);
+    CHECK(count_item(&g, ITEM_DIRT) == 1);
+    /* A tonic that cures takes the poison away; an elixir lasts for good and is taken only the once. */
+    memset(g.effects, 0, sizeof g.effects);
+    game_poison(&g, 400);
+    in_hand(&g, "bitter_draught");
+    CHECK(g.vitals.poison > 0 && game_eat(&g) && g.vitals.poison == 0);
+    inv->slots[0] = (ItemStack){ .id = (uint16_t)item_id("elixir_of_the_long_road"), .count = 1 };
+    inv->slots[1] = (ItemStack){ .id = (uint16_t)item_id("elixir_of_the_long_road"), .count = 1 };
+    inventory_select(inv, 0, -1);
+    CHECK(game_eat(&g) && game_has_effect(&g, item_id("elixir_of_the_long_road")));
+    inventory_select(inv, 1, -1);
+    CHECK(!game_can_eat(&g, item_id("elixir_of_the_long_road")) && !game_eat(&g) && count_item(&g, item_id("elixir_of_the_long_road")) == 1);
+    for (int i = 0; i < 500; i++) game_tick(&g);
+    CHECK(game_has_effect(&g, item_id("elixir_of_the_long_road")) && fabsf(game_boons(&g).walk - 1.1f) < 0.001f);
+    /* The tonic of recall takes them back to where the world begins. */
+    g.player.feet = g.player.step_to = (TilePos){ x + 30, r };
+    in_hand(&g, "recall_tonic");
+    CHECK(game_eat(&g) && g.player.feet.x == w->spawn_x && g.player.feet.y == w->spawn_y);
+
+    /* Flasks: thrown at a square, each does its one thing there and is gone. */
+    g.player.feet = g.player.step_to = (TilePos){ x, r };
+    in_hand(&g, "torchwater");
+    CHECK(game_click_tile(&g, x + 4, r - 2));
+    run(&g, 2.0f);
+    CHECK(world_get_at(w, LAYER_BACKGROUND, x + 4, r - 2) == tile_id("glow_mote") && count_item(&g, item_id("torchwater")) == 0 && tile_def(tile_id("glow_mote"))->light > 10);
+    world_set_at(w, LAYER_BACKGROUND, x + 3, r, tile_id("feverfew_0"));
+    in_hand(&g, "growth_flask");
+    CHECK(game_click_tile(&g, x + 3, r));
+    run(&g, 2.0f);
+    CHECK(world_get_at(w, LAYER_BACKGROUND, x + 3, r) != tile_id("feverfew_0") && world_get_at(w, LAYER_BACKGROUND, x + 3, r) != TILE_AIR);
+    world_set_at(w, LAYER_BACKGROUND, x + 3, r, TILE_AIR);
+    for (int dx = 2; dx <= 4; dx++) {
+        world_set(w, x + dx, r + 1, TILE_AIR);
+        world_set_water(w, x + dx, r + 1, WATER_FULL);
+    }
+    in_hand(&g, "frost_flask");
+    CHECK(game_click_tile(&g, x + 3, r + 1));
+    run(&g, 2.0f);
+    CHECK(content.rules.ice != TILE_AIR && world_get(w, x + 3, r + 1) == content.rules.ice && world_water(w, x + 3, r + 1) == 0);
+    for (int dx = 2; dx <= 4; dx++) world_set(w, x + dx, r + 1, tile_id("dirt"));
+    world_set(w, x + 3, r + 1, TILE_AIR);
+    world_set_water(w, x + 3, r + 1, WATER_FULL);
+    in_hand(&g, "drought_flask");
+    CHECK(game_click_tile(&g, x + 3, r + 1));
+    run(&g, 2.0f);
+    CHECK(world_water(w, x + 3, r + 1) == 0);
+    world_set(w, x + 3, r + 1, tile_id("dirt"));
+    in_hand(&g, "acid_flask");
+    CHECK(game_click_tile(&g, x + 3, r + 1));
+    run(&g, 2.0f);
+    CHECK(world_get(w, x + 3, r + 1) == TILE_AIR);
+    /* A snare holds creatures where they are; a bottle of rain brings it on, and one of sun sends it away. */
+    int dodo = mob_spawn(&g, 0, x + 4, r, false, false);
+    in_hand(&g, "snare_flask");
+    CHECK(dodo >= 0 && !game_mob_held(&g, x + 4, r) && game_click_tile(&g, x + 4, r - 1));
+    run(&g, 2.0f);
+    CHECK(game_mob_held(&g, x + 4, r) && !game_mob_held(&g, x + 20, r));
+    in_hand(&g, "rain_bottle");
+    CHECK(game_click_tile(&g, x + 2, r - 3));
+    run(&g, 1.0f);
+    CHECK(game_rain(&g) == 1.0f);
+    in_hand(&g, "sun_bottle");
+    CHECK(game_click_tile(&g, x + 2, r - 3));
+    run(&g, 1.0f);
+    CHECK(game_rain(&g) == 0.0f);
+
+    /* What they are under the effect of is saved with them. */
+    memset(g.effects, 0, sizeof g.effects);
+    in_hand(&g, "stoneskin_draught");
+    CHECK(game_eat(&g));
+    in_hand(&g, "elixir_of_stone");
+    CHECK(game_eat(&g) && save_game(&g, "build/test_potions.world"));
+    static Game loaded;
+    CHECK(load_game(&loaded, "build/test_potions.world"));
+    CHECK(game_effects(&loaded, on, MAX_EFFECTS) == 2 && game_has_effect(&loaded, item_id("stoneskin_draught")) && game_has_effect(&loaded, item_id("elixir_of_stone")) &&
+          fabsf(game_boons(&loaded).armor - game_boons(&g).armor) < 0.001f && game_boons(&loaded).armor > 0.25f);
+    game_free(&loaded);
+    game_free(&g);
+    /* A world saved before there were any has none. */
+    static Game old;
+    CHECK(load_game(&old, "tests/fixtures/v35_plain.world"));
+    CHECK(game_effects(&old, on, MAX_EFFECTS) == 0 && world_get(&old.world, 20, 18) == tile_id("marble") && count_item(&old, item_id("diamond")) == 7);
+    game_free(&old);
+
+    /* With Dimensions on as well, the four that are made of its things can be made. */
+    content_reset();
+    CHECK(content_load("data", err, sizeof err) && content_load("mods/dimensions", err, sizeof err));
+    int before = content.recipe_count;
+    CHECK(content_load("mods/potioncraft", err, sizeof err) && content.recipe_count == before + 104 && find_recipe(tile_id("cauldron_4"), "skywalker_draught") != NULL);
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/settest/saves");
+    const ModInfo *mine = NULL;
+    for (int i = 0; i < mods.count; i++)
+        if (strcmp(mods.mods[i].id, "potioncraft") == 0) mine = &mods.mods[i];
+    CHECK(mine != NULL && strcmp(mine->label, "Potioncraft") == 0);
+    for (int i = 0; mine && i < mods.count; i++) {
+        char what[64];
+        if (&mods.mods[i] != mine) CHECK(!mods_conflict(mine, &mods.mods[i], what, sizeof what));
+    }
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+}
+
 /* The workbench makes benches and nothing else: in the game, and in every mod it comes with. (A machine is a bench for this.) */
 static void test_workbench_only(void)
 {
@@ -12966,6 +13147,7 @@ int main(void)
     test_alchemie_mod();
     test_dimensions_mod();
     test_rags_mod();
+    test_potioncraft_mod();
     test_machinations_mod();
     test_workbench_only();
     test_all_caged();

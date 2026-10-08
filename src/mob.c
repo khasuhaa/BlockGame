@@ -433,7 +433,7 @@ static void perch_tick(Game *g, Mob *m, const MobDef *def)
         } else if (m->timer > 0) {
             /* At the top again after an attack: it waits there a moment before it will come down for another. */
             m->timer--;
-        } else if (game_alive(g) && abs(pdx) <= def->ambush_range && pdy > 0 &&
+        } else if (game_alive(g) && game_boons(g).unseen <= 0.0f && abs(pdx) <= def->ambush_range && pdy > 0 &&
                    pdy <= def->ambush_depth) {
             /* Somebody is walking by underneath: it lets go and drops on them,
              * all the way down in one go. */
@@ -563,7 +563,7 @@ static void swim_tick(Game *g, Mob *m, const MobDef *def)
             /* Just bitten: off it goes, before it comes round again. */
             m->timer--;
             if (swim_toward(g, m, pdx, pdy, true)) return;
-        } else if (game_alive(g) && game_player_in_water(g) && pdx * pdx + pdy * pdy <= def->sight * def->sight) {
+        } else if (game_alive(g) && game_boons(g).unseen <= 0.0f && game_player_in_water(g) && pdx * pdx + pdy * pdy <= def->sight * def->sight) {
             if (abs(pdx) <= 1 && abs(pdy) <= 1) {
                 game_wake(g);
                 game_attacked(g, def->bite);
@@ -601,6 +601,8 @@ void mobs_tick(Game *g)
             continue;
         }
         if (m->hp <= 0) m->hp = def->health > 0 ? def->health : 1; /* (from before creatures had any) */
+        /* Held still by something thrown at it: it does nothing at all until that wears off. */
+        if (game_mob_held(g, m->x, m->y)) continue;
         /* Poison in it does its work a point at a time. */
         if (mob_poison(m) > 0) {
             int left = m->poison & 0xFF, every = (m->poison >> 8) & 0xFF, waited = (m->poison >> 16) + 1;
@@ -636,7 +638,7 @@ void mobs_tick(Game *g)
             perch_tick(g, m, def);
             continue;
         }
-        if (def->sting_ticks > 0 && game_alive(g) && g->vitals.respawn == 0) {
+        if (def->sting_ticks > 0 && game_alive(g) && g->vitals.respawn == 0 && game_boons(g).unseen <= 0.0f) {
             /* One that stings: a player beside it is stung; one it can see, it makes for. */
             const Player *p = &g->player;
             int pdx = world_dx(w, m->x, p->feet.x), pdy = p->feet.y - m->y;

@@ -419,7 +419,10 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
                : game_can_eat(g, chosen->id) ? HUD_EAT_READY : HUD_EAT_FULL;
     /* Something to wear gets an "Equip" button in the same place: it goes on, and what was on comes off into its slot. */
     bool wearable = chosen->count > 0 && hud->eat == HUD_EAT_NONE && item_def((ItemId)chosen->id)->equip != EQUIP_NONE;
-    hud->use_label = wearable ? "Equip" : NULL;
+    /* (And something that is taken for what it does, not to fill a stomach, is drunk.) */
+    bool potion = chosen->count > 0 && item_def((ItemId)chosen->id)->food <= 0.0f &&
+                  (item_def((ItemId)chosen->id)->effect_ticks != 0 || item_def((ItemId)chosen->id)->cures || item_def((ItemId)chosen->id)->recalls);
+    hud->use_label = wearable ? "Equip" : potion && hud->eat == HUD_EAT_READY ? "Drink" : potion ? "Taken" : NULL;
     if (wearable) hud->eat = HUD_EAT_READY;
 
     /* A press that starts on the inventory never reaches the world. */
@@ -2213,6 +2216,19 @@ static void session_draw(Session *s)
     draw_fast_forward(g);
     playerui_draw(&s->player_ui, g);
     hud_draw(&s->hud, &g->inventory);
+    {
+        /* What the character has taken that is still working: each with the time it has left, down the right-hand side. */
+        Effect on[MAX_EFFECTS];
+        int n = game_effects(g, on, MAX_EFFECTS), rate = g->tick_rate > 0 ? g->tick_rate : 20;
+        for (int i = 0; i < n; i++) {
+            Rectangle row = { (float)GetScreenWidth() - 96.0f, 84.0f + (float)i * 28.0f, 84.0f, 24.0f };
+            int secs = on[i].ticks / rate;
+            const char *left = on[i].ticks < 0 ? "" : TextFormat("%d:%02d", secs / 60, secs % 60);
+            DrawRectangleRec(row, (Color){ 16, 17, 22, 190 });
+            hud_draw_item_icon((ItemId)on[i].item, (Rectangle){ row.x + 2, row.y + 1, 22, 22 });
+            DrawText(left, (int)row.x + 30, (int)row.y + 5, 16, on[i].ticks > 0 && secs < 10 ? (Color){ 240, 150, 120, 255 } : RAYWHITE);
+        }
+    }
     draw_identified(g, &s->hud);
     sign_draw();
     termui_frame(&term_ui, g);

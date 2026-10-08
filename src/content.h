@@ -173,6 +173,10 @@ typedef struct {
     float armor, warmth;     /* a share more of each attack stopped, of the environment score kept */
     float luck;              /* the chance that a block dug leaves one more of what it leaves */
     int strength, thorns;    /* damage more to every blow; damage done to whatever bites or stings them */
+    /* Each of these is on if it is more than nothing: a drop of any height is a step; it is never darker to them
+     * than this (0..15); creatures that hunt do not see them; things lying within so many squares come to them;
+     * what burns does not burn them; the air holds them up. */
+    float glide, sight, unseen, magnet, fireproof, flight;
 } Boons;
 
 /* A set: things that go together. With enough of one on, there is something more besides. */
@@ -556,6 +560,19 @@ typedef struct {
     int power;             /* a tool: what `hardness` of block it can dig */
     bool glides;           /* worn, a drop of any height is a step like another: they come down slowly */
     float cooling;         /* worn, how much of the environment score it keeps where it is hot: a share, 0 to 1 */
+    /* Something taken - drunk, eaten - that does something for a while: these boons, for so many ticks (less
+     * than nothing for ever after: a thing that can be taken only once by anybody). Taken again while it lasts,
+     * it lasts from then. It may also cure poison, take them back to where the world begins, and leave something
+     * behind in their hands - the bottle it was in. */
+    Boons effect;
+    int effect_ticks;
+    bool cures, recalls;
+    ItemId leaves;
+    /* More that a spell may do where it lands: grow every plant within so many squares a stage; turn the water
+     * within so many to ice; take the water within so many away; hold every creature within its splash still
+     * for so many ticks; bring on rain (1) or clear weather (2) for so many ticks; and leave a block there. */
+    int cast_grow, cast_freeze, cast_drain, cast_hold, cast_weather, cast_weather_ticks;
+    TileType cast_places;
     bool turns;            /* in hand, a click on a thing with a front turns it to face another way */
     bool speciality;       /* it is sold only in villages, and only in the few of them that happen to deal in it */
     bool pack;             /* worn, it is a pack on the back as well: a box there, drawn from the top right of its picture */

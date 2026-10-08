@@ -19,7 +19,8 @@
 #define MAX_VEHICLES 64 /* things on rails in a world */
 #define VEHICLE_SEATS 2
 #define CHARACTER_NAME_MAX 16
-#define MAX_CHARACTERS 4 /* characters a world has room for; the rules say how many it may have */
+#define MAX_CHARACTERS 4
+#define MAX_EFFECTS 16 /* things a character can be under the effect of at once */ /* characters a world has room for; the rules say how many it may have */
 #define MAX_ATTACK_TRIES 32 /* times a hunt re-plans after its quarry has moved */
 #define MAX_SEARCH 240000 /* poses a route search looks at before giving up */
 
@@ -214,6 +215,13 @@ typedef enum {
     MOB_SEEK    /* without a tree, looking for one */
 } MobState;
 
+/* Something a character has taken that is still working on them: the item it was, and the ticks it has left
+ * (less than nothing for one that does not wear off). */
+typedef struct {
+    uint16_t item;
+    int32_t ticks;
+} Effect;
+
 /* What a block placed in the world keeps besides its tile: the contents of a
  * storage block such as a chest, the fuel left in a kiln or furnace. */
 typedef struct {
@@ -284,6 +292,7 @@ typedef struct {
     float shield;
     float chill;
     int ride, ride_seat;
+    Effect effects[MAX_EFFECTS];
     uint16_t relic_box;
 } Character;
 
@@ -318,6 +327,12 @@ typedef struct {
     int ride, ride_seat;    /* the vehicle the live character is riding, plus one (0 for none), and which seat */
     int open_vehicle;       /* the vehicle whose slots are open, plus one */
     int open_vehicle_cargo; /* and whether it is what it carries (1) or what it burns (0) */
+    Effect effects[MAX_EFFECTS]; /* what the live character is under the effect of (see Effect) */
+    /* Weather made to order: rain (1) or none (2) until a tick. And creatures held still: all within so far of a square, until a tick. Not saved. */
+    int weather_made;
+    uint64_t weather_until, held_until;
+    TilePos held_at;
+    int held_reach;
     uint16_t relic_box; /* the container the live character's relics are in; 0 until there are relics to have */
     float flail[MAX_CHARACTERS]; /* seconds each character has still to throw their arms about, having just been attacked */
 
@@ -555,6 +570,12 @@ bool game_deploy_block(Game *g, int sx, int sy, int x, int y);
 void game_blast(Game *g, int x, int y, int radius);
 bool game_shove(Game *g, int x, int y, int dx, int dy);
 bool game_square_stood(const Game *g, int x, int y, bool items);
+/* What a character is under the effect of: how many things, each the item it was and how many ticks it has left
+ * (less than nothing for ever); and whether one is. */
+int game_effects(const Game *g, Effect *out, int max);
+bool game_has_effect(const Game *g, ItemId item);
+/* Whether creatures within reach of a held square are being held still just now. */
+bool game_mob_held(const Game *g, int x, int y);
 /* Whether what is in hand can dig a block at all: some are too hard for a lesser tool. */
 bool game_can_dig(const Game *g, TileType t);
 

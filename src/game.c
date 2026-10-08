@@ -1007,6 +1007,12 @@ static void add_boons(Boons *all, const Boons *b)
     if (b->stamina > 0.0f) all->stamina *= b->stamina;
     all->armor += b->armor, all->warmth += b->warmth, all->luck += b->luck;
     all->strength += b->strength, all->thorns += b->thorns;
+    if (b->glide > all->glide) all->glide = b->glide;
+    if (b->sight > all->sight) all->sight = b->sight;
+    if (b->unseen > all->unseen) all->unseen = b->unseen;
+    if (b->magnet > all->magnet) all->magnet = b->magnet;
+    if (b->fireproof > all->fireproof) all->fireproof = b->fireproof;
+    if (b->flight > all->flight) all->flight = b->flight;
 }
 
 Boons game_boons(const Game *g)
@@ -1022,6 +1028,9 @@ Boons game_boons(const Game *g)
         for (int t = 0; t < content.sets[s].tier_count; t++)
             if (pieces >= content.sets[s].tiers[t].pieces) add_boons(&all, &content.sets[s].tiers[t].boons);
     }
+    /* And whatever they have taken that is still working. */
+    for (int i = 0; i < MAX_EFFECTS; i++)
+        if (g->effects[i].ticks != 0 && g->effects[i].item > 0 && g->effects[i].item < content.item_count) add_boons(&all, &item_def((ItemId)g->effects[i].item)->effect);
     if (all.luck > 1.0f) all.luck = 1.0f;
     return all;
 }
@@ -1358,7 +1367,8 @@ bool game_click_tile(Game *g, int tx, int ty)
     int wet = world_water(&g->world, tx, ty);
     const ItemDef *spell = item_def(held->count > 0 ? (ItemId)held->id : ITEM_NONE);
     if (spell->casts && world_in_bounds(&g->world, tx, ty) &&
-        (spell->cast_water > 0 || spell->cast_dig > 0 || spell->cast_shield > 0.0f || spell->cast_time >= 0)) {
+        (spell->cast_water > 0 || spell->cast_dig > 0 || spell->cast_shield > 0.0f || spell->cast_time >= 0 || spell->cast_grow > 0 ||
+         spell->cast_freeze > 0 || spell->cast_drain > 0 || spell->cast_hold > 0 || spell->cast_weather != 0 || spell->cast_places != TILE_AIR)) {
         /* A spell in hand that is for a place, or for the one casting it: it is cast. */
         a.type = ACTION_CAST;
         a.item = held->id;
@@ -1762,7 +1772,8 @@ static void collect_nearby(Game *g)
         int row = (int)d->y;
         bool falling = d->y < (float)(row + 1) && !world_is_solid(w, d->x, row + 1) && !world_is_water(w, d->x, row + 1) && !world_is_water(w, d->x, row);
         if (d->age < (falling ? DROP_PICKUP_DELAY * 0.2f : DROP_PICKUP_DELAY)) continue;
-        if (drop_in_reach(g, d, g->player.feet)) collect_drop(g, d);
+        int pull = (int)game_boons(g).magnet, far_x = world_dx(w, g->player.feet.x, d->x), far_y = (int)d->y - g->player.feet.y;
+        if (drop_in_reach(g, d, g->player.feet) || (pull > 0 && far_x * far_x + far_y * far_y <= pull * pull)) collect_drop(g, d);
     }
 }
 
@@ -2214,7 +2225,7 @@ static void spell_on_mobs(Game *g, const ItemDef *it, int x, int y)
 /* Whether a spell is one for its caster and not for a place: there is nowhere to go to cast it. */
 static bool spell_on_self(const ItemDef *it)
 {
-    return it->casts && it->cast_water == 0 && it->cast_dig == 0 && (it->cast_shield > 0.0f || it->cast_time >= 0);
+    return it->casts && it->cast_water == 0 && it->cast_dig == 0 && (it->cast_shield > 0.0f || it->cast_time >= 0 || it->cast_weather != 0);
 }
 
 /* Casts the spell in an item at a square. */
@@ -2245,6 +2256,37 @@ static void cast_spell(Game *g, ItemId item, TilePos at)
             world_set(w, t.x, t.y, TILE_AIR);
         }
     }
+    /* What else it does where it lands. */
+    int reach = it->cast_grow > it->cast_freeze ? it->cast_grow : it->cast_freeze;
+    if (it->cast_drain > reach) reach = it->cast_drain;
+    for (int dy = -reach; dy <= reach; dy++) {
+        for (int dx = -reach; dx <= reach; dx++) {
+            int far = dx * dx + dy * dy, x = world_wrap_x(w, at.x + dx), y = at.y + dy;
+            if (!world_in_bounds(w, x, y)) continue;
+            if (far <= it->cast_grow * it->cast_grow && it->cast_grow > 0)
+                for (int layer = 0; layer < BLOCK_LAYERS; layer++) world_grow_plant(w, layer, x, y);
+            if (far <= it->cast_freeze * it->cast_freeze && it->cast_freeze > 0 && content.rules.ice != TILE_AIR && world_is_water(w, x, y) && !world_is_solid(w, x, y)) {
+                world_set_water(w, x, y, 0);
+                world_set(w, x, y, content.rules.ice);
+            }
+            if (far <= it->cast_drain * it->cast_drain && it->cast_drain > 0 && world_water(w, x, y) > 0) {
+                world_set_water(w, x, y, 0);
+                water_wake(w, x);
+            }
+        }
+    }
+    if (it->cast_hold > 0) {
+        g->held_at = at;
+        g->held_reach = it->cast_splash > 0 ? it->cast_splash : 2;
+        g->held_until = g->tick + (uint64_t)it->cast_hold;
+    }
+    if (it->cast_weather != 0 && it->cast_weather_ticks > 0) {
+        g->weather_made = it->cast_weather;
+        g->weather_until = g->tick + (uint64_t)it->cast_weather_ticks;
+    }
+    if (it->cast_places != TILE_AIR && world_in_bounds(w, at.x, at.y) && world_get_at(w, tile_def(it->cast_places)->layer, at.x, at.y) == TILE_AIR &&
+        !(tile_def(it->cast_places)->solid && world_is_solid(w, at.x, at.y)))
+        world_set_at(w, tile_def(it->cast_places)->layer, at.x, at.y, it->cast_places);
     spell_on_mobs(g, it, at.x, at.y);
     wear_spell(g, item);
 }
@@ -3115,6 +3157,7 @@ static void character_stash(Game *g, Character *c)
     c->chill = g->chill;
     c->ride = g->ride;
     c->relic_box = g->relic_box;
+    memcpy(c->effects, g->effects, sizeof c->effects);
     c->ride_seat = g->ride_seat;
     c->upgrading = g->upgrading;
     c->upgrade_timer = g->upgrade_timer;
@@ -3151,6 +3194,7 @@ static void character_fetch(Game *g, const Character *c)
     g->chill = c->chill;
     g->ride = c->ride;
     g->relic_box = c->relic_box;
+    memcpy(g->effects, c->effects, sizeof g->effects);
     g->ride_seat = c->ride_seat;
     g->upgrading = c->upgrading;
     g->upgrade_timer = c->upgrade_timer;
@@ -3500,9 +3544,55 @@ bool game_bar_full(float value)
     return value >= 1.0f - content.rules.full_margin;
 }
 
+/* Something that is taken for what it does, not to fill a stomach: a potion. */
+static bool is_dose(const ItemDef *def)
+{
+    return def->effect_ticks != 0 || def->cures || def->recalls;
+}
+
 bool game_is_food(ItemId id)
 {
-    return item_def(id)->food > 0.0f;
+    return item_def(id)->food > 0.0f || is_dose(item_def(id));
+}
+
+int game_effects(const Game *g, Effect *out, int max)
+{
+    int n = 0;
+    for (int i = 0; i < MAX_EFFECTS && n < max; i++)
+        if (g->effects[i].ticks != 0 && g->effects[i].item > 0 && g->effects[i].item < content.item_count) out[n++] = g->effects[i];
+    return n;
+}
+
+bool game_has_effect(const Game *g, ItemId item)
+{
+    for (int i = 0; i < MAX_EFFECTS; i++)
+        if (g->effects[i].ticks != 0 && g->effects[i].item == item) return true;
+    return false;
+}
+
+bool game_mob_held(const Game *g, int x, int y)
+{
+    if (g->tick >= g->held_until) return false;
+    int dx = world_dx(&g->world, g->held_at.x, x), dy = y - g->held_at.y;
+    return dx * dx + dy * dy <= g->held_reach * g->held_reach;
+}
+
+/* Puts a character under the effect of something they have taken: for as long as it lasts, from now. */
+static void take_effect(Game *g, ItemId item)
+{
+    const ItemDef *def = item_def(item);
+    if (def->effect_ticks == 0) return;
+    int at = -1, soonest = -1;
+    for (int i = 0; i < MAX_EFFECTS; i++) {
+        if (g->effects[i].ticks != 0 && g->effects[i].item == item) at = i;
+        if (g->effects[i].ticks > 0 && (soonest < 0 || g->effects[i].ticks < g->effects[soonest].ticks)) soonest = i;
+    }
+    for (int i = 0; i < MAX_EFFECTS && at < 0; i++)
+        if (g->effects[i].ticks == 0) at = i;
+    /* (With no room, the one nearest its end makes way.) */
+    if (at < 0) at = soonest;
+    if (at < 0) return;
+    g->effects[at] = (Effect){ (uint16_t)item, def->effect_ticks };
 }
 
 bool game_player_underwater(const Game *g)
@@ -3522,8 +3612,9 @@ bool game_lifted(const Game *g)
 /* Says, for everything that moves the character in hand about, whether the air holds them up. */
 static void set_aloft(Game *g)
 {
-    g->world.aloft = g->sim.aloft = game_lifted(g) && game_alive(g);
-    bool glides = false;
+    Boons taken = game_boons(g);
+    g->world.aloft = g->sim.aloft = (game_lifted(g) || taken.flight > 0.0f) && game_alive(g);
+    bool glides = taken.glide > 0.0f;
     for (int i = 0; i < ARMOR_SLOTS; i++)
         glides = glides || (g->inventory.armor[i].count > 0 && item_def((ItemId)g->inventory.armor[i].id)->glides);
     g->world.glide = g->sim.glide = glides && game_alive(g);
@@ -3550,6 +3641,8 @@ bool game_saturated(const Game *g)
 bool game_can_eat(const Game *g, ItemId id)
 {
     if (!game_is_food(id)) return false;
+    /* A potion is taken whenever it is wanted - but one that lasts for ever only the once. */
+    if (is_dose(item_def(id))) return !(item_def(id)->effect_ticks < 0 && game_has_effect(g, id));
     /* Something that gives breath can always be eaten for that, when breath is short. */
     if (item_def(id)->food_oxygen > 0.0f && g->vitals.oxygen < 1.0f) return true;
     /* And something that takes energy past full, while there is further to take it. */
@@ -3581,6 +3674,19 @@ bool game_eat(Game *g)
         v->energy += def->food_energy;
         if (v->energy > most) v->energy = most;
     }
+    /* What it does besides, for a while or for good; and what is left of it. */
+    take_effect(g, (ItemId)eaten.id);
+    if (def->cures) v->poison = 0;
+    if (def->recalls) {
+        game_cancel_actions(g);
+        g->player.feet = g->player.step_to = (TilePos){ g->world.spawn_x, g->world.spawn_y };
+        g->player.activity = ACTIVITY_IDLE;
+        g->player.climbing = false;
+        g->travels++;
+        game_reveal(g, g->world.spawn_x, g->world.spawn_y - 1);
+    }
+    if (def->leaves != ITEM_NONE) game_give_items(g, def->leaves, 1);
+    set_aloft(g);
     return true;
 }
 
@@ -3831,7 +3937,10 @@ static void vitals_tick(Game *g)
             float h = tile_def(world_get(w, at.x + round[i][0], at.y + round[i][1]))->harm;
             if (h > harm) harm = h;
         }
-        if (harm > 0.0f && game_alive(g)) {
+        /* What they have taken wears off, a tick at a time. */
+        for (int i = 0; i < MAX_EFFECTS; i++)
+            if (g->effects[i].ticks > 0) g->effects[i].ticks--;
+        if (harm > 0.0f && game_alive(g) && game_boons(g).fireproof <= 0.0f) {
             game_wake(g);
             game_hurt(g, harm / (float)(g->tick_rate > 0 ? g->tick_rate : 20));
         }
@@ -3980,6 +4089,8 @@ static bool wet_spell(const Game *g, uint64_t spell)
 float game_rain(const Game *g)
 {
     const RulesDef *u = &content.rules;
+    /* (Weather that has been made to order comes before whatever there would have been.) */
+    if (g->tick < g->weather_until) return g->weather_made == 1 ? 1.0f : 0.0f;
     if (u->weather_ticks < 1 || u->rain_chance <= 0.0f) return 0.0f;
     uint64_t spell = g->tick / (uint64_t)u->weather_ticks;
     if (!wet_spell(g, spell)) return 0.0f;

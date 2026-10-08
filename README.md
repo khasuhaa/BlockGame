@@ -993,6 +993,38 @@ A mod of signals, pistons and steam: machinery that moves the world about, and f
 
 In the data, all of it is fields on blocks: `"signal"` (`"wire"`, `"out"`, `"clock"`, `"daylight"`, `"in"`, `"toward"`, `"invert"`, `"and"`, `"delay"`), `"powered_becomes"`, `"unpowered_becomes"`, `"pulse_becomes"`, `"use_becomes"`, `"turns_to"` (and `"turns": true` on the item that turns), `"reverts"`, `"stood_becomes"`, `"clear_becomes"`, `"piston"`, `"sticky"`, `"immovable"`, `"breaks"`, `"deploys"`, `"spout"`, `"blast"`, `"walkway"`.
 
+### Potioncraft
+
+A mod of potions: herbs to gather and grow, a cauldron to brew them in, and something to drink or to throw at every stage of the game.
+
+**Taking a potion.** A potion that is selected in the bar has a **Drink** button over it, where food has Eat. What it does lasts for a time, shown down the right-hand side of the screen with the time it has left; drinking another of the same starts it again from then, and different potions work side by side. The bottle comes back empty.
+
+**Kinds.**
+
+- **Draughts** do something for a few minutes. Most come in three strengths - plain, II and III - each made from two of the one before with something to strengthen it, and each stronger and longer-lasting.
+- **Tonics** do something at once: mend health, cure poison, take you back to where the world begins.
+- **Flasks** are thrown: with one in hand, a click on a square within reach bursts it there.
+- **Elixirs** never wear off. Each can be drunk once by a character.
+
+**By stage of the game.**
+
+- *First days* (a cauldron and one herb): **poultice**, **willowbark tea** (mends faster), **feverfew tea** (against the cold), **wakeful tea** (energy does not run down), **bitter draught** (cures poison), **torchwater** (a flask that leaves a light where it bursts).
+- *Copper and tin* (the copper cauldron): draughts of **swiftness**, the **miner's draught**, **stoneskin**, **gills**, **owl sight** (never darker than dusk), **stillness** (slower hunger); the **healing tonic**; the **growth flask** (plants round it grow a stage) and the **snare flask** (creatures round it cannot move for ten seconds).
+- *Iron* (the iron cauldron): draughts of **strength**, **thorns**, **feather fall** (a drop of any height is a step), the **craftsman's draught**, **fortune**; **whetstone oil** and **venom oil** (short and strong); the **frost flask** (water to ice), **fire flask** and **acid flask** (dissolves blocks).
+- *Steel and gold* (the golden cauldron): draughts of **invisibility** (creatures that hunt do not see you) and **magnetism** (things lying about come to you); the **warming salve** and **frostward draught**; the **tonic of recall**; the **rain bottle** and **sun bottle**; the **flask of the tide** (a great deal of water), the **flask of drought** (takes water away) and the **quake flask**; and the **panacea**.
+- *The great work*: seven makings one after another - prima materia, the black, white, yellow and red works, quintessence, the elixir base - lead to the five **elixirs**: of vigour, the deep breath, the long road, stone and fortune.
+- *With Dimensions on as well*: the **skywalker's draught** (the air holds you up for thirty seconds), the **draught of the abyss** (magma does not burn), the **stormcaller** flask and the **elixir of the second shadow**. Their recipes take things only that mod has, and are not there without it.
+
+**What goes in.** Fifteen **herbs**, each a crop that can be sown, each wild in one kind of country in a new world; five **fungi** on cave floors; **sulphur** and **saltpetre** in the rock; dust ground from the five gems; spirit, sour wine, fish oil, lye, herbal extract and quicksilver made along the way. A world from before the mod was on has none of the wild things, so each has another way: herbs and fungi are ground at the mortar from ordinary crops and compost (which of them comes out is chance), sulphur from coal and embers, saltpetre from compost.
+
+**Benches.** The **mortar and pestle** and the **cauldron** (workbench), the **fermenting crock** and the **still** (workbench II); the cauldron is raised to copper, iron and gold, for an amethyst, a sapphire and a ruby with the metal. The **apothecary's cabinet** is a chest. The **bog witch** walks the shores and the tropics by night, poisons, and drops potions and rare herbs.
+
+Potions have a category of their own at the trade portal, **Potions**.
+
+**What was chosen.** No limit on how many potions work at once (the plan's toxicity bar was turned down). Oils and salves are draughts under another name - they last a time, they are not rubbed on a tool. None of the game's own food does anything for a while: only this mod's potions do.
+
+In the data, for any mod: an item's `"effect"` is `{"ticks": N, "boons": {...}}` or `{"forever": true, "boons": {...}}`; `"cures"`, `"recalls"` and `"leaves"`; the boons `"glide"`, `"sight"`, `"unseen"`, `"magnet"`, `"fireproof"` and `"flight"` beside the ones there were; a spell's `"grow"`, `"freeze"`, `"drain"`, `"hold"`, `"weather"` and `"places"`; and a recipe that is `"optional"` is left out when anything it names is missing.
+
 ### Golden chests
 
 Under a beach, quite often - about one column in six, a dozen or more to a world - a golden chest lies buried at the bottom of the sand: behind the sand, in the background, so it is not seen or opened until the sand in front of it is dug away. (Golden chests and portal chests are things of the background: they are walked past, not into.) A golden chest is what a portal chest is made from (with 100 crystals, at a tier 6 portal), and a tier 2 metalwork bench melts one down into a gold coin. It opens and is carried off like any chest. The first time it is opened or dug up it holds 1 to 5 gold coins, up to 3 gold ore, up to 3 iron ingots, perhaps a titanium ingot, and one gem shard: of amethyst most often, then sapphire, emerald, and ruby least. What a block is found holding is its `"loot"` in `tiles.json`, and where it is buried is `"buried"` on a biome in `worldgen.json`; a golden chest the player puts down, or buys, holds only what they put in it.

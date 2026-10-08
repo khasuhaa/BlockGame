@@ -609,6 +609,8 @@ static void read_boons(const cJSON *b, Boons *out)
     out->appetite = (float)num(b, "appetite", 0.0), out->stamina = (float)num(b, "stamina", 0.0);
     out->armor = (float)num(b, "armor", 0.0), out->warmth = (float)num(b, "warmth", 0.0), out->luck = (float)num(b, "luck", 0.0);
     out->strength = (int)num(b, "strength", 0.0), out->thorns = (int)num(b, "thorns", 0.0);
+    out->glide = (float)num(b, "glide", 0.0), out->sight = (float)num(b, "sight", 0.0), out->unseen = (float)num(b, "unseen", 0.0);
+    out->magnet = (float)num(b, "magnet", 0.0), out->fireproof = (float)num(b, "fireproof", 0.0), out->flight = (float)num(b, "flight", 0.0);
 }
 
 static bool boons_ok(const Boons *b)
@@ -735,6 +737,24 @@ static bool read_items(Reader *r, const cJSON *root)
         it->cast_water = (int)num(cast, "water", 0);
         it->cast_dig = (int)num(cast, "dig", 0);
         it->cast_shield = (float)num(cast, "shield", 0.0);
+        it->cast_grow = (int)num(cast, "grow", 0);
+        it->cast_freeze = (int)num(cast, "freeze", 0);
+        it->cast_drain = (int)num(cast, "drain", 0);
+        it->cast_hold = (int)num(cast, "hold", 0);
+        const char *sky = str(cast, "weather");
+        it->cast_weather = !sky ? 0 : strcmp(sky, "rain") == 0 ? 1 : 2;
+        it->cast_weather_ticks = (int)num(cast, "weather_ticks", 0);
+        it->cast_places = TILE_AIR;
+        if (!tile_ref(r, cast, "places", &it->cast_places)) return false;
+        {
+            const cJSON *effect = field(e, "effect");
+            read_boons(field(effect, "boons"), &it->effect);
+            it->effect_ticks = field(effect, "forever") && flag(effect, "forever", false) ? -1 : (int)num(effect, "ticks", 0);
+            it->cures = flag(e, "cures", false);
+            it->recalls = flag(e, "recalls", false);
+            it->leaves = ITEM_NONE;
+            if (!item_ref(r, e, "leaves", &it->leaves)) return false;
+        }
         const char *brings = str(cast, "time");
         it->cast_time = !brings ? -1 : strcmp(brings, "sunrise") == 0 ? 0 : strcmp(brings, "moonrise") == 0 ? 1 : -2;
         if (it->casts && (it->uses < 1 || it->uses > 120 || it->cast_time == -2 || it->cast_dig < 0 || it->cast_dig > 12 ||
@@ -879,6 +899,15 @@ static bool read_recipes(Reader *r, const cJSON *root)
     const cJSON *e, *in;
     cJSON_ArrayForEach(e, field(root, "recipes")) {
         Recipe recipe = { 0 };
+        /* One that is "optional" is left out, and nothing said, if anything it names is not there: a recipe for
+         * what another mod has, which is no matter when that mod is not on. */
+        if (flag(e, "optional", false)) {
+            bool all = !str(field(e, "output"), "item") || item_id(str(field(e, "output"), "item")) > 0;
+            const cJSON *named;
+            cJSON_ArrayForEach(named, field(e, "inputs")) all = all && str(named, "item") && item_id(str(named, "item")) > 0;
+            if (str(e, "at")) all = all && tile_id(str(e, "at")) > 0;
+            if (!all) continue;
+        }
         /* "output" is so many of an item - or of one of several, by chance ("one_of", each with a "weight"). */
         const cJSON *made = field(e, "output"), *choice;
         cJSON_ArrayForEach(choice, field(made, "one_of")) {
