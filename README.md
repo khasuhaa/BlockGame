@@ -717,7 +717,7 @@ How a thing looks fixed each way is its `"texture_mount": { "floor", "ceiling", 
 
 ### Cages
 
-A **cage** in hand, a click on any creature of the land takes it up alive: the cage becomes a "Caged dodo", "Caged dropbear", "Caged scorpion", "Caged yak" or whichever it was. With that in hand, a click on open ground lets the creature out there - grown, and the player's own from then on, so it never wanders off for good - and gives the empty cage back. Creatures of the water cannot be caged. (A creature's `"caged"` names the item it becomes.)
+A **cage** in hand, a click on any creature takes it up alive - every creature there is, in the game and in every mod, fish and things that fly included: the cage becomes a "Caged dodo", "Caged shark", "Caged thunderbird" or whichever it was. With that in hand, a click lets the creature out - grown, and the player's own from then on, so it never wanders off for good - and gives the empty cage back. It is let out only where it could live: a creature that swims into water, one that flies into any open air, and the rest onto ground. (A creature's `"caged"` names the item it becomes; `tools/caged_art.py` gives one to any creature without.)
 
 ### Paint
 

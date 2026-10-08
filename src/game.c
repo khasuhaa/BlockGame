@@ -703,8 +703,15 @@ static bool target_valid(const World *w, Action a)
     case ACTION_PLANT: return can_plant(w, (ItemId)a.item, a.target);
     case ACTION_PAINT: return paintable(w, a.target) >= 0;
     /* A creature is let out where one could stand: open, with ground under it. */
-    case ACTION_RELEASE:
-        return !world_is_solid(w, a.target.x, a.target.y) && world_is_solid(w, a.target.x, a.target.y + 1) && !world_is_water(w, a.target.x, a.target.y);
+    case ACTION_RELEASE: {
+        /* Somewhere the creature could be: water for one that swims, open air for one that flies, and for the rest ground to stand on. */
+        int kind = item_def((ItemId)a.item)->releases;
+        const MobDef *def = kind >= 0 && kind < content.mob_count ? &content.mobs[kind] : NULL;
+        if (world_is_solid(w, a.target.x, a.target.y)) return false;
+        if (def && def->swims) return world_is_water(w, a.target.x, a.target.y);
+        if (world_is_water(w, a.target.x, a.target.y)) return false;
+        return (def && def->flies) || world_is_solid(w, a.target.x, a.target.y + 1);
+    }
     case ACTION_USE: return usable_at(w, a.target.x, a.target.y, NULL) != TILE_AIR;
     case ACTION_CAST: return true;
     default: return !tile_def(t)->solid || tile_def(t)->passable; /* (somewhere to go to: a door will do) */

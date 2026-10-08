@@ -5094,16 +5094,16 @@ static void test_furniture_cages_paint(void)
     g.vitals.saturation = 0.0f;
     g.vitals.energy = 1.0f;
 
-    /* A cage takes up a creature of the land - not of the water - as an item... */
+    /* A cage takes up a creature - any there is - as an item... */
     int dodo = mob_id("dodo"), fish = mob_id("fish"), caged = 0;
     for (int m = 0; m < content.mob_count; m++) {
         const MobDef *def = &content.mobs[m];
-        CHECK(def->swims == (def->caged == ITEM_NONE));
+        CHECK(def->caged != ITEM_NONE);
         if (def->caged == ITEM_NONE) continue;
         caged++;
         CHECK(item_def(def->caged)->releases == m && item_def(def->caged)->category >= 0 && strncmp(item_def(def->caged)->label, "Caged ", 6) == 0);
     }
-    CHECK(caged == content.mob_count - 2 && item_def(item_id("cage"))->cages && item_def(item_id("cage"))->releases < 0);
+    CHECK(caged == content.mob_count && item_def(item_id("cage"))->cages && item_def(item_id("cage"))->releases < 0);
     CHECK(item_def(item_id("caged_dropbear"))->releases == mob_id("dropbear") && item_def(item_id("caged_scorpion"))->releases == mob_id("scorpion"));
     float moves = content.mobs[dodo].move_chance;
     content.mobs[dodo].move_chance = 0.0f;
@@ -5117,7 +5117,7 @@ static void test_furniture_cages_paint(void)
     CHECK(!g.mobs[bird].active && count_mobs(&g) == 0 && count_item(&g, item_id("caged_dodo")) == 1 && count_item(&g, item_id("cage")) == 1);
     CHECK(drops_of(&g, item_id("dodo_meat")) == 0); /* (taken alive) */
     int swimmer = mob_spawn(&g, fish, px + 32, ground, true, false);
-    CHECK(game_click_mob(&g, swimmer) && g.queue[0].arg == HAND_HIT);
+    CHECK(game_click_mob(&g, swimmer) && g.queue[0].arg == HAND_CAGE);
     game_cancel_actions(&g);
     clear_mobs(&g);
     /* ...to be let out somewhere else, where it is the player's own from then on, and the cage is empty again. */
@@ -9416,7 +9416,7 @@ static void test_magic_mod(void)
         return;
     }
     /* What it adds; and the game's own things are still there. */
-    CHECK(content.tile_count == tiles + 18 && content.item_count == items + 40 && content.recipe_count == recipes + 29);
+    CHECK(content.tile_count == tiles + 18 && content.item_count == items + 44 && content.recipe_count == recipes + 29);
     CHECK(content.rules.max_players == 3 && mob_id("flame_spirit") >= 0 && tree_id("magic_tree") >= 0);
     TileType lectern = tile_id("lectern"), orb = tile_id("magic_orb"), core = tile_id("magic_core");
     CHECK(tile_def(lectern)->bench && tile_def(lectern)->upgrade_to == tile_id("lectern_2") && tile_def(tile_id("lectern_2"))->upgrade_to == tile_id("lectern_3"));
@@ -11630,6 +11630,73 @@ static void test_workbench_only(void)
     CHECK(content_load("data", err, sizeof err));
 }
 
+/* Every creature there is can be caged, in the game and in every mod; and let out again where it could live. */
+static void test_all_caged(void)
+{
+    char err[256];
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/settest/saves");
+    for (int m = -1; m < mods.count; m++) {
+        char dir[160];
+        content_reset();
+        CHECK(content_load("data", err, sizeof err));
+        if (m >= 0) {
+            snprintf(dir, sizeof dir, "%s/%s", MODS_DIR, mods.mods[m].id);
+            CHECK(content_load(dir, err, sizeof err));
+        }
+        for (int k = 0; k < content.mob_count; k++) {
+            ItemId caged = content.mobs[k].caged;
+            bool ok = caged != ITEM_NONE && item_def(caged)->releases == k && item_def(caged)->max_stack == 1 && item_def(caged)->category >= 0;
+            if (!ok) {
+                printf("FAIL %s cannot be caged (%s)\n", content.mobs[k].name, m < 0 ? "the game" : mods.mods[m].id);
+                failures++;
+            }
+        }
+    }
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+
+    /* A fish is caged where it swims, and can only be let out into water. */
+    static Game g;
+    game_init(&g, 64, 48, 5, WORLD_FLAT);
+    World *w = &g.world;
+    int x = w->spawn_x + 4, ground = w->surface_y - 1;
+    for (int dx = 0; dx < 3; dx++)
+        for (int dy = 1; dy <= 2; dy++) {
+            world_set(w, x + dx, ground + dy, TILE_AIR);
+            world_set_water(w, x + dx, ground + dy, WATER_FULL);
+        }
+    int fish = -1;
+    for (int k = 0; k < content.mob_count; k++)
+        if (strcmp(content.mobs[k].name, "fish") == 0) fish = k;
+    float moves = content.mobs[fish].move_chance;
+    content.mobs[fish].move_chance = 0.0f;
+    int mob = mob_spawn(&g, fish, x, ground + 1, false, false);
+    CHECK(fish >= 0 && mob >= 0 && content.mobs[fish].swims);
+    g.player.feet = g.player.step_to = (TilePos){ x - 1, ground };
+    in_hand(&g, "cage");
+    CHECK(game_click_mob(&g, mob));
+    run(&g, 3.0f);
+    CHECK(!g.mobs[mob].active && count_item(&g, item_id("caged_fish")) == 1 && count_item(&g, item_id("cage")) == 0);
+    in_hand(&g, "caged_fish");
+    /* (On dry ground the click is not a letting out: the fish stays in the cage.) */
+    game_click_tile(&g, x - 3, ground);
+    run(&g, 2.0f);
+    int swimming = 0;
+    for (int i = 0; i < MAX_MOBS; i++) swimming += g.mobs[i].active && g.mobs[i].kind == fish;
+    CHECK(swimming == 0 && count_item(&g, item_id("caged_fish")) == 1);
+    g.player.feet = g.player.step_to = (TilePos){ x - 1, ground };
+    for (int i = 0; i < INVENTORY_SLOTS; i++)
+        if (g.inventory.slots[i].count > 0 && g.inventory.slots[i].id == item_id("caged_fish")) inventory_select(&g.inventory, i, -1);
+    CHECK(game_click_tile(&g, x, ground + 1));
+    run(&g, 3.0f);
+    swimming = 0;
+    for (int i = 0; i < MAX_MOBS; i++) swimming += g.mobs[i].active && g.mobs[i].kind == fish && g.mobs[i].owned;
+    CHECK(swimming == 1 && count_item(&g, item_id("caged_fish")) == 0 && count_item(&g, item_id("cage")) == 1);
+    content.mobs[fish].move_chance = moves;
+    game_free(&g);
+}
+
 /* Dimensions: other places a world has, the ways into them, more levels of benches hung on the end of the game's, and blocks too hard for a lesser tool. */
 static void test_dimensions_mod(void)
 {
@@ -11644,7 +11711,7 @@ static void test_dimensions_mod(void)
         failures++;
         return;
     }
-    CHECK(content.tile_count == tiles + 402 && content.item_count == items + 539 && content.recipe_count == recipes + 400);
+    CHECK(content.tile_count == tiles + 402 && content.item_count == items + 562 && content.recipe_count == recipes + 400);
     CHECK(content.biome_count == biomes + 18 && content.mob_count == kinds + 27 && content.dimension_count == 3 && content.tree_count == 32);
     for (int i = items; i < content.item_count; i++) {
         const ItemDef *d = item_def((ItemId)i);
@@ -12342,6 +12409,7 @@ int main(void)
     test_alchemie_mod();
     test_dimensions_mod();
     test_workbench_only();
+    test_all_caged();
     test_worn();
     test_trade_tiers();
     test_environment();

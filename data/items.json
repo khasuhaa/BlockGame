@@ -426,6 +426,8 @@
     {"name": "north_hat", "label": "North hat", "texture": "items/north_hat.png", "category": "special", "equip": "head", "worn": "worn/north_hat.png", "max_stack": 1, "price": 20000, "warmth": 0.25},
     {"name": "pole_boots", "label": "Pole boots", "texture": "items/pole_boots.png", "category": "special", "equip": "boots", "worn": "worn/pole_boots.png", "max_stack": 1, "walk_speed": 2.0, "price": 20000, "warmth": 0.25},
     {"name": "grass_skirt", "label": "Grass skirt", "texture": "items/grass_skirt.png", "category": "special", "equip": "legs", "worn": "worn/grass_skirt.png", "max_stack": 1, "price": 20000, "warmth": 1.0, "shelters": true},
-    {"name": "cornucopia_hat", "label": "Cornucopia hat", "texture": "items/cornucopia_hat.png", "category": "special", "equip": "head", "worn": "worn/cornucopia_hat.png", "max_stack": 1, "sated": true, "price": 20000, "warmth": 0.25}
+    {"name": "cornucopia_hat", "label": "Cornucopia hat", "texture": "items/cornucopia_hat.png", "category": "special", "equip": "head", "worn": "worn/cornucopia_hat.png", "max_stack": 1, "sated": true, "price": 20000, "warmth": 0.25},
+    {"name": "caged_fish", "label": "Caged fish", "texture": "items/caged_fish.png", "category": "creatures", "max_stack": 1, "price": 2500},
+    {"name": "caged_shark", "label": "Caged shark", "texture": "items/caged_shark.png", "category": "creatures", "max_stack": 1, "price": 9000}
   ]
 }

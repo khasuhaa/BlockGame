@@ -39,6 +39,10 @@
     {"name": "sundial_essence", "label": "Sundial essence", "texture": "items/sundial_essence.png", "category": "materials", "price": 9800},
     {"name": "life_catalyst", "label": "Life catalyst", "texture": "items/life_catalyst.png", "category": "materials", "price": 21000},
     {"name": "magic_conduit", "label": "Magic conduit", "texture": "items/magic_conduit.png", "category": "materials", "price": 5200},
-    {"name": "soulstone", "label": "Soulstone", "texture": "items/soulstone.png", "category": "materials", "price": 5000}
+    {"name": "soulstone", "label": "Soulstone", "texture": "items/soulstone.png", "category": "materials", "price": 5000},
+    {"name": "caged_flame_spirit", "label": "Caged flame spirit", "texture": "items/caged_flame_spirit.png", "category": "creatures", "max_stack": 1, "price": 6000},
+    {"name": "caged_air_spirit", "label": "Caged air spirit", "texture": "items/caged_air_spirit.png", "category": "creatures", "max_stack": 1, "price": 6000},
+    {"name": "caged_water_spirit", "label": "Caged water spirit", "texture": "items/caged_water_spirit.png", "category": "creatures", "max_stack": 1, "price": 3000},
+    {"name": "caged_earth_spirit", "label": "Caged earth spirit", "texture": "items/caged_earth_spirit.png", "category": "creatures", "max_stack": 1, "price": 3000}
   ]
 }

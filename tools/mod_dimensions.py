@@ -14,7 +14,7 @@ forgotten. Run tools/worn_art.py afterwards for what is worn.
 
 Either edit this and run it again, or edit the mod's files by hand and stop using this: not both.
 """
-import colorsys, copy, json, os, sys
+import colorsys, copy, json, os, subprocess, sys
 from PIL import Image
 
 repo = sys.argv[1] if len(sys.argv) > 1 else '.'
@@ -693,3 +693,5 @@ def depth(i, seen=()):
     return 1 + max((max((depth(x, seen + (i,)) for x in ins), default=0) for ins in made[i]), default=0)
 print('%d tiles, %d items, %d recipes, %d trees, %d creatures, %d biomes' % (len(tiles), len(items), len(recipes), len(trees), len(mobs), len(biomes)))
 print('stages: ' + ', '.join('%s %d' % (n, depth(n)) for n in ('aether_portal', 'deep_portal', 'world_seed', 'third_blockhead')))
+# (Every creature can be caged: the tool that sees to that for the whole game is run over what was just written.)
+subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'caged_art.py'), repo], check=True)

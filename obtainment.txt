@@ -12,10 +12,10 @@ Everything is treated as an item unless it can actually be put down in the world
 (the "X block" things, benches, and the blocks the game already had). Beds, doors,
 columns, stairs, ladders and the like are items for now.
 
-Totals: 427 items, 505 recipes, 30 kinds of bench.
+Totals: 429 items, 505 recipes, 30 kinds of bench.
 
 ==============================================================================
-1. UNOBTAINABLE ITEMS  (5 of 427)
+1. UNOBTAINABLE ITEMS  (5 of 429)
 ==============================================================================
 The Workbench is made at any portal (1 dirt), so the benches can all be started.
 The list is split in two: what has no source at all (1a), and what has a recipe that
@@ -24,7 +24,7 @@ cannot be completed because of something in 1a (1b).
 Clay is now dug from veins in the dirt, which opens the kiln, and with it charcoal, the
 furnace, bronze and the press.
 
-422 of the 427 items can be got as things stand.
+424 of the 429 items can be got as things stand.
 
 1a. NOTHING MAKES OR GIVES THESE  (5) - the roots: settle these and most of 1b follows
     (after each: what it is wanted for)
@@ -38,7 +38,7 @@ furnace, bronze and the press.
     (after each: the bench, and what is missing)
 
 
-For reference, what CAN be got as things stand (422): 
+For reference, what CAN be got as things stand (424): 
     Acorn, Amethyst, Amethyst block, Amethyst chandelier, Amethyst column
     Amethyst dodo egg, Amethyst pickaxe, Amethyst shard, Amethyst stairs, Apple
     Armor bench, Armor bench II, Armor bench III, Basalt, Basalt column
@@ -47,26 +47,27 @@ For reference, what CAN be got as things stand (422):
     Brick stairs, Bronze block, Bronze column, Bronze ingot, Bronze machete
     Bronze pickaxe, Bronze stairs, Bronze sword, Builder's bench, Cactus, Cage
     Caged amethyst dodo, Caged copper dodo, Caged diamond dodo, Caged dirt dodo
-    Caged dodo, Caged dropbear, Caged emerald dodo, Caged flint dodo
+    Caged dodo, Caged dropbear, Caged emerald dodo, Caged fish, Caged flint dodo
     Caged gold dodo, Caged iron dodo, Caged lapis dodo, Caged limestone dodo
     Caged marble dodo, Caged platinum dodo, Caged red marble dodo, Caged ruby dodo
-    Caged sandstone dodo, Caged sapphire dodo, Caged scorpion, Caged stone dodo
-    Caged tin dodo, Caged titanium dodo, Caged wood dodo, Caged yak, Camera
-    Campfire, Carbon black, Carbon fiber armor leggings, Carbon fiber block
-    Carbon fiber boots, Carbon fiber chestplate, Carbon fiber column
-    Carbon fiber helmet, Carbon fiber sheet, Carbon fiber stairs, Carbon fiber wing
-    Carbon fibers, Carrot, Carrot on a stick, Charcoal, Cherry, Chest, Chilli, Clay
-    Coal, Coconut, Coffee, Coffee cherry, Compost, Compost bin, Cooked dodo meat
-    Cooked fish, Copper block, Copper blue, Copper boiler, Copper bow & arrows
-    Copper coin, Copper column, Copper dodo egg, Copper ingot, Copper ore
-    Copper stairs, Copper wire, Coral, Corn, Cornucopia hat, Craft bench
-    Craft bench II, Craft bench III, Craft bench IV, Crowbar, Crushed limestone, Cup
-    Dev portal, Diamond, Diamond block, Diamond chandelier, Diamond column
-    Diamond dodo egg, Diamond pickaxe, Diamond shard, Diamond stairs, Dirt
-    Dirt dodo egg, Display cabinet, Dodo egg, Dodo feather, Dodo stew, Dough
-    Dye bench, Easel, Egg extractor, Electric elevator motor, Electric furnace
-    Electric kiln, Electric metalwork bench, Electric motor, Electric press
-    Electric sluice, Electric stove, Elevator shaft, Ember, Emerald, Emerald block
+    Caged sandstone dodo, Caged sapphire dodo, Caged scorpion, Caged shark
+    Caged stone dodo, Caged tin dodo, Caged titanium dodo, Caged wood dodo
+    Caged yak, Camera, Campfire, Carbon black, Carbon fiber armor leggings
+    Carbon fiber block, Carbon fiber boots, Carbon fiber chestplate
+    Carbon fiber column, Carbon fiber helmet, Carbon fiber sheet
+    Carbon fiber stairs, Carbon fiber wing, Carbon fibers, Carrot, Carrot on a stick
+    Charcoal, Cherry, Chest, Chilli, Clay, Coal, Coconut, Coffee, Coffee cherry
+    Compost, Compost bin, Cooked dodo meat, Cooked fish, Copper block, Copper blue
+    Copper boiler, Copper bow & arrows, Copper coin, Copper column, Copper dodo egg
+    Copper ingot, Copper ore, Copper stairs, Copper wire, Coral, Corn
+    Cornucopia hat, Craft bench, Craft bench II, Craft bench III, Craft bench IV
+    Crowbar, Crushed limestone, Cup, Dev portal, Diamond, Diamond block
+    Diamond chandelier, Diamond column, Diamond dodo egg, Diamond pickaxe
+    Diamond shard, Diamond stairs, Dirt, Dirt dodo egg, Display cabinet, Dodo egg
+    Dodo feather, Dodo stew, Dough, Dye bench, Easel, Egg extractor
+    Electric elevator motor, Electric furnace, Electric kiln
+    Electric metalwork bench, Electric motor, Electric press, Electric sluice
+    Electric stove, Elevator shaft, Ember, Emerald, Emerald block
     Emerald chandelier, Emerald column, Emerald dodo egg, Emerald green
     Emerald pickaxe, Emerald shard, Emerald stairs, Epoxy, Feeder chest, Fish curry
     Fishing rod, Flatbread, Flax, Flax seeds, Flint, Flint axe, Flint dodo egg
