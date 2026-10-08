@@ -1750,7 +1750,18 @@ static void collect_nearby(Game *g)
     if (!game_alive(g)) return;
     for (int i = 0; i < MAX_DROPS; i++) {
         Drop *d = &g->drops[i];
-        if (!d->active || d->collect > 0.0f || d->attached || d->held_off || d->age < DROP_PICKUP_DELAY) continue;
+        if (!d->active || d->collect > 0.0f || d->held_off) continue;
+        if (d->attached) {
+            /* Fruit on a tree is picked by walking through where it hangs: it is behind them, in the same square as their head or their feet. */
+            int dy = (int)d->y - g->player.feet.y;
+            if (world_dx(&g->world, g->player.feet.x, d->x) == 0 && (dy == 0 || dy == -1)) collect_drop(g, d);
+            continue;
+        }
+        /* (Something still falling is caught as it goes by: it need not have lain anywhere first.) */
+        const World *w = &g->world;
+        int row = (int)d->y;
+        bool falling = d->y < (float)(row + 1) && !world_is_solid(w, d->x, row + 1) && !world_is_water(w, d->x, row + 1) && !world_is_water(w, d->x, row);
+        if (d->age < (falling ? DROP_PICKUP_DELAY * 0.2f : DROP_PICKUP_DELAY)) continue;
         if (drop_in_reach(g, d, g->player.feet)) collect_drop(g, d);
     }
 }

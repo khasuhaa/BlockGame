@@ -8,7 +8,7 @@
 #define SLOT_GAP 4.0f
 #define BAR_MARGIN 14.0f
 #define COLUMN_ROWS 4
-#define HOLD_DELAY 0.3f /* seconds before a held press picks up the first item */
+#define HOLD_DELAY 1.0f /* seconds before a held press picks up the first item */
 #define HOLD_TICK 0.12f /* seconds between each increase after that */
 #define NAME_TIME 2.2f  /* how long a newly selected item's name stays up */
 #define NAME_FADE 0.5f

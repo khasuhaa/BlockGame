@@ -527,6 +527,11 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
             const TileDef *def = tile_def(game_bench_at(g, t.x, t.y));
             bool opens = def->bench || def->trade || def->storage_columns > 0 || def->leads_dim >= 0;
             int drop = game_drop_at(g, world_at(mouse, Z_BODY).x, world_at(mouse, Z_BODY).y);
+            /* (Fruit hangs further back than what lies about: it is looked for where it is.) */
+            if (drop < 0) {
+                int hung = game_drop_at(g, world_at(mouse, Z_MID).x, world_at(mouse, Z_MID).y);
+                if (hung >= 0 && g->drops[hung].attached) drop = hung;
+            }
             /* An item under the cursor comes before the tile behind it.
              * Something that opens offers a choice if it can also be removed;
              * otherwise it just opens. */
@@ -1452,6 +1457,11 @@ static void draw_drops(const Game *g, Vector2 origin)
             ItemStack one = { d->item, 1, d->container };
             world3d_solid(Z_BODY + 0.07f * TILE_SIZE, Z_BODY - 0.07f * TILE_SIZE, W3D_ALL, W3D_PANEL);
             assets_draw_item_tones((ItemId)d->item, at, inventory_meter(&g->inventory, &one));
+            world3d_flat();
+        } else if (d->attached && d->collect == 0.0f) {
+            /* Fruit hangs on its tree, which is in the back half of the world: just in front of the leaves, behind whoever walks by. */
+            world3d_solid(Z_MID + 0.04f * TILE_SIZE, Z_MID - 0.10f * TILE_SIZE, W3D_ALL, W3D_PANEL);
+            hud_draw_item_icon((ItemId)d->item, at);
             world3d_flat();
         } else {
             world3d_solid(Z_BODY + 0.07f * TILE_SIZE, Z_BODY - 0.07f * TILE_SIZE, W3D_ALL, W3D_PANEL);

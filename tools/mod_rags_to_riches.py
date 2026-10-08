@@ -100,10 +100,11 @@ def wall(name, plaster, beam, stones=False):
             for x in range(0, 16, 8): t.r((x + (4 if row % 2 else 0)) % 16, y, (x + (4 if row % 2 else 0)) % 16, y + 2, dk(plaster, 0.6))
         t.speckle(name, [lt(plaster, 1.1), dk(plaster, 0.9)], 0.18)
     else:
-        t.speckle(name, [dk(plaster, 0.94), lt(plaster, 1.04)], 0.25)
-        t.r(0, 0, 15, 1, beam); t.r(0, 14, 15, 15, beam); t.r(0, 0, 1, 15, beam); t.r(14, 0, 15, 15, beam)
-        for i in range(2, 14): t.p(i, i, beam); t.p(i + 1 if i < 13 else i, i, dk(beam, 0.8))
-        t.r(0, 0, 15, 0, lt(beam, 1.25)); t.r(0, 15, 15, 15, dk(beam, 0.7))
+        # (A beam along the top and one down the left, and no more: set side by side they make one frame of
+        # squares, with a single beam between any two panels and none doubled.)
+        t.speckle(name, [dk(plaster, 0.95), lt(plaster, 1.03)], 0.22)
+        t.r(0, 0, 15, 1, beam); t.r(0, 0, 1, 15, beam)
+        t.r(0, 0, 15, 0, lt(beam, 1.2)); t.r(0, 2, 0, 15, lt(beam, 1.2)); t.r(2, 2, 15, 2, dk(plaster, 0.82)); t.r(2, 3, 2, 15, dk(plaster, 0.82))
     t.save('tiles', name); block_icon(name)
 def cobbles(name, a):
     t = P(dk(a, 0.55)); rnd = random.Random(name)
@@ -202,6 +203,8 @@ for style, where, wall_, roof_, floor, street, ground, portal in STYLES:
               'b': dict(room, back='wooden_bed_foot'), 'C': dict(room, back='village_crate'), 'S': dict(room, back='shelf'), 's': dict(room, back='wood_stairs'),
               'c': {'back': 'wood_column'}, 'A': {'back': 'awning'}, 'X': {'back': 'village_bell'}, 'P': {'back': portal}, 'o': {'back': 'street_lamp'},
               'f': {'back': 'village_banner'}, 'w': {'back': 'village_well'}}
+    # (Under the ground there is nothing to see out of a window at: a wall like the rest.)
+    if where == 'cave': legend['W'] = room
     # (A crate under the market's awning has no wall behind it, nor the things that stand in the open.)
     for name, rows in BUILDINGS.items():
         lg = dict(legend)

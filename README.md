@@ -70,6 +70,7 @@ Worlds are saved in `saves/<name>.world`, next to where the game is run from. A 
 | Click dirt or grass, holding an acorn or cherry | Queue walking next to it and planting a tree on top |
 | Click a bench or a chest | Open it, or choose between opening and removing it |
 | Click a dropped item or a fruit | Queue walking up to it and picking it up |
+| Walk through a fruit, or stand where something is falling past | It is picked up: fruit hangs behind the character, on its tree, and is taken by walking through its square; a thing dropping from above is caught as it goes by |
 | Click a creature | Queue hunting it |
 | `Esc` | Pause menu |
 | `F3` | Hide or show the readout in the corner |
@@ -353,7 +354,7 @@ The bar along the bottom has a head button followed by 8 slots. Stacks hold up t
 - Tap the head button to open the 4 armor slots (head, chest, legs, boots) and every basket at once. It is also a slot that can be chosen, as the others are: with it chosen the character has nothing in hand but their hands. Nothing is put down or eaten, and a block is dug by hand - at the pace of no tool at all - whatever tools are in the bar. Choosing any other slot goes back to using the best tool carried.
 - A stack has an order: things are taken off the **top** of it, and things added go on top. For most items that makes no difference. For items with a **meter** - a bucket's water, or a tool's wear if it is given a `"durability"` in `items.json` (none of the shipped tools is) - each one keeps its own reading, a stack of them holds them whatever they read, and the one on top is the one that is shown and used. So taking half a stack off and putting the rest back on top of it leaves what was the top one in the middle.
 - Tools stack.
-- Press and hold on a stack to pick items up from it, from the top down: 1 after a moment, then 2, 3 … 10, then 15, 20, 25 … up to one fewer than the stack holds. The count stops rising once the cursor leaves the slot. Release over an empty slot or an equal stack to put them there; release anywhere else to put them back.
+- Press and hold on a stack to pick items up from it, from the top down: 1 after a second, then 2, 3 … 10, then 15, 20, 25 … up to one fewer than the stack holds. The count stops rising once the cursor leaves the slot. Release over an empty slot or an equal stack to put them there; release anywhere else to put them back.
 - Drag a stack away without waiting to move all of it: equal stacks merge, anything else swaps.
 - Drag a stack off the inventory and let go over the world to drop it there - as many as were picked up, or the whole stack. It drops right where the player is, and stays there while they stand over it: it is only picked up again once they have walked out of reach of it and come back, or by tapping it to queue picking it up. A basket or chest is dropped with what is in it. Letting go over a menu drops nothing.
 - A basket can be put inside another basket and keeps its contents, but only baskets sitting in the bar can be opened. Baskets never stack.
