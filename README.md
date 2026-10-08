@@ -630,9 +630,15 @@ The skin is one picture, 64 by 32, with each box opened out flat: the head's fac
 
 The world is drawn in depth. The game itself is still a grid seen from the side - where things are, and what can be done to them, has not changed - but it is looked at through a camera whose eye is in front of the middle of the screen, so everything has perspective: what is left of the middle shows its right side, what is below it shows its top, and as the view moves across the world the sides of things swing round with it.
 
-- **Blocks are blocks.** Anything solid is a block two squares deep, with its face where it always was and its sides and top showing wherever nothing is against them; the top of a block is coloured as the top edge of its picture is, so grass is green on top.
+- **Material is material.** Earth, stone, wood, ore - anything solid that is stuff rather than a thing - is a block two squares deep, with its face where it always was and its sides and top showing wherever nothing is against them; the top of a block is coloured as the top edge of its picture is, so grass is green on top.
 - **The world has a front half and a back half.** Characters, creatures, things lying on the ground and whatever runs on rails are in the front half. The background layer - trees, benches, chests, ladders - is the back half: a tree stands behind the character on the same ground. The backwall closes the back, so a cave or a room is a space with a floor, a roof, sides and a far wall.
-- **Everything has a shape.** A thing whose picture fills its square is a block; any other picture - a plant, a torch, a creature, a tool lying on the ground, a locomotive - is that picture given thickness, with its edges filled in. The character is the six boxes they always were, now standing in the scene.
+- **Everything else is modelled**, from its own picture, as the kind of thing it is:
+  - a **box** - a chest, a safe, a furnace - is one block, its sides plain, the colour the picture is along that edge (not the front of it over again). A solid one stands in the front half only, with the wall showing behind it;
+  - a **built thing** - a bench, a lantern, an egg, a gem, a portal, a locomotive - is put together from the parts of its picture: every stretch across it becomes a box as deep as it is wide, so a table's top is a slab and a post is square, and a part much thinner than the whole, like a leg or a wheel, stands once at the front and once at the back. A table has four legs; a carriage has wheels on both sides and can be seen through at its windows;
+  - a **creature** is built the same way with every part in the middle of it;
+  - a **plant** - anything sown, or that grows, or is the top of something that does - is its picture twice, crossed;
+  - a **flat thing** - a vine, a window, a sign, something lying on the ground - is a panel with a little thickness.
+  What kind a block is is worked out from what it does and what its picture is like; `"model"` in `tiles.json` says it outright where that would be wrong (`"block"`, `"box"`, `"frame"`, `"body"`, `"panel"` or `"cross"`). The character is the six boxes they always were, now standing in the scene.
 - **Clicking** goes by what is under the cursor in depth: the face of a block; failing that the square the characters are in; failing that what stands in the background behind it.
 - Light and darkness, the fog of war, water and the marks for what is queued are laid over the front of the scene, as before.
 

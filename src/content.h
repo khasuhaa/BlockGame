@@ -217,6 +217,9 @@ typedef struct {
     bool afloat;       /* it can only be put down on water: on the top of it */
     /* Track: things that run on rails go along it, from one square of it to the next beside it, or beside and one up or down. */
     bool rail;
+    /* What kind of thing it is to look at, where the data says ("model"): 0 for unsaid, then block, box, frame,
+     * body, panel, cross - see world3d.h, whose kinds these are, in the same order. */
+    int8_t model;
     char texture_ramp[CONTENT_PATH_LEN]; /* how it looks where it climbs to the next piece, drawn rising to the right */
     bool needs_tool;   /* it is only taken up with its tool in hand: otherwise a click on it is a click on the square */
     bool on_floor;     /* it can only be put down on a block: one directly beneath */

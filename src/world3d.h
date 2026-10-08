@@ -34,11 +34,23 @@ Vector2 world3d_at_depth(Vector2 screen, float zoom, float z);
 void world3d_flat(void);
 /* As a flat picture at a depth. */
 void world3d_plane(float z);
-/* As a solid from one depth back to another: a block with the picture on its
- * face and on such of its sides as `sides` names, if the picture fills its
- * square; otherwise the picture itself given that thickness (or, if it is
- * mostly empty and `slim` is set, a thinner slice of it in the middle). */
-void world3d_solid(float front, float back, int sides, bool slim);
+/* As a thing with depth, somewhere between one depth and another. What kind of thing says how it is made:
+ *
+ *   W3D_AUTO   a picture that fills its square is a block of material (W3D_BLOCK); one that is mostly empty and
+ *              branching, a plant (W3D_CROSS); any other, a built thing (W3D_FRAME).
+ *   W3D_BLOCK  material all the way from front to back, with the picture on its face and again on each of its
+ *              sides (those `sides` names), a square of it to a square of depth: earth, stone, a tree's trunk.
+ *              A picture with holes in it is cut through from front to back.
+ *   W3D_BOX    one thing, not a material: the picture on its face, and its sides plain - coloured as the edge of
+ *              the picture nearest each is. A chest, a furnace.
+ *   W3D_FRAME  built up from the picture's own parts. Every stretch of it across becomes a box as deep as it is
+ *              wide - so a table's top is a slab and a post is square - and a part much thinner than the whole
+ *              (a leg, a wheel) stands once at the front and once at the back.
+ *   W3D_BODY   the same, with every part in the middle: a creature.
+ *   W3D_PANEL  a flat thing with a little thickness: a ladder, a sign, something lying on the ground.
+ *   W3D_CROSS  two flat pictures crossed, as plants are. */
+typedef enum { W3D_AUTO, W3D_BLOCK, W3D_BOX, W3D_FRAME, W3D_BODY, W3D_PANEL, W3D_CROSS } World3dModel;
+void world3d_solid(float front, float back, int sides, World3dModel model);
 
 /* Draws a texture as DrawTexturePro would, standing as last told. (assets.c draws everything through this.) */
 void world3d_texture(Texture2D tex, Rectangle src, Rectangle dst, Color tint);

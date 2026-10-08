@@ -348,6 +348,13 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->burns = flag(e, "burns", false);
         t->afloat = flag(e, "afloat", false);
         t->rail = flag(e, "rail", false);
+        t->model = 0;
+        if (str(e, "model")) {
+            static const char *models[] = { "", "block", "box", "frame", "body", "panel", "cross" };
+            for (int k = 1; k < 7; k++)
+                if (strcmp(str(e, "model"), models[k]) == 0) t->model = (int8_t)k;
+            if (t->model == 0) return fail(r, "tile \"%s\": a \"model\" is block, box, frame, body, panel or cross", t->name);
+        }
         copy_name(t->texture_ramp, sizeof t->texture_ramp, str(e, "texture_ramp"));
         t->needs_tool = flag(e, "needs_tool", false);
         t->on_floor = flag(e, "on_floor", false);

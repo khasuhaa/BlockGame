@@ -19,11 +19,22 @@ typedef struct {
 } Edge;
 
 /* What is known of a texture's shape: whether it fills its square, how much of it is there, and where its edges run. */
+/* A part of a picture: so many rows of one stretch across it. */
+typedef struct {
+    short x0, x1, y0, y1;
+} Part;
+
+#define MAX_PARTS 200
+
 typedef struct {
     bool known, full;
-    float cover;
+    float cover;   /* how much of it is there */
+    float branchy; /* how many of its rows are in more than one piece */
+    int widest;    /* the longest stretch across it, in texels */
     int count;
     Edge *edges;
+    int part_count; /* 0 if it is too much in bits to be built of parts */
+    Part *parts;
 } Shape;
 
 static Shape shapes[MAX_TEXTURES];
@@ -35,7 +46,7 @@ static bool cutout_tried;
 static int mode; /* 0 flat, 1 plane, 2 solid */
 static float mode_front, mode_back;
 static int mode_sides;
-static bool mode_slim;
+static World3dModel mode_model;
 
 static const char *cutout_fs =
     "#version 330\n"
@@ -113,13 +124,13 @@ void world3d_plane(float z)
     mode_front = z;
 }
 
-void world3d_solid(float front, float back, int sides, bool slim)
+void world3d_solid(float front, float back, int sides, World3dModel model)
 {
     mode = 2;
     mode_front = front;
     mode_back = back;
     mode_sides = sides;
-    mode_slim = slim;
+    mode_model = model;
 }
 
 void world3d_push(float z)
@@ -136,7 +147,7 @@ void world3d_pop(void)
 /* Reads a texture back to see what shape is drawn on it. */
 static const Shape *shape_of(Texture2D tex)
 {
-    static const Shape none = { true, true, 1.0f, 0, NULL };
+    static const Shape none = { .known = true, .full = true, .cover = 1.0f };
     if (tex.id == 0 || tex.id >= MAX_TEXTURES || tex.width > 512 || tex.height > 512) return &none;
     Shape *s = &shapes[tex.id];
     if (s->known) return s;
@@ -187,6 +198,44 @@ static const Shape *shape_of(Texture2D tex)
         } else {
             s->count = n;
         }
+    }
+    /* Its parts: each row is so many stretches across; rows that are the same stretches go together. */
+    if (!s->full) {
+        Part *parts = malloc(sizeof(Part) * MAX_PARTS);
+        int n = 0, rows = 0, split = 0, open_from = 0, open_count = 0;
+        bool fits = parts != NULL;
+        for (int y = 0; y < h && fits; y++) {
+            short runs[64][2];
+            int count = 0;
+            for (int x = 0; x < w;) {
+                if (!SOLID(x, y)) {
+                    x++;
+                    continue;
+                }
+                int from = x;
+                while (x < w && SOLID(x, y)) x++;
+                if (count < 64) runs[count][0] = (short)from, runs[count++][1] = (short)x;
+                if (x - from > s->widest) s->widest = x - from;
+            }
+            rows += count > 0;
+            split += count > 1;
+            /* The same as the row above: those parts are a row taller. */
+            bool same = count == open_count && count > 0;
+            for (int k = 0; same && k < count; k++) same = parts[open_from + k].x0 == runs[k][0] && parts[open_from + k].x1 == runs[k][1];
+            if (same) {
+                for (int k = 0; k < count; k++) parts[open_from + k].y1 = (short)(y + 1);
+                continue;
+            }
+            if (n + count > MAX_PARTS) {
+                fits = false;
+                break;
+            }
+            open_from = n, open_count = count;
+            for (int k = 0; k < count; k++) parts[n++] = (Part){ runs[k][0], runs[k][1], (short)y, (short)(y + 1) };
+        }
+        s->branchy = rows > 0 ? (float)split / (float)rows : 0.0f;
+        if (fits && n > 0) s->parts = parts, s->part_count = n;
+        else free(parts);
     }
     #undef SOLID
     UnloadImageColors(px);
@@ -239,17 +288,77 @@ void world3d_texture(Texture2D tex, Rectangle src, Rectangle dst, Color tint)
     float front = mode_front, back = mode == 1 ? mode_front : mode_back;
     const Shape *shape = mode == 2 ? shape_of(tex) : NULL;
     bool whole = fabsf(sw - (float)tex.width) < 0.5f && fabsf(src.height - (float)tex.height) < 0.5f && src.x == 0.0f && src.y == 0.0f;
-    bool block = mode == 2 && shape->full;
-    if (mode == 2 && !block && mode_slim && shape->cover < 0.5f) {
-        /* Not much to it: a slice from the middle of the room it has. */
-        float mid = (front + back) / 2.0f, half = (front - back) * 0.14f;
+    World3dModel model = mode == 2 ? mode_model : W3D_PANEL;
+    if (mode == 2 && model == W3D_AUTO) model = shape->full ? W3D_BLOCK : shape->cover < 0.5f && shape->branchy > 0.25f ? W3D_CROSS : W3D_FRAME;
+    if (mode == 2 && !shape->full && (model == W3D_FRAME || model == W3D_BODY) && (shape->part_count == 0 || !whole)) model = W3D_PANEL;
+    if (mode == 2 && shape->full && model != W3D_BOX) model = W3D_BLOCK;
+    if (mode == 2 && model == W3D_BOX && !shape->full) model = whole && shape->part_count > 0 ? W3D_FRAME : W3D_PANEL;
+    float px = dst.width / (float)tex.width, py = dst.height / (float)tex.height;
+
+    if (mode == 2 && model == W3D_CROSS) {
+        /* A plant: the picture twice, crossed about its middle. */
+        float mid = (front + back) / 2.0f, reach = fminf(dst.width / 2.0f, (front - back) / 2.0f) * 0.9f, xm = (x0 + x1) / 2.0f, half = dst.width / 2.0f * 0.72f;
+        quad(tex, (Corner){ xm - half, y0, mid + reach, u0, v0 }, (Corner){ xm - half, y1, mid + reach, u0, v1 }, (Corner){ xm + half, y1, mid - reach, u1, v1 }, (Corner){ xm + half, y0, mid - reach, u1, v0 }, tint);
+        quad(tex, (Corner){ xm - half, y0, mid - reach, u0, v0 }, (Corner){ xm - half, y1, mid - reach, u0, v1 }, (Corner){ xm + half, y1, mid + reach, u1, v1 }, (Corner){ xm + half, y0, mid + reach, u1, v0 }, shaded(tint, SIDE_SHADE + 0.1f));
+        return;
+    }
+    if (mode == 2 && (model == W3D_FRAME || model == W3D_BODY)) {
+        /* A built thing: a box for every part of the picture, as deep as the part is wide - but none deeper than
+         * the whole of it, which is as deep as its widest part, or as there is room for. */
+        float room = front - back, whole_deep = fminf((float)shape->widest * px, room), mid = (front + back) / 2.0f;
+        for (int i = 0; i < shape->part_count; i++) {
+            const Part *p = &shape->parts[i];
+            float wide = (float)(p->x1 - p->x0) * px, deep = fminf(wide, whole_deep);
+            float xa = flip ? x1 - (float)p->x1 * px : x0 + (float)p->x0 * px, xb = xa + wide, ya = y0 + (float)p->y0 * py, yb = y0 + (float)p->y1 * py;
+            float ua = (float)p->x0 / (float)tex.width, ub = (float)p->x1 / (float)tex.width, va = (float)p->y0 / (float)tex.height, vb = (float)p->y1 / (float)tex.height;
+            if (flip) {
+                float swap = ua;
+                ua = ub;
+                ub = swap;
+            }
+            /* (The colour of each side is the colour of the picture along that edge of the part.) */
+            float ul = ((float)(flip ? p->x1 - 1 : p->x0) + 0.5f) / (float)tex.width, ur = ((float)(flip ? p->x0 : p->x1 - 1) + 0.5f) / (float)tex.width;
+            float vt = ((float)p->y0 + 0.5f) / (float)tex.height, vu = ((float)p->y1 - 0.5f) / (float)tex.height;
+            /* Something much thinner than the whole stands at the front of it and again at the back: legs, wheels. */
+            bool twice = model == W3D_FRAME && deep < whole_deep * 0.4f && whole_deep > 0.0f;
+            for (int copy = 0; copy < (twice ? 2 : 1); copy++) {
+                float zf = twice ? (copy == 0 ? mid + whole_deep / 2.0f : mid - whole_deep / 2.0f + deep) : mid + deep / 2.0f, zb = zf - deep;
+                quad(tex, (Corner){ xa, ya, zf, ua, va }, (Corner){ xa, yb, zf, ua, vb }, (Corner){ xb, yb, zf, ub, vb }, (Corner){ xb, ya, zf, ub, va }, tint);
+                if (xa > center.x)
+                    quad(tex, (Corner){ xa, ya, zb, ul, va }, (Corner){ xa, yb, zb, ul, vb }, (Corner){ xa, yb, zf, ul, vb }, (Corner){ xa, ya, zf, ul, va }, shaded(tint, SIDE_SHADE));
+                if (xb < center.x)
+                    quad(tex, (Corner){ xb, ya, zf, ur, va }, (Corner){ xb, yb, zf, ur, vb }, (Corner){ xb, yb, zb, ur, vb }, (Corner){ xb, ya, zb, ur, va }, shaded(tint, SIDE_SHADE));
+                if (ya > center.y)
+                    quad(tex, (Corner){ xa, ya, zb, ua, vt }, (Corner){ xa, ya, zf, ua, vt }, (Corner){ xb, ya, zf, ub, vt }, (Corner){ xb, ya, zb, ub, vt }, shaded(tint, TOP_SHADE));
+                if (yb < center.y)
+                    quad(tex, (Corner){ xa, yb, zf, ua, vu }, (Corner){ xa, yb, zb, ua, vu }, (Corner){ xb, yb, zb, ub, vu }, (Corner){ xb, yb, zf, ub, vu }, shaded(tint, UNDER_SHADE));
+            }
+        }
+        return;
+    }
+    if (mode == 2 && model == W3D_PANEL) {
+        /* Flat, with a little thickness, in the middle of the room it has. */
+        float mid = (front + back) / 2.0f, half = fminf((front - back) / 2.0f, 2.0f * px);
         front = mid + half, back = mid - half;
     }
     /* The face of it. */
     quad(tex, (Corner){ x0, y0, front, u0, v0 }, (Corner){ x0, y1, front, u0, v1 }, (Corner){ x1, y1, front, u1, v1 }, (Corner){ x1, y0, front, u1, v0 }, tint);
     if (mode != 2 || front <= back) return;
-    if (block) {
-        /* A block: its sides, a square of the picture to each square of depth. */
+    if (shape->full && model == W3D_BOX) {
+        /* One thing: its sides plain, each the colour the picture is along that edge. */
+        float bu = (u1 - u0) * 0.07f, bv = (v1 - v0) * 0.07f;
+        if (mode_sides & W3D_LEFT)
+            quad(tex, (Corner){ x0, y0, back, u0, v0 }, (Corner){ x0, y1, back, u0, v1 }, (Corner){ x0, y1, front, u0 + bu, v1 }, (Corner){ x0, y0, front, u0 + bu, v0 }, shaded(tint, SIDE_SHADE));
+        if (mode_sides & W3D_RIGHT)
+            quad(tex, (Corner){ x1, y0, front, u1 - bu, v0 }, (Corner){ x1, y1, front, u1 - bu, v1 }, (Corner){ x1, y1, back, u1, v1 }, (Corner){ x1, y0, back, u1, v0 }, shaded(tint, SIDE_SHADE));
+        if (mode_sides & W3D_TOP)
+            quad(tex, (Corner){ x0, y0, back, u0, v0 }, (Corner){ x0, y0, front, u0, v0 + bv }, (Corner){ x1, y0, front, u1, v0 + bv }, (Corner){ x1, y0, back, u1, v0 }, shaded(tint, TOP_SHADE));
+        if (mode_sides & W3D_BOTTOM)
+            quad(tex, (Corner){ x0, y1, front, u0, v1 - bv }, (Corner){ x0, y1, back, u0, v1 }, (Corner){ x1, y1, back, u1, v1 }, (Corner){ x1, y1, front, u1, v1 - bv }, shaded(tint, UNDER_SHADE));
+        return;
+    }
+    if (shape->full) {
+        /* Material: its sides, a square of the picture to each square of depth. */
         float deep = dst.width > 0.0f ? dst.width : front - back;
         for (float z = front; z > back + 0.01f; z -= deep) {
             float far = z - deep < back ? back : z - deep;
@@ -270,7 +379,6 @@ void world3d_texture(Texture2D tex, Rectangle src, Rectangle dst, Color tint)
     /* A picture with thickness: the same again at the back of it, and its edges joined between. */
     quad(tex, (Corner){ x0, y0, back, u0, v0 }, (Corner){ x0, y1, back, u0, v1 }, (Corner){ x1, y1, back, u1, v1 }, (Corner){ x1, y0, back, u1, v0 }, shaded(tint, UNDER_SHADE));
     if (!whole) return;
-    float px = dst.width / (float)tex.width, py = dst.height / (float)tex.height;
     for (int i = 0; i < shape->count; i++) {
         const Edge *e = &shape->edges[i];
         if (e->upright) {

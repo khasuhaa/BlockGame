@@ -642,33 +642,54 @@ static float pair_shift(const World *w, int head, int y)
 /* Set while those are being drawn: they go on after the rest of the blocks, since they lie across the squares. */
 static bool drawing_pairs;
 
+/* Whether a block of the foreground is a thing that stands in the front half of the world - a chest - and not
+ * material that goes all the way back. */
+static bool stands_alone(const TileDef *def)
+{
+    if (def->model != 0) return def->model != W3D_BLOCK;
+    return def->solid && def->storage_columns > 0;
+}
+
 /* How a block of a layer stands in the depth of the world, for whatever is drawn of it next. */
 static void block_depth(const Game *g, int layer, const TileDef *def, int x, int y, float px, float py)
 {
     const World *w = &g->world;
     if (!world3d_active()) return;
     Vector2 mid = world3d_center();
-    /* Only the sides that are turned toward the middle of the view, and not ones that are against another block. */
+    /* Only the sides that are turned toward the middle of the view. */
     int sides = (px > mid.x ? W3D_LEFT : 0) | (px + TILE_SIZE < mid.x ? W3D_RIGHT : 0) | (py > mid.y ? W3D_TOP : 0) | (py + TILE_SIZE < mid.y ? W3D_BOTTOM : 0);
-    if (layer == LAYER_FOREGROUND && def->solid) {
-        /* Something solid goes all the way back. */
+    /* What kind of thing it is: what the data says, or else what can be told of it. A plant is anything that is
+     * sown, or grows, or is the top of something that does; a thing that is worked at or holds things is one
+     * thing and not material. (The picture settles the rest: see world3d.h.) */
+    bool plant = def->soil_count > 0 || def->grows_into != TILE_AIR || def->grows_top != TILE_AIR || def->topped_by != TILE_AIR || def->cut_to != TILE_AIR;
+    bool thing = def->bench || def->trade || def->storage_columns > 0;
+    World3dModel model = def->model != 0 ? (World3dModel)def->model : plant ? W3D_CROSS : thing ? W3D_BOX : W3D_AUTO;
+    if (layer == LAYER_FOREGROUND && def->solid && !stands_alone(def)) {
+        /* Material goes all the way back; and shows no side that is against more of it. */
         static const int beside[4][3] = { { -1, 0, W3D_LEFT }, { 1, 0, W3D_RIGHT }, { 0, -1, W3D_TOP }, { 0, 1, W3D_BOTTOM } };
         for (int i = 0; i < 4; i++) {
             const TileDef *next = tile_def(world_get(w, x + beside[i][0], y + beside[i][1]));
-            if (next->solid && !next->see_through && world_in_bounds(w, 0, y + beside[i][1])) sides &= ~beside[i][2];
+            if (next->solid && !next->see_through && !stands_alone(next) && world_in_bounds(w, 0, y + beside[i][1])) sides &= ~beside[i][2];
         }
-        world3d_solid(Z_FRONT, Z_BACK, sides, false);
+        world3d_solid(Z_FRONT, Z_BACK, sides, W3D_BLOCK);
+    } else if (layer == LAYER_FOREGROUND && def->solid) {
+        /* A solid thing: the front half is its own. */
+        world3d_solid(Z_FRONT - 0.04f * TILE_SIZE, Z_MID + 0.04f * TILE_SIZE, sides, model);
     } else if (layer == LAYER_FOREGROUND) {
-        /* A thing of the foreground that can be walked through: behind whoever walks through it. */
-        world3d_solid(-0.72f * TILE_SIZE, -0.96f * TILE_SIZE, sides, false);
+        /* A thing of the foreground that can be walked through: flat, behind whoever walks through it. */
+        world3d_solid(-0.72f * TILE_SIZE, -0.96f * TILE_SIZE, sides, def->model != 0 ? model : W3D_PANEL);
     } else if (def->wire && tile_def(world_get(w, x, y))->solid && !tile_def(world_get(w, x, y))->see_through) {
         world3d_plane(Z_FRONT); /* wire over the face of a block */
     } else if (def->rail) {
         /* Track lies where what runs on it runs: under the characters' feet, not back among the trees. */
-        world3d_solid(-0.1f * TILE_SIZE, -0.66f * TILE_SIZE, sides, false);
+        world3d_solid(-0.1f * TILE_SIZE, -0.66f * TILE_SIZE, sides, W3D_FRAME);
+    } else if (def->window) {
+        world3d_solid(Z_BACK + 0.12f * TILE_SIZE, Z_BACK, sides, W3D_PANEL); /* a window is in the backwall */
+    } else if (model == W3D_PANEL) {
+        world3d_solid(Z_BACK + 0.3f * TILE_SIZE, Z_BACK + 0.04f * TILE_SIZE, sides, W3D_PANEL); /* flat things are against the back */
     } else {
         /* The background layer: the back half. */
-        world3d_solid(Z_MID, Z_BACK, sides, true);
+        world3d_solid(Z_MID - 0.02f * TILE_SIZE, Z_BACK + 0.02f * TILE_SIZE, sides, model);
     }
 }
 
@@ -760,7 +781,7 @@ static void draw_world(const Game *g, Vector2 origin)
             float px = origin.x + (float)(x * TILE_SIZE), py = origin.y + (float)(y * TILE_SIZE);
             /* (Paint is a wash of its colour over the backwall or the block it is on, as bright as that is lit.) */
             int wall_paint = world_paint(w, true, x, y), block_paint = world_paint(w, false, x, y);
-            if (!tile_def(t)->solid || tile_def(t)->see_through) {
+            if (!tile_def(t)->solid || tile_def(t)->see_through || stands_alone(tile_def(t))) {
                 /* (A window is a hole in the backwall: there, what is behind the wall shows, and the wall does not.) */
                 bool hole = tile_def(behind)->window;
                 /* (The backwall is the back of the world.) */
@@ -1312,7 +1333,7 @@ static void draw_mobs(const Game *g, Vector2 origin)
             r = (Rectangle){ r.x + TILE_SIZE / 2.0f - side / 2, r.y + TILE_SIZE / 2.0f - side / 2, side, side };
         }
         /* (A creature has some body to it, and is in among the characters.) */
-        world3d_solid(Z_BODY + 0.2f * TILE_SIZE, Z_BODY - 0.2f * TILE_SIZE, W3D_ALL, false);
+        world3d_solid(Z_BODY + 0.26f * TILE_SIZE, Z_BODY - 0.26f * TILE_SIZE, W3D_ALL, W3D_BODY);
         assets_draw_sprite(file, r, m->dir < 0);
         world3d_flat();
         /* One that has been hurt shows how much it has left. */
@@ -1347,11 +1368,11 @@ static void draw_drops(const Game *g, Vector2 origin)
         Rectangle at = { p.x - size / 2, p.y - size / 2, size, size };
         if (item_def((ItemId)d->item)->two_tone) {
             ItemStack one = { d->item, 1, d->container };
-            world3d_solid(Z_BODY + 0.07f * TILE_SIZE, Z_BODY - 0.07f * TILE_SIZE, W3D_ALL, false);
+            world3d_solid(Z_BODY + 0.07f * TILE_SIZE, Z_BODY - 0.07f * TILE_SIZE, W3D_ALL, W3D_PANEL);
             assets_draw_item_tones((ItemId)d->item, at, inventory_meter(&g->inventory, &one));
             world3d_flat();
         } else {
-            world3d_solid(Z_BODY + 0.07f * TILE_SIZE, Z_BODY - 0.07f * TILE_SIZE, W3D_ALL, false);
+            world3d_solid(Z_BODY + 0.07f * TILE_SIZE, Z_BODY - 0.07f * TILE_SIZE, W3D_ALL, W3D_PANEL);
             hud_draw_item_icon((ItemId)d->item, at);
             world3d_flat();
         }
@@ -1447,7 +1468,7 @@ static void draw_vehicles(const Game *g, Vector2 origin)
         float wide = tex.id ? (float)tex.width : (float)(def->vehicle.width * TILE_SIZE), tall = tex.id ? (float)tex.height : 2.0f * TILE_SIZE;
         float px = origin.x + view_near_x(&view, x) * TILE_SIZE + TILE_SIZE / 2.0f - wide / 2.0f, py = origin.y + (y + 1.0f) * TILE_SIZE - tall;
         /* (As deep as the room there is for it; whoever rides is inside.) */
-        world3d_solid(-0.08f * TILE_SIZE, -0.66f * TILE_SIZE, W3D_ALL, false);
+        world3d_solid(-0.08f * TILE_SIZE, -0.66f * TILE_SIZE, W3D_ALL, W3D_FRAME);
         assets_draw_sprite(def->vehicle.texture, (Rectangle){ px, py, wide, tall }, false);
         world3d_flat();
         /* An engine with its fire lit: a glow at the firebox. */
