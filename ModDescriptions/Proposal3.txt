@@ -1,0 +1,148 @@
+PROPOSAL 3 - THE UNDERCROFT   (a dungeon and combat mod; MAJOR; for approval - nothing is built)
+
+Fighting in this game is clicking on a creature until it stops. Nothing is built to be fought through. This mod
+adds the two things together: weapons that are used differently from one another, enemies that do more than walk
+at you - and places made to put the two to the test. Dungeons that are different every time, that go down floor
+by floor, that you can lose in, and that send you home with something worth the trip.
+
+    a cellar door in a ruin  ->  a crypt of five floors  ->  a keep  ->  a labyrinth that moves  ->
+    the Undercroft itself: a hundred floors, and a ladder of other people's best runs to climb
+
+Nothing else in the game or its mods is about combat as a skill, or about a place you enter to be tested.
+Size: ~300 blocks, ~650 items, ~600 recipes, ~90 enemies, 12 bosses.
+
+================================================================================================================
+0. QUESTIONS
+================================================================================================================
+
+Q1. HOW MUCH THE FIGHTING CHANGES. Recommended: a real change, for everyone, whenever the mod is on -
+      - weapons have a REACH, an ARC and a WIND-UP: a dagger is fast and close, a spear long and narrow, a
+        hammer slow and wide, a bow and a sling at range, a whip through gaps;
+      - a BLOCK (hold: a shield or a two-handed weapon stops what is in front) and a DODGE (a short dash through);
+      - enemies TELEGRAPH: a pose before a blow, an outline on the squares it will hit;
+      - STAMINA is spent by swinging, blocking and dodging (the game has an energy bar: this is a faster one).
+    The game is played by clicking where to go, not by holding keys, so all of this must work by clicks: click a
+    creature to attack with what is in hand; hold to block; a key to dodge. Say if you would rather the base
+    game's combat stayed exactly as it is and only dungeon enemies were smarter.
+
+Q2. WHAT IS LOST BY DYING IN ONE. Recommended: what was FOUND on this run, and nothing brought in. A dungeon is
+    a gamble with its own stakes. Harder modes (lose what you carried) as a choice at the door.
+
+Q3. WHERE DUNGEONS ARE. Recommended: each is a place of its own, made when its door is opened, the way the
+    World Seed makes its pocket world - so they can be any size, different every time, and gone when left.
+    Doors are found in the world (cellars under ruins, a crack in a cave wall, a drowned stair) and can be
+    carried home and set up, so a favourite kind of dungeon is always to hand.
+
+Q4. ALONE OR TOGETHER. The game lets a player have several characters. Recommended: a party of up to three goes
+    in together; the ones not being played follow and fight by simple rules (stay near, hit what is hit).
+
+Q5. THE LADDER. "Other people's best runs" needs other people. Recommended for now: a ladder of YOUR OWN runs
+    and a few built-in ghosts to beat, kept with the playset; no network.
+
+Q6. DELIVERY. Recommended: four stages - (1) the new fighting, and enemies to try it on above ground;
+    (2) the dungeon maker, the crypt, loot; (3) the other four kinds of dungeon, bosses; (4) the Undercroft,
+    classes, the ladder.
+
+================================================================================================================
+1. WEAPONS AND FIGHTING
+================================================================================================================
+
+TWELVE KINDS OF WEAPON, each in the game's metals (and any mod's): dagger, sword, greatsword, axe, hammer,
+spear, halberd, mace and shield, whip, bow, crossbow, sling - and staves that throw what Magic and Mayhem's
+scrolls throw, where that mod is on. Each kind has two moves: a plain one and a held one (a lunge, a sweep, a
+charged shot, a shield bash).
+
+WHAT A BLOW DOES besides harm: knocks back, staggers, bleeds, burns, freezes, poisons, stuns, disarms, pulls,
+pins. Enemies have weaknesses and armour by kind: bone shrugs off arrows and breaks under a hammer; slime
+takes fire; plate wants a mace or a gap found by a dagger from behind. Reading the room is the skill.
+
+ARMOUR in three weights, which trade protection for how far a dodge goes and how fast stamina comes back.
+TRINKETS, in the relic slots: one rule-bending effect each ("your dodge leaves fire", "blocking a blow at the
+last moment turns it back"). A build is a weapon, a weight, and four trinkets.
+
+CLASSES, late and optional (Q6): six of them, each a short tree of things learned by doing - the Warden
+(shield), the Reaver (two-handed), the Skirmisher (dodge and dagger), the Ranger, the Trapper (lays what
+dungeons lay), the Chanter (songs that mark, slow and embolden; the party's support).
+
+================================================================================================================
+2. DUNGEONS
+================================================================================================================
+
+HOW ONE IS MADE. From ROOMS drawn by hand (the structure system, a few hundred of them) joined by rule: a way
+through from door to stair, side rooms off it, a locked room with its key elsewhere, a secret behind a wall
+that sounds hollow, a shrine, a shop, a boss. Each kind of dungeon has its own rooms, enemies, traps and rule.
+
+FIVE KINDS, AND THE LAST:
+   THE CRYPT        The dead. Short, straight, dark - torches matter. The one that teaches.
+   THE KEEP         Soldiers who call for help, portcullises, arrow slits, a siege engine to turn round.
+   THE WARREN       Dug by something. No rooms: tunnels that close behind you. Swarms. A queen.
+   THE WORKS        A flooded factory of traps: pistons, crushers, steam (Machinations' parts, where it is on;
+                    its own otherwise). Few enemies. The dungeon is the enemy.
+   THE LABYRINTH    Walls that move on a count. A thing in it that cannot be killed, only avoided, until the end.
+   THE UNDERCROFT   All of them, a hundred floors, a boss every ten, a rest every five. Deeper is harder
+                    without end. How far you got is the score.
+
+IN EVERY DUNGEON: keys and locks in three colours; pressure plates, levers, pushable blocks (the engine has
+all of these); pits, darts, flame jets, falling ceilings, floors that give way; chests, some of them mimics;
+barrels to break; shrines that offer a bargain (a boon for the run, at a price for the run); a merchant who
+takes what the dungeon pays in; a map that fills in as you go.
+
+A RUN'S OWN POWERS. Besides what you carry, a run gathers BLESSINGS - temporary, stacking, gone at the door:
+choose one of three after each boss. Two runs with the same gear play differently. (The effects engine that
+Potioncraft brought is what these are.)
+
+================================================================================================================
+3. ENEMIES AND BOSSES
+================================================================================================================
+
+About 90, in families of the dungeon they belong to, each family with a grunt, an archer, a brute, a caster, a
+swarm and an elite - and each with ONE thing it does that must be answered: the shield-bearer who must be
+flanked, the bomber who must be killed far away, the healer who must be killed first, the mimic, the one that
+splits, the one that only moves when unseen. Enemies work together by simple rules (archers keep back, brutes
+go first, some flee to fetch others).
+
+TWELVE BOSSES, each a room built for it and a fight in phases: the Bone King who raises what you killed on the
+way in; the Castellan on the wall, fought up a siege tower; the Brood Mother and the collapsing nest; the
+Foreman - a machine with four arms that are four machines; the Minotaur, who is the Labyrinth's unkillable
+thing, killable at last by the walls themselves; and seven more down the Undercroft.
+
+ABOVE GROUND, so that the new fighting matters outside: bandit camps, a wandering knight who duels and yields
+his sword, night raids on a base that has grown rich (a setting; off by default).
+
+================================================================================================================
+4. WHAT COMES OUT
+================================================================================================================
+
+Dungeon coin (spent at the dungeon's merchant and at a QUARTERMASTER set up at home); weapons and armour with
+ONE random property each from a list of sixty (found, never made - the reason to go back); trinkets;
+materials found nowhere else, for the top tier of each weapon kind; recipes for the home benches; trophies
+(a boss's head for the wall); room blueprints, with which to build a dungeon of your own at home and send a
+friend's character - or your second one - through it.
+
+Benches: armoury (5 grades), fletcher, whetstone and repair bench (weapons wear), trophy mount, the
+quartermaster, a training yard (dummies that fight back by a script you set: practise a boss).
+
+================================================================================================================
+5. ENGINE
+================================================================================================================
+
+New, as data fields:
+   - attacks with shape and timing (reach, arc, wind-up, recovery) for characters and creatures; hit squares
+     shown before a blow lands; block, dodge, stagger, knock-back; a stamina bar;
+   - creature behaviours as small scripts in data (approach, keep distance, flee and fetch, guard a place,
+     phases by health) instead of the handful of fixed kinds there are now - the biggest single gain for every
+     other mod as well;
+   - a dungeon maker: rooms joined by rule, with locks and keys placed so that they can always be solved;
+   - places that are made on entering and thrown away on leaving (a pocket world that is not kept);
+   - followers: your other characters acting by rule when not played;
+   - random properties on an item (a number kept with it, as meters are);
+   - a run: what was gained since the door, forfeited on death.
+Reused: structures (rooms), pocket places (Dimensions), signals and pistons (traps, moving walls), effects
+(blessings, bleeding, burning), relic slots (trinkets), sets, cages (a captured mimic is a chest that bites).
+
+HARD PARTS: combat by clicks that still feels like skill (Q1) - this needs a prototype before the rest is
+worth building; locks and keys that are never unsolvable; followers that are a help and not a nuisance; ninety
+enemies that are ninety things and not six things in fifteen colours.
+
+SIZE, AS PROPOSED            blocks   items   recipes   enemies   bosses   rooms   places
+   The Undercroft             ~300     ~650     ~600       ~90       12     ~300    five dungeons and the Undercroft

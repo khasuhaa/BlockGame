@@ -1,0 +1,145 @@
+PROPOSAL 4 - HEARTH AND HOLLOW   (a settlers mod; medium to large; for approval - nothing is built)
+
+Everything in this world is done by the one who is played. Industry automates with machines and Machinations with
+pistons; Rags to Riches has villagers, but they stand in their houses and sell. This mod is the third way to get
+things done: PEOPLE. Settlers who come because you built somewhere worth coming to, who have a trade, a home, a
+temper and a day, and who do the work of a settlement while you do something else.
+
+It is not a machine with a face on it. A settler who is cold, hungry, crowded or bored works badly and at last
+leaves; one who is well housed and well fed gets better at their trade and brings others. The thing you build is
+not a factory but a place people want to be.
+
+Size: ~150 blocks, ~300 items, ~350 recipes, 16 trades, and a great deal of behaviour.
+
+================================================================================================================
+0. QUESTIONS
+================================================================================================================
+
+Q1. HOW MUCH THEY ARE TOLD. Two schools:
+      A. You ZONE and they decide: mark a field, a quarry face, a stockpile, a workshop; settlers of the right
+         trade find the work themselves. Recommended: it is the less tiring to play and the more alive to watch.
+      B. You give each settler orders. More control, and a second job for the player.
+    Recommended: A, with one override - any settler can be told "do this now".
+
+Q2. HOW THEY ARRIVE. Recommended: by what you have built. A bed with a roof and a table brings a wanderer. Each
+    kind of settler wants something to be there first (a smith comes to a forge; a brewer to a hop field and a
+    cellar). A notice board says who is thinking of coming and what would decide them.
+
+Q3. CAN THEY DIE. Recommended: they can be hurt, fall ill, and leave; they do not die. Losing a named settler to
+    a dropbear would be a cruelty the rest of the game does not have.
+
+Q4. HOW MANY. Recommended: up to about 40 in a world. Each one finds its way about, which is the costliest
+    thing the game does; forty is a number the game can afford, and a village's worth.
+
+Q5. WITH RAGS TO RICHES. Its villages stay as they are. Where both are on, a village's people can be invited to
+    your settlement, and yours can carry goods to market there. Neither needs the other.
+
+Q6. DELIVERY. Recommended: three stages - (1) settlers, homes, needs, hauling, farming, the notice board;
+    (2) the trades and workshops; (3) festivals, visitors, the council and the town's ranks.
+
+================================================================================================================
+1. A SETTLER
+================================================================================================================
+
+Each has a name, a face (the character model, in their own clothes), a TRADE, a skill in it that rises with
+practice (apprentice, journeyman, master), and two or three TRAITS drawn from forty: early riser, glutton,
+green-fingered, afraid of the dark, sings at work (those near work faster), light sleeper, hates rain, tidy,
+gossip, loner, brave. Traits are why one cook is not another.
+
+A DAY. They wake, eat, go to work, stop to eat, work, come home, spend the evening somewhere (the hearth, the
+inn, the square), and sleep. Seasons and weather change the day: nobody ploughs in a storm. Watching this go
+round is half the pleasure of the mod.
+
+NEEDS, each a bar: food (and variety - the same stew every day palls), rest (a bed of their own, quiet),
+warmth, shelter, company, beauty (flowers, lamps, a view - the game's environment score, applied to them),
+leisure, and purpose (work that suits them, and enough of it). The bars make a MOOD, and mood sets how well
+and how fast they work, whether they stay, and whether they speak well of the place to others.
+
+HOMES. A bed claims a room; a room is judged by its size, light, floor, what is in it and who else is. A
+family wants a house. Better homes are the long project: a settlement that began as huts ends as a town.
+
+================================================================================================================
+2. TRADES
+================================================================================================================
+
+Sixteen, each with a workplace that must be built, tools that must be supplied, and three ranks of skill:
+
+   FARMER       sows, waters, reaps and replants zoned fields; at master, rotates crops and saves the best seed
+   HERDER       feeds, shears, milks and breeds whatever is penned
+   WOODCUTTER   fells and replants a zoned wood; never the tree you marked to keep
+   MINER        digs a face you have marked, props the roof, brings ore out - never deeper than is lit
+   HAULER       carries from where things are made to where they are wanted; the settlement's blood
+   BUILDER      builds what you lay out as a GHOST: place blocks as outlines and they fetch and set them
+   COOK         cooks what the larder allows into meals; variety is their craft
+   SMITH, CARPENTER, MASON, TAILOR    each keeps a workshop making what its ORDER BOARD lists, from stock
+   BREWER       beer, cider, mead: the inn's trade, and a festival's
+   HEALER       tends the hurt and the ill; grows herbs
+   GUARD        walks a round by night; sees off what comes
+   TEACHER      an apprentice near a teacher learns twice as fast; children (Q below) grow up skilled
+   MERCHANT     takes the surplus to a trade portal or a village and comes back with what was asked for
+
+The BUILDER is the trade that changes the game most: a wall, a road, a house laid out as ghost blocks and
+built while you are away. The HAULER is the one that makes the rest work.
+
+ORDER BOARDS. A workshop makes what its board says: "keep 20 bread", "make 5 iron picks", "until told to stop".
+STOCKPILES say what may be kept where. Between them, a settlement runs itself or jams, and unjamming it is
+the puzzle.
+
+================================================================================================================
+3. THE SETTLEMENT
+================================================================================================================
+
+It has a name, a banner, and a RANK that rises with its people and what it has: camp, hamlet, village, town,
+free city. Each rank opens buildings and brings a kind of visitor.
+
+BUILDINGS that are more than rooms because of what happens in them: the hearth (company, at first), a well, a
+larder, a granary, an inn (leisure; travellers; news), a bathhouse, a school, a shrine, an infirmary, a market
+square, a watchtower, a town hall with a council table.
+
+VISITORS: pedlars, a tinker who mends, travelling players (a night's leisure for everyone), a tax-farmer you
+may refuse, pilgrims, a rival settlement's envoy, and wanderers who may stay.
+
+FESTIVALS, four a year by the season: sowing, midsummer, harvest, midwinter. Each wants things laid in (food,
+drink, lanterns, a bonfire, music), lasts a day and a night, and leaves the whole place in good heart for a
+season - or, skimped, the reverse.
+
+THE COUNCIL. At village rank, settlers ask for things: a bridge, a bigger inn, fewer hours in winter, the
+dropbears in the east wood dealt with. Granting them is the mod's quests, and they come from what is actually
+wrong with your settlement, not from a list.
+
+CHILDREN, optionally: families in good homes have them; they play, go to school, and grow into settlers with
+a parent's trait and a trade of their choosing. A settlement that can replace itself.
+
+================================================================================================================
+4. WHAT IT MAKES
+================================================================================================================
+
+Tools of each trade in the game's metals; work clothes (an apron, a miner's cap with a lamp, a herder's crook);
+furniture that a room is judged by (tables, chairs, rugs, shelves, curtains, a mantel, a cradle, a writing
+desk - about 80 pieces, in four woods and three styles); signs and boards; carts and barrows that haulers use;
+the buildings' special blocks; festival goods (lanterns, bunting, a maypole, a long table, fireworks); a
+LEDGER that shows everything the settlement has, makes, eats and lacks.
+
+================================================================================================================
+5. ENGINE
+================================================================================================================
+
+New, as data fields:
+   - people: creatures with the character's body, an inventory, needs, a schedule, and a list of jobs they can
+     take - found by looking for work within reach, done with the same actions a character has;
+   - ZONES: rectangles of the world with a purpose (field, wood, quarry, stockpile, pen, no-go);
+   - GHOST BLOCKS: a layer of blocks that are wanted, not there yet;
+   - rooms: a flood-fill that knows a room's size and contents (a space mod would use the same);
+   - order boards and stock rules as data kept with a block;
+   - route-finding for many walkers cheaply (shared paths along roads, which is also why roads are worth building);
+   - moods, traits, and a notice board that explains itself.
+Reused: the character model and its poses, actions and tools (they do what you do), creatures' saving,
+structures, the environment score, beds, seasons and weather, signals (a bell that calls everyone in).
+
+HARD PARTS: forty walkers on a big world without slowing it (Q4) - the engine's route-finding is sized for one
+character and would need to be bounded and shared; settlers that never get stuck, never starve beside a full
+larder, and never carry the last bread away from the cook; saying WHY a settler is unhappy plainly enough that
+it is a puzzle and not a mystery.
+
+SIZE, AS PROPOSED            blocks   items   recipes   trades   traits   buildings
+   Hearth and Hollow          ~150     ~300     ~350       16       40        14

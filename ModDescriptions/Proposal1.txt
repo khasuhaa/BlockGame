@@ -1,0 +1,167 @@
+PROPOSAL 1 - TIDES OF FORTUNE   (a seafaring mod; MAJOR, on the scale of Dimensions; for approval - nothing is built)
+
+The game has an ocean and almost nothing to do with it: a biome at the edge of the land with fish, sharks, kelp and
+coral in it. This mod makes the sea a second world as big as the land - one you cross in a ship you built, dive
+under in a suit you made, fish, chart, salvage and fight on. No other mod touches water as a place.
+
+    a raft and a pole  ->  a sloop  ->  a brig with a hold and guns  ->  a diving bell  ->  a submarine  ->
+    the trench, and what lives at the bottom of it
+
+It is meant to add about as much as Dimensions did: ~350 blocks, ~700 items, ~800 recipes, ~55 creatures.
+
+================================================================================================================
+0. QUESTIONS
+================================================================================================================
+
+Q1. WHAT A SHIP IS. Two ways, and they are very different amounts of work:
+      A. A ship is a VEHICLE, as the train's carriages are: an item with a picture, a hold, a speed. You build it
+         at a shipyard from parts and launch it. Recommended. The engine already moves vehicles, seats riders in
+         them, gives them cargo and saves them; what is new is that these run on water instead of rails.
+      B. A ship is built of blocks, any shape, and the blocks move. Far more work (moving a piece of the world is
+         something the engine cannot do), and it would be the whole mod.
+    Recommended: A, with ships that are customised by what is fitted to them (sails, hold, guns, a figurehead)
+    in slots, so that two brigs are not the same brig.
+
+Q2. HOW BIG THE SEA IS. Today a world is mostly land with sea at the edges. Recommended: a world option, "Seas",
+    from the game's own (as now) through Archipelago (half sea, many islands) to Ocean World (nearly all sea) -
+    and the mod's content appears in whatever sea a world has, so an old world's little ocean still gets wrecks
+    and reefs when it is next generated... which it never is. So also: a SEA CHART item that leads to a new place,
+    "the Far Seas", made the way Dimensions makes its places: an ocean a world wide, reached by sailing off the
+    edge of the home sea. Old worlds get everything that way. Say if you would rather it were only the option.
+
+Q3. TIDES AND WEATHER AT SEA. Recommended: yes to both, modestly - the sea level rises and falls a few blocks
+    twice a day (uncovering tide pools, wrecks and cave mouths), and storms at sea are dangerous to small boats
+    (waves that wash a character overboard, lightning that strikes masts). Alternative: neither; a flat calm sea.
+
+Q4. FIGHTING AT SEA. Pirates, sea serpents, a kraken. Recommended: ship's guns that fire at what is clicked on
+    (they are the bow, bigger), creatures and ships that attack the hull, a hull with its own health that is
+    mended with planks and pitch. No boarding, no crews with minds of their own.
+
+Q5. A CREW. Recommended: your own characters only (the game allows several); a second character can be left at
+    the helm or the guns. No hired sailors in the first version.
+
+Q6. WITH OTHER MODS. It depends on none. Where Rags to Riches is on, harbour villages; where Culinary Delights
+    is on, its recipes can take the new fish. By lists that skip what is not there.
+
+Q7. DELIVERY. Recommended: four stages, each playable - (1) boats and the sea made bigger; (2) fishing, diving,
+    reefs and wrecks; (3) big ships, guns, pirates and monsters; (4) the Far Seas, the trench, the submarine.
+
+================================================================================================================
+1. SHIPS
+================================================================================================================
+
+Built at a SHIPYARD (a bench that must stand at the water's edge), launched onto water, sailed with the movement
+keys, moored at a BOLLARD. A ship has a hull (health), a draught (how deep the water must be), a speed that the
+wind helps or hinders, a hold, and fittings.
+
+   RAFT            four logs and rope. One rider, slow, no hold, capsizes in a storm. The first hour.
+   ROWING BOAT     two riders, a small hold, shallow draught: goes up rivers.
+   SLOOP           one mast. The first real ship: a hold of 16, a cabin with a bed (so a ship is a home).
+   FISHING SMACK   a sloop's hull with a net winch and a fish hold that keeps a catch fresh.
+   BRIG            two masts, a hold of 48, four gun ports, room for a workbench below.
+   GALLEON         three masts, a hold of 96, twelve gun ports, a ship's furnace and kitchen.
+   IRONCLAD        steam and plate: ignores the wind, burns coal, shrugs off small guns. (Tier with Industry's age.)
+   DIVING TENDER   carries a diving bell on a crane and an air pump.
+   SUBMARINE       goes under. Air for a while, a lamp, a claw to pick things up, a hatch to swim out of.
+
+FITTINGS (slots on a ship): sails (linen, canvas, silk - speed), a keel (stability), a hold (bigger, or cold),
+anchor, lanterns, a figurehead (each a small boon: luck with fish, calm in storms, speed), guns, a harpoon, a
+net winch, a crane, a crow's nest (see further: uncovers fog of war at range), a ship's bell, a flag.
+
+THE WIND. A direction and a strength that change through the day, shown by a pennant. With it, fast; across it,
+fair; against it, a crawl. A compass and a weather glass tell you what is coming.
+
+================================================================================================================
+2. THE SEA ITSELF
+================================================================================================================
+
+Deeper, and in layers: SHALLOWS (light, reefs, seagrass), the OPEN SEA (shoals of fish, the shadow of something
+big), the TWILIGHT (dim; jellyfish that glow, squid), and the ABYSS (dark; vents, bone fields, the trench).
+Pressure: below a depth a swimmer takes harm without a suit, and below another without a better one.
+
+PLACES, made by the structure system and by biomes of the sea floor:
+   coral reefs in six colours (living blocks that grow, slowly, and die out of water)   kelp forests
+   sandbars and atolls with a lagoon inside        sea stacks and arches        sea caves that the tide opens
+   SHIPWRECKS in five sizes, each with a hold to salvage, some with a ghost in them
+   sunken temples (a puzzle of flooded rooms: pump one out to open the next)     a drowned village
+   hydrothermal vents (heat, and ores found nowhere else)       whale falls (bone, and what feeds on it)
+   icebergs in cold seas (mostly under water; fresh water and trapped things)    a maelstrom (pulls ships in)
+   lighthouses on headlands (ruined; rebuild one and the fog of war at sea lifts for a long way round it)
+   pirate coves        a ghost ship that sails on its own on moonless nights        buoys and sea marks
+
+TIDES (Q3) and CURRENTS: bands of sea that carry a ship along - the trade routes, once charted.
+
+CHARTING. The sea is fog until sailed. A CHART TABLE turns what a character has seen into charts: an item that
+shows a region to whoever holds it, that can be copied, sold, or bought from a harbour. Treasure maps are charts
+with a cross on them.
+
+================================================================================================================
+3. FISHING, DIVING, SALVAGE
+================================================================================================================
+
+FISHING. Rod and line from the shore or a boat; nets and pots left out and hauled later; a harpoon for the big
+ones. About 60 fish and shellfish, each of a depth, a sea and a season, in sizes (the engine already has sized
+creatures); a record of the biggest of each kind caught; bait and lures that choose what bites. Fish spoil
+unless salted, smoked, iced or kept alive in a tank. Pearls from oysters, a few of them black.
+
+DIVING. Breath is the game's own. Then: a snorkel, a diving helmet fed by a hand pump on the boat (a hose: you
+can go as far as it reaches), a diving bell (air pocket lowered on a chain - a base on the sea floor), a
+standard dress for the twilight, a hard suit for the abyss, and at last gills from something found down there.
+Under water: a lamp, a spear gun, a pry bar for wrecks, lifting bags that float a heavy thing to the surface.
+
+SALVAGE. Wrecks hold cargo by their age (amphorae, coin chests, cannon, silver bars, a ship's figurehead to fit
+to your own), sunken temples hold relics. An UNDERWATER HABITAT - glass and brass blocks that keep the sea out
+when sealed and pumped - is the late-game base.
+
+================================================================================================================
+4. DANGERS
+================================================================================================================
+
+About 55 creatures. Harmless: shoals, turtles, dolphins that swim alongside, seals, gulls that show where fish
+are, whales that sound. Dangerous: jellyfish (sting), barracuda, morays in the reef, sharks in five kinds,
+giant squid that take hold of a hull, sea serpents, sirens on rocks (the view is pulled toward them), a KRAKEN
+(a boss in several parts: arms that must be cut before the body rises), the LEVIATHAN in the trench.
+PIRATES: sloops and brigs that close and fire; a pirate cove to raid; a bounty board at harbours.
+THE SEA ITSELF: storms, waterspouts, fog banks, ice, whirlpools, running aground on a falling tide.
+
+================================================================================================================
+5. WHAT IT MAKES
+================================================================================================================
+
+Materials: salt, pitch, tar, canvas, oakum, rope and cable, ship's timbers, copper sheathing, brass, whalebone,
+ambergris, pearls and mother-of-pearl, coral, sea glass, sponge, shark skin, squid ink, deep-sea ores (three).
+Benches: shipyard (5 grades), sail loft, ropewalk, smokehouse, salt pans (work by the sun), chart table,
+net loft, cooperage (barrels: the sea's chests), diving workshop, brass foundry.
+Building: dock pilings, piers, jetties, slipways, sea walls, lock gates (a canal with working locks), cranes,
+lighthouse lamp, harbour lights, portholes, hammocks, ship's wheels as furniture, figureheads, nets hung to dry.
+Food: forty dishes of fish. Clothing: oilskins (storms), a sou'wester, sea boots, a captain's coat and hat,
+diving dress - with set bonuses.
+Trade: cargo runs. A harbour buys what it lacks at a premium; a hold full of the right thing is a fortune, and
+a storm on the way is the risk. (This is the mod's money, and it is the reason to build a bigger ship.)
+
+LONG MAKINGS, as the owner likes them: the galleon is about fourteen makings (timber -> seasoned -> frames ->
+keel -> hull -> ... -> rigged), the submarine and the hard suit about sixteen, each needing the ship before it.
+
+================================================================================================================
+6. ENGINE
+================================================================================================================
+
+New, as data fields any mod could use:
+   - vehicles that run on water (a kind of vehicle beside rails): draught, wind, hull health, fittings as a
+     container with typed slots; mooring; riders who can walk about on deck (a vehicle with a floor);
+   - sea level as a number that changes (tides) rather than a constant; currents as a field over water;
+   - wind (direction, strength) as world state, usable by anything (windmills would like it);
+   - pressure by depth (the opposite of cold by height); air supplied through a hose or a sealed room - "sealed
+     room" being a flood-fill the game does not have yet, and that a space mod would also want;
+   - things that spoil over time (a number kept with a stack, as meters are);
+   - creatures of several parts (the kraken); creatures that attack vehicles; vehicles that are hostile;
+   - a fishing action (cast, wait, strike) and catch tables by depth, biome, season, bait;
+   - charts: an item that carries a piece of the explored map.
+Reused: vehicles and riding (trains), sized creatures and swimming (fish, sharks), structures (villages),
+dimensions (the Far Seas), effects (wet, seasick, the bends), relic slots (figureheads), fog of war.
+
+HARD PARTS, said now: walking on a moving deck; water that looks right around a hull; the tide moving a great
+deal of water every few minutes without slowing the game (it must be a level, not a simulation); the kraken.
+
+SIZE, AS PROPOSED            blocks   items   recipes   creatures   ships   places
+   Tides of Fortune           ~350     ~700     ~800       ~55        9     the sea, the Far Seas, the trench

@@ -1,0 +1,169 @@
+PROPOSAL 2 - BEYOND THE SKY   (a space mod; MAJOR, on the scale of Seeker of the Dao; for approval - nothing is built)
+
+The portal brought the first character to this world. This mod is about leaving it the hard way: a rocket built
+stage by stage on a pad, a launch that can fail, an orbit, a station bolted together in the dark, the Moon, the
+asteroid belt, a red planet with weather that kills, and the wreck of whoever came before.
+
+It differs from Dimensions (which adds places you step into through a door) in what the places DO to you: there
+is no air, gravity is not what it was, the cold and the sun are both deadly, and everything you need has to be
+carried up or made there. The work of the mod is life support, rocketry and a base that keeps itself alive.
+
+    a telescope  ->  a sounding rocket  ->  orbit  ->  a station  ->  the Moon  ->  the Belt  ->  the red planet  ->
+    the derelict, and the engine that does not need fuel
+
+Size: three or four times the base game in blocks and recipes; about the size of Seeker of the Dao.
+
+================================================================================================================
+0. QUESTIONS
+================================================================================================================
+
+Q1. HOW REAL. Recommended: the feel of rocketry without the arithmetic - a rocket has a mass and its engines a
+    thrust and a burn time, and the game tells you plainly "reaches orbit" or "falls short by so much". Staging
+    matters, payload matters, fuel matters; orbital mechanics do not. Alternative: launches as a recipe (build
+    the rocket, click, you are there) - much less work, much less of a game.
+
+Q2. WHAT A ROCKET IS. Recommended: built of BLOCKS on a launch pad - tanks, engines, a capsule, fairings,
+    decouplers - stacked in a column up to five wide. The pad reads the stack (as a formation reads its flags)
+    and works out what it will do. At launch the blocks become a vehicle (the engine has vehicles) and fly; what
+    is jettisoned falls back and can be recovered or is lost. So rockets are designed, not chosen from a list.
+
+Q3. AIR. The heart of it. Recommended: a room is breathable if it is SEALED (every way out is a wall, a window or
+    an airlock) and has had air put in it. The game works out sealed rooms by flooding from each air vent. Break
+    a wall and the air goes - quickly from a small room, slowly from a big one - and everything in it that needs
+    air starts to die. Outside a sealed room: a suit, with a tank that runs down.
+
+Q4. GRAVITY. Recommended: each place has its own - the Moon a sixth (jump six blocks, fall slowly, carry more),
+    orbit none (you float; you move by pushing off walls and by a suit's thrusters; loose things drift), the red
+    planet a third. This touches how characters move, which is the most delicate code in the game: say if you
+    would rather gravity were only "low" and "normal", with no weightlessness.
+
+Q5. WHERE THE PLACES ARE. The engine stacks other places under the world. Recommended: orbit, the Moon, the Belt
+    and the red planet are four such places (each as wide as the home world, less tall), with the sky of each
+    drawn for where it is - the home world hanging in the Moon's sky. Travel between them is by rocket only, and
+    takes time (the game runs fast while you wait, as it does in sleep).
+
+Q6. POWER. Space needs electricity for everything. Recommended: the mod brings its own small power set (solar
+    panels, batteries, cables, a reactor) under its own names, and uses Industry's where Industry is on. It must
+    not depend on Industry.
+
+Q7. AN ENDING. Recommended: yes - the derelict ship at the edge of the red planet's sky, its drive repaired with
+    the last tier of everything, and a last launch to "somewhere else" that rolls the credits and leaves the
+    world playable. The game has no ending now; this would be the first.
+
+Q8. DELIVERY. Recommended: six stages - (1) telescope, sounding rockets, the pad; (2) air, suits, sealed rooms,
+    orbit and the station; (3) the Moon; (4) the Belt and mining ships; (5) the red planet; (6) the derelict.
+
+================================================================================================================
+1. ROCKETRY
+================================================================================================================
+
+THE PAD. A LAUNCH PAD with a GANTRY and a CONTROL DESK. Whatever is stacked on the pad is the rocket. The desk
+shows it as a column with numbers: mass, thrust at each stage, burn time, and the verdict - which place it can
+reach with what is aboard, and how much it has to spare.
+
+PARTS, five tiers of each (one a place):
+   ENGINES      solid motor (cheap, cannot be shut off); kerosene; hydrogen; methane made on the red planet;
+                nuclear thermal; and the derelict's drive
+   TANKS        fuel and oxidiser, in three widths; insulated for hydrogen
+   CAPSULES     one seat, three seats, a lander with legs, a cargo pod, a probe core (no one aboard)
+   STRUCTURE    decouplers, fairings, interstage, fins, landing legs, heat shield, parachutes, docking port
+   PAYLOAD      satellite buses, station modules, rovers folded up, a habitat that unfolds
+
+WHAT GOES WRONG. An engine has a reliability that rises each time its kind flies. A failure is a fire on the
+pad, an engine out (the desk says whether the rest still make it), or a stage that will not separate. A LAUNCH
+ESCAPE TOWER saves the crew. Test stands let an engine be run on the ground first. This is the mod's dice.
+
+FUEL. Made, not found: an OIL WELL and REFINERY for kerosene; ELECTROLYSIS of water for hydrogen and oxygen
+(which is also the air); a cryo plant; a SABATIER plant on the red planet. Pipes, pumps, a tank farm, a
+fuelling arm on the gantry.
+
+BEFORE ANYONE GOES. A telescope finds the places (they cannot be flown to until found). Sounding rockets bring
+back samples of the upper air. PROBES map a landing site: without one, the lander comes down somewhere bad.
+SATELLITES do things at home: a weather satellite forecasts, a survey satellite shows ore through the map, a
+relay lets a terminal at home see a base on the Moon.
+
+================================================================================================================
+2. STAYING ALIVE
+================================================================================================================
+
+AIR (Q3): vents, tanks, scrubbers (a room's air goes bad as it is breathed, unless scrubbed or plants grow in
+it), airlocks (two doors, never both open), pressure doors that shut by themselves when a room is holed, patch
+kits, an alarm. A character's panel shows the air of the room they are in.
+
+SUITS: five, from a pressure suit that is good for minutes to a hard suit good for a day; each with air, power,
+heat and cold limits, a helmet lamp, thrusters in orbit, and slots for a tool belt. A suit is repaired, not
+replaced; a torn one leaks.
+
+HEAT AND COLD. The game already has an environment score. Here it is life or death: shade on the Moon is
+colder than anything at home and sunlight hotter. Radiators, heaters, insulation, and the base buried under
+regolith for the nights, which are two weeks long.
+
+RADIATION, lightly: solar storms are forecast and must be sat out behind enough wall.
+
+FOOD AND WATER. Carried at first. Then hydroponics (crops in trays under lamps, in a sealed room, cleaning the
+air as they grow), a water recycler, ice mined at the Moon's pole, algae vats, and at last a closed loop: a base
+that needs nothing from home. Getting there is the middle of the game.
+
+================================================================================================================
+3. THE PLACES
+================================================================================================================
+
+ORBIT. Black, the world turning below. Nothing to stand on but what is brought. The STATION is built of modules
+launched one at a time and docked: hub, lab, habitat, greenhouse, solar truss, dock. Weightless inside. Outside,
+on a tether. Things found there: dead satellites to salvage, micrometeorites that hole a module now and then.
+
+THE MOON. Grey regolith over rock; craters with dark floors where ice is; lava tubes (ready-made caves, the
+natural place for a base); the peaks at the pole where the sun never sets. Helium-3 in the dust, titanium,
+rare glass. Low gravity makes building tall easy and falling slow. A mass driver throws cargo back to orbit.
+
+THE BELT. Hundreds of asteroids as small floating bodies (the island generator, with no gravity between them):
+metal ones, ice ones, carbon ones, and a few that are hollow, or are not rocks. Mined from a MINING SHIP that
+latches on. The richest ore in the game, and the hardest place to be.
+
+THE RED PLANET. Rust plains, a canyon deeper than the world is tall, dust storms that last days and bury solar
+panels, dust devils, frost at dawn, a thin air that will not keep you alive but will make fuel. Caves with
+something growing in them. The ruins of an earlier base - not yours.
+
+THE DERELICT. Above the red planet. A ship the size of a village, dead and open to space, in sections that must
+be sealed, powered and pumped up one by one - a dungeon whose danger is the place itself. Its logs, read in
+order, are the mod's story. Its drive is the ending (Q7).
+
+================================================================================================================
+4. WHAT IT MAKES
+================================================================================================================
+
+Materials: aluminium, titanium alloys, composites, heat tiles, aerogel, glass that holds pressure, regolith
+brick and sintered concrete, helium-3, platinum-group metals, ice, perchlorate, meteoric iron, things from the
+derelict that cannot be made. Electronics in five tiers (boards, chips, sensors, computers, a flight computer).
+Benches: clean room, machine shop, composites oven, cryo plant, electronics bench, assembly bay, test stand,
+sample lab (what is brought back is studied there, and studying unlocks the next tier - the mod's research).
+Machines: rovers (a vehicle that drives on ground, pressurised later), drills, a regolith sifter, 3D printers
+that make blocks from local dust, robot arms, solar farms, a reactor, beamed power.
+Creatures: almost none, and that is the point - until the red planet's caves, and the derelict.
+LONG MAKINGS: a crewed Moon rocket is about fifteen makings deep; the closed-loop base and the drive repair
+past twenty. Every tier's electronics are made with the tier's before.
+
+================================================================================================================
+5. ENGINE
+================================================================================================================
+
+New, as data fields:
+   - gravity per place (and none): how far characters and creatures jump and fall, what floats;
+   - sealed rooms and air: a flood-fill kept up to date as blocks change, air as a quantity per room, leaks;
+   - a pattern-reader for a stack of blocks (the pad), and blocks that become a vehicle and back again;
+   - vehicles that fly a set path between places, taking time; vehicles that drive on ground (rovers);
+   - a suit as a worn thing with its own meters (air, power);
+   - the environment score made lethal at its ends, with day lengths per place;
+   - research: recipes that are known only once something has been studied (Seeker of the Dao's formulas, as
+     a general rule);
+   - a sky drawn per place (a planet in it, stars, no blue);
+   - an ending.
+Reused: other places (Dimensions' engine), vehicles (trains), power (Industry's fields), signals (alarms and
+doors), structures (ruins, the derelict), effects, storage networks if Digital Storage is on.
+
+HARD PARTS: weightless movement (Q4); keeping sealed rooms right when blocks change every tick; a rocket that
+is blocks one moment and a vehicle the next; making a place with almost no creatures feel dangerous rather
+than empty. None is impossible; the first is the one to prototype before anything else is promised.
+
+SIZE, AS PROPOSED            blocks   items   recipes   creatures   rocket parts   places
+   Beyond the Sky             ~500    ~1,000   ~1,300      ~15          ~90        orbit, Moon, Belt, red planet, derelict

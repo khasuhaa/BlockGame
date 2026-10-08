@@ -1,0 +1,165 @@
+PROPOSAL 5 - CABINET OF CURIOSITIES   (a digging-up and showing-off mod; medium; for approval - nothing is built)
+
+The ground in this game is stone with ore in it. This mod puts a PAST in it: bones of things that lived here,
+the rubbish and treasure of people who did, layer under layer - and then gives you somewhere to put what you
+find. A museum that is yours, that is judged, that people come to see, and that is never finished.
+
+The other mods give you things to make. This one gives you things to FIND, to piece together, to understand,
+and to arrange - a collector's game, and a quieter one than anything else here.
+
+Size: ~200 blocks, ~450 items (most of them finds), ~150 recipes, 12 creatures brought back from the dead.
+
+================================================================================================================
+0. QUESTIONS
+================================================================================================================
+
+Q1. HOW DIGGING WORKS. Recommended: a find is not dropped by a pickaxe - a pickaxe BREAKS it. A dig site is
+    worked with a trowel and a brush: a small screen of the block's face, in layers, where you clear matrix
+    from around a thing without striking the thing (a few taps too many and it cracks; cracked finds are worth
+    less and show it). It takes a minute a find, and it is the mod's one new toy. Alternative: finds simply
+    drop, with a chance of damage by the tool used. Much less work, and much less to it.
+
+Q2. OLD WORLDS. Finds are put in the ground when a world is made. Recommended: a SURVEYOR'S STAKE that, set in
+    any world, seeds dig sites in the unexplored ground around it, so that worlds made before the mod are not
+    left out.
+
+Q3. BRINGING THINGS BACK. A fossil in a case is one thing; a living one is another. Recommended: yes, late and
+    hard - a few creatures can be raised from what is found, and kept. (Every creature in the game can be
+    caged; these can too.)
+
+Q4. WHO VISITS. Recommended: visitors are simple - they arrive by the portal, walk the halls, stop at what
+    interests them, leave coins and a remark, and go. They are not settlers and need nothing but a way round.
+    With Rags to Riches on, they come from the villages as well.
+
+Q5. DELIVERY. Recommended: three stages - (1) dig sites, the trowel, fossils, the first cases;
+    (2) the peoples and their things, restoration, the museum's score, visitors; (3) the living ones, the
+    expeditions, the last room.
+
+================================================================================================================
+1. WHAT IS IN THE GROUND
+================================================================================================================
+
+STRATA. Depth is time. Each band of depth is an AGE, and each age has its own finds, told from the colour of
+the dig-site block before it is touched:
+
+   TOPSOIL          yesterday: lost tools, coins, bottles, a dodo's collar with a name on it
+   THE SETTLERS     pottery, a plough, glass beads, a cellar with its jars still sealed
+   THE BUILDERS     cut stone, bronzes, mosaics in pieces, a road under the road, tombs
+   THE FIRST ONES   flint, bone needles, painted cave walls, a hearth, footprints
+   THE ICE          mammoth, sabre-tooth, a great deer; a frozen one, whole, in the far north
+   THE GIANTS       the big bones: twelve great beasts, each in forty to ninety pieces
+   THE SEAS         shells, sea lilies, armoured fish, things with too many legs
+   THE DEEP TIME    imprints in black shale, amber with something in it, and one thing that should not be here
+
+About 450 finds. Each has a rarity, a condition (pristine, good, worn, cracked), and - for the made things - a
+PEOPLE it belonged to: three vanished peoples, each with its own look, its own script, and its own end.
+
+DIG SITES are found by the lie of the land (a mound, a dark band in a cliff, a sinkhole), by a DIVINING kit
+that ticks faster near one, and by reading: a find sometimes points to another.
+
+BIG FINDS. A giant's skeleton is spread through many blocks of one site. A tomb is rooms. A buried ship, a
+kiln with its last firing in it, a library of clay tablets. These are expeditions, with a camp.
+
+================================================================================================================
+2. THE WORKSHOP
+================================================================================================================
+
+Nothing goes straight in a case.
+
+   THE PREP TABLE     plaster jackets are opened, matrix taken off under a lamp. Condition can be raised by
+                      one step with skill and patience, or lost.
+   THE MENDING BENCH  pieces are joined: a pot from sherds, a mosaic from tesserae, a tablet from fragments.
+                      A jigsaw, in effect - you hold some pieces and must find or trade for the rest. Gaps can
+                      be filled with plain plaster (honest, and scored lower) or left.
+   THE ARTICULATOR    bones become a skeleton on an armature, posed as you choose from a few poses. A giant
+                      takes a hall. It can be mounted with pieces missing, and shows it.
+   THE STUDY          the scripts. Every inscribed find adds signs to a table; with enough, a people's writing
+                      can be READ, and then every tablet, tomb wall and pot mark already in the collection says
+                      what it says. That is how the three peoples' stories are told - by you, in pieces, out
+                      of order.
+   THE CAST ROOM      copies. A cast can be shown where the real thing is too fragile, traded to another
+                      collector, or sold.
+
+IDENTIFYING. A find comes out of the ground as "a bone" or "a sherd". The study, reference finds already held,
+and a growing CATALOGUE turn it into what it is. Discovery Road's relic identifier does something like this
+for relics; here it is the middle of the game. A thing first identified in a world is named in the catalogue
+as yours.
+
+================================================================================================================
+3. THE MUSEUM
+================================================================================================================
+
+Built of ordinary blocks, however you like. What makes it a museum is what is in it:
+
+   CASES AND MOUNTS   glass cases in five sizes, plinths, wall mounts, floor mosaics under glass, a diorama
+                      case (a little scene with a painted back), frames, a great hall armature for a giant
+   LABELS             every exhibit has one. The game writes what is known; you may add a line.
+   LIGHT              an exhibit is judged by how it is lit (not dim, not in the sun), and some things fade.
+   ROOMS              a room with a THEME - one age, one people, one kind of beast - scores more than the
+                      same things scattered. A room's theme is worked out from what is in it and shown on a
+                      plaque by the door.
+
+THE SCORE. Each exhibit: what it is, how rare, what condition, how complete, how shown. Each room: its theme
+and how nearly it tells the whole of it. The museum: all of them, and how the rooms follow one another. It is
+shown as a number and as STARS, and - more usefully - as a line under each thing saying what would make it
+better.
+
+VISITORS (Q4). More come as the stars rise. They leave coin (the mod's income: slow, steady, and the reason
+the museum pays for the next dig) and remarks ("I walked straight past the sea-lilies: is that room lit?").
+Now and then: a scholar who will trade a find you lack for a cast of one you have; a rival collector with an
+offer; a child who asks what the thing in the last room is.
+
+SETS AND GAPS. The catalogue shows every find there is as a silhouette until it is found (as the trade menu
+shows a ? until an item is found). Complete a people's set, an age's, a beast's: each completion gives
+something - a recipe, a tool, a room plaque in gold. Nothing in the game is as long as filling the last gap.
+
+================================================================================================================
+4. THE LIVING ONES
+================================================================================================================
+
+Late. From amber, from the frozen one, from eggs in a nest in the Giants' stratum: twelve creatures that can
+be raised in a HATCHERY, each wanting an enclosure of its own kind (a fern house, a cold pen, a deep tank) and
+feed that must be grown from seeds that were also dug up. Small ones first - a thing like a chicken with
+teeth - and at the end one of the giants, which wants a paddock the size of a village and does not like fences.
+An enclosure is an exhibit: it is scored, and it is what brings the crowds.
+
+And the last room. The one thing in the Deep Time that should not be there is in pieces across the whole
+world, one piece to an age. Assembled, mended, read and put on its mount, it does something. It is the mod's
+only secret and its ending.
+
+================================================================================================================
+5. WHAT IT MAKES
+================================================================================================================
+
+Tools: trowels and brushes in the game's metals, sieves, plaster and jackets, a divining kit, a surveyor's
+level, a field notebook, a hand lens, dental picks (the finest work), a dig tent and camp bed, crates.
+Building: display glass, velvet rope, museum floor and wall in six finishes, skylights that light without
+fading, benches, a ticket desk, a donation box, banners, plaques.
+Benches: the five of the workshop, a carpenter's for cases, a glazier's.
+LONG MAKINGS: a mounted giant is its ninety bones found, prepared, some mended, an armature forged, a hall
+built and lit - not a recipe at all, and the longest making in the game.
+
+================================================================================================================
+6. ENGINE
+================================================================================================================
+
+New, as data fields:
+   - dig sites: blocks that hold a find chosen when the world is made (by depth, biome and a table), opened by
+     a small excavation screen rather than broken;
+   - condition and completeness kept with an item (a number, as meters are), and items made of named parts;
+   - a jigsaw/assembly bench: a thing built from particular pieces, some of which may be missing;
+   - identified and unidentified forms of an item, and a catalogue kept with the playset;
+   - exhibits: a block that shows the item put in it, with a label, and can be scored;
+   - rooms and their themes (a flood-fill; the same one a settlers mod or a space mod would want);
+   - a scoring rule in data, with the reasons for a score kept so that they can be shown;
+   - visitors: simple walkers with a path and a few lines to say;
+   - big skeletons: a model made of many placed parts, posed.
+Reused: structures (tombs, buried things), relic identifying (Discovery Road), cages and creatures, sets,
+the trade menu's "?" for the unfound, signs (labels), light, the environment score.
+
+HARD PARTS: an excavation screen that is a pleasure the four-hundredth time (Q1) - it needs variety by stratum
+and by tool, or an auto-dig for what you have dug before; a score that rewards taste rather than hoarding;
+450 finds that are worth looking at, which is the art of the whole mod and most of its work.
+
+SIZE, AS PROPOSED            blocks   items   recipes   finds   living   peoples
+   Cabinet of Curiosities     ~200     ~450     ~150     ~450      12        3
