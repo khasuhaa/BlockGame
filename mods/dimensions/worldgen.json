@@ -29,6 +29,7 @@
     {"name": "galvanite", "tile": "galvanite_ore", "dimension": "aether", "in": ["aetherstone", "cloudstone", "skymarble", "moonrock", "storm_slate"], "size": [2, 6], "per_100_columns": 16, "depth": [0, 300]},
     {"name": "aerite", "tile": "aerite_ore", "dimension": "aether", "in": ["aetherstone", "cloudstone", "skymarble", "moonrock", "storm_slate"], "size": [2, 5], "per_100_columns": 14, "depth": [0, 300]},
     {"name": "moonsilver", "tile": "moonsilver_ore", "dimension": "aether", "in": ["aetherstone", "cloudstone", "skymarble", "moonrock", "storm_slate"], "size": [2, 5], "per_100_columns": 10, "depth": [0, 160]},
+    {"name": "sky_frost_seam", "tile": "frost_glass", "dimension": "aether", "in": ["aetherstone", "moonrock"], "size": [4, 10], "per_100_columns": 6, "depth": [0, 140]},
     {"name": "sky_marble_seam", "tile": "skymarble", "dimension": "aether", "in": ["aetherstone"], "size": [6, 16], "per_100_columns": 8, "depth": [0, 300]},
     {"name": "sky_moonrock_seam", "tile": "moonrock", "dimension": "aether", "in": ["aetherstone", "cloudstone"], "size": [6, 16], "per_100_columns": 8, "depth": [0, 160]},
     {"name": "deepiron", "tile": "deepiron_ore", "dimension": "deep", "in": ["deepslate", "obsidian_rock", "magmarock", "lumerock", "bonestone", "ashstone"], "size": [3, 8], "per_100_columns": 70, "depth": [0, 240]},
@@ -47,6 +48,7 @@
     {"name": "umbrite", "tile": "umbrite", "dimension": "deep", "per_100_columns": 6, "depth": [120, 320]},
     {"name": "emberheart", "tile": "emberheart", "dimension": "deep", "per_100_columns": 2.5, "depth": [260, 320]},
     {"name": "lumen_vine", "tile": "lumen_vine", "dimension": "deep", "per_100_columns": 60, "depth": [0, 260], "hang": [2, 9]},
-    {"name": "deep_time_crystal", "tile": "time_crystal", "dimension": "deep", "per_100_columns": 6, "depth": [0, 320]}
+    {"name": "deep_time_crystal", "tile": "time_crystal", "dimension": "deep", "per_100_columns": 6, "depth": [0, 320]},
+    {"name": "steam_vent", "tile": "steam_vent", "dimension": "deep", "per_100_columns": 5, "depth": [200, 320], "on_floor": true}
   ]
 }

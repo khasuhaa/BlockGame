@@ -106,6 +106,12 @@ def block(base, name, label, r, tier, price, sel='all', r2=None, iover=None, **o
     os.makedirs(os.path.join(TEX, 'items'), exist_ok=True); icon.save(os.path.join(TEX, 'items', name + '.png'))
     items.append({'name': name, 'label': label, 'places': name, 'texture': 'items/%s.png' % name, 'category': 'materials', 'price': price, 'tier': tier}); PRICE[name] = price
 
+def furnish(base, name, label, r, tier, price):
+    """Something of the game's to put down, in another material: the block its item places, and the item."""
+    tb = BI[base]['places']
+    tile(tb, name, label, r, 'tint', drop=name)
+    item(base, name, label, r, 'tint', tier=tier, price=price, places=name, **({'container': BI[base]['container']} if 'container' in BI[base] else {}))
+
 # ---- the benches ------------------------------------------------------------------------------------------------
 # Where things are made: (kind, the tile that must be had or None, level).
 BENCH = {}
@@ -172,13 +178,13 @@ for n, lab in [('deepslate', 'Deepslate'), ('obsidian_rock', 'Obsidian'), ('magm
 def ground(base, name, label, r, tier, soil=None, **over):
     block(base, name, label, r, tier, TIER_PRICE[tier] // 200, drop=soil or name, **over)
 ground('dirt', 'sky_soil', 'Sky soil', ramp('5a5a8a', '8a8ab8', 'c0c0e0'), 7, drops=None, fertile=1.5)
-ground('grass', 'cloud_grass', 'Cloud grass', ramp('5a8ad0', 'b0e0f0', 'ffffff'), 7, soil='sky_soil')
-ground('grass', 'sun_grass', 'Sun grass', ramp('b08a20', 'f0d050', 'fff8c0'), 7, soil='sky_soil')
+ground('grass', 'cloud_grass', 'Cloud grass', ramp('5a8ad0', 'b0e0f0', 'ffffff'), 7)
+ground('grass', 'sun_grass', 'Sun grass', ramp('b08a20', 'f0d050', 'fff8c0'), 7)
 ground('ice', 'frost_glass', 'Frost glass', ramp('7ab0d8', 'c8e8f8', 'ffffff'), 7)
 ground('sand', 'dense_cloud', 'Dense cloud', ramp('c0c8dc', 'eef2fa', 'ffffff'), 7, wall=False)
 ground('sand', 'storm_cloud', 'Storm cloud', ramp('3a3c50', '6a6c88', 'a8aac8'), 7, wall=False, harm=0.02, light=5)
 ground('dirt', 'deep_mycelium', 'Mycelium', ramp('4a3a5a', '8a70a0', 'd0b8e0'), 9, drops=None, fertile=1.5)
-ground('grass', 'glowmoss', 'Glowmoss', ramp('1a6a4a', '40d090', 'c0ffe0'), 9, soil='deep_mycelium', light=8)
+ground('grass', 'glowmoss', 'Glowmoss', ramp('1a6a4a', '40d090', 'c0ffe0'), 9, light=8)
 ground('dirt', 'rootsoil', 'Rootsoil', ramp('2a1c10', '54381e', '8a6238'), 9, drops=None, fertile=2.0)
 ground('sand', 'bone_gravel', 'Bone gravel', ramp('8a8068', 'c8c0a4', 'f4eed8'), 9)
 ground('ice', 'obsidian_glass', 'Obsidian glass', ramp('0a0612', '2a1c40', '6a50a0'), 9)
@@ -204,6 +210,8 @@ for n, lab, tier, host, hard, power, speed, armor, boon in METALS:
     item('tin_foil', n + '_plate', lab + ' plate', r, tier=tier, price=p)
     item('stick', n + '_rod', lab + ' rod', r, tier=tier, price=p // 2)
     item('train_wheel', n + '_gear', lab + ' gear', r, 'tint', tier=tier, price=p)
+    furnish('iron_door', n + '_door', lab + ' door', r, tier, p * 2)
+    furnish('steel_lantern', n + '_lantern', lab + ' lantern', r, tier, p)
     if not power: continue
     for tool, tlab, base, cls, k in [('pickaxe', 'pickaxe', 'iron_pickaxe', 'pickaxe', 5), ('axe', 'axe', 'iron_axe', 'axe', 4), ('shovel', 'shovel', 'gold_shovel', 'shovel', 3), ('machete', 'machete', 'iron_machete', 'machete', 3)]:
         item(base, n + '_' + tool, lab + ' ' + tlab, r, 'gray', tier=tier, price=p * k, cat='tools',
@@ -252,6 +260,10 @@ for n, lab, shape, fruit, flab, ficon, food, tier in WOODS:
     block('wood_column', n + '_wood_column', lab + ' post', trunk, tier, TIER_PRICE[tier] // 150)
     block('wood_stairs', n + '_wood_stairs', lab + ' steps', trunk, tier, TIER_PRICE[tier] // 150)
     R('woodwork_bench', n + '_wood_column', [(n + '_wood', 1)], 2, time=60); R('woodwork_bench', n + '_wood_stairs', [(n + '_wood', 1)], 2, time=60)
+    # Furniture of it: a door, a ladder and a shelf.
+    for base, what, wlab, need in [('wooden_door', 'door', 'door', 3), ('trapdoor', 'trapdoor', 'trapdoor', 2), ('shelf', 'shelf', 'shelf', 2)]:
+        furnish(base, n + '_' + what, lab + ' ' + wlab, trunk, tier, TIER_PRICE[tier] // 100)
+        R('woodwork_bench', n + '_' + what, [(n + '_wood', need)], 1, time=80)
     item(ficon, fruit, flab, leaf, 'tint', tier=tier, price=TIER_PRICE[tier] // 200, plants=n, sows=None, food=food or None)
     t = copy.deepcopy(BTR[shape]); t.update(name=n, log=n + '_log', leaves=n + '_leaves', fruit=fruit, soil=SKY_SOIL if sky else DEEP_SOIL); t.pop('needs_water', None)
     trees.append(t)
@@ -422,6 +434,8 @@ for n, lab, tier, host, hard, power, speed, armor, boon in METALS:
     if host: make(SMELT[n], n + '_ingot', [(n + '_ore', 3)], time=160)
     make(mw, n + '_block', [(n + '_ingot', 5)]); make(mw, n + '_column', [(n + '_block', 1)], 2); make(mw, n + '_stairs', [(n + '_block', 1)], 2)
     make(pr, n + '_plate', [(n + '_ingot', 2)]); make(mw, n + '_rod', [(n + '_ingot', 1)], 2); make(mw, n + '_gear', [(n + '_plate', 1), (n + '_rod', 1)])
+    make(mw, n + '_door', [(n + '_plate', 3)]); make(mw, n + '_lantern', [(n + '_plate', 1), ('skyglass' if sky else 'magma_glass', 1)], 2)
+    make(pr, n + '_ingot', [(n + '_block', 1)], 5, time=60)
     if not power: continue
     wood = 'windwood_wood_column' if sky else 'bonewood_wood_column'
     for tool, k in [('pickaxe', 5), ('axe', 4), ('shovel', 3), ('machete', 3), ('sword', 4)]: make(TOOLB[n], n + '_' + tool, [(wood, 1), (n + '_ingot', k)], time=240)
@@ -430,6 +444,7 @@ make('magma_forge', 'umbral_ingot', [('deepiron_ingot', 2), ('umbrite_shard', 2)
 for n, lab, tier, hard, power in GEMS:
     pr, bb = ('sky_press', 'sky_builder_bench') if tier < 9 else ('deep_press', 'deep_builder_bench')
     make(pr, n + '_block', [(n, 5)]); make(bb, n + '_column', [(n + '_block', 1)], 2); make(bb, n + '_stairs', [(n + '_block', 1)], 2)
+    make(pr, n, [(n + '_block', 1)], 5, time=60); make(pr, n, [(n + '_shard', 6)], time=60)
     make(pr, n + '_shard', [(n, 1)], 4); make('crystal_lathe' if tier >= 9 else 'stargazer_table', n + '_chandelier', [(n, 3), ('gold_ingot', 2)])
 for tier, gem in [(7, 'zephyrite'), (8, 'heliodor'), (9, 'umbrite'), (10, 'emberheart')]:
     make('dim_portal_%d' % tier, gem + '_pickaxe', [(gem, 3), ('skysteel_rod' if tier < 9 else 'deepiron_rod', 1)])
@@ -510,6 +525,7 @@ items[-1] = {kk: v for kk, v in items[-1].items() if kk in ('name', 'label', 'te
 make('dim_portal_10', 'third_blockhead', [(k, 1), ('golem_core', 2)], time=1800, crystals=1000, characters=2)
 
 # ---- things made in each place -----------------------------------------------------------------------------------
+make('sky_builder_bench', 'storm_cloud', [('dense_cloud', 2), ('wind_essence', 1)], 2)
 part('cloud_cloth', 'Cloud cloth', 'linen', SKY['cloudstone'], 7, 'cloud_loom', [('cloud_wool', 3)])
 part('aether_thread', 'Aether thread', 'string', ramp('b0a0d0', 'e8e0f8', 'ffffff'), 7, 'cloud_loom', [('aether_cotton', 3)], 2)
 part('skyglass', 'Skyglass', 'glass', zc, 7, 'sky_kiln', [('glass', 2), ('zephyrite_shard', 1)], 2, places=None)
@@ -615,7 +631,7 @@ SKY_ROCK, DEEP_ROCK = ['aetherstone', 'cloudstone', 'skymarble', 'moonrock', 'st
 def vein(name, tile_, dim, hosts, size, per, depth): veins.append({'name': name, 'tile': tile_, 'dimension': dim, 'in': hosts, 'size': size, 'per_100_columns': per, 'depth': depth})
 vein('skysteel', 'skysteel_ore', 'aether', SKY_ROCK, [3, 7], 26, [0, 300]); vein('galvanite', 'galvanite_ore', 'aether', SKY_ROCK, [2, 6], 16, [0, 300])
 vein('aerite', 'aerite_ore', 'aether', SKY_ROCK, [2, 5], 14, [0, 300]); vein('moonsilver', 'moonsilver_ore', 'aether', SKY_ROCK, [2, 5], 10, [0, 160])
-vein('sky_marble_seam', 'skymarble', 'aether', ['aetherstone'], [6, 16], 8, [0, 300]); vein('sky_moonrock_seam', 'moonrock', 'aether', ['aetherstone', 'cloudstone'], [6, 16], 8, [0, 160])
+vein('sky_frost_seam', 'frost_glass', 'aether', ['aetherstone', 'moonrock'], [4, 10], 6, [0, 140]); vein('sky_marble_seam', 'skymarble', 'aether', ['aetherstone'], [6, 16], 8, [0, 300]); vein('sky_moonrock_seam', 'moonrock', 'aether', ['aetherstone', 'cloudstone'], [6, 16], 8, [0, 160])
 vein('deepiron', 'deepiron_ore', 'deep', DEEP_ROCK, [3, 8], 70, [0, 240]); vein('cinderite', 'cinderite_ore', 'deep', DEEP_ROCK, [2, 6], 40, [140, 320])
 vein('adamant', 'adamant_ore', 'deep', DEEP_ROCK, [2, 4], 14, [250, 320]); vein('deep_bone_seam', 'bonestone', 'deep', ['deepslate'], [8, 20], 20, [0, 200])
 vein('deep_ash_seam', 'ashstone', 'deep', ['deepslate', 'obsidian_rock'], [8, 20], 20, [100, 320]); vein('deep_fossil', 'bone_gravel', 'deep', ['deepslate', 'bonestone'], [3, 8], 16, [0, 320])
@@ -623,7 +639,7 @@ def dec(name, tile_, dim, per, depth, **over): decor.append(dict({'name': name, 
 dec('zephyrite', 'zephyrite', 'aether', 5, [0, 300]); dec('heliodor', 'heliodor', 'aether', 2.5, [0, 110]); dec('sky_vine', 'sky_vine', 'aether', 12, [0, 300], hang=[2, 7])
 dec('sky_time_crystal', 'time_crystal', 'aether', 3, [0, 300])
 dec('lumite', 'lumite', 'deep', 14, [0, 320]); dec('umbrite', 'umbrite', 'deep', 6, [120, 320]); dec('emberheart', 'emberheart', 'deep', 2.5, [260, 320])
-dec('lumen_vine', 'lumen_vine', 'deep', 60, [0, 260], hang=[2, 9]); dec('deep_time_crystal', 'time_crystal', 'deep', 6, [0, 320]); dec('steam_vent', 'steam_vent', 'deep', 0, [200, 320])
+dec('lumen_vine', 'lumen_vine', 'deep', 60, [0, 260], hang=[2, 9]); dec('deep_time_crystal', 'time_crystal', 'deep', 6, [0, 320]); dec('steam_vent', 'steam_vent', 'deep', 5, [200, 320], on_floor=True)
 decor[:] = [d for d in decor if d['per_100_columns'] > 0]
 # (Bones turn up where there is bone gravel: it leaves a fossil now and then.)
 for t in tiles:

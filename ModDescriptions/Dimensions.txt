@@ -376,3 +376,28 @@ Q10. DELIVERY. This is far too much for one sitting. I propose six stages (secti
 
   Stage 1 is the risky one (it changes how a save is laid out and how the world is held in memory); the rest is
   mostly data, art and one rule at a time.
+
+
+================================================================================================================
+8. WHAT WAS DECIDED, AND WHAT WAS BUILT
+================================================================================================================
+
+The owner's answers: Q1 - A (levels added to the end of a bench's chain). Q2 - both dimensions are simulated.
+Q3 - one to one. Q4-Q7 - mine to choose. Q8 - the World Seed, at the last portal but one: a 128 by 128 place
+of one's own with a diamond-tree island in the middle, the same one from every seed; and the third blockhead
+at the very end. Q9 - all art generated. Q10 - one sitting. And: crafting trees ten and more stages deep.
+
+What I chose: Q4 - falling out of the Aether drops you into the overworld's sky. Q5 - magma is a still block
+that burns and is fuel. Q6 - hardness, yes: on this mod's ores and gems only. Q7 - the Thunderbird and the
+Crystal golem are kept, as ordinary creatures with a great deal of health.
+
+Built: the three places and their generators; the three portals; Portal and Trade portal VII-X; the Aether and
+Deep workbenches; 5 more tool bench levels, 4 armor bench, 2 furnace, and a sky and a deep level of nine other
+benches; 7 new benches; 12 stones, 8 metals, 5 gems, 16 trees, 16 crops, 27 creatures, 17 biomes and the
+pocket's; hardness, heat and cooling, harm, gliding, wind and geothermal power; the four long trees (12, 15, 11
+and 15 makings deep). 402 blocks, 539 items, 400 recipes.
+
+Not built (sections 2.6, 3.6 and 4 promised more than this): wind and lightning as weather; bouncing cloud,
+rain cloud, falling rock, gas; mounts, taming, climbers and burrowers; the airship and the drill rig; timed
+boons from drinks; sky anchors, recall stones and the pocket portal; fish in the Aether; built ruins; longer
+days in the Aether. The README says the same.

@@ -11608,7 +11608,7 @@ static void test_dimensions_mod(void)
         failures++;
         return;
     }
-    CHECK(content.tile_count == tiles + 338 && content.item_count == items + 475 && content.recipe_count == recipes + 317);
+    CHECK(content.tile_count == tiles + 402 && content.item_count == items + 539 && content.recipe_count == recipes + 400);
     CHECK(content.biome_count == biomes + 18 && content.mob_count == kinds + 27 && content.dimension_count == 3 && content.tree_count == 32);
     for (int i = items; i < content.item_count; i++) {
         const ItemDef *d = item_def((ItemId)i);

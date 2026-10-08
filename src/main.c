@@ -515,7 +515,7 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
             TilePos t = tile_at_screen(cam, mouse), sign;
             t.x = world_wrap_x(&g->world, t.x);
             const TileDef *def = tile_def(game_bench_at(g, t.x, t.y));
-            bool opens = def->bench || def->trade || def->storage_columns > 0;
+            bool opens = def->bench || def->trade || def->storage_columns > 0 || def->leads_dim >= 0;
             int drop = game_drop_at(g, world_at(mouse, Z_BODY).x, world_at(mouse, Z_BODY).y);
             /* An item under the cursor comes before the tile behind it.
              * Something that opens offers a choice if it can also be removed;
