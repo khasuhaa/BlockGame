@@ -9,6 +9,7 @@
 #include "../src/power.h"
 #include "../src/save.h"
 #include "../src/signal.h"
+#include "../src/dao.h"
 #include "../src/trade.h"
 #include "../src/train.h"
 
@@ -12329,6 +12330,275 @@ static void test_equip_selected(void)
 }
 
 /* A recipe that makes one of several things is shown as each of them in turn. */
+/* Seeker of the Dao: the road to immortality, and everything along it. */
+static void test_seeker_mod(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    CHECK(!dao_on() && dao_stages() == 0);
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count, mobs = content.mob_count, biomes = content.biome_count;
+    if (!content_load("mods/seeker_of_the_dao", err, sizeof err)) {
+        printf("FAIL seeker of the dao does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    if (content.tile_count != tiles + 180 || content.item_count != items + 369 || content.recipe_count != recipes + 274 || content.mob_count != mobs + 17 || content.biome_count != biomes + 13)
+        printf("seeker counts: %d tiles %d items %d recipes %d mobs %d biomes\n", content.tile_count - tiles, content.item_count - items, content.recipe_count - recipes,
+               content.mob_count - mobs, content.biome_count - biomes);
+    CHECK(content.tile_count == tiles + 180 && content.item_count == items + 369 && content.recipe_count == recipes + 274 && content.mob_count == mobs + 17 && content.biome_count == biomes + 13);
+    /* Five realms of ten stages; pills, scriptures and artifacts are kinds of thing of their own to trade in. */
+    CHECK(dao_on() && dao_stages() == 50 && content.dao.realm_count == 5 && content.dao.realms[3].revives && !content.dao.realms[1].revives);
+    CHECK(strcmp(content.trade.categories[item_def(item_id("qi_gathering_pill"))->category].label, "Pills") == 0 &&
+          strcmp(content.trade.categories[item_def(item_id("spirit_bolt"))->category].label, "Scriptures") == 0 &&
+          strcmp(content.trade.categories[item_def(item_id("spirit_bead"))->category].label, "Artifacts") == 0);
+    /* Portals and trade go to XI: each a level on the end of the game's own, and what is made there is of that tier. */
+    CHECK(tile_def(tile_id("portal_6"))->upgrade_to == tile_id("dao_portal_7") && tile_def(tile_id("dao_portal_11"))->bench_level == 11 &&
+          tile_def(tile_id("dao_trade_portal_11"))->trade_level == 11 && item_def(item_id("azure_dragon_mail"))->tier == 11 && item_def(item_id("spirit_iron_ingot"))->tier == 1 &&
+          item_def(item_id("dragonbone_pickaxe"))->tier == 10);
+    CHECK(tile_def(tile_id("pill_furnace"))->upgrade_to == tile_id("pill_furnace_2") && tile_def(tile_id("spirit_forge_5"))->bench_level == 5 &&
+          find_recipe(tile_id("pill_furnace_5"), "nine_revolutions_pill")->level == 5 && find_recipe(tile_id("workbench_2"), "spirit_forge") != NULL);
+
+    static Game g;
+    game_init(&g, 128, 60, 11, WORLD_FLAT);
+    World *w = &g.world;
+    Inventory *inv = &g.inventory;
+    g.tick_rate = 20;
+    int x = w->spawn_x + 6, r = w->surface_y - 1;
+    g.player.feet = g.player.step_to = (TilePos){ x, r };
+    char label[64];
+
+    /* A mortal: no stage, no qi, and nothing gathered by sitting. */
+    clear_inventory(&g);
+    game_dao_label(&g, label, sizeof label);
+    CHECK(g.dao.stage == 0 && game_dao_rate(&g) == 0.0f && !game_dao_ready(&g) && !game_technique_ready(&g, item_id("spirit_bolt")));
+    /* The first manual studied is the beginning of the road: a stage, roots, and qi from sitting. */
+    in_hand(&g, "basic_breathing_manual");
+    CHECK(game_is_food(item_id("basic_breathing_manual")) && game_can_eat(&g, item_id("basic_breathing_manual")) && game_eat(&g));
+    game_dao_label(&g, label, sizeof label);
+    int roots = 0;
+    for (int i = 0; i < DAO_ELEMENTS; i++) roots += g.dao.roots[i] > 0;
+    CHECK(g.dao.stage == 1 && strcmp(label, "Qi Refining I") == 0 && roots >= 1 && g.dao.manual == item_id("basic_breathing_manual") && game_dao_capacity(&g) == 100.0f);
+    CHECK(game_dao_rate(&g) > 0.0f && g.dao.qi == 0.0f);
+    ticks(&g, 20);
+    CHECK(g.dao.qi == 0.0f);
+    CHECK(game_rest(&g, REST_MEDITATE));
+    float rate = game_dao_rate(&g);
+    ticks(&g, 20);
+    CHECK(g.dao.qi > rate * 15.0f && g.dao.qi < rate * 25.0f);
+    game_wake(&g);
+    /* A pill is qi at once, and leaves something behind that slows the gathering till it fades or is cleansed. */
+    g.dao.qi = 0.0f;
+    in_hand(&g, "qi_gathering_pill");
+    CHECK(game_eat(&g) && g.dao.qi == 40.0f && g.dao.toxin > 0.07f && game_dao_rate(&g) < rate);
+    in_hand(&g, "detox_pill");
+    CHECK(game_eat(&g) && g.dao.toxin == 0.0f && game_dao_rate(&g) == rate);
+    in_hand(&g, "meridian_opening_pill");
+    CHECK(game_eat(&g) && g.dao.meridians == 1 && g.dao.toxin > 0.1f);
+    g.dao.toxin = 0.0f;
+    CHECK(game_dao_rate(&g) > rate);
+    /* The qi of a place: thicker by a block of spirit stone, and a better manual gathers it faster. */
+    float here = world_qi(w, x, r);
+    put(&g, "spirit_stone_block", x + 2, r);
+    CHECK(world_qi(w, x, r) == here + 0.5f && world_qi(w, x + 20, r) == here);
+    world_set(w, x + 2, r, TILE_AIR);
+
+    /* A stage's measure of qi, and then the breakthrough. (On the best of foundations the early ones do not fail.) */
+    g.dao.foundation = 4;
+    CHECK(!game_dao_ready(&g) && !game_breakthrough(&g));
+    g.dao.qi = game_dao_capacity(&g);
+    CHECK(game_dao_ready(&g) && game_dao_chance(&g) == 1.0f && game_breakthrough(&g) && g.dao.stage == 2 && g.dao.qi == 0.0f && game_dao_capacity(&g) > 100.0f);
+    g.dao.qi = game_dao_capacity(&g);
+    CHECK(game_breakthrough(&g) && g.dao.stage == 3);
+    /* A bottleneck: the third stage asks for herbs as well. */
+    RecipeItem needs[4];
+    g.dao.qi = game_dao_capacity(&g);
+    CHECK(game_dao_needs(&g, needs) == 1 && needs[0].id == item_id("spirit_grass") && needs[0].count == 4 && !game_dao_ready(&g));
+    in_hand(&g, "heaven_defying_pill");
+    CHECK(game_eat(&g) && game_dao_chance(&g) == 1.0f);
+    inventory_add(inv, item_id("spirit_grass"), 5);
+    CHECK(game_dao_ready(&g) && game_breakthrough(&g) && g.dao.stage == 4 && count_item(&g, item_id("spirit_grass")) == 1);
+    Effect none[MAX_EFFECTS];
+    ticks(&g, 1300);
+    CHECK(game_effects(&g, none, MAX_EFFECTS) == 0);
+    /* Further along the chance falls, and a failure costs qi. */
+    g.dao.stage = 9;
+    g.dao.foundation = 2;
+    CHECK(game_dao_chance(&g) < 0.7f && game_dao_chance(&g) > 0.5f);
+    in_hand(&g, "clear_mind_pill");
+    float before = game_dao_chance(&g);
+    CHECK(game_eat(&g) && game_dao_chance(&g) > before + 0.14f);
+    /* Out of one realm and into the next: the realm's pill, and then the tribulation - three bolts, lived through. */
+    g.dao.stage = 10;
+    g.dao.qi = game_dao_capacity(&g);
+    CHECK(game_dao_needs(&g, needs) == 1 && needs[0].id == item_id("foundation_pill") && !game_dao_ready(&g));
+    inventory_add(inv, item_id("foundation_pill"), 1);
+    CHECK(game_dao_chance(&g) == 1.0f && game_breakthrough(&g) && g.dao.stage == 10 && g.dao.bolts == 3 && count_item(&g, item_id("foundation_pill")) == 0);
+    CHECK(!game_dao_ready(&g));
+    float health = g.vitals.health;
+    ticks(&g, 400);
+    game_dao_label(&g, label, sizeof label);
+    CHECK(g.dao.bolts == 0 && g.dao.stage == 11 && strcmp(label, "Foundation Building I") == 0 && g.vitals.health < health && game_alive(&g) && g.dao.foundation >= 1);
+    CHECK(game_dao_capacity(&g) == 1000.0f && game_boons(&g).lung >= 2.0f);
+    g.vitals.health = 1.0f;
+
+    /* Techniques are for those who have got far enough, and cost qi, not uses. */
+    g.dao.qi = 4.0f;
+    CHECK(!game_technique_ready(&g, item_id("spirit_bolt")));
+    g.dao.qi = 100.0f;
+    CHECK(game_technique_ready(&g, item_id("spirit_bolt")) && game_technique_ready(&g, item_id("flame_palm")) && !game_technique_ready(&g, item_id("sword_qi_slash")));
+    dao_spend(&g, item_id("flame_palm"));
+    CHECK(g.dao.qi == 85.0f);
+    /* What is worn counts only for those fit to wear it. */
+    clear_inventory(&g);
+    float plain = game_dao_rate(&g);
+    in_hand(&g, "elder_robe");
+    CHECK(inventory_equip_selected(inv) && game_dao_rate(&g) == plain);
+    g.dao.stage = 21;
+    float robed = game_dao_rate(&g);
+    clear_inventory(&g);
+    CHECK(robed > game_dao_rate(&g));
+    g.dao.stage = 11;
+
+    /* Herbs: one that wants thicker qi than the place has stays a sprout till the place is made richer. */
+    put(&g, "mountain_ginseng_0", x + 10, r);
+    CHECK(tile_def(tile_id("mountain_ginseng_1"))->needs_qi == 1.3f && !world_grow_plant(w, BG, x + 10, r) && is_block(&g, "mountain_ginseng_0", x + 10, r));
+    put(&g, "spirit_stone_block", x + 12, r);
+    CHECK(world_grow_plant(w, BG, x + 10, r) && is_block(&g, "mountain_ginseng_1", x + 10, r));
+    put(&g, "spirit_grass_0", x + 14, r);
+    world_set(w, x + 12, r, TILE_AIR);
+    CHECK(world_grow_plant(w, BG, x + 14, r) && is_block(&g, "spirit_grass_1", x + 14, r));
+
+    /* A formation: a heart, its flags set round it, and spirit stones to burn. Lit, the qi inside is thicker. */
+    int fx = x + 30;
+    CHECK(place_and_open(&g, "spirit_gathering_array", fx));
+    g.player.feet = g.player.step_to = (TilePos){ fx, r };
+    float bare = game_qi_at(&g, fx, r);
+    static const int cross[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
+    for (int k = 0; k < 3; k++) put(&g, "formation_flag", fx + cross[k][0] * 3, r + cross[k][1] * 3);
+    inventory_add(inv, item_id("spirit_stone"), 3);
+    inventory_add(inv, item_id("coal"), 1);
+    CHECK(!game_add_fuel(&g, item_id("coal")) && game_add_fuel(&g, item_id("spirit_stone")) && game_bench_fuel(&g, NULL) == 1200);
+    ticks(&g, 20);
+    CHECK(game_formation_reach(&g, fx, r) == 0 && game_qi_at(&g, fx, r) == bare);
+    put(&g, "formation_flag", fx, r - 3);
+    ticks(&g, 20);
+    CHECK(game_formation_reach(&g, fx, r) == 3 && game_qi_at(&g, fx + 2, r) == bare + 1.0f && game_qi_at(&g, fx + 5, r) == world_qi(w, fx + 5, r));
+    game_close_bench(&g);
+    /* It burns what it is fed, and goes out when that is gone. */
+    ticks(&g, 1300);
+    CHECK(game_formation_reach(&g, fx, r) == 0 && game_qi_at(&g, fx + 2, r) == bare);
+
+    /* A nascent soul survives the death of the body, once. */
+    g.dao.stage = 31;
+    g.dao.qi = 500.0f;
+    g.vitals.health = 1.0f;
+    game_hurt(&g, 5.0f);
+    CHECK(game_alive(&g) && g.dao.revived != 0);
+    game_hurt(&g, 5.0f);
+    CHECK(!game_alive(&g));
+    game_free(&g);
+
+    /* The last step, immortality, and what an immortal may call down. */
+    game_init(&g, 128, 60, 12, WORLD_FLAT);
+    w = &g.world, inv = &g.inventory;
+    g.tick_rate = 20;
+    clear_inventory(&g);
+    in_hand(&g, "primordial_chaos_canon");
+    CHECK(!game_can_eat(&g, item_id("primordial_chaos_canon")));
+    in_hand(&g, "basic_breathing_manual");
+    CHECK(game_eat(&g));
+    g.dao.stage = 50;
+    g.dao.foundation = 4;
+    g.dao.qi = game_dao_capacity(&g);
+    CHECK(game_dao_needs(&g, needs) == 3 && !game_dao_ready(&g) && !game_can_eat(&g, item_id("heaven_calling_talisman")));
+    inventory_add(inv, item_id("fallen_star"), 9);
+    inventory_add(inv, item_id("supreme_spirit_stone"), 3);
+    inventory_add(inv, item_id("longevity_pill"), 1);
+    CHECK(game_dao_ready(&g) && game_breakthrough(&g) && g.dao.bolts == 36);
+    for (int i = 0; i < 3000 && g.dao.bolts > 0; i++) {
+        g.vitals.health = 1.0f;
+        game_tick(&g);
+    }
+    game_dao_label(&g, label, sizeof label);
+    CHECK(g.dao.stage == 51 && strcmp(label, "Immortal") == 0 && game_boons(&g).flight > 0.0f && !game_dao_ready(&g));
+    clear_inventory(&g);
+    in_hand(&g, "heaven_calling_talisman");
+    CHECK(game_can_eat(&g, item_id("heaven_calling_talisman")) && game_eat(&g) && g.dao.bolts == 9);
+    for (int i = 0; i < 1000 && g.dao.bolts > 0; i++) {
+        g.vitals.health = 1.0f;
+        game_tick(&g);
+    }
+    CHECK(g.dao.stage == 51 && count_item(&g, item_id("heaven_tempered_essence")) == 1);
+    ItemSource from[8];
+    CHECK(guide_sources(item_id("heaven_tempered_essence"), from, 8) == 1 && from[0].kind == SOURCE_TRIBULATION);
+    /* A set of what the Sacred Beasts leave: four pieces, and an immortal to wear them. */
+    clear_inventory(&g);
+    const char *dragon[4] = { "azure_dragon_crown", "azure_dragon_mail", "azure_dragon_greaves", "azure_dragon_treads" };
+    float bare_walk = game_boons(&g).walk;
+    for (int i = 0; i < 4; i++) {
+        in_hand(&g, dragon[i]);
+        CHECK(inventory_equip_selected(inv));
+    }
+    CHECK(game_boons(&g).walk > bare_walk * 1.29f && game_boons(&g).magnet > 0.0f);
+
+    /* It is all kept: saved and loaded, the stage, the qi, the roots and the manual are as they were. */
+    g.dao.qi = 1234.0f;
+    Dao kept = g.dao;
+    CHECK(save_game(&g, "build/test_seeker.world"));
+    static Game back;
+    CHECK(load_game(&back, "build/test_seeker.world"));
+    CHECK(back.dao.stage == 51 && back.dao.qi == 1234.0f && memcmp(back.dao.roots, kept.roots, sizeof kept.roots) == 0 && back.dao.manual == item_id("basic_breathing_manual") &&
+          back.dao.foundation == kept.foundation);
+    game_free(&back);
+
+    /* The World Tree: trunks from a lake to the sky, boughs to walk, and things growing on them. */
+    int tree = -1, heaven = -1, trial = -1;
+    for (int d = 0; d < content.dimension_count; d++) {
+        if (strcmp(content.dimensions[d].name, "world_tree") == 0) tree = d;
+        if (strcmp(content.dimensions[d].name, "fallen_heaven") == 0) heaven = d;
+        if (strcmp(content.dimensions[d].name, "tiger_trial") == 0) trial = d;
+    }
+    CHECK(tree >= 0 && heaven >= 0 && trial >= 0 && content.dimension_count == 6);
+    int grove = game_enter_dimension(&g, tree);
+    CHECK(grove == 0 && world_dimension_at(w, w->regions[grove].y0 + 50) == tree);
+    CHECK(count_tile(w, 0, tile_id("world_tree_bark")) > 1000 && count_tile(w, 0, tile_id("world_tree_bough")) > 100 && count_tile(w, BG, tile_id("world_tree_leaves")) > 100 &&
+          count_tile(w, 0, tile_id("star_silver_ore")) > 5 && count_tile(w, BG, tile_id("spirit_vine")) > 5);
+    CHECK(world_qi(w, 40, w->regions[grove].y0 + 50) >= 3.5f && world_is_water(w, 20, w->regions[grove].y0 + w->regions[grove].height - 15));
+    ticks(&g, 10);
+    /* The Fallen Heaven: islands with what was built on them, and what is left of the bridges between. */
+    int fallen = game_enter_dimension(&g, heaven);
+    CHECK(fallen == 1 && world_dimension_at(w, w->regions[fallen].y0 + 50) == heaven);
+    CHECK(count_tile(w, 0, tile_id("heaven_marble")) > 500 && count_tile(w, 0, tile_id("heaven_roof")) > 10 && count_tile(w, 0, tile_id("heaven_bridge")) > 3 &&
+          count_tile(w, 0, tile_id("void_gold_ore")) > 5);
+    CHECK(world_qi(w, 40, w->regions[fallen].y0 + 50) >= 6.0f);
+    /* A trial: one court, and its lamps. */
+    int court = game_enter_dimension(&g, trial);
+    CHECK(court == 2 && world_dimension_at(w, w->regions[court].y0 + 50) == trial);
+    CHECK(count_tile(w, 0, tile_id("tiger_court")) > 50 && count_tile(w, BG, tile_id("spirit_lamp")) >= 2 && !tile_def(tile_id("tiger_court"))->removable);
+    ticks(&g, 10);
+    CHECK(save_game(&g, "build/test_seeker.world") && load_game(&back, "build/test_seeker.world") && back.world.region_count == 3 && back.dao.stage == 51);
+    game_free(&back);
+    game_free(&g);
+
+    /* A world saved before there was any of this has a mortal in it. */
+    static Game old;
+    CHECK(load_game(&old, "tests/fixtures/v36_plain.world"));
+    CHECK(old.dao.stage == 0 && old.dao.qi == 0.0f && world_get(&old.world, 42, 21) == tile_id("marble") && count_item(&old, item_id("diamond")) == 7);
+    game_free(&old);
+
+    /* It clashes with nothing else the game comes with. */
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/settest/saves");
+    const ModInfo *mine = NULL;
+    for (int i = 0; i < mods.count; i++)
+        if (strcmp(mods.mods[i].id, "seeker_of_the_dao") == 0) mine = &mods.mods[i];
+    CHECK(mine != NULL);
+    char what[64];
+    for (int i = 0; mine && i < mods.count; i++)
+        if (&mods.mods[i] != mine) CHECK(!mods_conflict(mine, &mods.mods[i], what, sizeof what));
+}
+
 static void test_recipe_shown(void)
 {
     const Recipe *sluice = NULL, *plain = NULL;
@@ -13173,6 +13443,7 @@ int main(void)
     test_all_caged();
     test_basket_slots();
     test_recipe_shown();
+    test_seeker_mod();
     test_equip_selected();
     test_worn();
     test_trade_tiers();

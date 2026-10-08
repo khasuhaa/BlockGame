@@ -354,3 +354,46 @@ OTHER PLACES - each unlike anything the game has:
 
 WHAT "ONE SITTING" COSTS. Sections 1-8 describe more than one sitting can build. Where the mod as built falls
 short of them, the README and section 11 (added when it is done) will say exactly where.
+
+
+11. WHAT WAS BUILT, AND WHAT WAS NOT
+
+Built, in one sitting (counts are what the mod adds: 180 blocks, 369 items, 274 recipes, 17 creatures, 13 biomes,
+6 dimensions, 17 structures, 11 sets):
+  - The road: five realms of ten stages and immortality; qi from meditating, by place, manual, roots, meridians,
+    foundation and toxin; breakthroughs with a chance; bottlenecks at the 3rd, 6th and 9th stage of each realm;
+    realm pills; tribulations (3, 6, 9, 12 and 36 bolts) that only wards turn; foundations set by how the
+    tribulation was come through; a Nascent Soul's one survival of death; the button and the cultivation screen.
+  - Alchemy (pill furnace I-V, 23 pills), Herbalism (10 herbs and 3 crops gated by qi; spirit soil and spirit stone
+    blocks to raise it), Spirit Mining (4 grades of spirit stone, cinnabar, jade, 5 ores, 2 crystals), Blacksmithing
+    (spirit forge I-V; six metals: tools, swords, armour), Artificing (artificer's table I-V; 13 artifacts in two
+    sets, flying swords), Formations (3 flags, 10 arrays: gathering x3, verdant, killing, sword, swift, protection,
+    teleport, tribulation), Techniques (18, costing qi), Talismans (13), Manuals (11), Spirit food (10 dishes),
+    Spirit beasts (13, and the Four Sacred Beasts), robes of the five realms.
+  - Portals and trade portals VII-XI, with tiers by realm as asked.
+  - Places: ruined sects and immortals' caves in the world as it began; the World Tree (a new "grove" generator);
+    the Fallen Heaven (islands with ruins and broken bridges built on them); Heaven's Trials (four courts, not
+    three: one to each Sacred Beast).
+  - For an immortal: the called tribulation and heaven-tempered essence, chaos iron, the four trials, four sets of
+    armour with set powers, the Four Symbols seal, the Dao of Heaven.
+
+Chosen where the plan left it open: techniques live in the ordinary bar (no technique bar); artifacts use the
+relic slots; manuals are studied one at a time (the last studied is the one in use); herb "ages" became a qi
+threshold per herb, not a count of years; pill grades became the furnace's grade; a formation's flags must all be
+the same distance from its heart.
+
+Not built, or thinner than sections 1-8 describe:
+  - No sects to join, no disciples, missions, reputation or NPC cultivators. The ruins are empty of people.
+  - No dual cultivation, no demonic path, no karma, no heart demons beyond the chance of failure.
+  - Spirit beasts cannot be tamed, bonded, ridden or raised - only fought and caged. The Sacred Beasts fight as
+    other creatures do (they close and strike); they have no attacks of their own.
+  - Techniques are the spells the engine already had (damage, dig, shield, grow, freeze, hold, weather, time, and
+    effects on oneself) at a qi cost. There are no sword-flight duels, no technique levels or mastery.
+  - Formations are one ring of flags; there are no multi-ring arrays, no arrays that hide or trap a character.
+  - Alchemy has no pill-refining minigame, no furnace explosions, no pill quality: a recipe makes what it makes.
+  - Artifacts do not level, bind or awaken. No storage rings.
+  - The elements do not act on each other (no generating or overcoming cycle): a root only speeds a manual of
+    its element.
+  - The Fallen Heaven's sky is a colour, not stars. The trial courts are bare of anything but lamps.
+  - Balance is untested by play: every number (qi per stage, pill strengths, bolt shares, prices) is a first guess.
+  - Not compatible with other mods by the owner's leave, but it clashes in name with none of them.

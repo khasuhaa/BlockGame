@@ -17,7 +17,8 @@ typedef enum {
     SOURCE_CHEST,      /* found inside a block the world was generated with */
     SOURCE_MEDITATION, /* brought by meditating */
     SOURCE_START,      /* a new character has it */
-    SOURCE_VILLAGE     /* sold in some villages, and nowhere else */
+    SOURCE_VILLAGE,    /* sold in some villages, and nowhere else */
+    SOURCE_TRIBULATION /* left by a tribulation that was called down and lived through */
 } SourceKind;
 
 typedef struct {

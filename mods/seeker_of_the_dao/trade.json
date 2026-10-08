@@ -1,0 +1,7 @@
+{
+  "categories": [
+    {"name": "pills", "label": "Pills"},
+    {"name": "scriptures", "label": "Scriptures"},
+    {"name": "artifacts", "label": "Artifacts"}
+  ]
+}

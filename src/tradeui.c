@@ -277,9 +277,9 @@ static void draw_items(const TradeUi *ui, const Game *g, Rectangle panel)
         if (cell.y + cell.height < grid.y || cell.y > grid.y + grid.height) continue;
         bool chosen = items[i] == ui->selected;
         /* Every place says what tier its thing is, found or not: gold where this block has yet to be raised to it. */
-        static const char *numerals[11] = { "", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X" };
+        static const char *numerals[17] = { "", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI" };
         int tier = item_def(items[i])->trade_tier, level = game_trade_level(g);
-        const char *numeral = tier >= 1 && tier <= 10 ? numerals[tier] : "";
+        const char *numeral = tier >= 1 && tier <= 16 ? numerals[tier] : "";
         bool beyond = level > 0 && tier > level;
         Color tier_color = beyond ? (Color){ 226, 196, 102, 255 } : (Color){ 150, 154, 170, 255 };
         if (!found[i]) {

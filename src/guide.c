@@ -437,6 +437,11 @@ int guide_sources(ItemId item, ItemSource *out, int max)
         snprintf(s->label, sizeof s->label, "A village");
         say(s->where, sizeof s->where, "A speciality: sold at the trade portal of some villages and no others.");
     }
+    if (content.dao.called_bolts > 0 && content.dao.called_leaves.id == item) {
+        ItemSource *s = add(out, &count, max, SOURCE_TRIBULATION, 0, content.dao.called_leaves.count, content.dao.called_leaves.count, 1.0f);
+        snprintf(s->label, sizeof s->label, "A tribulation");
+        say(s->where, sizeof s->where, "Left to whoever calls one down and lives through it.");
+    }
     for (int i = 0; i < content.rules.start_item_count; i++) {
         if (content.rules.start_items[i].id != item) continue;
         int many = content.rules.start_items[i].count;

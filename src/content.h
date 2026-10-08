@@ -22,6 +22,10 @@
 #define MAX_DECOR 64
 #define MAX_POLES 16
 #define MAX_DIMENSIONS 8
+#define MAX_REALMS 8
+#define MAX_DAO_STAGES 96
+#define DAO_ELEMENTS 5
+#define DAO_MERIDIANS 12
 #define MAX_STRUCTURES 48
 #define STRUCTURE_MAX_WIDTH 32
 #define STRUCTURE_MAX_HEIGHT 20
@@ -173,6 +177,9 @@ typedef struct {
     float armor, warmth;     /* a share more of each attack stopped, of the environment score kept */
     float luck;              /* the chance that a block dug leaves one more of what it leaves */
     int strength, thorns;    /* damage more to every blow; damage done to whatever bites or stings them */
+    /* Cultivation: qi is gathered so many times as fast (0 for no difference); so much is added to the chance of
+     * a breakthrough; and such a share of every bolt of a tribulation is turned. */
+    float qi, breakthrough, ward;
     /* Each of these is on if it is more than nothing: a drop of any height is a step; it is never darker to them
      * than this (0..15); creatures that hunt do not see them; things lying within so many squares come to them;
      * what burns does not burn them; the air holds them up. */
@@ -332,6 +339,20 @@ typedef struct {
     /* A moving walkway: whoever stands on it is carried a square that way (-1 left, 1 right) every so many ticks. */
     int walkway, walk_ticks;
     bool device;       /* (worked out: it has some part in any of that) */
+    /* Qi. A block may be a source of it: everywhere within `qi_reach` of it is so much richer. A plant that
+     * `needs_qi` grows only where there is that much. And a block may be the heart of a FORMATION: lit - it
+     * burns fuel - with `formation_flags` set out round it in its pattern, every one the same distance off
+     * (between the least and the most), everything inside that distance has its qi raised, its plants hurried,
+     * whoever is in it given `aura`, and the creatures in it hurt so much a second; and using one that
+     * `formation_gate`s takes whoever uses it to the nearest other that is lit. */
+    float qi;
+    int qi_reach;
+    float needs_qi;
+    bool formation, formation_gate;
+    TileType formation_flags;
+    int formation_pattern, formation_min, formation_max; /* 0 a cross: four, level and plumb; 1 a square: four, at the corners; 2 a ring: all eight */
+    float formation_qi, formation_grows, formation_harms;
+    Boons aura;
     int village;       /* it is the heart of a village: everywhere within so many blocks of it is in that village; 0 for not */
     int hardness;      /* nothing with less `power` than this digs it; 0 for anything */
     float harm;        /* the share of a health bar it takes, each second, from whoever stands on it or against it */
@@ -560,6 +581,19 @@ typedef struct {
     int power;             /* a tool: what `hardness` of block it can dig */
     bool glides;           /* worn, a drop of any height is a step like another: they come down slowly */
     float cooling;         /* worn, how much of the environment score it keeps where it is hot: a share, 0 to 1 */
+    /* Cultivation (see DaoDef). Taken, it gives so much qi, leaves so much pill toxin, opens the next meridian,
+     * gives the character other spirit roots, or calls a tribulation down on them. A manual is studied, not
+     * eaten: it becomes the method they cultivate by - qi gathered so many times as fast, most of all by roots
+     * in its element (-1 for none). A technique is a spell that costs qi, not uses, and wants a stage reached.
+     * And what is worn that needs a stage does nothing for anybody short of it. */
+    float qi_gain, toxin;
+    bool opens_meridian, washes_roots, calls_tribulation;
+    bool manual;
+    float manual_rate;
+    int manual_element;
+    bool technique;
+    float technique_qi;
+    int technique_stage, needs_stage;
     /* Something taken - drunk, eaten - that does something for a while: these boons, for so many ticks (less
      * than nothing for ever after: a thing that can be taken only once by anybody). Taken again while it lasts,
      * it lasts from then. It may also cure poison, take them back to where the world begins, and leave something
@@ -757,6 +791,7 @@ typedef struct {
     TileType surface, soil;
     float soil_depth;  /* a fixed depth of soil, or 0 for the usual rule */
     bool cold;         /* out of doors here wears the environment score down whatever the season */
+    float qi;          /* how rich in qi it is, beside the usual: 0 for no different */
     bool hot;          /* here wears it down indoors and out, and it is what cools that keeps it, not what warms */
     char dimension_name[CONTENT_NAME_LEN]; /* the dimension it is country of; empty for the world as it began */
     int dimension;     /* which of content.dimensions; -1 for none */
@@ -817,7 +852,40 @@ typedef struct {
     TileType street, ground;
 } VillageDef;
 
-enum { DIM_ISLANDS, DIM_CAVERNS, DIM_VOID };
+enum { DIM_ISLANDS, DIM_CAVERNS, DIM_VOID, DIM_GROVE };
+
+/* A realm of cultivation: so many stages, the first holding so much qi and each after it so many times the last. */
+typedef struct {
+    char label[CONTENT_NAME_LEN];
+    int stages;
+    float qi_first, qi_growth;
+    Boons boons;       /* what whoever has reached it has, from then on */
+    ItemId pill;       /* what coming into it takes, besides a full measure of qi; ITEM_NONE for nothing */
+    int bolts;         /* the tribulation that comes with it: so many bolts of lightning, */
+    float bolt;        /* each this share of a health bar, before anything turns it */
+    bool revives;      /* whoever has reached it survives a death, once a day */
+} RealmDef;
+
+/* The road: the realms in order, and the rules of travelling it. A game with none has no cultivation at all. */
+typedef struct {
+    RealmDef realms[MAX_REALMS];
+    int realm_count;
+    char immortal[CONTENT_NAME_LEN]; /* what is past the last stage of the last realm */
+    Boons immortal_boons;
+    float stage_gain;                /* every stage reached: this much quicker at everything, and hardier */
+    float rate;                      /* qi a tick, sitting, where the qi is 1 and nothing helps */
+    float chance_first, chance_last; /* the chance of a breakthrough from one stage to the next: at the first stage of a realm, and at its last */
+    float fail_loss;                 /* the share of their qi a failure costs */
+    float toxin_fade;                /* pill toxin lost a tick */
+    /* What a stage needs before it can be left, besides qi: indexed by the stage being left, 1 for the first. */
+    RecipeItem needs[MAX_DAO_STAGES][3];
+    int need_count[MAX_DAO_STAGES];
+    /* A tribulation called down on purpose: so many bolts of such a share, and what it leaves whoever lives. */
+    int called_bolts;
+    float called_bolt;
+    RecipeItem called_leaves;
+    char elements[DAO_ELEMENTS][CONTENT_NAME_LEN];
+} DaoDef;
 
 /* Another place the same world has: made the first time somebody goes there, as wide as the world (unless it
  * says how wide) and so many rows tall, and kept with it. Its biomes, veins and cave decorations are the ones
@@ -860,6 +928,18 @@ typedef struct {
     int ambient;         /* it is never darker there than this, 0..15 */
     bool has_sky_color;  /* its sky is of its own colours: by day, and by night */
     unsigned char sky_day[3], sky_night[3];
+    float qi;            /* how rich in qi the whole of it is, beside the usual: 0 for no different */
+    /* Things built that stand on its islands: so many islands in a hundred have one, chosen from these. And
+     * between islands that are near and level, a bridge of `bridge`, broken here and there. */
+    int structures[8];
+    int structure_count;
+    float structure_share;
+    TileType bridge;
+    /* A grove: trunks of `trunk` so wide, so far apart, the whole height of the place, standing in `rock` under
+     * water; boughs of `bough` out from them to walk on, `leaf` heaped on the boughs, `vine` hanging from them. */
+    TileType trunk, bough, leaf, vine;
+    int trunk_width, trunk_gap;
+    int void_length, void_depth; /* "void": how far the one island of a void runs either way, and how deep it is */
     /* The void: what grows on its one island. */
     char tree_name[CONTENT_NAME_LEN];
     int tree;
@@ -1225,6 +1305,7 @@ typedef struct {
     int structure_count;
     VillageDef villages[MAX_VILLAGE_KINDS];
     int village_count;
+    DaoDef dao;
     DimensionDef dimensions[MAX_DIMENSIONS];
     int dimension_count;
     RulesDef rules;

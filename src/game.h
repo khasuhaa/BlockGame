@@ -215,6 +215,23 @@ typedef enum {
     MOB_SEEK    /* without a tree, looking for one */
 } MobState;
 
+/* How far a character has got in cultivation (see dao.h). A mortal is at stage 0. */
+typedef struct {
+    int32_t stage;       /* 0 a mortal; 1 the first stage of the first realm; one past the last, an immortal */
+    float qi;            /* what they hold, of what the stage holds */
+    float toxin;         /* pill toxin: 0 none, 1 as much as there can be */
+    uint8_t roots[DAO_ELEMENTS]; /* their spirit roots: how strong in each element, 0 for none */
+    uint8_t meridians;   /* how many are open */
+    uint8_t foundation;  /* how well the realm they are in was built: 0 flawed to 4 perfect */
+    uint8_t rising;      /* the tribulation overhead is for a new realm, not one called down for its own sake */
+    uint16_t manual;     /* the manual they cultivate by: an item, or 0 */
+    uint16_t failed;     /* breakthroughs that did not take */
+    int32_t bolts;       /* a tribulation: the bolts still to come, */
+    int32_t bolt_wait;   /* the ticks before the next, */
+    float bolt_share;    /* and the share of a health bar each is */
+    uint64_t revived;    /* the tick they last survived a death at; 0 for never */
+} Dao;
+
 /* Something a character has taken that is still working on them: the item it was, and the ticks it has left
  * (less than nothing for one that does not wear off). */
 typedef struct {
@@ -292,6 +309,7 @@ typedef struct {
     float shield;
     float chill;
     int ride, ride_seat;
+    Dao dao;
     Effect effects[MAX_EFFECTS];
     uint16_t relic_box;
 } Character;
@@ -327,6 +345,8 @@ typedef struct {
     int ride, ride_seat;    /* the vehicle the live character is riding, plus one (0 for none), and which seat */
     int open_vehicle;       /* the vehicle whose slots are open, plus one */
     int open_vehicle_cargo; /* and whether it is what it carries (1) or what it burns (0) */
+    Dao dao; /* how far the live character has got in cultivation */
+    int lightning, lightning_x; /* a bolt has just struck: ticks it is still to be seen for, and the column. Not saved. */
     Effect effects[MAX_EFFECTS]; /* what the live character is under the effect of (see Effect) */
     /* Weather made to order: rain (1) or none (2) until a tick. And creatures held still: all within so far of a square, until a tick. Not saved. */
     int weather_made;

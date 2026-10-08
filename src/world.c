@@ -1702,6 +1702,100 @@ static void region_caverns(World *w, int region, uint32_t *rng)
     }
 }
 
+/* A grove: no ground but a lake's bed, and out of the lake trunks as wide as houses going up the whole height of
+ * the place - with boughs out from them to walk on, leaves heaped on the boughs, hollows in the wood, and vines
+ * hanging from bough to bough. */
+static void region_grove(World *w, int region, uint32_t *rng)
+{
+    const Region *g = &w->regions[region];
+    const DimensionDef *d = &content.dimensions[g->dim];
+    int top = g->y0 + 6, bottom = g->y0 + g->height - 2, lake = bottom - 14;
+    /* The bed of the lake, uneven, and the water over it. */
+    for (int x = 0; x < w->width; x++) {
+        int bed = bottom - 6 - (int)(ring_noise(w->seed ^ 0x6A0Eu, x, w->width, 40) * 6.0f);
+        for (int y = bed; y <= bottom; y++) put_rock(w, x, y, d->rock);
+        for (int y = lake; y < bed; y++) world_set_water(w, x, y, WATER_FULL);
+    }
+    int width = d->trunk_width > 2 ? d->trunk_width : 3, gap = d->trunk_gap > width * 3 ? d->trunk_gap : width * 3;
+    for (int at = world_wrap_x(w, w->spawn_x - width / 2), done = 0; done < w->width - gap / 2; ) {
+        int wide = width + rng_range(rng, -1, 2), lean = 0;
+        /* The trunk: it wanders a little as it rises, and is hollow here and there. */
+        for (int y = bottom - 4; y >= top; y--) {
+            if ((bottom - y) % 9 == 0) lean += rng_range(rng, -1, 1);
+            for (int i = 0; i < wide; i++) {
+                size_t cell = (size_t)y * w->width + world_wrap_x(w, at + lean + i);
+                w->layers[LAYER_FOREGROUND][cell] = (uint16_t)d->trunk;
+                w->layers[LAYER_WALL][cell] = (uint16_t)d->trunk;
+                w->water[cell] = 0;
+            }
+        }
+        for (int n = 0; n < g->height / 22; n++) {
+            int hy = rng_range(rng, top + 8, lake - 6), hx = at + lean + 1, tall = rng_range(rng, 3, 4);
+            for (int dy = 0; dy < tall; dy++)
+                for (int i = 0; i < wide - 2; i++) w->layers[LAYER_FOREGROUND][(size_t)(hy - dy) * w->width + world_wrap_x(w, hx + i)] = TILE_AIR;
+        }
+        /* Boughs: out to one side or the other at every few rows, each ending in a heap of leaves. */
+        for (int y = top + rng_range(rng, 4, 9); y < lake - 3; y += rng_range(rng, 6, 11)) {
+            int side = rng_range(rng, 0, 1) ? 1 : -1, reach = rng_range(rng, 8, gap / 2 + 4), from = side > 0 ? at + lean + wide : at + lean - 1, droop = 0;
+            for (int k = 0; k < reach; k++) {
+                if (k % 5 == 4) droop += rng_range(rng, -1, 1);
+                int bx = from + side * k, by = y + droop;
+                if (by <= top || by >= lake - 1) break;
+                size_t cell = (size_t)by * w->width + world_wrap_x(w, bx);
+                if (w->layers[LAYER_FOREGROUND][cell] == TILE_AIR) w->layers[LAYER_FOREGROUND][cell] = (uint16_t)d->bough;
+                /* (Leaves on it, thicker toward the end; and now and then a vine let down.) */
+                int heap = d->leaf != TILE_AIR && k > reach / 3 ? 1 + (k * 3) / reach : 0;
+                for (int up = 1; up <= heap && by - up > top; up++) {
+                    size_t over = (size_t)(by - up) * w->width + world_wrap_x(w, bx);
+                    if (rng_range(rng, 0, 3) != 0 && w->layers[LAYER_BACKGROUND][over] == TILE_AIR && w->layers[LAYER_FOREGROUND][over] == TILE_AIR)
+                        w->layers[LAYER_BACKGROUND][over] = (uint16_t)d->leaf;
+                }
+                if (d->vine != TILE_AIR && rng_range(rng, 0, 6) == 0)
+                    for (int down = 1, most = rng_range(rng, 3, 12); down <= most && by + down < lake; down++) {
+                        size_t under = (size_t)(by + down) * w->width + world_wrap_x(w, bx);
+                        if (w->layers[LAYER_FOREGROUND][under] != TILE_AIR || w->layers[LAYER_BACKGROUND][under] != TILE_AIR) break;
+                        w->layers[LAYER_BACKGROUND][under] = (uint16_t)d->vine;
+                    }
+            }
+        }
+        int step = gap + rng_range(rng, -gap / 4, gap / 4);
+        at = world_wrap_x(w, at + step);
+        done += step;
+    }
+}
+
+/* What has been built on a dimension's islands: on so many of the level stretches wide enough, a structure;
+ * and between islands that are near and level with each other, what is left of a bridge. */
+static void region_built(World *w, int region, uint32_t *rng)
+{
+    const Region *g = &w->regions[region];
+    const DimensionDef *d = &content.dimensions[g->dim];
+    if (d->structure_count == 0 && d->bridge == TILE_AIR) return;
+    for (int y = g->y0 + 24; y < g->y0 + g->height - 10; y++) {
+        for (int x = 0; x < w->width; x++) {
+            if (world_get(w, x, y) == TILE_AIR || world_get(w, x, y - 1) != TILE_AIR || world_get(w, x - 1, y) != TILE_AIR) continue;
+            /* The left end of a stretch of ground: how far it runs level. */
+            int run = 0;
+            while (run < 60 && world_get(w, x + run, y) != TILE_AIR && world_get(w, x + run, y - 1) == TILE_AIR) run++;
+            if (d->structure_count > 0 && rng_unit(rng) < d->structure_share) {
+                const StructureDef *s = &content.structures[d->structures[rng_range(rng, 0, d->structure_count - 1)]];
+                bool room = run >= s->width + 2;
+                for (int dy = 1; room && dy < s->height; dy++)
+                    for (int dx = 0; room && dx < s->width; dx += 2) room = world_get(w, x + 1 + dx, y - dy) == TILE_AIR && world_get_at(w, LAYER_BACKGROUND, x + 1 + dx, y - dy) == TILE_AIR;
+                if (room) stamp_structure(w, s, x + 1 + rng_range(rng, 0, run - s->width - 2), y);
+            }
+            /* A bridge from its right-hand end to whatever is level with it and near. */
+            if (d->bridge == TILE_AIR) continue;
+            int end = x + run, far = 0;
+            for (int k = 2; k <= 26 && far == 0; k++)
+                if (world_get(w, end + k, y) != TILE_AIR) far = k;
+            for (int k = 0; k < far; k++)
+                if (rng_range(rng, 0, 5) != 0 && world_get(w, end + k, y) == TILE_AIR && world_get(w, end + k, y - 1) == TILE_AIR)
+                    w->layers[LAYER_FOREGROUND][(size_t)y * w->width + world_wrap_x(w, end + k)] = (uint16_t)d->bridge;
+        }
+    }
+}
+
 /* Nothing: walls of the edge either side of so many columns, and in the middle of them one island with a tree on it. */
 static void region_void(World *w, int region, uint32_t *rng)
 {
@@ -1713,7 +1807,8 @@ static void region_void(World *w, int region, uint32_t *rng)
         for (int y = g->y0 + 1; y < g->y0 + g->height; y++) w->layers[LAYER_FOREGROUND][(size_t)y * w->width + x] = (uint16_t)d->edge;
     }
     int cy = g->y0 + g->height / 2;
-    region_island(w, region, rng, w->spawn_x, cy, 15, 5, ISLE_LENS);
+    /* (Level, if something is to be built on it.) */
+    region_island(w, region, rng, w->spawn_x, cy, d->void_length, d->void_depth, d->structure_count > 0 ? ISLE_MESA : ISLE_LENS);
     /* (Level under the tree, whatever the island's top did.) */
     if (d->tree >= 0) {
         int y = cy - 4;
@@ -1773,7 +1868,9 @@ int world_add_region(World *w, int dim, const char *name, int height, bool gener
     region_biomes(w, region, &rng);
     if (d->generator == DIM_ISLANDS) region_islands(w, region, &rng);
     else if (d->generator == DIM_CAVERNS) region_caverns(w, region, &rng);
+    else if (d->generator == DIM_GROVE) region_grove(w, region, &rng);
     else region_void(w, region, &rng);
+    region_built(w, region, &rng);
     region_geodes(w, region, &rng);
     region_riches(w, region, &rng);
     region_hangings(w, region, &rng);
@@ -1920,8 +2017,34 @@ void world_set_meta(World *w, int x, int y, int value)
     w->meta[(size_t)y * w->width + world_wrap_x(w, x)] = (uint16_t)(value < 0 || value > 0xFFFF ? 0 : value);
 }
 
+float world_qi(const World *w, int x, int y)
+{
+    if (!world_in_bounds(w, x, y)) return 1.0f;
+    float qi = 1.0f;
+    int region = world_region_at(w, y), biome = world_biome_at(w, x, y);
+    if (region >= 0 && w->regions[region].dim >= 0) qi += content.dimensions[w->regions[region].dim].qi;
+    /* (Where the world began: thicker the further from the ground that it began on, up or down.) */
+    else qi += (float)abs(world_row_to_y(w, y)) / 150.0f;
+    if (biome >= 0 && biome < content.biome_count) qi += content.biomes[biome].qi;
+    /* The richest source within reach of here. */
+    float best = 0.0f;
+    for (int dy = -8; dy <= 8; dy++) {
+        for (int dx = -8; dx <= 8; dx++) {
+            if (!world_in_bounds(w, x + dx, y + dy)) continue;
+            for (int layer = 0; layer < BLOCK_LAYERS; layer++) {
+                const TileDef *def = tile_def(world_get_at(w, layer, x + dx, y + dy));
+                if (def->qi > best && abs(dx) <= def->qi_reach && abs(dy) <= def->qi_reach) best = def->qi;
+            }
+        }
+    }
+    return qi + best;
+}
+
 bool world_grow_plant(World *w, int layer, int x, int y)
 {
+    /* (Some things grow only where the qi is thick enough for them.) */
+    if (tile_def(world_get_at(w, layer, x, y))->grows_into != TILE_AIR && tile_def(tile_def(world_get_at(w, layer, x, y))->grows_into)->needs_qi > 0.0f &&
+        world_qi(w, x, y) < tile_def(tile_def(world_get_at(w, layer, x, y))->grows_into)->needs_qi) return false;
     const TileDef *def = tile_def(world_get_at(w, layer, x, y));
     if (def->grows_into == TILE_AIR) return false;
     if (def->needs_water && !world_is_water(w, x, y)) return false;

@@ -7,7 +7,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 36u
+#define SAVE_VERSION 37u
 
 /* Up to version 28 a world had room for a quarter as many of these, and they
  * were written out whole: every reader of an older version goes by these. */
@@ -538,6 +538,14 @@ bool save_game(const Game *g, const char *path)
             ok = fwrite(name, sizeof name, 1, f) == 1 && fwrite(&ticks, sizeof ticks, 1, f) == 1;
         }
     }
+    /* How far each character has got in cultivation: the record as it is, but for the manual, which goes by name. */
+    for (int c = 0; ok && c < MAX_CHARACTERS; c++) {
+        Dao dao = c >= g->character_count ? (Dao){ 0 } : c == g->live ? g->dao : g->characters[c].dao;
+        char manual[CONTENT_NAME_LEN] = { 0 };
+        if (dao.manual > 0 && dao.manual < content.item_count) snprintf(manual, sizeof manual, "%s", item_def((ItemId)dao.manual)->name);
+        uint32_t size = sizeof dao;
+        ok = fwrite(&size, sizeof size, 1, f) == 1 && fwrite(&dao, sizeof dao, 1, f) == 1 && fwrite(manual, sizeof manual, 1, f) == 1;
+    }
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
         remove(tmp);
@@ -879,6 +887,18 @@ bool load_game(Game *g, const char *path)
                 ItemId item = ok && name[0] ? item_id(name) : ITEM_NONE;
                 effects[i] = item > 0 && ticks != 0 ? (Effect){ (uint16_t)item, ticks } : (Effect){ 0 };
             }
+        }
+        /* From version 37: how far each character has got in cultivation. */
+        for (int c = 0; ok && h.version >= 37 && c < MAX_CHARACTERS; c++) {
+            Dao dao = { 0 };
+            char manual[CONTENT_NAME_LEN];
+            uint32_t size = 0;
+            ok = fread(&size, sizeof size, 1, f) == 1 && size == sizeof dao && fread(&dao, sizeof dao, 1, f) == 1 && fread(manual, sizeof manual, 1, f) == 1;
+            if (!ok) break;
+            manual[CONTENT_NAME_LEN - 1] = '\0';
+            dao.manual = manual[0] && item_id(manual) > 0 ? (uint16_t)item_id(manual) : 0;
+            if (c == g->live) g->dao = dao;
+            else g->characters[c].dao = dao;
         }
         bool nobody = ok && h.version >= 15 && people[0] == 0;
         g->started = extra.started != 2;

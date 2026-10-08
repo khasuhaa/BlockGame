@@ -12,6 +12,8 @@
 #include "save.h"
 #include "playermodel.h"
 #include "termui.h"
+#include "dao.h"
+#include "daoui.h"
 #include "tradeui.h"
 #include "train.h"
 #include "trainui.h"
@@ -101,6 +103,7 @@ typedef struct {
  * layout; `ui_view` is the same thing on the real screen, for the interface
  * that is pinned to places in the world but not scaled with it. */
 static View view, ui_view;
+static DaoUi dao_ui;
 static float zoom = 1.0f;
 static Vector2 seen;
 
@@ -423,6 +426,9 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
     bool potion = chosen->count > 0 && item_def((ItemId)chosen->id)->food <= 0.0f &&
                   (item_def((ItemId)chosen->id)->effect_ticks != 0 || item_def((ItemId)chosen->id)->cures || item_def((ItemId)chosen->id)->recalls);
     hud->use_label = wearable ? "Equip" : potion && hud->eat == HUD_EAT_READY ? "Drink" : potion ? "Taken" : NULL;
+    /* (A manual is studied; a pill, and the like, is taken.) */
+    if (chosen->count > 0 && dao_item(item_def((ItemId)chosen->id)) && item_def((ItemId)chosen->id)->food <= 0.0f)
+        hud->use_label = hud->eat != HUD_EAT_READY ? "Not now" : item_def((ItemId)chosen->id)->manual ? "Study" : "Take";
     if (wearable) hud->eat = HUD_EAT_READY;
 
     /* A press that starts on the inventory never reaches the world. */
@@ -435,6 +441,7 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
         !tradeui_mouse_over(trade, g, &ui_view))
         game_discard(g, hud->discard_slot, hud->discard_count);
     if (on_hud) return;
+    if (daoui_handle_input(&dao_ui, g)) return;
     bool on_players = playerui_handle_input(player, g);
     if (player->switched) {
         /* Another character is being played: the view and the menus go over to them. */
@@ -1420,7 +1427,9 @@ static void draw_mobs(const Game *g, Vector2 origin)
         /* A big one is drawn as long as it is, round the square it is in. */
         if (m->size > 1) {
             float side = (float)m->size * TILE_SIZE;
-            r = (Rectangle){ r.x + TILE_SIZE / 2.0f - side / 2, r.y + TILE_SIZE / 2.0f - side / 2, side, side };
+            /* (What swims or flies is in the middle of it; what walks stands on its feet.) */
+            bool afloat = content.mobs[m->kind].swims || content.mobs[m->kind].flies;
+            r = (Rectangle){ r.x + TILE_SIZE / 2.0f - side / 2, afloat ? r.y + TILE_SIZE / 2.0f - side / 2 : r.y + TILE_SIZE - side, side, side };
         }
         /* (A creature is its picture, a pixel deep, in among the characters.) */
         world3d_solid(Z_BODY + 0.26f * TILE_SIZE, Z_BODY - 0.26f * TILE_SIZE, W3D_ALL, W3D_PANEL);
@@ -2216,6 +2225,19 @@ static void session_draw(Session *s)
     draw_fast_forward(g);
     playerui_draw(&s->player_ui, g);
     hud_draw(&s->hud, &g->inventory);
+    daoui_draw(&dao_ui, g);
+    if (g->lightning > 0) {
+        /* A bolt of a tribulation: down the column it struck, and the whole view white for a moment. */
+        Vector2 at = view_tile_pos(&ui_view, (float)g->lightning_x + 0.5f, (float)g->player.feet.y);
+        float bx = at.x;
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){ 255, 255, 240, (unsigned char)(g->lightning * 18) });
+        for (float by = 0.0f; by < at.y; by += 24.0f) {
+            float nx = at.x + (float)((int)(by * 7.0f + (float)g->tick * 13.0f) % 31 - 15);
+            if (by + 24.0f >= at.y) nx = at.x;
+            DrawLineEx((Vector2){ bx, by }, (Vector2){ nx, by + 24.0f }, 4.0f, (Color){ 255, 250, 200, 255 });
+            bx = nx;
+        }
+    }
     {
         /* What the character has taken that is still working: each with the time it has left, down the right-hand side. */
         Effect on[MAX_EFFECTS];

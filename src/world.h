@@ -80,6 +80,10 @@ bool world_init(World *w, int width, int height, uint32_t seed, WorldKind kind);
 bool world_init_with(World *w, int width, int height, uint32_t seed, WorldKind kind, const WorldOptions *options);
 void world_free(World *w);
 
+/* How rich in qi a square is, from the place it is in and what is near it: 1 is the usual; the country, the
+ * dimension, how far above or under the ground it is and any source of qi within reach all add to it.
+ * (Formations add to it too, but those are the game's to know: see game_qi_at.) */
+float world_qi(const World *w, int x, int y);
 /* Looks through the whole world for the blocks that have to do with signals. */
 void world_find_devices(World *w);
 /* Which region a row is in: -1 for the world as it began. */

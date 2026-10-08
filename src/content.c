@@ -217,6 +217,8 @@ static bool stack_ref(Reader *r, const cJSON *obj, RecipeItem *out)
     return item_ref(r, obj, "item", &out->id) && out->count > 0;
 }
 
+static void read_boons(const cJSON *b, Boons *out);
+
 /* ---- tiles and items --------------------------------------------------- */
 
 /* Tiles and items name each other, so every name is registered before any
@@ -363,6 +365,26 @@ static bool read_tiles(Reader *r, const cJSON *root)
         t->opens_below = (int)num(e, "opens_below", 0);
         t->hardness = (int)num(e, "hardness", 0);
         t->village = (int)num(e, "village", 0);
+        {
+            const cJSON *form = field(e, "formation");
+            const char *shape = str(form, "pattern");
+            t->qi = (float)num(e, "qi", 0.0);
+            t->qi_reach = (int)num(e, "qi_reach", 6);
+            t->needs_qi = (float)num(e, "needs_qi", 0.0);
+            t->formation = form != NULL;
+            t->formation_gate = flag(form, "gate", false);
+            t->formation_flags = TILE_AIR;
+            if (!tile_ref(r, form, "flags", &t->formation_flags)) return false;
+            t->formation_pattern = !shape || strcmp(shape, "cross") == 0 ? 0 : strcmp(shape, "square") == 0 ? 1 : 2;
+            t->formation_min = 2, t->formation_max = 6;
+            pair(form, "distance", &t->formation_min, &t->formation_max);
+            t->formation_qi = (float)num(form, "qi", 0.0);
+            t->formation_grows = (float)num(form, "grows", 0.0);
+            t->formation_harms = (float)num(form, "harms", 0.0);
+            read_boons(field(form, "aura"), &t->aura);
+            if (t->formation && (t->formation_flags == TILE_AIR || t->formation_min < 1 || t->formation_max > 24))
+                return fail(r, "tile \"%s\": a formation needs its \"flags\", set 1 to 24 off", t->name);
+        }
         {
             /* Signals, and the machinery that goes by them. A direction is [across, down]. */
             const cJSON *sig = field(e, "signal"), *one, *piston = field(e, "piston"), *reverts = field(e, "reverts"), *walk = field(e, "walkway");
@@ -609,6 +631,7 @@ static void read_boons(const cJSON *b, Boons *out)
     out->appetite = (float)num(b, "appetite", 0.0), out->stamina = (float)num(b, "stamina", 0.0);
     out->armor = (float)num(b, "armor", 0.0), out->warmth = (float)num(b, "warmth", 0.0), out->luck = (float)num(b, "luck", 0.0);
     out->strength = (int)num(b, "strength", 0.0), out->thorns = (int)num(b, "thorns", 0.0);
+    out->qi = (float)num(b, "qi", 0.0), out->breakthrough = (float)num(b, "breakthrough", 0.0), out->ward = (float)num(b, "ward", 0.0);
     out->glide = (float)num(b, "glide", 0.0), out->sight = (float)num(b, "sight", 0.0), out->unseen = (float)num(b, "unseen", 0.0);
     out->magnet = (float)num(b, "magnet", 0.0), out->fireproof = (float)num(b, "fireproof", 0.0), out->flight = (float)num(b, "flight", 0.0);
 }
@@ -751,6 +774,19 @@ static bool read_items(Reader *r, const cJSON *root)
             read_boons(field(effect, "boons"), &it->effect);
             it->effect_ticks = field(effect, "forever") && flag(effect, "forever", false) ? -1 : (int)num(effect, "ticks", 0);
             it->cures = flag(e, "cures", false);
+            it->qi_gain = (float)num(e, "qi", 0.0);
+            it->toxin = (float)num(e, "toxin", 0.0);
+            it->opens_meridian = flag(e, "opens_meridian", false);
+            it->washes_roots = flag(e, "washes_roots", false);
+            it->calls_tribulation = flag(e, "calls_tribulation", false);
+            const cJSON *manual = field(e, "manual"), *technique = field(e, "technique");
+            it->manual = manual != NULL;
+            it->manual_rate = (float)num(manual, "rate", 1.0);
+            it->manual_element = (int)num(manual, "element", -1);
+            it->technique = technique != NULL;
+            it->technique_qi = (float)num(technique, "qi", 0.0);
+            it->technique_stage = (int)num(technique, "stage", 0);
+            it->needs_stage = (int)num(e, "needs_stage", 0);
             it->recalls = flag(e, "recalls", false);
             it->leaves = ITEM_NONE;
             if (!item_ref(r, e, "leaves", &it->leaves)) return false;
@@ -1103,6 +1139,7 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         copy_name(b->name, sizeof b->name, name);
         b->cold = flag(e, "cold", b->cold);
         b->hot = flag(e, "hot", false);
+        b->qi = (float)num(e, "qi", 0.0);
         copy_name(b->dimension_name, sizeof b->dimension_name, str(e, "dimension"));
         b->dimension = -1;
         copy_name(b->label, sizeof b->label, str(e, "label") ? str(e, "label") : name);
@@ -1482,8 +1519,29 @@ static bool read_worldgen(Reader *r, const cJSON *root)
         memset(d, 0, sizeof *d);
         copy_name(d->name, sizeof d->name, name);
         copy_name(d->label, sizeof d->label, str(e, "label") ? str(e, "label") : name);
-        d->generator = !kind || strcmp(kind, "islands") == 0 ? DIM_ISLANDS : strcmp(kind, "caverns") == 0 ? DIM_CAVERNS : strcmp(kind, "void") == 0 ? DIM_VOID : -1;
-        if (d->generator < 0) return fail(r, "dimension \"%s\": its \"generator\" is \"islands\", \"caverns\" or \"void\"", name);
+        d->generator = !kind || strcmp(kind, "islands") == 0 ? DIM_ISLANDS : strcmp(kind, "caverns") == 0 ? DIM_CAVERNS : strcmp(kind, "void") == 0 ? DIM_VOID :
+                       strcmp(kind, "grove") == 0 ? DIM_GROVE : -1;
+        if (d->generator < 0) return fail(r, "dimension \"%s\": its \"generator\" is \"islands\", \"caverns\", \"void\" or \"grove\"", name);
+        d->qi = (float)num(e, "qi", 0.0);
+        {
+            const cJSON *grove = field(e, "grove"), *built = field(e, "structures"), *one;
+            if (!tile_ref(r, grove, "trunk", &d->trunk) || !tile_ref(r, grove, "bough", &d->bough) || !tile_ref(r, grove, "leaf", &d->leaf) ||
+                !tile_ref(r, grove, "vine", &d->vine) || !tile_ref(r, e, "bridge", &d->bridge)) return false;
+            d->void_length = (int)num(field(e, "void"), "length", 15);
+            d->void_depth = (int)num(field(e, "void"), "depth", 5);
+            if (d->void_length < 4 || d->void_depth < 2) return fail(r, "dimension \"%s\": the island of a \"void\" is 4 or more long and 2 or more deep", name);
+            d->trunk_width = (int)num(grove, "width", 7);
+            d->trunk_gap = (int)num(grove, "gap", 60);
+            d->structure_share = (float)num(e, "structure_share", 0.0);
+            cJSON_ArrayForEach(one, built) {
+                int found = -1;
+                for (int i = 0; cJSON_IsString(one) && i < content.structure_count; i++)
+                    if (strcmp(content.structures[i].name, one->valuestring) == 0) found = i;
+                if (found < 0 || d->structure_count >= 8) return fail(r, "dimension \"%s\" lists at most 8 structures that exist", name);
+                d->structures[d->structure_count++] = found;
+            }
+            if (d->generator == DIM_GROVE && (d->trunk == TILE_AIR || d->bough == TILE_AIR)) return fail(r, "dimension \"%s\": a grove needs a \"trunk\" and a \"bough\"", name);
+        }
         d->width = (int)num(e, "width", 0);
         d->height = (int)num(e, "height", 200);
         if (d->height < 32 || d->width < 0) return fail(r, "dimension \"%s\" is at least 32 rows tall", name);
@@ -1603,8 +1661,62 @@ static bool read_worldgen(Reader *r, const cJSON *root)
     return true;
 }
 
+/* "cultivation": the realms, and the rules of the road through them. */
+static bool read_dao(Reader *r, const cJSON *road)
+{
+    DaoDef *d = &content.dao;
+    const cJSON *e, *need, *one;
+    if (!road) return true;
+    memset(d, 0, sizeof *d);
+    copy_name(d->immortal, sizeof d->immortal, str(road, "immortal") ? str(road, "immortal") : "Immortal");
+    read_boons(field(road, "immortal_boons"), &d->immortal_boons);
+    d->stage_gain = (float)num(road, "stage_gain", 0.02);
+    d->rate = (float)num(road, "rate", 0.05);
+    d->chance_first = (float)num(road, "chance_first", 0.95);
+    d->chance_last = (float)num(road, "chance_last", 0.6);
+    d->fail_loss = (float)num(road, "fail_loss", 0.3);
+    d->toxin_fade = (float)num(road, "toxin_fade", 0.00005);
+    cJSON_ArrayForEach(e, field(road, "realms")) {
+        if (d->realm_count >= MAX_REALMS) return fail(r, "too many realms");
+        RealmDef *realm = &d->realms[d->realm_count++];
+        copy_name(realm->label, sizeof realm->label, str(e, "label") ? str(e, "label") : "Realm");
+        realm->stages = (int)num(e, "stages", 10);
+        realm->qi_first = (float)num(e, "qi", 100.0);
+        realm->qi_growth = (float)num(e, "growth", 1.3);
+        read_boons(field(e, "boons"), &realm->boons);
+        if (!item_ref(r, e, "pill", &realm->pill)) return false;
+        realm->bolts = (int)num(e, "bolts", 0);
+        realm->bolt = (float)num(e, "bolt", 0.2);
+        realm->revives = flag(e, "revives", false);
+        if (realm->stages < 1 || realm->qi_first <= 0.0f) return fail(r, "a realm has at least one stage, and holds some qi");
+    }
+    int total = 0;
+    for (int i = 0; i < d->realm_count; i++) total += d->realms[i].stages;
+    if (total + 2 > MAX_DAO_STAGES) return fail(r, "the road has more than %d stages", MAX_DAO_STAGES - 2);
+    cJSON_ArrayForEach(need, field(road, "needs")) {
+        int stage = (int)num(need, "stage", 0);
+        if (stage < 1 || stage > total) return fail(r, "\"needs\": a \"stage\" is 1 to %d", total);
+        d->need_count[stage] = 0;
+        cJSON_ArrayForEach(one, field(need, "items")) {
+            if (d->need_count[stage] >= 3) return fail(r, "stage %d needs more than 3 kinds of thing", stage);
+            if (!stack_ref(r, one, &d->needs[stage][d->need_count[stage]++])) return false;
+        }
+    }
+    const cJSON *called = field(road, "called");
+    d->called_bolts = (int)num(called, "bolts", 0);
+    d->called_bolt = (float)num(called, "bolt", 0.3);
+    if (field(called, "leaves") && !stack_ref(r, field(called, "leaves"), &d->called_leaves)) return false;
+    static const char *usual[DAO_ELEMENTS] = { "Metal", "Wood", "Water", "Fire", "Earth" };
+    for (int i = 0; i < DAO_ELEMENTS; i++) {
+        const cJSON *named = cJSON_GetArrayItem(field(road, "elements"), i);
+        copy_name(d->elements[i], CONTENT_NAME_LEN, cJSON_IsString(named) ? named->valuestring : usual[i]);
+    }
+    return true;
+}
+
 static bool read_rules(Reader *r, const cJSON *root)
 {
+    if (!read_dao(r, field(root, "cultivation"))) return false;
     RulesDef *u = &content.rules;
     const cJSON *time = field(root, "time"), *player = field(root, "player");
     const cJSON *drops = field(root, "drops"), *ui = field(root, "interface"), *e;

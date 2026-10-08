@@ -1,4 +1,5 @@
 #include "game.h"
+#include "dao.h"
 #include "signal.h"
 #include "digital.h"
 #include "industry.h"
@@ -508,6 +509,7 @@ TileType game_bench_at(const Game *g, int x, int y)
 static bool spell_on_self(const ItemDef *it);
 static void spell_on_mobs(Game *g, const ItemDef *it, int x, int y);
 static void wear_spell(Game *g, ItemId item);
+static void take_effect(Game *g, ItemId item);
 
 static bool is_goal(const World *w, Pose p, Action a)
 {
@@ -978,12 +980,12 @@ static int worn(const Game *g, const ItemDef *out[ARMOR_SLOTS + RELIC_SLOTS])
 {
     int n = 0;
     for (int i = 0; i < ARMOR_SLOTS; i++)
-        if (g->inventory.armor[i].count > 0) out[n++] = item_def((ItemId)g->inventory.armor[i].id);
+        if (g->inventory.armor[i].count > 0 && item_def((ItemId)g->inventory.armor[i].id)->needs_stage <= g->dao.stage) out[n++] = item_def((ItemId)g->inventory.armor[i].id);
     uint16_t box = g->relic_box;
     if (box == 0 || box >= MAX_CONTAINERS || g->inventory.containers[box].used != CONTAINER_RELICS) return n;
     for (int i = 0; i < RELIC_SLOTS; i++) {
         const ItemStack *s = &g->inventory.containers[box].slots[i];
-        if (s->count > 0 && item_def((ItemId)s->id)->relic) out[n++] = item_def((ItemId)s->id);
+        if (s->count > 0 && item_def((ItemId)s->id)->relic && item_def((ItemId)s->id)->needs_stage <= g->dao.stage) out[n++] = item_def((ItemId)s->id);
     }
     return n;
 }
@@ -1007,6 +1009,7 @@ static void add_boons(Boons *all, const Boons *b)
     if (b->stamina > 0.0f) all->stamina *= b->stamina;
     all->armor += b->armor, all->warmth += b->warmth, all->luck += b->luck;
     all->strength += b->strength, all->thorns += b->thorns;
+    all->ward += b->ward, all->breakthrough += b->breakthrough;
     if (b->glide > all->glide) all->glide = b->glide;
     if (b->sight > all->sight) all->sight = b->sight;
     if (b->unseen > all->unseen) all->unseen = b->unseen;
@@ -1021,6 +1024,9 @@ Boons game_boons(const Game *g)
     const ItemDef *on[ARMOR_SLOTS + RELIC_SLOTS];
     int n = worn(g, on);
     for (int i = 0; i < n; i++) add_boons(&all, &on[i]->boons);
+    all.qi = 0.0f;
+    for (int i = 0; i < n; i++)
+        if (on[i]->boons.qi > 0.0f) all.qi = (all.qi > 0.0f ? all.qi : 1.0f) * on[i]->boons.qi;
     /* Enough of a set on: what that gives besides - every bonus the number reaches. */
     for (int s = 0; s < content.set_count && n > 0; s++) {
         int pieces = 0;
@@ -1028,6 +1034,8 @@ Boons game_boons(const Game *g)
         for (int t = 0; t < content.sets[s].tier_count; t++)
             if (pieces >= content.sets[s].tiers[t].pieces) add_boons(&all, &content.sets[s].tiers[t].boons);
     }
+    /* Cultivation: what the stage they have reached gives them, and any formation they stand in. */
+    dao_boons(g, &all);
     /* And whatever they have taken that is still working. */
     for (int i = 0; i < MAX_EFFECTS; i++)
         if (g->effects[i].ticks != 0 && g->effects[i].item > 0 && g->effects[i].item < content.item_count) add_boons(&all, &item_def((ItemId)g->effects[i].item)->effect);
@@ -1368,7 +1376,8 @@ bool game_click_tile(Game *g, int tx, int ty)
     const ItemDef *spell = item_def(held->count > 0 ? (ItemId)held->id : ITEM_NONE);
     if (spell->casts && world_in_bounds(&g->world, tx, ty) &&
         (spell->cast_water > 0 || spell->cast_dig > 0 || spell->cast_shield > 0.0f || spell->cast_time >= 0 || spell->cast_grow > 0 ||
-         spell->cast_freeze > 0 || spell->cast_drain > 0 || spell->cast_hold > 0 || spell->cast_weather != 0 || spell->cast_places != TILE_AIR)) {
+         spell->cast_freeze > 0 || spell->cast_drain > 0 || spell->cast_hold > 0 || spell->cast_weather != 0 || spell->cast_places != TILE_AIR ||
+         (spell->technique && spell->effect_ticks != 0 && spell->cast_damage == 0))) {
         /* A spell in hand that is for a place, or for the one casting it: it is cast. */
         a.type = ACTION_CAST;
         a.item = held->id;
@@ -2103,6 +2112,7 @@ static void finish_activity(Game *g)
             }
             /* What it does at once, and what it leaves working in the creature. */
             if (g->current.arg != HAND_HIT) {}
+            else if (with->casts && !game_technique_ready(g, held->id)) {}
             else if (with->casts) {
                 /* A spell: on this one and whatever is within its splash; and one use of it is gone. */
                 spell_on_mobs(g, with, m->x, m->y);
@@ -2201,6 +2211,11 @@ static void wear_spell(Game *g, ItemId item)
 {
     ItemStack *held = inventory_find(&g->inventory, item);
     if (!held) return;
+    /* (A technique is not used up: it is qi that it costs.) */
+    if (item_def(item)->technique) {
+        dao_spend(g, item);
+        return;
+    }
     int left = inventory_meter(&g->inventory, held);
     if (left <= 1) inventory_remove(&g->inventory, item, 1);
     else inventory_set_meter(&g->inventory, held, left - 1);
@@ -2225,7 +2240,8 @@ static void spell_on_mobs(Game *g, const ItemDef *it, int x, int y)
 /* Whether a spell is one for its caster and not for a place: there is nowhere to go to cast it. */
 static bool spell_on_self(const ItemDef *it)
 {
-    return it->casts && it->cast_water == 0 && it->cast_dig == 0 && (it->cast_shield > 0.0f || it->cast_time >= 0 || it->cast_weather != 0);
+    return it->casts && it->cast_water == 0 && it->cast_dig == 0 && it->cast_grow == 0 && it->cast_freeze == 0 && it->cast_drain == 0 && it->cast_places == TILE_AIR &&
+           (it->cast_shield > 0.0f || it->cast_time >= 0 || it->cast_weather != 0 || (it->technique && it->effect_ticks != 0 && it->cast_damage == 0 && it->cast_hold == 0));
 }
 
 /* Casts the spell in an item at a square. */
@@ -2234,6 +2250,12 @@ static void cast_spell(Game *g, ItemId item, TilePos at)
     const ItemDef *it = item_def(item);
     World *w = &g->world;
     if (!it->casts || inventory_count(&g->inventory, item) < 1) return;
+    /* A technique wants a stage reached, and the qi to do it with. */
+    if (!game_technique_ready(g, item)) {
+        deny(g, at);
+        return;
+    }
+    if (it->technique && it->effect_ticks != 0) take_effect(g, item);
     if (it->cast_water > 0 && !world_is_solid(w, at.x, at.y)) water_add(w, at.x, at.y, it->cast_water);
     if (it->cast_shield > 0.0f && g->shield < it->cast_shield) g->shield = it->cast_shield;
     if (it->cast_time >= 0) {
@@ -2431,6 +2453,12 @@ static bool start_next_activity(Game *g)
                         TilePos used = g->current.target;
                         g->has_current = false;
                         game_use_block(g, used.x, used.y);
+                        continue;
+                    }
+                    /* A formation that is a gate, lit, with another to go to: they go. */
+                    if (tile_def(game_bench_at(g, g->current.target.x, g->current.target.y))->formation_gate &&
+                        game_formation_gate(g, g->current.target.x, g->current.target.y)) {
+                        g->has_current = false;
                         continue;
                     }
                     /* A way to another place is gone through, not opened. */
@@ -3157,6 +3185,7 @@ static void character_stash(Game *g, Character *c)
     c->chill = g->chill;
     c->ride = g->ride;
     c->relic_box = g->relic_box;
+    c->dao = g->dao;
     memcpy(c->effects, g->effects, sizeof c->effects);
     c->ride_seat = g->ride_seat;
     c->upgrading = g->upgrading;
@@ -3194,6 +3223,7 @@ static void character_fetch(Game *g, const Character *c)
     g->chill = c->chill;
     g->ride = c->ride;
     g->relic_box = c->relic_box;
+    g->dao = c->dao;
     memcpy(g->effects, c->effects, sizeof g->effects);
     g->ride_seat = c->ride_seat;
     g->upgrading = c->upgrading;
@@ -3384,6 +3414,8 @@ int game_create_character(Game *g, TilePos portal, const char *name)
 static void die(Game *g)
 {
     Vitals *v = &g->vitals;
+    /* (Somebody far enough along the road survives it, once in a while.) */
+    if (dao_revive(g)) return;
     train_unseat(g, -1);
     v->health = v->death = 0.0f;
     v->respawn = content.rules.respawn_ticks > 0 ? content.rules.respawn_ticks : 1;
@@ -3547,7 +3579,7 @@ bool game_bar_full(float value)
 /* Something that is taken for what it does, not to fill a stomach: a potion. */
 static bool is_dose(const ItemDef *def)
 {
-    return def->effect_ticks != 0 || def->cures || def->recalls;
+    return def->effect_ticks != 0 || def->cures || def->recalls || dao_item(def);
 }
 
 bool game_is_food(ItemId id)
@@ -3605,7 +3637,8 @@ bool game_player_underwater(const Game *g)
 bool game_lifted(const Game *g)
 {
     for (int i = 0; i < ARMOR_SLOTS; i++)
-        if (g->inventory.armor[i].count > 0 && item_def((ItemId)g->inventory.armor[i].id)->lifts) return true;
+        if (g->inventory.armor[i].count > 0 && item_def((ItemId)g->inventory.armor[i].id)->lifts &&
+            item_def((ItemId)g->inventory.armor[i].id)->needs_stage <= g->dao.stage) return true;
     return false;
 }
 
@@ -3642,6 +3675,7 @@ bool game_can_eat(const Game *g, ItemId id)
 {
     if (!game_is_food(id)) return false;
     /* A potion is taken whenever it is wanted - but one that lasts for ever only the once. */
+    if (dao_item(item_def(id)) && !game_dao_can_take(g, id)) return false;
     if (is_dose(item_def(id))) return !(item_def(id)->effect_ticks < 0 && game_has_effect(g, id));
     /* Something that gives breath can always be eaten for that, when breath is short. */
     if (item_def(id)->food_oxygen > 0.0f && g->vitals.oxygen < 1.0f) return true;
@@ -3676,6 +3710,7 @@ bool game_eat(Game *g)
     }
     /* What it does besides, for a while or for good; and what is left of it. */
     take_effect(g, (ItemId)eaten.id);
+    if (dao_item(def)) dao_take(g, (ItemId)eaten.id);
     if (def->cures) v->poison = 0;
     if (def->recalls) {
         game_cancel_actions(g);
@@ -3937,6 +3972,7 @@ static void vitals_tick(Game *g)
             float h = tile_def(world_get(w, at.x + round[i][0], at.y + round[i][1]))->harm;
             if (h > harm) harm = h;
         }
+        dao_tick(g);
         /* What they have taken wears off, a tick at a time. */
         for (int i = 0; i < MAX_EFFECTS; i++)
             if (g->effects[i].ticks > 0) g->effects[i].ticks--;
@@ -4029,6 +4065,7 @@ void game_tick(Game *g)
 
     mobs_tick(g);
     signal_tick(g);
+    dao_world_tick(g);
     water_step(w);
     power_tick(g);
     industry_tick(g);
