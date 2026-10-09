@@ -486,6 +486,8 @@ typedef struct {
     /* A world adrift: the ship as last counted (not saved), the sea she is in, the one she is bound for and the
      * ticks of the passage left, and what is alongside - which of the sea's, plus one, where it was set down,
      * when it goes, and when the next comes. */
+    int disaster;            /* the disaster going on: which of the rules', plus one; 0 for none. Not saved. */
+    uint64_t disaster_until;
     ShipReport ship;
     int sea, sea_to, passage;
     int alongside, alongside_x, alongside_base;

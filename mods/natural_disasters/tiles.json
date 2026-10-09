@@ -1,0 +1,7 @@
+{
+  "tiles": [
+    {"name": "meteorite", "label": "Meteorite", "solid": true, "removable": true, "mine_time": 1.4, "texture": "tiles/meteorite.png", "shade": 12, "tool": "pickaxe", "light": 4, "drops": [{"item": "meteoric_iron", "count": 2}]},
+    {"name": "storm_rod", "label": "Lightning rod", "solid": false, "layer": "background", "removable": true, "mine_time": 0.3, "drop": "storm_rod", "texture": "tiles/storm_rod.png", "tool": "pickaxe", "wards": 12, "model": "panel"},
+    {"name": "sandbags", "label": "Sandbags", "solid": true, "removable": true, "mine_time": 0.25, "drop": "sandbags", "texture": "tiles/sandbags.png", "shade": 10, "tool": "shovel"}
+  ]
+}

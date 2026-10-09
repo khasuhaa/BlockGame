@@ -20,6 +20,7 @@
 #include "dungeonui.h"
 #include "helmui.h"
 #include "ship.h"
+#include "disaster.h"
 #include "questui.h"
 #include "mobmodel.h"
 #include "world3d.h"
@@ -2452,6 +2453,13 @@ static void session_draw(Session *s)
     }
     daoui_draw(&dao_ui, g);
     questui_draw(&quest_ui, g);
+    if (game_disaster(g)) {
+        /* What is going on, by name. */
+        const char *word = game_disaster(g)->label;
+        int wide = MeasureText(word, 18);
+        DrawRectangle(GetScreenWidth() / 2 - wide / 2 - 10, 52, wide + 20, 28, (Color){ 60, 22, 22, 220 });
+        DrawText(word, GetScreenWidth() / 2 - wide / 2, 57, 18, (Color){ 255, 214, 170, 255 });
+    }
     if (g->lightning > 0) {
         /* A bolt of a tribulation: down the column it struck, and the whole view white for a moment. */
         Vector2 at = view_tile_pos(&ui_view, (float)g->lightning_x + 0.5f, (float)g->player.feet.y);

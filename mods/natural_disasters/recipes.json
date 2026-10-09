@@ -1,0 +1,9 @@
+{
+  "recipes": [
+    {"bench": "furnace", "output": {"item": "star_steel_ingot", "count": 1}, "inputs": [{"item": "meteoric_iron", "count": 2}, {"item": "coal", "count": 1}], "time": 60},
+    {"bench": "tool_bench", "output": {"item": "star_steel_pickaxe", "count": 1}, "inputs": [{"item": "star_steel_ingot", "count": 3}, {"item": "stick", "count": 2}], "time": 60},
+    {"bench": "tool_bench", "output": {"item": "star_steel_sword", "count": 1}, "inputs": [{"item": "star_steel_ingot", "count": 2}, {"item": "stick", "count": 1}], "time": 60},
+    {"bench": "metalwork_bench", "output": {"item": "storm_rod", "count": 1}, "inputs": [{"item": "copper_ingot", "count": 3}], "time": 60},
+    {"bench": "tailor_bench", "output": {"item": "sandbags", "count": 2}, "inputs": [{"item": "flax", "count": 1}, {"item": "sand", "count": 2}], "time": 60}
+  ]
+}

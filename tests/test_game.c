@@ -2,6 +2,8 @@
 #include "../src/digital.h"
 #include "../src/game.h"
 #include "../src/ship.h"
+#include "../src/disaster.h"
+#include "../src/water.h"
 #include "../src/guide.h"
 #include "../src/industry.h"
 #include "../src/light.h"
@@ -14411,6 +14413,108 @@ static void test_alchemie_mod(void)
     }
 }
 
+/* Natural Disasters: what the rules say happens now and then, and what stands against it. */
+static int tiles_of(const Game *g, TileType t)
+{
+    int n = 0;
+    for (int y = 0; y < g->world.height; y++)
+        for (int x = 0; x < g->world.width; x++) n += world_get(&g->world, x, y) == t;
+    return n;
+}
+
+static void test_disasters_mod(void)
+{
+    char err[256], what[64];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err) && content.rules.disaster_count == 0);
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count;
+    static Game g;
+    /* (With none in the rules nothing ever begins.) */
+    CHECK(game_init(&g, 256, 200, 9, WORLD_FLAT));
+    for (int t = 0; t < 2000; t++) game_tick(&g);
+    CHECK(g.disaster == 0 && !game_disaster(&g) && !disaster_start(&g, 0));
+    game_free(&g);
+    if (!content_load("mods/natural_disasters", err, sizeof err)) {
+        printf("FAIL natural disasters does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    const RulesDef *u = &content.rules;
+    CHECK(content.tile_count - tiles == 3 && content.item_count - items == 7 && content.recipe_count - recipes == 5 && u->disaster_count == 6 && u->disaster_period == 300);
+    int storm = -1, meteors = -1, quake = -1, flood = -1;
+    for (int i = 0; i < u->disaster_count; i++) {
+        if (strcmp(u->disasters[i].name, "thunderstorm") == 0) storm = i;
+        if (strcmp(u->disasters[i].name, "meteor_shower") == 0) meteors = i;
+        if (strcmp(u->disasters[i].name, "earthquake") == 0) quake = i;
+        if (strcmp(u->disasters[i].name, "flash_flood") == 0) flood = i;
+    }
+    CHECK(storm >= 0 && meteors >= 0 && quake >= 0 && flood >= 0 && u->disasters[storm].bolt && u->disasters[meteors].when == 2 && u->disasters[meteors].leaves == tile_id("meteorite"));
+    CHECK(tile_def(tile_id("storm_rod"))->wards == 12 && item_def(item_id("star_steel_pickaxe"))->tool_speed == 7.0f);
+
+    CHECK(game_init(&g, 256, 200, 77, WORLD_FLAT));
+    World *w = &g.world;
+    /* A meteor shower: it has a name while it lasts, leaves holes with meteorites at the bottom of them, and ends. */
+    int soil = tiles_of(&g, content.worldgen.soil);
+    CHECK(disaster_start(&g, meteors) && !disaster_start(&g, quake) && game_disaster(&g) == &u->disasters[meteors]);
+    for (int t = 0; t < 320; t++) {
+        g.vitals.health = 1.0f;
+        disaster_tick(&g);
+        g.tick++;
+    }
+    CHECK(g.disaster == 0 && tiles_of(&g, tile_id("meteorite")) >= 2 && tiles_of(&g, content.worldgen.soil) < soil - 10);
+    /* An earthquake shakes blocks loose under the ground. */
+    soil = tiles_of(&g, content.worldgen.soil);
+    CHECK(disaster_start(&g, quake));
+    for (int t = 0; t < 220; t++) disaster_tick(&g), g.tick++;
+    CHECK(g.disaster == 0 && tiles_of(&g, content.worldgen.soil) < soil - 5);
+    /* A flood brings water there was not. */
+    long wet = water_total(w);
+    CHECK(disaster_start(&g, flood));
+    for (int t = 0; t < 320; t++) disaster_tick(&g), g.tick++;
+    CHECK(water_total(w) > wet + 100);
+    game_free(&g);
+
+    /* A thunderstorm burns what burns where it strikes - unless there are rods to draw the bolts off. */
+    TileType wood = TILE_AIR;
+    for (TileType t = 1; t < content.tile_count && wood == TILE_AIR; t++)
+        if (tile_def(t)->burns && tile_def(t)->solid && tile_def(t)->height == 1 && tile_def(t)->pair == TILE_AIR) wood = t;
+    CHECK(wood != TILE_AIR);
+    for (int rods = 0; rods <= 1; rods++) {
+        CHECK(game_init(&g, 256, 200, 78, WORLD_FLAT));
+        w = &g.world;
+        int px = g.player.feet.x, ground = w->surface_y;
+        for (int dx = -40; dx <= 40; dx++) {
+            if (abs(dx) < 2) continue;
+            /* (A row of something that burns laid along the ground; and, the second time, a rod standing every ten.) */
+            world_set_at(w, LAYER_FOREGROUND, px + dx, ground - 1, wood);
+            if (rods && dx % 10 == 0) world_set_at(w, LAYER_BACKGROUND, px + dx, ground - 2, tile_id("storm_rod"));
+        }
+        int before = tiles_of(&g, wood), bolts = 0;
+        CHECK(disaster_start(&g, storm));
+        for (int t = 0; t < 620; t++) {
+            g.vitals.health = 1.0f;
+            g.lightning = 0;
+            disaster_tick(&g);
+            bolts += g.lightning > 0;
+            g.tick++;
+        }
+        CHECK(bolts >= 10 && before == 78);
+        if (rods) CHECK(tiles_of(&g, wood) == before);
+        else CHECK(tiles_of(&g, wood) < before - 8);
+        game_free(&g);
+    }
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/settest/saves");
+    const ModInfo *mine = NULL;
+    for (int i = 0; i < mods.count; i++)
+        if (strcmp(mods.mods[i].id, "natural_disasters") == 0) mine = &mods.mods[i];
+    CHECK(mine != NULL && mine->utility);
+    for (int i = 0; mine && i < mods.count; i++)
+        if (&mods.mods[i] != mine) CHECK(!mods_conflict(mine, &mods.mods[i], what, sizeof what));
+    content_reset();
+    CHECK(content_load("data", err, sizeof err) && content.tile_count == tiles);
+}
+
 /* Advanced Lighting: some fifty lights, and two things that glow in caves. */
 static void test_lighting_mod(void)
 {
@@ -14950,6 +15054,7 @@ int main(void)
     test_plunder_mod();
     test_dungeoneering_mod();
     test_questbook();
+    test_disasters_mod();
     test_lighting_mod();
     test_utility_mods();
     test_skyblock_mod();

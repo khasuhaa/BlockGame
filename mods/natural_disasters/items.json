@@ -1,0 +1,11 @@
+{
+  "items": [
+    {"name": "meteorite", "label": "Meteorite", "texture": "items/meteorite.png", "category": "ores", "price": 400, "tier": 4, "places": "meteorite"},
+    {"name": "meteoric_iron", "label": "Meteoric iron", "texture": "items/meteoric_iron.png", "category": "ores", "price": 300, "tier": 4},
+    {"name": "star_steel_ingot", "label": "Star-steel ingot", "texture": "items/star_steel_ingot.png", "category": "ores", "price": 900, "tier": 5},
+    {"name": "star_steel_pickaxe", "label": "Star-steel pickaxe", "texture": "items/star_steel_pickaxe.png", "category": "tools", "price": 2400, "tier": 5, "tool": {"class": "pickaxe", "speed": 7.0}, "max_stack": 1},
+    {"name": "star_steel_sword", "label": "Star-steel sword", "texture": "items/star_steel_sword.png", "category": "tools", "price": 2400, "tier": 5, "damage": 14, "max_stack": 1},
+    {"name": "storm_rod", "label": "Lightning rod", "texture": "items/storm_rod.png", "category": "crafted", "price": 400, "tier": 2, "places": "storm_rod"},
+    {"name": "sandbags", "label": "Sandbags", "texture": "items/sandbags.png", "category": "blocks", "price": 30, "tier": 1, "places": "sandbags"}
+  ]
+}

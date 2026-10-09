@@ -406,6 +406,7 @@ static bool read_tiles(Reader *r, const cJSON *root)
                 t->trawl = (int)num(e, "trawl", 0);
                 if (!tile_ref(r, e, "holed", &t->holed)) return false;
                 t->spring = (int)num(e, "spring", 0);
+                t->wards = (int)num(e, "wards", 0);
                 const cJSON *under;
                 t->needs_under_count = 0;
                 cJSON_ArrayForEach(under, field(e, "needs_under")) {
@@ -2193,6 +2194,34 @@ static bool read_rules(Reader *r, const cJSON *root)
         }
     }
     if (field(root, "questbook")) u->questbook = flag(root, "questbook", false);
+    {
+        const cJSON *all = field(root, "disasters"), *d;
+        if (all) u->disaster_period = (int)num(all, "period_ticks", 200);
+        cJSON_ArrayForEach(d, field(all, "list")) {
+            const char *dn = str(d, "name"), *when = str(d, "time");
+            if (!dn) return fail(r, "a disaster has no \"name\"");
+            DisasterDef *def = NULL;
+            for (int i = 0; i < u->disaster_count; i++)
+                if (strcmp(u->disasters[i].name, dn) == 0) def = &u->disasters[i];
+            if (!def) {
+                if (u->disaster_count >= MAX_DISASTERS) return fail(r, "too many disasters (%d at most)", MAX_DISASTERS);
+                def = &u->disasters[u->disaster_count++];
+            }
+            memset(def, 0, sizeof *def);
+            copy_name(def->name, CONTENT_NAME_LEN, dn);
+            copy_name(def->label, CONTENT_NAME_LEN, str(d, "label") ? str(d, "label") : dn);
+            def->chance = (float)num(d, "chance", 0.0), def->hurt = (float)num(d, "hurt", 0.0);
+            def->ticks = (int)num(d, "ticks", 300), def->every = (int)num(d, "every", 20), def->reach = (int)num(d, "reach", 24);
+            def->when = !when ? 0 : strcmp(when, "day") == 0 ? 1 : strcmp(when, "night") == 0 ? 2 : 0;
+            def->bolt = flag(d, "bolt", false), def->exposed = flag(d, "exposed", false);
+            def->burn = (int)num(d, "burn", 0), def->blast = (int)num(d, "blast", 0), def->breaks = (int)num(d, "breaks", 0);
+            def->depth_min = 1, def->depth_max = 12;
+            pair(d, "depth", &def->depth_min, &def->depth_max);
+            def->water = (int)num(d, "water", 0), def->hurt_radius = (int)num(d, "hurt_radius", 1);
+            if (!tile_ref(r, d, "leaves", &def->leaves)) return false;
+            if (def->every < 1 || def->reach < 1 || def->depth_max < def->depth_min) return fail(r, "disaster \"%s\": it strikes every tick or slower, within a column or more, and its \"depth\" is a range", dn);
+        }
+    }
     {
         const cJSON *gfx = field(root, "graphics");
         if (gfx) {

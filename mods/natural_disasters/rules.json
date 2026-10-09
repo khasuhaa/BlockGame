@@ -1,0 +1,74 @@
+{
+ "disasters": {
+  "period_ticks": 300,
+  "list": [
+   {
+    "name": "thunderstorm",
+    "label": "Thunderstorm",
+    "chance": 0.02,
+    "ticks": 600,
+    "every": 40,
+    "reach": 30,
+    "bolt": true,
+    "burn": 1,
+    "hurt": 0.2,
+    "hurt_radius": 1
+   },
+   {
+    "name": "meteor_shower",
+    "label": "Meteor shower",
+    "chance": 0.008,
+    "time": "night",
+    "ticks": 300,
+    "every": 60,
+    "reach": 40,
+    "blast": 2,
+    "leaves": "meteorite",
+    "hurt": 0.2,
+    "hurt_radius": 3
+   },
+   {
+    "name": "earthquake",
+    "label": "Earthquake",
+    "chance": 0.008,
+    "ticks": 200,
+    "every": 10,
+    "reach": 25,
+    "breaks": 1,
+    "depth": [
+     1,
+     24
+    ]
+   },
+   {
+    "name": "flash_flood",
+    "label": "Flash flood",
+    "chance": 0.008,
+    "ticks": 300,
+    "every": 10,
+    "reach": 20,
+    "water": 8
+   },
+   {
+    "name": "wildfire",
+    "label": "Wildfire",
+    "chance": 0.006,
+    "time": "day",
+    "ticks": 300,
+    "every": 15,
+    "reach": 25,
+    "burn": 2
+   },
+   {
+    "name": "hailstorm",
+    "label": "Hailstorm",
+    "chance": 0.01,
+    "ticks": 300,
+    "every": 30,
+    "reach": 10,
+    "exposed": true,
+    "hurt": 0.03
+   }
+  ]
+ }
+}

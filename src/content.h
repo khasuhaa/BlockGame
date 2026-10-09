@@ -28,6 +28,7 @@
 #define DAO_MERIDIANS 12
 #define MAX_STRUCTURES 128
 #define MAX_SEAS 16
+#define MAX_DISASTERS 16
 #define MAX_SEA_DRIFT 64
 #define MAX_SEA_ALONGSIDE 32
 /* What a block adds to the ship it is part of ("ship" on a block): what the hull will bear and what is aboard, sail
@@ -381,6 +382,7 @@ typedef struct {
     /* "holed": what this piece of hull becomes when something bites through it - a block the sea comes in by.
      * "needs_under": it is put down only on one of these (a forge on a hearth). */
     TileType holed;
+    int wards;  /* "wards": a bolt that would strike within so many columns of it strikes it instead, and does nothing */
     int spring; /* "spring": shut in by a block either side and one under it, it fills with water by itself (a chance in so many of the random events it gets; 1 for every one) */
     TileType needs_under[8];
     int needs_under_count;
@@ -907,6 +909,20 @@ typedef struct {
     } cells[STRUCTURE_MAX_HEIGHT][STRUCTURE_MAX_WIDTH];
 } StructureDef;
 
+/* A disaster: how likely it is to begin each time the rules ask ("chance"), by day, by night or either; how long it
+ * lasts and how often it strikes while it does, within so many columns of a character; and what a strike is - a
+ * bolt (which something that "wards" draws off), what burns within so far burnt away, a blast so wide that may
+ * leave a block at the bottom of its hole, so many blocks shaken loose so far down, water poured, and hurt to
+ * whoever is within so far (or, "exposed", to everybody out of doors wherever they are). */
+typedef struct {
+    char name[CONTENT_NAME_LEN], label[CONTENT_NAME_LEN];
+    float chance, hurt;
+    int ticks, every, reach, when;
+    bool bolt, exposed;
+    int burn, blast, breaks, depth_min, depth_max, water, hurt_radius;
+    TileType leaves;
+} DisasterDef;
+
 /* A sea: one of the waters a ship adrift may be in. What it asks of her before she can go there; what drifts by
  * in it (by day, by night or both), and how much; what lies on its bed, by how deep; what comes alongside, how
  * often, and what cable and reach each wants; and how it looks. */
@@ -1382,6 +1398,8 @@ typedef struct {
     int respawn_cost;      /* crystals to come back at once, right after dying; less as the wait runs down */
     /* "graphics": a fragment shader the world is drawn through (a file, looked for as textures are, in the game's
      * data and each mod that is on), and how much of each thing it does. With no shader the world is drawn as it was. */
+    DisasterDef disasters[MAX_DISASTERS]; /* "disasters": {"period_ticks", "list"}: each is looked at once a period */
+    int disaster_count, disaster_period;
     char gfx_shader[CONTENT_PATH_LEN];
     float gfx_bloom, gfx_vignette, gfx_saturation, gfx_contrast, gfx_warmth;
     bool questbook;        /* "questbook": quests are kept track of, and there is a book of them */

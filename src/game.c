@@ -1,5 +1,6 @@
 #include "game.h"
 #include "ship.h"
+#include "disaster.h"
 #include "dao.h"
 #include "signal.h"
 #include "digital.h"
@@ -4962,6 +4963,7 @@ void game_tick(Game *g)
     digital_tick(g);
     train_tick(g);
     ship_tick(g);
+    disaster_tick(g);
     /* Everybody gets hungry, whoever is being played. */
     for (int c = 0; c < g->character_count; c++) {
         game_use_character(g, c);
