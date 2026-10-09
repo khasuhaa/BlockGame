@@ -1,0 +1,35 @@
+SKYBLOCK   (a mod laid over the game; asked for as "a skyblock mod with features that allow every resource
+typically gainable to be gained somehow", to be built at once - so what would have been questions were decided)
+
+WHAT WAS DECIDED
+   - It is an ordinary mod, on top of the game and of any other mod: not a game of its own.
+   - With it on a NEW world is empty sky: one island eleven squares long (grass, dirt, a core of stone, an oak,
+     the spawn portal), ten small islands 45 to 90 squares apart to either side (sand, ore, clay with a golden
+     chest, marble, ice, gold), and a floor at the bottom that nothing reaches. Worlds made before are untouched.
+   - "Every resource" is not a list written by hand. The generator works out, from the data, every traded item
+     that could NOT be come by starting from a tree and the dirt it stands in, and gives exactly those - first
+     what no recipe makes at all, then the cheapest thing that unties each knot that is left. For the game that
+     is 53 things of 298; the rest follow by the game's own recipes.
+   - The same is done for every mod the game comes with, as recipes marked "optional" (not there when the mod is
+     off). Dungeon loot is left out: the dungeons can still be gone into.
+   - Nothing comes from nothing but DUST: the cloud condenser makes sky dust with no inputs, slowly; dust makes
+     star grit, grit makes void essence. Everything given is paid for in one of the three, by its price.
+
+BUILT (tools/mod_skyblock.py; engine: `"skyblock"` in worldgen.json and `"spring"` on a block; test_skyblock_mod)
+   - Five benches, made at the workbench: cloud condenser, sieve (a chance at one of the things of a price
+     band), lodestone table (the game's own things for certain, at four times the price), hatchery (a caged
+     creature - every one of the game's 26, and by chance each mod's), composter (sticks or wood to dirt).
+   - A well: shut in by a block either side and one under it, it fills by itself. Water is otherwise never made.
+   - 7 blocks, 9 items, 152 recipes (93 for the game, 59 for the mods), 7 structures, 49 quests in a tree.
+   - The test works the reach out again in C and fails naming anything of the game's that cannot be come by.
+
+NOT BUILT, AND WHAT IS NOT COVERED
+   - "Can be come by" is reckoned from recipes alone. It does not check that every BENCH on the way can be had
+     (benches are raised with things that are themselves covered, but nothing proves the chain), nor biomes:
+     a creature or crop that wants a certain country is given, but may not thrive on an island in the plains.
+   - Blocks that are not items, and things only ever found as a place (a pole, a village), are not given.
+   - Mods' things are given by chance only, forty to a pool: a particular one may take many goes.
+   - With very many mods on, the recipes may pass the engine's limit of 4,096. Not measured.
+   - No falling into the void: characters will not step off, as in the game. Things dropped over the edge are
+     lost on the floor.
+   - Never played. Costs follow prices; how long anything takes is a guess.

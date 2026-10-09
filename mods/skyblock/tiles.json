@@ -1,0 +1,11 @@
+{
+  "tiles": [
+    {"name": "cloud_condenser", "label": "Cloud condenser", "solid": false, "removable": true, "mine_time": 0.4, "drop": "cloud_condenser", "texture": "tiles/cloud_condenser.png", "bench": true, "bench_kind": "cloud_condenser", "bench_level": 1, "popup_name": "bench", "tool": "axe", "layer": "background"},
+    {"name": "sky_sieve", "label": "Sieve", "solid": false, "removable": true, "mine_time": 0.4, "drop": "sky_sieve", "texture": "tiles/sky_sieve.png", "bench": true, "bench_kind": "sky_sieve", "bench_level": 1, "popup_name": "bench", "tool": "axe", "layer": "background"},
+    {"name": "sky_composter", "label": "Composter", "solid": false, "removable": true, "mine_time": 0.4, "drop": "sky_composter", "texture": "tiles/sky_composter.png", "bench": true, "bench_kind": "sky_composter", "bench_level": 1, "popup_name": "bench", "tool": "axe", "layer": "background"},
+    {"name": "sky_hatchery", "label": "Hatchery", "solid": false, "removable": true, "mine_time": 0.4, "drop": "sky_hatchery", "texture": "tiles/sky_hatchery.png", "bench": true, "bench_kind": "sky_hatchery", "bench_level": 1, "popup_name": "bench", "tool": "axe", "layer": "background"},
+    {"name": "lodestone_table", "label": "Lodestone table", "solid": false, "removable": true, "mine_time": 0.4, "drop": "lodestone_table", "texture": "tiles/lodestone_table.png", "bench": true, "bench_kind": "lodestone_table", "bench_level": 1, "popup_name": "bench", "tool": "axe", "layer": "background"},
+    {"name": "sky_well", "label": "Well", "solid": false, "layer": "background", "removable": true, "mine_time": 0.4, "drop": "sky_well", "texture": "tiles/sky_well.png", "tool": "pickaxe", "spring": 1},
+    {"name": "void_floor", "label": "The bottom of the sky", "solid": true, "texture": "tiles/void_floor.png"}
+  ]
+}

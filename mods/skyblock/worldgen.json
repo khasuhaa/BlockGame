@@ -1,0 +1,12 @@
+{
+  "skyblock": {"island": "sky_home", "floor": "void_floor", "gap": [45, 90], "islets": ["sky_sand_isle", "sky_ore_isle", "sky_clay_isle", "sky_marble_isle", "sky_ice_isle", "sky_gold_isle", "sky_ore_isle", "sky_sand_isle", "sky_clay_isle", "sky_gold_isle"]},
+  "structures": [
+    {"name": "sky_home", "rows": ["~~~~~~LLL~~", "~~~~~LLLLL~", "~~~~~LLTLL~", "~~~~~~~T~~~", "~~~~~~~T~~~", "GGGGGGGGGGG", "DDDDDDDDDDD", "~DDSSSSSDD~", "~~DSSSSSD~~", "~~~~SSS~~~~"], "legend": {"L": {"back": "oak_leaves"}, "T": {"back": "oak_log"}, "G": {"front": "grass"}, "D": {"front": "dirt"}, "S": {"front": "stone"}}},
+    {"name": "sky_sand_isle", "rows": ["AAAAAAA", "ABBBBBA", "~BBBBB~", "~~BBB~~"], "legend": {"A": {"front": "sand"}, "B": {"front": "sandstone"}}},
+    {"name": "sky_ore_isle", "rows": ["SSSSSSSSS", "SCSSTSSKS", "~SSISSCS~", "~~STSKS~~", "~~~SSS~~~"], "legend": {"S": {"front": "stone"}, "C": {"front": "copper_ore"}, "T": {"front": "tin_ore"}, "I": {"front": "iron_ore"}, "K": {"front": "coal_ore"}}},
+    {"name": "sky_clay_isle", "rows": ["~~~X~~~", "GGGGGGG", "DCCDCCD", "~DCCCD~", "~~DDD~~"], "legend": {"G": {"front": "grass"}, "D": {"front": "dirt"}, "C": {"front": "clay"}, "X": {"back": "golden_chest"}}},
+    {"name": "sky_ice_isle", "rows": ["IIIIIII", "IIIIIII", "~IIIII~", "~~III~~"], "legend": {"I": {"front": "ice"}}},
+    {"name": "sky_marble_isle", "rows": ["~~A~A~~", "MMMMMMM", "MLMMMLM", "~MMLMM~", "~~MMM~~"], "legend": {"M": {"front": "marble"}, "L": {"front": "limestone"}, "A": {"back": "amethyst"}}},
+    {"name": "sky_gold_isle", "rows": ["~~~X~~~", "SSSSSSS", "SGSFSGS", "~SSGSS~", "~~SSS~~"], "legend": {"S": {"front": "stone"}, "G": {"front": "gold_ore"}, "F": {"front": "flint"}, "X": {"back": "golden_chest"}}}
+  ]
+}

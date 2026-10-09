@@ -1176,6 +1176,21 @@ Quests are the world's, not a character's: whoever is being played does them and
 
 **Not built**: quests with more than one task; quests written by hand - they say what a thing is made from or where it is found, and no more; lines between branches (a thing made does not wait on the quests for what it is made of, only on its stage's head); zooming the page; a key for the book (it is the button).
 
+### Skyblock
+
+A mod for the game as it is (and for any other mod with it): with it on, **a new world is empty sky**. There is one island eleven squares long - grass, dirt, a core of stone, an oak and the spawn portal - and ten small ones a long way off to either side (sand, ore, clay, marble, ice, gold; two with a golden chest), which have to be built out to. Characters will not step off an edge; what is dropped over one is gone. Worlds made before the mod was on are as they were. What was decided and what is not covered is in `ModDescriptions/Skyblock.txt`.
+
+Everything the ground, the sea, their creatures and their chests would have given can be had another way, from five benches made at the workbench:
+
+- The **cloud condenser** makes **sky dust** out of nothing, slowly. Eight dust make a **star grit**, eight grit a **void essence**. Everything else here is paid for in one of the three.
+- The **sieve** turns dust, grit or essence into one of the things of that price - by chance, from a pool.
+- The **lodestone table** makes any of the game's own such things for certain, at four times the price.
+- The **hatchery** makes a caged creature, to let out: every one of the game's.
+- The **composter** makes dirt of sticks or wood.
+- A **well**, with a block either side of it and one under, fills with water by itself.
+
+Which things are given is worked out from the data: every traded item that could not be come by starting from a tree and its dirt (53 of the game's 298; the rest follow by the game's own recipes). The same is done for each mod the game comes with - their things come from the sieve and their creatures from the hatchery, by chance, while that mod is on. Dungeon loot is not given: the dungeons are still there. It has not been played.
+
 ### Hull & Horizon
 
 Not a mod laid over the game but **a game of its own**: with it on, nothing of the base game is loaded - no land, no portal, none of its blocks, items or recipes - and no other mod can be on with it (ticking it in a playset turns the others off for that playset). What is left is the engine: the way characters move and work, benches, storage, hunger and sleep, creatures, trade, the book of quests. The plan, what was decided and what was left out are in `ModDescriptions/HullAndHorizon.txt`.

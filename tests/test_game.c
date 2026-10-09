@@ -14411,6 +14411,104 @@ static void test_alchemie_mod(void)
     }
 }
 
+/* Skyblock: a new world is empty sky and an island, and everything the game gives can be had some other way. */
+static void test_skyblock_mod(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err) && !content.worldgen.skyblock);
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count, base_items = content.item_count;
+    if (!content_load("mods/skyblock", err, sizeof err)) {
+        printf("FAIL skyblock does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    CHECK(content.tile_count - tiles == 7 && content.item_count - items == 9 && content.worldgen.skyblock && content.worldgen.sky_islet_count == 10);
+    /* (Its recipes for other mods' things are left out while those mods are off.) */
+    CHECK(content.recipe_count - recipes == 93);
+    /* Everything of the game's that is traded can be come by from a tree and the dirt it stands in: worked out
+     * here as the generator does, from the recipes alone. */
+    static bool got[MAX_ITEMS];
+    memset(got, 0, sizeof got);
+    got[item_id("wood")] = got[item_id("stick")] = got[item_id("dirt")] = got[item_id("acorn")] = true;
+    for (bool more = true; more;) {
+        more = false;
+        for (int r = 0; r < content.recipe_count; r++) {
+            const Recipe *rc = &content.recipes[r];
+            bool can = true;
+            for (int i = 0; i < rc->input_count; i++) can = can && got[rc->inputs[i].id];
+            for (int i = 0; i < rc->random_item_count; i++) can = can && got[rc->random_items[i]];
+            if (!can) continue;
+            if (!got[rc->output.id]) got[rc->output.id] = true, more = true;
+            for (int k = 0; k < rc->one_of_count; k++)
+                if (!got[rc->one_of[k].item]) got[rc->one_of[k].item] = true, more = true;
+        }
+    }
+    int missing = 0;
+    for (ItemId i = 1; i < base_items; i++) {
+        const ItemDef *it = item_def(i);
+        if (it->category < 0 || content.trade.categories[it->category].free_only || got[i]) continue;
+        if (missing++ < 5) printf("FAIL %s cannot be come by in the sky\n", it->name);
+    }
+    CHECK(missing == 0 && got[item_id("iron_ore")] && got[item_id("diamond_shard")] && got[item_id("fish")] && got[item_id("ice")]);
+    /* Every creature of the game's can be hatched. */
+    for (int k = 0; k < content.mob_count; k++) {
+        bool hatched = false;
+        for (int r = 0; r < content.recipe_count; r++) hatched = hatched || (strcmp(content.recipes[r].bench, "sky_hatchery") == 0 && content.recipes[r].output.id == content.mobs[k].caged);
+        CHECK(hatched);
+    }
+    /* The benches are made at the workbench; and it clashes with no other mod. */
+    for (int r = 0; r < content.recipe_count; r++)
+        if (strcmp(content.recipes[r].bench, "workbench") == 0 && r >= recipes) CHECK(tile_def(item_def(content.recipes[r].output.id)->places)->bench);
+    {
+        static ModList mods;
+        mods_scan(&mods, MODS_DIR, "build/settest/saves");
+        const ModInfo *mine = NULL;
+        char what[64];
+        for (int i = 0; i < mods.count; i++)
+            if (strcmp(mods.mods[i].id, "skyblock") == 0) mine = &mods.mods[i];
+        CHECK(mine != NULL);
+        for (int i = 0; mine && i < mods.count; i++)
+            if (&mods.mods[i] != mine) CHECK(!mods_conflict(mine, &mods.mods[i], what, sizeof what));
+    }
+
+    /* The world: nothing but the island it begins on, a few more a long way off, and a floor nobody reaches. */
+    static Game g;
+    CHECK(game_init(&g, 2048, content.worldgen.height, 808, WORLD_TERRAIN));
+    World *w = &g.world;
+    int mid = w->spawn_x, solid = 0, near_ = 0, ore = 0;
+    for (int y = 0; y < w->height - 1; y++)
+        for (int x = 0; x < w->width; x++) {
+            if (!world_is_solid(w, x, y)) continue;
+            solid++;
+            near_ += abs(world_dx(w, mid, x)) <= 6;
+            ore += world_get(w, x, y) == tile_id("copper_ore");
+        }
+    CHECK(w->sea_row == -1 && mid == 1024 && world_is_solid(w, mid, w->spawn_y + 1) && !world_is_solid(w, mid, w->spawn_y) && g.player.feet.x == mid && g.player.feet.y == w->spawn_y);
+    CHECK(near_ > 30 && near_ < 80 && solid > near_ + 100 && solid < 600 && ore >= 2 && world_get(w, mid, w->spawn_y + 1) == content.worldgen.portal_base);
+    CHECK(world_get(w, 40, w->height - 1) == tile_id("void_floor") && world_get(w, mid + 20, w->spawn_y + 1) == TILE_AIR && world_get_at(w, LAYER_BACKGROUND, mid + 2, w->spawn_y) == tile_id("oak_log"));
+    /* A well, shut in, fills by itself; open on a side, it does not. */
+    int wy = w->spawn_y + 1;
+    world_set_at(w, LAYER_FOREGROUND, mid + 3, wy, TILE_AIR);
+    world_set_at(w, LAYER_BACKGROUND, mid + 3, wy, tile_id("sky_well"));
+    CHECK(world_water(w, mid + 3, wy) == 0);
+    game_random_event(&g, mid + 3, wy);
+    CHECK(world_water(w, mid + 3, wy) == WATER_FULL);
+    world_set_water(w, mid + 3, wy, 0);
+    world_set_at(w, LAYER_FOREGROUND, mid + 4, wy, TILE_AIR);
+    game_random_event(&g, mid + 3, wy);
+    CHECK(world_water(w, mid + 3, wy) == 0);
+    game_free(&g);
+
+    /* With a mod on, its things are given too. */
+    content_reset();
+    CHECK(content_load("data", err, sizeof err) && content_load("mods/culinary_delights", err, sizeof err));
+    int with = content.recipe_count;
+    CHECK(content_load("mods/skyblock", err, sizeof err) && content.recipe_count - with > 93);
+    content_reset();
+    CHECK(content_load("data", err, sizeof err) && content.tile_count == tiles);
+}
+
 /* Hull & Horizon: a mod that is a game of its own, loaded in place of the game's data - a sea, and a ship of blocks. */
 static void test_hull_mod(void)
 {
@@ -14769,6 +14867,7 @@ int main(void)
     test_plunder_mod();
     test_dungeoneering_mod();
     test_questbook();
+    test_skyblock_mod();
     test_hull_mod();
     test_equip_selected();
     test_worn();

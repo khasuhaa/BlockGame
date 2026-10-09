@@ -381,6 +381,7 @@ typedef struct {
     /* "holed": what this piece of hull becomes when something bites through it - a block the sea comes in by.
      * "needs_under": it is put down only on one of these (a forge on a hearth). */
     TileType holed;
+    int spring; /* "spring": shut in by a block either side and one under it, it fills with water by itself (a chance in so many of the random events it gets; 1 for every one) */
     TileType needs_under[8];
     int needs_under_count;
     int dungeon_spawn, gate_reach;
@@ -1179,6 +1180,13 @@ typedef struct {
      * as, how big she may be with no keel, how many ticks a thing adrift takes to pass one square when she lies
      * still, and how far ahead of her things appear. "seas": the waters she may be in, the first where she begins. */
     bool adrift;
+    /* "skyblock": the world is empty air, and in the middle of it one structure - an island - with the spawn on
+     * top of it; further off to either side, so many squares apart, the other structures named, in turn, each a
+     * little higher or lower; and a floor at the very bottom that nothing reaches. */
+    bool skyblock;
+    char sky_island[CONTENT_NAME_LEN], sky_islets[16][CONTENT_NAME_LEN];
+    int sky_islet_count, sky_gap_min, sky_gap_max;
+    TileType sky_floor;
     int adrift_waterline, keel_long, keel_above, keel_below, drift_ticks, drift_ahead;
     char adrift_start[CONTENT_NAME_LEN];
     SeaDef seas[MAX_SEAS];

@@ -1216,6 +1216,41 @@ bool world_build_allowed(const World *w, int x, int y, TileType tile)
     return tile_def(tile)->ship[SHIP_WEIGHT] <= w->build_room;
 }
 
+/* Sets a structure down so that the top of the ground in its middle column is on a row. False if there is none such. */
+static bool stamp_on_row(World *w, const char *name, int mid, int row)
+{
+    for (int i = 0; i < content.structure_count; i++) {
+        const StructureDef *s = &content.structures[i];
+        if (strcmp(s->name, name) != 0) continue;
+        int top = 0;
+        while (top < s->height - 1 && (s->cells[top][s->width / 2].keep || !tile_def(s->cells[top][s->width / 2].front)->solid)) top++;
+        return world_stamp(w, name, mid - s->width / 2, row + (s->height - 1 - top), NULL, NULL);
+    }
+    return false;
+}
+
+/* A world in the sky: nothing, but for an island to begin on and a few more a long way off to either side. */
+static void generate_skyblock(World *w)
+{
+    const WorldGenDef *gen = &content.worldgen;
+    uint32_t rng = (w->seed ? w->seed : 0x9E3779B9u) ^ 0x51C0B10Cu;
+    for (int i = 0; i < 8; i++) rng_next(&rng);
+    int row = w->height / 2;
+    w->sea_row = -1;
+    w->spawn_x = w->width / 2;
+    w->spawn_y = row - 1;
+    w->y_top = w->spawn_y;
+    for (int x = 0; x < w->width && gen->sky_floor != TILE_AIR; x++) w->layers[LAYER_FOREGROUND][(size_t)(w->height - 1) * w->width + x] = (uint16_t)gen->sky_floor;
+    stamp_on_row(w, gen->sky_island, w->spawn_x, row);
+    int at[2] = { 0, 0 };
+    for (int i = 0; i < gen->sky_islet_count; i++) {
+        int side = i % 2;
+        at[side] += rng_range(&rng, gen->sky_gap_min, gen->sky_gap_max);
+        if (at[side] > w->width / 2 - 40) break;
+        stamp_on_row(w, gen->sky_islets[i], w->spawn_x + (side ? -at[side] : at[side]), row + rng_range(&rng, -14, 14));
+    }
+}
+
 /* A world adrift: sea from the waterline down to a floor nobody reaches, and afloat in the middle of it the
  * structure the data names - the ship as she begins. */
 static void generate_adrift(World *w)
@@ -1410,6 +1445,8 @@ bool world_init_with(World *w, int width, int height, uint32_t seed, WorldKind k
         raise_walls(w);
     } else if (content.worldgen.adrift) {
         generate_adrift(w);
+    } else if (content.worldgen.skyblock) {
+        generate_skyblock(w);
     } else if (!generate_terrain(w)) {
         world_free(w);
         return false;

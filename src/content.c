@@ -405,6 +405,7 @@ static bool read_tiles(Reader *r, const cJSON *root)
                 t->helm = flag(e, "helm", false);
                 t->trawl = (int)num(e, "trawl", 0);
                 if (!tile_ref(r, e, "holed", &t->holed)) return false;
+                t->spring = (int)num(e, "spring", 0);
                 const cJSON *under;
                 t->needs_under_count = 0;
                 cJSON_ArrayForEach(under, field(e, "needs_under")) {
@@ -1037,6 +1038,7 @@ static bool read_recipes(Reader *r, const cJSON *root)
             bool all = !str(field(e, "output"), "item") || item_id(str(field(e, "output"), "item")) > 0;
             const cJSON *named;
             cJSON_ArrayForEach(named, field(e, "inputs")) all = all && str(named, "item") && item_id(str(named, "item")) > 0;
+            cJSON_ArrayForEach(named, field(field(e, "output"), "one_of")) all = all && str(named, "item") && item_id(str(named, "item")) > 0;
             if (str(e, "at")) all = all && tile_id(str(e, "at")) > 0;
             if (!all) continue;
         }
@@ -1256,6 +1258,20 @@ static bool read_worldgen(Reader *r, const cJSON *root)
             g->keel_below = (int)num(field(adrift, "keel"), "below", 1);
             copy_name(g->adrift_start, CONTENT_NAME_LEN, str(adrift, "start"));
             if (g->drift_ticks < 2 || g->drift_ahead < 4 || g->keel_long < 2) return fail(r, "\"adrift\": things take 2 ticks or more a square, appear 4 or more ahead, and the ship is 2 or more long");
+        }
+        const cJSON *sky = field(root, "skyblock");
+        if (sky) {
+            g->skyblock = true;
+            g->sky_gap_min = 40, g->sky_gap_max = 90;
+            pair(sky, "gap", &g->sky_gap_min, &g->sky_gap_max);
+            copy_name(g->sky_island, CONTENT_NAME_LEN, str(sky, "island"));
+            if (!tile_ref(r, sky, "floor", &g->sky_floor)) return false;
+            g->sky_islet_count = 0;
+            cJSON_ArrayForEach(one, field(sky, "islets")) {
+                if (!cJSON_IsString(one) || g->sky_islet_count >= 16) return fail(r, "\"skyblock\": \"islets\" lists at most 16 structures, by name");
+                copy_name(g->sky_islets[g->sky_islet_count++], CONTENT_NAME_LEN, one->valuestring);
+            }
+            if (!g->sky_island[0] || g->sky_gap_min < 8 || g->sky_gap_max < g->sky_gap_min) return fail(r, "\"skyblock\" needs an \"island\", and a \"gap\" of 8 or more");
         }
         cJSON_ArrayForEach(e, field(root, "seas")) {
             const char *sea_name = str(e, "name");

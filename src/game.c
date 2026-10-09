@@ -3982,6 +3982,13 @@ void game_random_event(Game *g, int x, int y)
     /* (What turns up near a character turns up near whichever is nearest.) */
     game_use_character(g, game_nearest_character(g, x, y));
 
+    /* A spring, shut in on both sides and underneath, fills. */
+    {
+        int spring = tile_def(world_get(w, x, y))->spring > 0 ? tile_def(world_get(w, x, y))->spring : tile_def(world_get_at(w, LAYER_BACKGROUND, x, y))->spring;
+        if (spring > 0 && world_water(w, x, y) < WATER_FULL && world_is_solid(w, x - 1, y) && world_is_solid(w, x + 1, y) && world_is_solid(w, x, y + 1) &&
+            (spring == 1 || game_random(g) % (uint32_t)spring == 0))
+            world_set_water(w, x, y, WATER_FULL);
+    }
     if (mobs_try_hatch(g, x, y) || mobs_try_spawn(g, x, y)) return;
     if (tree_trunk_at(w, x, y) >= 0) {
         TreeGrowth growth = tree_grow(w, x, y, &g->rng);

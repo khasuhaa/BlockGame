@@ -1,0 +1,13 @@
+{
+  "items": [
+    {"name": "cloud_condenser", "label": "Cloud condenser", "places": "cloud_condenser", "texture": "items/cloud_condenser.png", "category": "benches", "price": 10},
+    {"name": "sky_sieve", "label": "Sieve", "places": "sky_sieve", "texture": "items/sky_sieve.png", "category": "benches", "price": 10},
+    {"name": "sky_composter", "label": "Composter", "places": "sky_composter", "texture": "items/sky_composter.png", "category": "benches", "price": 10},
+    {"name": "sky_hatchery", "label": "Hatchery", "places": "sky_hatchery", "texture": "items/sky_hatchery.png", "category": "benches", "price": 10},
+    {"name": "lodestone_table", "label": "Lodestone table", "places": "lodestone_table", "texture": "items/lodestone_table.png", "category": "benches", "price": 10},
+    {"name": "sky_well", "label": "Well", "places": "sky_well", "texture": "items/sky_well.png", "category": "crafted", "price": 200, "tier": 2},
+    {"name": "sky_dust", "label": "Sky dust", "texture": "items/sky_dust.png", "category": "crafted", "price": 10, "tier": 1},
+    {"name": "star_grit", "label": "Star grit", "texture": "items/star_grit.png", "category": "crafted", "price": 90, "tier": 2},
+    {"name": "void_essence", "label": "Void essence", "texture": "items/void_essence.png", "category": "crafted", "price": 800, "tier": 4}
+  ]
+}
