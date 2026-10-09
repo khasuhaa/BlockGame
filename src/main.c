@@ -45,6 +45,74 @@ static TermUi term_ui;
 static TrainUi train_ui;
 static DungeonUi dungeon_ui;
 static HelmUi helm_ui;
+/* A shader the world is drawn through (see "graphics" in the rules). The world is drawn to the screen exactly as it
+ * always is; then what is on the screen is copied into a picture, and the picture put back through the shader. The
+ * interface is drawn over it afterwards, untouched. (Drawing the world into a picture of its own instead came out
+ * differently from the screen - the night sky was two colours - so it is not done that way.) */
+extern void glBindTexture(unsigned int target, unsigned int texture);
+extern void glCopyTexSubImage2D(unsigned int target, int level, int xoffset, int yoffset, int x, int y, int width, int height);
+static struct {
+    bool ready;
+    Shader shader;
+    Texture2D copy;
+    int resolution, bloom, vignette, saturation, contrast, warmth;
+} gfx;
+
+static void gfx_copy_make(void)
+{
+    Image blank = GenImageColor(GetRenderWidth(), GetRenderHeight(), BLACK);
+    gfx.copy = LoadTextureFromImage(blank);
+    UnloadImage(blank);
+    SetTextureFilter(gfx.copy, TEXTURE_FILTER_BILINEAR);
+    SetTextureWrap(gfx.copy, TEXTURE_WRAP_CLAMP);
+}
+
+static void gfx_load(const char **dirs, int count)
+{
+    if (gfx.ready) {
+        UnloadShader(gfx.shader);
+        UnloadTexture(gfx.copy);
+        gfx.ready = false;
+    }
+    if (!content.rules.gfx_shader[0]) return;
+    /* (The last place that has the file: a mod's before the game's.) */
+    for (int i = count - 1; i >= 0; i--) {
+        char path[512];
+        snprintf(path, sizeof path, "%s/%s", dirs[i], content.rules.gfx_shader);
+        if (!FileExists(path)) continue;
+        gfx.shader = LoadShader(NULL, path);
+        if (!IsShaderValid(gfx.shader) || gfx.shader.id == rlGetShaderIdDefault()) return; /* (it would not compile: the world is drawn as it was) */
+        gfx.resolution = GetShaderLocation(gfx.shader, "resolution"), gfx.bloom = GetShaderLocation(gfx.shader, "bloom"), gfx.vignette = GetShaderLocation(gfx.shader, "vignette");
+        gfx.saturation = GetShaderLocation(gfx.shader, "saturation"), gfx.contrast = GetShaderLocation(gfx.shader, "contrast"), gfx.warmth = GetShaderLocation(gfx.shader, "warmth");
+        gfx_copy_make();
+        gfx.ready = IsTextureValid(gfx.copy);
+        return;
+    }
+}
+
+static void gfx_end(void)
+{
+    const RulesDef *u = &content.rules;
+    if (!gfx.ready) return;
+    if (gfx.copy.width != GetRenderWidth() || gfx.copy.height != GetRenderHeight()) {
+        UnloadTexture(gfx.copy);
+        gfx_copy_make();
+    }
+    float size[2] = { (float)gfx.copy.width, (float)gfx.copy.height };
+    rlDrawRenderBatchActive();
+    glBindTexture(0x0DE1 /* GL_TEXTURE_2D */, gfx.copy.id);
+    glCopyTexSubImage2D(0x0DE1, 0, 0, 0, 0, 0, gfx.copy.width, gfx.copy.height);
+    glBindTexture(0x0DE1, 0);
+    SetShaderValue(gfx.shader, gfx.resolution, size, SHADER_UNIFORM_VEC2);
+    SetShaderValue(gfx.shader, gfx.bloom, &u->gfx_bloom, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(gfx.shader, gfx.vignette, &u->gfx_vignette, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(gfx.shader, gfx.saturation, &u->gfx_saturation, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(gfx.shader, gfx.contrast, &u->gfx_contrast, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(gfx.shader, gfx.warmth, &u->gfx_warmth, SHADER_UNIFORM_FLOAT);
+    BeginShaderMode(gfx.shader);
+    DrawTexturePro(gfx.copy, (Rectangle){ 0, 0, size[0], -size[1] }, (Rectangle){ 0, 0, (float)GetScreenWidth(), (float)GetScreenHeight() }, (Vector2){ 0, 0 }, 0.0f, WHITE);
+    EndShaderMode();
+}
 /* How far the sea has gone by a ship adrift, in squares: what is drawn moving goes by this. */
 static float sea_gone;
 static QuestUi quest_ui;
@@ -2279,6 +2347,7 @@ static void session_draw(Session *s)
         float alpha = span > 0.0f ? (MAP_FADE_FROM - s->cam.scale) / span : 1.0f;
         draw_world_map(g, &s->cam, alpha > 1.0f ? 1.0f : alpha, GetFrameTime());
     }
+    gfx_end();
     if (!on_map) {
         benchui_draw(&s->bench, g, &ui_view);
         tradeui_draw(&s->trade, g, &ui_view);
@@ -2440,7 +2509,9 @@ int main(void)
     SetTargetFPS(60);
     SetExitKey(KEY_NULL); /* Escape opens the pause menu instead of quitting */
     const char *texture_dirs[MAX_MODS + 1];
-    assets_load_from(texture_dirs, mods_texture_dirs(&menu.mods, DATA_DIR, texture_dirs));
+    int texture_dir_count = mods_texture_dirs(&menu.mods, DATA_DIR, texture_dirs);
+    assets_load_from(texture_dirs, texture_dir_count);
+    gfx_load(texture_dirs, texture_dir_count);
 
     Keybinds keys;
     keybinds_load(&keys);
@@ -2466,7 +2537,9 @@ int main(void)
                 } else {
                     if (error[0]) snprintf(menu.error, sizeof menu.error, "%.90s", error);
                     mods_remember(&menu.mods, SAVE_DIR);
-                    assets_load_from(texture_dirs, mods_texture_dirs(&menu.mods, DATA_DIR, texture_dirs));
+                    texture_dir_count = mods_texture_dirs(&menu.mods, DATA_DIR, texture_dirs);
+                    assets_load_from(texture_dirs, texture_dir_count);
+                    gfx_load(texture_dirs, texture_dir_count);
                     playsets_saves(&menu.playsets, SAVE_DIR, saves, sizeof saves);
                     main_menu_set_saves(saves);
                     menu.listed = false;

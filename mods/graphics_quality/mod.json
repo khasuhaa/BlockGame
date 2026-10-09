@@ -1,0 +1,6 @@
+{
+ "label": "Graphics Quality",
+ "icon": "icon.png",
+ "utility": true,
+ "description": "A shader over the world: bright things glow, colours are a little deeper, the corners are drawn in. The interface is left as it is."
+}

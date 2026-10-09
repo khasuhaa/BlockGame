@@ -1176,6 +1176,14 @@ Quests are the world's, not a character's: whoever is being played does them and
 
 **Not built**: quests with more than one task; quests written by hand - they say what a thing is made from or where it is found, and no more; lines between branches (a thing made does not wait on the quests for what it is made of, only on its stage's head); zooming the page; a key for the book (it is the button).
 
+### QOL Utils
+
+A small mod of handy things, with no quests of its own. **Scaffolding** (climbed, and taken down at a touch) and a **rope ladder** from the woodwork bench; a **stacking crate** (sixteen slots) and a **pack basket** (sixteen slots, opened where it is carried); a **bright lantern** from the craft bench; a **bedroll** from the tailor's. Five **charms** for the relic slots - magnet (what is dropped comes to you from four squares), swift, diver, miner and maker - which give characters relic slots whether or not Discovery Road is on. And two rules: what is dropped lies three times as long, and is picked up sooner. 5 blocks, 11 items, 11 recipes.
+
+### Graphics Quality
+
+A mod with nothing in it but a **shader** and how strong to make it. The world is drawn as always; then what is on the screen is put through the shader - light spills a little from what is brighter than a clear sky (the sun, a flame, a lamp), colours are a little deeper, there is a touch of warmth, and the corners are drawn in. The interface is drawn afterwards and is not touched. The numbers are in the mod's `rules.json` (`"graphics"`: `bloom`, `vignette`, `saturation`, `contrast`, `warmth`), and any mod may name a shader of its own the same way. If the shader will not compile on a machine, the world is simply drawn as it was. Looked at in two screenshots, by day and by night, on one machine; not played with.
+
 ### Skyblock
 
 A mod for the game as it is (and for any other mod with it): with it on, **a new world is empty sky**. There is one island eleven squares long - grass, dirt, a core of stone, an oak and the spawn portal - and ten small ones a long way off to either side (sand, ore, clay, marble, ice, gold; two with a golden chest), which have to be built out to. Characters will not step off an edge; what is dropped over one is gone. Worlds made before the mod was on are as they were. What was decided and what is not covered is in `ModDescriptions/Skyblock.txt`.

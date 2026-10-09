@@ -61,6 +61,7 @@ void mods_scan(ModList *list, const char *mods_dir, const char *saves_dir)
         snprintf(m->label, sizeof m->label, "%s", cJSON_IsString(label) ? label->valuestring : e->d_name);
         if (cJSON_IsString(icon) && !strstr(icon->valuestring, "..")) snprintf(m->icon, sizeof m->icon, "%s/%s", m->dir, icon->valuestring);
         m->standalone = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root, "standalone"));
+        m->utility = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root, "utility"));
         cJSON_Delete(root);
     }
     if (d) closedir(d);

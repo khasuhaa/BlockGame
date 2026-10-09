@@ -1,0 +1,9 @@
+{
+  "tiles": [
+    {"name": "handy_scaffold", "label": "Scaffolding", "solid": false, "layer": "background", "removable": true, "mine_time": 0.05, "drop": "handy_scaffold", "texture": "tiles/handy_scaffold.png", "tool": "axe", "climbable": true, "attaches": true, "supports": true},
+    {"name": "handy_rope_ladder", "label": "Rope ladder", "solid": false, "layer": "background", "removable": true, "mine_time": 0.2, "drop": "handy_rope_ladder", "texture": "tiles/handy_rope_ladder.png", "tool": "axe", "climbable": true, "attaches": true},
+    {"name": "handy_bright_lantern", "label": "Bright lantern", "solid": false, "layer": "background", "removable": true, "mine_time": 0.2, "drop": "handy_bright_lantern", "texture": "tiles/handy_bright_lantern.png", "tool": "axe", "light": 15},
+    {"name": "handy_bedroll", "label": "Bedroll", "solid": false, "layer": "background", "removable": true, "mine_time": 0.2, "drop": "handy_bedroll", "texture": "tiles/handy_bedroll.png", "tool": "axe", "bed": {"speed": 1.5}},
+    {"name": "handy_crate", "label": "Stacking crate", "solid": false, "layer": "background", "removable": true, "mine_time": 0.2, "drop": "handy_crate", "texture": "tiles/handy_crate.png", "tool": "axe", "storage": {"columns": 4, "rows": 4}}
+  ]
+}

@@ -297,9 +297,9 @@ total = write(base, 'data', 0); print('the world: %d' % total)
 mods = os.path.join(repo, 'mods')
 def own_book(d):
     """A mod that is a game of its own writes its own book, and so does one whose mod.json says "own_quests" (Skyblock's
-    quests are about the game's things, which this tool would not count as the mod's)."""
+    quests are about the game's things, which this tool would not count as the mod's). One that says "utility" has no book."""
     f = os.path.join(d, 'mod.json')
-    return os.path.exists(f) and bool(json.load(open(f)).get('standalone') or json.load(open(f)).get('own_quests'))
+    return os.path.exists(f) and bool(json.load(open(f)).get('standalone') or json.load(open(f)).get('own_quests') or json.load(open(f)).get('utility'))
 # A tab's place in the book is its mod's place among the mods this tool writes for (and the questbook, which has always
 # been counted): a mod that writes its own book takes no place, so that adding one does not move everybody after it.
 n = -1

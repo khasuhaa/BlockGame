@@ -1,0 +1,15 @@
+{
+  "recipes": [
+    {"bench": "woodwork_bench", "output": {"item": "handy_scaffold", "count": 4}, "inputs": [{"item": "stick", "count": 4}], "time": 40},
+    {"bench": "woodwork_bench", "output": {"item": "handy_rope_ladder", "count": 3}, "inputs": [{"item": "string", "count": 2}, {"item": "stick", "count": 2}], "time": 40},
+    {"bench": "craft_bench", "output": {"item": "handy_bright_lantern", "count": 1}, "inputs": [{"item": "glass", "count": 1}, {"item": "torch", "count": 2}], "time": 40},
+    {"bench": "tailor_bench", "output": {"item": "handy_bedroll", "count": 1}, "inputs": [{"item": "flax", "count": 6}], "time": 40},
+    {"bench": "woodwork_bench", "output": {"item": "handy_crate", "count": 1}, "inputs": [{"item": "wood", "count": 3}, {"item": "stick", "count": 2}], "time": 40},
+    {"bench": "woodwork_bench", "output": {"item": "handy_pack_basket", "count": 1}, "inputs": [{"item": "basket", "count": 2}, {"item": "string", "count": 4}], "time": 40},
+    {"bench": "metalwork_bench", "output": {"item": "handy_magnet_charm", "count": 1}, "inputs": [{"item": "iron_ingot", "count": 3}, {"item": "string", "count": 1}], "time": 40},
+    {"bench": "tailor_bench", "output": {"item": "handy_swift_charm", "count": 1}, "inputs": [{"item": "feather", "count": 6}, {"item": "leather", "count": 2}], "time": 40},
+    {"bench": "craft_bench", "output": {"item": "handy_diver_charm", "count": 1}, "inputs": [{"item": "glass", "count": 2}, {"item": "leather", "count": 1}], "time": 40},
+    {"bench": "metalwork_bench", "output": {"item": "handy_miner_charm", "count": 1}, "inputs": [{"item": "copper_ingot", "count": 3}, {"item": "coal", "count": 2}], "time": 40},
+    {"bench": "craft_bench", "output": {"item": "handy_maker_charm", "count": 1}, "inputs": [{"item": "tin_ingot", "count": 2}, {"item": "amethyst_shard", "count": 1}], "time": 40}
+  ]
+}

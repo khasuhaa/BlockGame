@@ -1,0 +1,3 @@
+{
+ "graphics": {"shader": "shaders/quality.fs", "bloom": 0.35, "vignette": 0.28, "saturation": 1.14, "contrast": 1.06, "warmth": 0.025}
+}

@@ -1,0 +1,15 @@
+{
+  "items": [
+    {"name": "handy_scaffold", "label": "Scaffolding", "places": "handy_scaffold", "texture": "items/handy_scaffold.png", "category": "crafted", "price": 10, "tier": 1},
+    {"name": "handy_rope_ladder", "label": "Rope ladder", "places": "handy_rope_ladder", "texture": "items/handy_rope_ladder.png", "category": "crafted", "price": 15, "tier": 1},
+    {"name": "handy_bright_lantern", "label": "Bright lantern", "places": "handy_bright_lantern", "texture": "items/handy_bright_lantern.png", "category": "crafted", "price": 90, "tier": 2},
+    {"name": "handy_bedroll", "label": "Bedroll", "places": "handy_bedroll", "texture": "items/handy_bedroll.png", "category": "crafted", "price": 60, "tier": 1},
+    {"name": "handy_crate", "label": "Stacking crate", "places": "handy_crate", "texture": "items/handy_crate.png", "category": "crafted", "price": 45, "tier": 1, "container": {"slots": 16}},
+    {"name": "handy_pack_basket", "label": "Pack basket", "texture": "items/handy_pack_basket.png", "category": "crafted", "price": 180, "tier": 2, "max_stack": 1, "container": {"slots": 16, "open_in_inventory": true}},
+    {"name": "handy_magnet_charm", "label": "Magnet charm", "texture": "items/handy_magnet_charm.png", "category": "crafted", "price": 600, "tier": 4, "max_stack": 1, "relic": true, "boons": {"magnet": 4}},
+    {"name": "handy_swift_charm", "label": "Swift charm", "texture": "items/handy_swift_charm.png", "category": "crafted", "price": 400, "tier": 3, "max_stack": 1, "relic": true, "boons": {"walk": 1.1}},
+    {"name": "handy_diver_charm", "label": "Diver charm", "texture": "items/handy_diver_charm.png", "category": "crafted", "price": 300, "tier": 3, "max_stack": 1, "relic": true, "boons": {"lung": 2.0}},
+    {"name": "handy_miner_charm", "label": "Miner charm", "texture": "items/handy_miner_charm.png", "category": "crafted", "price": 400, "tier": 3, "max_stack": 1, "relic": true, "boons": {"mine": 1.25}},
+    {"name": "handy_maker_charm", "label": "Maker charm", "texture": "items/handy_maker_charm.png", "category": "crafted", "price": 500, "tier": 4, "max_stack": 1, "relic": true, "boons": {"craft": 1.25}}
+  ]
+}

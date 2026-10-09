@@ -1380,6 +1380,10 @@ typedef struct {
     float flail_time;      /* seconds someone attacked throws their arms about */
     int max_drop;          /* how far they will let themselves fall by a step of their own: blocks; 0 for any distance */
     int respawn_cost;      /* crystals to come back at once, right after dying; less as the wait runs down */
+    /* "graphics": a fragment shader the world is drawn through (a file, looked for as textures are, in the game's
+     * data and each mod that is on), and how much of each thing it does. With no shader the world is drawn as it was. */
+    char gfx_shader[CONTENT_PATH_LEN];
+    float gfx_bloom, gfx_vignette, gfx_saturation, gfx_contrast, gfx_warmth;
     bool questbook;        /* "questbook": quests are kept track of, and there is a book of them */
     int dungeon_health;    /* what a character's health adds up to with nothing on, where blows are numbers */
     float upgrade_cost;    /* what upgrading a rolled thing all the way costs: so many times its price */

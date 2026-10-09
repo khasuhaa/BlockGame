@@ -1,0 +1,6 @@
+{
+ "drops": {
+  "lifetime": 1800,
+  "pickup_delay": 0.25
+ }
+}

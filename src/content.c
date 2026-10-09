@@ -2193,6 +2193,15 @@ static bool read_rules(Reader *r, const cJSON *root)
         }
     }
     if (field(root, "questbook")) u->questbook = flag(root, "questbook", false);
+    {
+        const cJSON *gfx = field(root, "graphics");
+        if (gfx) {
+            if (str(gfx, "shader") && strstr(str(gfx, "shader"), "..")) return fail(r, "\"graphics\": the \"shader\" is a file of the mod's own");
+            copy_name(u->gfx_shader, sizeof u->gfx_shader, str(gfx, "shader"));
+            u->gfx_bloom = (float)num(gfx, "bloom", 0.0), u->gfx_vignette = (float)num(gfx, "vignette", 0.0);
+            u->gfx_saturation = (float)num(gfx, "saturation", 1.0), u->gfx_contrast = (float)num(gfx, "contrast", 1.0), u->gfx_warmth = (float)num(gfx, "warmth", 0.0);
+        }
+    }
     const cJSON *teleport = field(root, "teleport");
     if (teleport) {
         copy_name(u->teleport_bench, sizeof u->teleport_bench, str(teleport, "bench"));

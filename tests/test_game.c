@@ -13166,7 +13166,7 @@ static void test_questbook(void)
     for (int m_ = 0; m_ < mods.count; m_++) {
         const char *id = mods.mods[m_].id;
         char dir[160];
-        if (strcmp(id, "questbook") == 0) continue;
+        if (strcmp(id, "questbook") == 0 || mods.mods[m_].utility) continue; /* (a utility has no book) */
         snprintf(dir, sizeof dir, "%s/%s", MODS_DIR, id);
         content_reset();
         CHECK(content_load("data", err, sizeof err) && content_load(dir, err, sizeof err));
@@ -14411,6 +14411,42 @@ static void test_alchemie_mod(void)
     }
 }
 
+/* QOL Utils and Graphics Quality: two small mods with no book of quests. */
+static void test_utility_mods(void)
+{
+    char err[256], what[64];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err) && !content.rules.gfx_shader[0] && !content.has_relics);
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count;
+    float lifetime = content.rules.drop_lifetime;
+    CHECK(content_load("mods/qol_utils", err, sizeof err));
+    CHECK(content.tile_count - tiles == 5 && content.item_count - items == 11 && content.recipe_count - recipes == 11);
+    CHECK(content.rules.drop_lifetime == 1800.0f && lifetime == 600.0f && content.rules.drop_pickup_delay == 0.25f && content.has_relics);
+    CHECK(tile_def(tile_id("handy_scaffold"))->climbable && tile_def(tile_id("handy_bright_lantern"))->light == 15 && tile_def(tile_id("handy_crate"))->storage_columns == 4);
+    CHECK(item_def(item_id("handy_magnet_charm"))->relic && item_def(item_id("handy_magnet_charm"))->boons.magnet == 4.0f && item_def(item_id("handy_pack_basket"))->container_slots == 16);
+    for (int r = recipes; r < content.recipe_count; r++) CHECK(strcmp(content.recipes[r].bench, "workbench") != 0);
+    /* The shader is a rule, and the file it names is there. */
+    content_reset();
+    CHECK(content_load("data", err, sizeof err) && content_load("mods/graphics_quality", err, sizeof err) && content.tile_count == tiles && content.item_count == items);
+    CHECK(strcmp(content.rules.gfx_shader, "shaders/quality.fs") == 0 && content.rules.gfx_bloom > 0.0f && content.rules.gfx_saturation > 1.0f);
+    FILE *f = fopen("mods/graphics_quality/shaders/quality.fs", "r");
+    CHECK(f != NULL);
+    if (f) fclose(f);
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/settest/saves");
+    int seen = 0;
+    for (int a = 0; a < mods.count; a++) {
+        if (strcmp(mods.mods[a].id, "qol_utils") != 0 && strcmp(mods.mods[a].id, "graphics_quality") != 0) continue;
+        seen++;
+        CHECK(mods.mods[a].utility);
+        for (int b = 0; b < mods.count; b++)
+            if (a != b) CHECK(!mods_conflict(&mods.mods[a], &mods.mods[b], what, sizeof what));
+    }
+    CHECK(seen == 2);
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+}
+
 /* Skyblock: a new world is empty sky and an island, and everything the game gives can be had some other way. */
 static void test_skyblock_mod(void)
 {
@@ -14867,6 +14903,7 @@ int main(void)
     test_plunder_mod();
     test_dungeoneering_mod();
     test_questbook();
+    test_utility_mods();
     test_skyblock_mod();
     test_hull_mod();
     test_equip_selected();
