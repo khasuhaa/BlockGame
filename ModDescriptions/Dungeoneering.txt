@@ -346,3 +346,21 @@ NOT BUILT, AND THE QUESTIONS NOT ANSWERED
    - It has not been played. Each dungeon's creatures are set against the best of the dungeon before - a blow
      of six tenths of its best weapon, a health of 100 and twice its best ordinary armour - and that is
      arithmetic, not balance.
+
+----------------------------------------------------------------------------------------------------------------
+THE REST OF THE LIST   (added afterwards, at the owner's asking)
+----------------------------------------------------------------------------------------------------------------
+The owner asked for the rest of the dungeons in the document, with a portal tier to each, and said that portal
+levels stand for ages of progression: the dungeons go in order, one to a tier.
+
+   - Five more, in the document's order: XI Volcanic Chambers, XII Aquatic Temple, XIII Enchanted Forest,
+     XIV Northern Lands, XV Gilded Skies. (The owner's message named Aquatic Temple straight after Orbital
+     Outpost; the document has Volcanic Chambers between, with the smaller numbers, and that is what was built.)
+   - Keystones from dungeons X to XIV, and portals and trade portals XI to XV. The fifteenth gives no stone.
+   - 372 more rows of the list, to 1,426 in all; a sixth grade, Ultimate, for the Northern Lands' two
+     (the Gilded Skies' two are "Placeholder" in the document and were left out).
+   - Thirty more creatures, five bosses among them; each dungeon's own blocks and furnishings.
+   - Creatures' health past what a number holds is counted in units (see AGENTS.md).
+   SIZE NOW: 205 blocks, 2,054 items, 122 recipes, 90 creatures, 15 dungeons.
+   Not played, as before. Above tier X coin cannot keep pace with the numbers: prices there are kept low, and
+   a chest's gold is capped at what it can hold.

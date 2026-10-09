@@ -1319,6 +1319,7 @@ typedef struct {
     float spawn_chance; /* chance that a random event on such a spot brings one */
     int cap;            /* no more of this kind appear while this many are near; 0 for no limit of its own */
     int health;         /* blows' worth of damage it takes to kill */
+    int health_unit;    /* "health_unit": its health is in so many of damage each (for one with more than a number can hold); 1 as a rule */
     int size_min, size_max; /* how many blocks long one can be; it is drawn that big */
     /* A creature of the water. It swims about and never leaves it. One that
      * hunts goes for a player who is in the water, bites, makes off, and comes

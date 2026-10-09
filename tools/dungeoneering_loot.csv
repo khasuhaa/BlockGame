@@ -1053,3 +1053,375 @@ OO,Alien Guardian,3,guardian,6700000,21000,0,10.0
 OO,Alien Guardian,4,guardian,7250000,22000,0,10.0
 OO,Galactic Dual Blades,5,warrior,3150000,79500,0,10.0
 OO,Galactic Pike,5,mage,3150000,79500,0,10.0
+VC,Dual FIst Blades,1,warrior,2700000,70000,0,10.0
+VC,Dual FIst Blades,2,warrior,2850000,73500,0,10.0
+VC,Dual FIst Blades,3,warrior,3000000,77000,0,10.0
+VC,Dual FIst Blades,4,warrior,3150000,80000,0,10.0
+VC,Lava Shard Staff,1,mage,2700000,70000,0,10.0
+VC,Lava Shard Staff,2,mage,2850000,73500,0,10.0
+VC,Lava Shard Staff,3,mage,3000000,77000,0,10.0
+VC,Lava Shard Staff,4,mage,3150000,80000,0,10.0
+VC,Darkstone Greatsword,1,warrior,3150000,80000,0,10.0
+VC,Darkstone Greatsword,2,warrior,3300000,83500,0,10.0
+VC,Darkstone Greatsword,3,warrior,3450000,87000,0,10.0
+VC,Darkstone Greatsword,4,warrior,3600000,90000,0,10.0
+VC,Lava Tendril Pike,1,mage,3150000,80000,0,10.0
+VC,Lava Tendril Pike,2,mage,3300000,83500,0,10.0
+VC,Lava Tendril Pike,3,mage,3450000,87000,0,10.0
+VC,Lava Tendril Pike,4,mage,3600000,90000,0,10.0
+VC,Hellstone Greataxe,1,warrior,3600000,90000,0,10.0
+VC,Hellstone Greataxe,2,warrior,3750000,93500,0,10.0
+VC,Hellstone Greataxe,3,warrior,3900000,97000,0,10.0
+VC,Hellstone Greataxe,4,warrior,4100000,100000,0,10.0
+VC,Lava Spellblade,1,mage,3600000,90000,0,10.0
+VC,Lava Spellblade,2,mage,3750000,93500,0,10.0
+VC,Lava Spellblade,3,mage,3900000,97000,0,10.0
+VC,Lava Spellblade,4,mage,4100000,100000,0,10.0
+VC,Magma Infused Waraxe,1,warrior,4100000,100000,0,10.0
+VC,Magma Infused Waraxe,2,warrior,4300000,102500,0,10.0
+VC,Magma Infused Waraxe,3,warrior,4500000,105000,0,10.0
+VC,Magma Infused Waraxe,4,warrior,4700000,107000,0,10.0
+VC,Dual Magma Shields,1,mage,4100000,100000,0,10.0
+VC,Dual Magma Shields,2,mage,4300000,102500,0,10.0
+VC,Dual Magma Shields,3,mage,4500000,105000,0,10.0
+VC,Dual Magma Shields,4,mage,4700000,107000,0,10.0
+VC,Shattered Magma Blade,1,warrior,4700000,107000,0,10.0
+VC,Shattered Magma Blade,2,warrior,4900000,109500,0,10.0
+VC,Shattered Magma Blade,3,warrior,5100000,112000,0,10.0
+VC,Shattered Magma Blade,4,warrior,5300000,114000,0,10.0
+VC,Ancient Lava Axe,1,mage,4700000,107000,0,10.0
+VC,Ancient Lava Axe,2,mage,4900000,109500,0,10.0
+VC,Ancient Lava Axe,3,mage,5100000,112000,0,10.0
+VC,Ancient Lava Axe,4,mage,5300000,114000,0,10.0
+VC,Volcanic Greatsword,1,warrior,5300000,114000,0,10.0
+VC,Volcanic Greatsword,2,warrior,5500000,116500,0,10.0
+VC,Volcanic Greatsword,3,warrior,5700000,118000,0,10.0
+VC,Volcanic Greatsword,4,warrior,6050000,120000,0,10.0
+VC,Dual Hellfire Blades,1,mage,5300000,114000,0,10.0
+VC,Dual Hellfire Blades,2,mage,5500000,116500,0,10.0
+VC,Dual Hellfire Blades,3,mage,5700000,118000,0,10.0
+VC,Dual Hellfire Blades,4,mage,6050000,120000,0,10.0
+VC,Burned,1,armor,220000,22000,5000000,10.0
+VC,Burned,2,armor,260000,23000,5500000,10.0
+VC,Burned,3,armor,300000,24000,6000000,10.0
+VC,Burned,4,armor,340000,25000,6600000,10.0
+VC,Burned Guardian,1,guardian,7250000,22000,0,10.0
+VC,Burned Guardian,2,guardian,8100000,23000,0,10.0
+VC,Burned Guardian,3,guardian,9100000,24000,0,10.0
+VC,Burned Guardian,4,guardian,10000000,25000,0,10.0
+VC,Molten Forged,1,armor,340000,25000,6600000,10.0
+VC,Molten Forged,2,armor,380000,26500,7500000,10.0
+VC,Molten Forged,3,armor,420000,28000,8400000,10.0
+VC,Molten Forged,4,armor,455000,29500,9400000,10.0
+VC,Molten Forged Guardian,1,guardian,10000000,25000,0,10.0
+VC,Molten Forged Guardian,2,guardian,11750000,26500,0,10.0
+VC,Molten Forged Guardian,3,guardian,13500000,28000,0,10.0
+VC,Molten Forged Guardian,4,guardian,15000000,29500,0,10.0
+VC,Lava King's,1,armor,455000,29500,9400000,10.0
+VC,Lava King's,2,armor,480000,32000,10200000,10.0
+VC,Lava King's,3,armor,505000,34000,11000000,10.0
+VC,Lava King's,4,armor,530000,36000,12000000,10.0
+VC,Lava King's Guardian,1,guardian,15000000,29500,0,10.0
+VC,Lava King's Guardian,2,guardian,16000000,32000,0,10.0
+VC,Lava King's Guardian,3,guardian,17000000,34000,0,10.0
+VC,Lava King's Guardian,4,guardian,18000000,36000,0,10.0
+VC,Lava King's Warscythe,5,warrior,6750000,130000,0,10.0
+VC,Lava King's Spell Daggers,5,mage,6750000,130000,0,10.0
+AT,Serpent Scimitars,1,warrior,6050000,120000,0,10.0
+AT,Serpent Scimitars,2,warrior,6290000,123000,0,10.0
+AT,Serpent Scimitars,3,warrior,6520000,127000,0,10.0
+AT,Serpent Scimitars,4,warrior,6750000,130000,0,10.0
+AT,Sea Staff,1,mage,6050000,120000,0,10.0
+AT,Sea Staff,2,mage,6290000,123000,0,10.0
+AT,Sea Staff,3,mage,6520000,127000,0,10.0
+AT,Sea Staff,4,mage,6750000,130000,0,10.0
+AT,Aquatic Executioner,1,warrior,6750000,130000,0,10.0
+AT,Aquatic Executioner,2,warrior,7250000,132000,0,10.0
+AT,Aquatic Executioner,3,warrior,7700000,134000,0,10.0
+AT,Aquatic Executioner,4,warrior,8200000,136000,0,10.0
+AT,Enchanted Sea Axes,1,mage,6750000,130000,0,10.0
+AT,Enchanted Sea Axes,2,mage,7250000,132000,0,10.0
+AT,Enchanted Sea Axes,3,mage,7700000,134000,0,10.0
+AT,Enchanted Sea Axes,4,mage,8200000,136000,0,10.0
+AT,Aquatic Scimitars,1,warrior,8200000,136000,0,10.0
+AT,Aquatic Scimitars,2,warrior,8550000,138000,0,10.0
+AT,Aquatic Scimitars,3,warrior,8900000,140000,0,10.0
+AT,Aquatic Scimitars,4,warrior,9280000,142000,0,10.0
+AT,Aquatic Defender,1,mage,8200000,136000,0,10.0
+AT,Aquatic Defender,2,mage,8550000,138000,0,10.0
+AT,Aquatic Defender,3,mage,8900000,140000,0,10.0
+AT,Aquatic Defender,4,mage,9280000,142000,0,10.0
+AT,Serpent Pike,1,warrior,9280000,142000,0,10.0
+AT,Serpent Pike,2,warrior,9680000,144000,0,10.0
+AT,Serpent Pike,3,warrior,10080000,146000,0,10.0
+AT,Serpent Pike,4,warrior,10500000,148000,0,10.0
+AT,Enchanted Sea Daggers,1,mage,9280000,142000,0,10.0
+AT,Enchanted Sea Daggers,2,mage,9680000,144000,0,10.0
+AT,Enchanted Sea Daggers,3,mage,10080000,146000,0,10.0
+AT,Enchanted Sea Daggers,4,mage,10500000,148000,0,10.0
+AT,Aquatic Spear,1,warrior,10500000,148000,0,10.0
+AT,Aquatic Spear,2,warrior,11000000,150000,0,10.0
+AT,Aquatic Spear,3,warrior,11500000,152000,0,10.0
+AT,Aquatic Spear,4,warrior,12000000,154000,0,10.0
+AT,Ocean Pearl Staff,1,mage,10500000,148000,0,10.0
+AT,Ocean Pearl Staff,2,mage,11000000,150000,0,10.0
+AT,Ocean Pearl Staff,3,mage,11500000,152000,0,10.0
+AT,Ocean Pearl Staff,4,mage,12000000,154000,0,10.0
+AT,Oceanic Greatsword,1,warrior,12000000,154000,0,10.0
+AT,Oceanic Greatsword,2,warrior,12500000,156000,0,10.0
+AT,Oceanic Greatsword,3,warrior,13000000,158000,0,10.0
+AT,Oceanic Greatsword,4,warrior,13450000,160000,0,10.0
+AT,Enchanted Serpent Daggers,1,mage,12000000,154000,0,10.0
+AT,Enchanted Serpent Daggers,2,mage,12500000,156000,0,10.0
+AT,Enchanted Serpent Daggers,3,mage,13000000,158000,0,10.0
+AT,Enchanted Serpent Daggers,4,mage,13450000,160000,0,10.0
+AT,Aquatic,1,armor,530000,36000,12000000,10.0
+AT,Aquatic,2,armor,610000,37500,13000000,10.0
+AT,Aquatic,3,armor,690000,39000,14500000,10.0
+AT,Aquatic,4,armor,770000,40500,16000000,10.0
+AT,Aquatic Guardian,1,guardian,18000000,36000,0,10.0
+AT,Aquatic Guardian,2,guardian,20000000,37500,0,10.0
+AT,Aquatic Guardian,3,guardian,22000000,39000,0,10.0
+AT,Aquatic Guardian,4,guardian,24000000,40500,0,10.0
+AT,Riptide,1,armor,770000,40500,16000000,10.0
+AT,Riptide,2,armor,863000,42000,18200000,10.0
+AT,Riptide,3,armor,957000,43500,20400000,10.0
+AT,Riptide,4,armor,1050000,45000,22600000,10.0
+AT,Riptide Guardian,1,guardian,24000000,40500,0,10.0
+AT,Riptide Guardian,2,guardian,27800000,42000,0,10.0
+AT,Riptide Guardian,3,guardian,31600000,43500,0,10.0
+AT,Riptide Guardian,4,guardian,33900000,45000,0,10.0
+AT,Triton,1,armor,1050000,45000,22600000,10.0
+AT,Triton,2,armor,1126000,46500,24600000,10.0
+AT,Triton,3,armor,1203000,48000,26000000,10.0
+AT,Triton,4,armor,1280000,49500,28600000,10.0
+AT,Triton Guardian,1,guardian,33900000,45000,0,10.0
+AT,Triton Guardian,2,guardian,36900000,46500,0,10.0
+AT,Triton Guardian,3,guardian,39900000,48000,0,10.0
+AT,Triton Guardian,4,guardian,42900000,49500,0,10.0
+AT,Sea King's Trident,5,warrior,15000000,170000,0,10.0
+AT,Sea King's Greatstaff,5,mage,15000000,170000,0,10.0
+EF,Fungal Warhammer,1,warrior,13450000,160000,0,10.0
+EF,Fungal Warhammer,2,warrior,14180000,167000,0,10.0
+EF,Fungal Warhammer,3,warrior,14910000,174000,0,10.0
+EF,Fungal Warhammer,4,warrior,15630000,180000,0,10.0
+EF,Fungal Pike,1,mage,13450000,160000,0,10.0
+EF,Fungal Pike,2,mage,14180000,167000,0,10.0
+EF,Fungal Pike,3,mage,14910000,174000,0,10.0
+EF,Fungal Pike,4,mage,15630000,180000,0,10.0
+EF,Fungal Lance,1,warrior,15630000,180000,0,10.0
+EF,Fungal Lance,2,warrior,16360000,187000,0,10.0
+EF,Fungal Lance,3,warrior,17090000,194000,0,10.0
+EF,Fungal Lance,4,warrior,17810000,200000,0,10.0
+EF,Fungal Staff,1,mage,15630000,180000,0,10.0
+EF,Fungal Staff,2,mage,16360000,187000,0,10.0
+EF,Fungal Staff,3,mage,17090000,194000,0,10.0
+EF,Fungal Staff,4,mage,17810000,200000,0,10.0
+EF,Enchanted Shard Dual Blade,1,warrior,17810000,200000,0,10.0
+EF,Enchanted Shard Dual Blade,2,warrior,18540000,207000,0,10.0
+EF,Enchanted Shard Dual Blade,3,warrior,19270000,214000,0,10.0
+EF,Enchanted Shard Dual Blade,4,warrior,20000000,220000,0,10.0
+EF,Enchanted Shard Spell Dagger,1,mage,17810000,200000,0,10.0
+EF,Enchanted Shard Spell Dagger,2,mage,18540000,207000,0,10.0
+EF,Enchanted Shard Spell Dagger,3,mage,19270000,214000,0,10.0
+EF,Enchanted Shard Spell Dagger,4,mage,20000000,220000,0,10.0
+EF,Enchanted Shard Waraxe,1,warrior,20000000,220000,0,10.0
+EF,Enchanted Shard Waraxe,2,warrior,20930000,227000,0,10.0
+EF,Enchanted Shard Waraxe,3,warrior,21860000,234000,0,10.0
+EF,Enchanted Shard Waraxe,4,warrior,22800000,240000,0,10.0
+EF,Enchanted Shard Staff,1,mage,20000000,220000,0,10.0
+EF,Enchanted Shard Staff,2,mage,20930000,227000,0,10.0
+EF,Enchanted Shard Staff,3,mage,21860000,234000,0,10.0
+EF,Enchanted Shard Staff,4,mage,22800000,240000,0,10.0
+EF,Forest Vine Axe,1,warrior,22800000,249000,0,10.0
+EF,Forest Vine Axe,2,warrior,23730000,247000,0,10.0
+EF,Forest Vine Axe,3,warrior,24660000,254000,0,10.0
+EF,Forest Vine Axe,4,warrior,25600000,260000,0,10.0
+EF,Forest Vine Spellblade,1,mage,22800000,249000,0,10.0
+EF,Forest Vine Spellblade,2,mage,23730000,247000,0,10.0
+EF,Forest Vine Spellblade,3,mage,24660000,254000,0,10.0
+EF,Forest Vine Spellblade,4,mage,25600000,260000,0,10.0
+EF,Overgrown Warscythe,1,warrior,25600000,260000,0,10.0
+EF,Overgrown Warscythe,2,warrior,26530000,267000,0,10.0
+EF,Overgrown Warscythe,3,warrior,27460000,274000,0,10.0
+EF,Overgrown Warscythe,4,warrior,28400000,280000,0,10.0
+EF,Crystalline Shard Staff,1,mage,25600000,260000,0,10.0
+EF,Crystalline Shard Staff,2,mage,26530000,267000,0,10.0
+EF,Crystalline Shard Staff,3,mage,27460000,274000,0,10.0
+EF,Crystalline Shard Staff,4,mage,28400000,280000,0,10.0
+EF,Fungal,1,armor,1280000,49500,28600000,10.0
+EF,Fungal,2,armor,1438000,53500,31800000,10.0
+EF,Fungal,3,armor,1596000,57500,35000000,10.0
+EF,Fungal,4,armor,1755000,61500,38000000,10.0
+EF,Fungal Guardian,1,guardian,42900000,49500,0,10.0
+EF,Fungal Guardian,2,guardian,47600000,53500,0,10.0
+EF,Fungal Guardian,3,guardian,52300000,57500,0,10.0
+EF,Fungal Guardian,4,guardian,57000000,61500,0,10.0
+EF,Crystalline,1,armor,1755000,61500,38000000,10.0
+EF,Crystalline,2,armor,1923000,66500,43330000,10.0
+EF,Crystalline,3,armor,2091000,71500,48660000,10.0
+EF,Crystalline,4,armor,2260000,76500,54000000,10.0
+EF,Crystalline Guadian,1,guardian,57000000,61500,0,10.0
+EF,Crystalline Guadian,2,guardian,66500000,66500,0,10.0
+EF,Crystalline Guadian,3,guardian,76000000,71500,0,10.0
+EF,Crystalline Guadian,4,guardian,85500000,76500,0,10.0
+EF,Eldenbark,1,armor,2260000,76500,54000000,10.0
+EF,Eldenbark,2,armor,2395000,81500,58660000,10.0
+EF,Eldenbark,3,armor,2530000,86500,63320000,10.0
+EF,Eldenbark,4,armor,2665000,91500,68000000,10.0
+EF,Eldenbark Guardian,1,guardian,85500000,76500,0,10.0
+EF,Eldenbark Guardian,2,guardian,93000000,81500,0,10.0
+EF,Eldenbark Guardian,3,guardian,100500000,86500,0,10.0
+EF,Eldenbark Guardian,4,guardian,108000000,91500,0,10.0
+EF,Eldenbark Greatsword,5,warrior,31600000,300000,0,10.0
+EF,Eldenbark Greatstaff,5,mage,31600000,300000,0,10.0
+NL,Norse Blade,1,warrior,28400000,280000,0,10.0
+NL,Norse Blade,2,warrior,30000000,287000,0,10.0
+NL,Norse Blade,3,warrior,31600000,294000,0,10.0
+NL,Norse Blade,4,warrior,33300000,300000,0,10.0
+NL,Northern Spellstaff,1,mage,28400000,280000,0,10.0
+NL,Northern Spellstaff,2,mage,30000000,287000,0,10.0
+NL,Northern Spellstaff,3,mage,31600000,294000,0,10.0
+NL,Northern Spellstaff,4,mage,33300000,300000,0,10.0
+NL,Northen Runic Blade,1,warrior,33300000,300000,0,10.0
+NL,Northen Runic Blade,2,warrior,34900000,307000,0,10.0
+NL,Northen Runic Blade,3,warrior,36500000,314000,0,10.0
+NL,Northen Runic Blade,4,warrior,38200000,320000,0,10.0
+NL,Viking Shield,1,mage,33300000,300000,0,10.0
+NL,Viking Shield,2,mage,34900000,307000,0,10.0
+NL,Viking Shield,3,mage,36500000,314000,0,10.0
+NL,Viking Shield,4,mage,38200000,320000,0,10.0
+NL,Viking Hatchets,1,warrior,38200000,320000,0,10.0
+NL,Viking Hatchets,2,warrior,39800000,327000,0,10.0
+NL,Viking Hatchets,3,warrior,41400000,334000,0,10.0
+NL,Viking Hatchets,4,warrior,43000000,340000,0,10.0
+NL,Ice Spellblade,1,mage,38200000,320000,0,10.0
+NL,Ice Spellblade,2,mage,39800000,327000,0,10.0
+NL,Ice Spellblade,3,mage,41400000,334000,0,10.0
+NL,Ice Spellblade,4,mage,43000000,340000,0,10.0
+NL,Ice Greatspear,1,warrior,43000000,340000,0,10.0
+NL,Ice Greatspear,2,warrior,44900000,347000,0,10.0
+NL,Ice Greatspear,3,warrior,46800000,354000,0,10.0
+NL,Ice Greatspear,4,warrior,48700000,360000,0,10.0
+NL,Viking Sceptre,1,mage,43000000,340000,0,10.0
+NL,Viking Sceptre,2,mage,44900000,347000,0,10.0
+NL,Viking Sceptre,3,mage,46800000,354000,0,10.0
+NL,Viking Sceptre,4,mage,48700000,360000,0,10.0
+NL,Norse Greataxe,1,warrior,48700000,360000,0,10.0
+NL,Norse Greataxe,2,warrior,50600000,367000,0,10.0
+NL,Norse Greataxe,3,warrior,52500000,374000,0,10.0
+NL,Norse Greataxe,4,warrior,54400000,380000,0,10.0
+NL,Runic Mace,1,mage,48700000,360000,0,10.0
+NL,Runic Mace,2,mage,50600000,367000,0,10.0
+NL,Runic Mace,3,mage,52500000,374000,0,10.0
+NL,Runic Mace,4,mage,54400000,380000,0,10.0
+NL,Frost Giant Greataxe,1,warrior,54400000,380000,0,10.0
+NL,Frost Giant Greataxe,2,warrior,56300000,387000,0,10.0
+NL,Frost Giant Greataxe,3,warrior,58200000,394000,0,10.0
+NL,Frost Giant Greataxe,4,warrior,60000000,400000,0,10.0
+NL,Staff of the North,1,mage,54400000,380000,0,10.0
+NL,Staff of the North,2,mage,56300000,387000,0,10.0
+NL,Staff of the North,3,mage,58200000,394000,0,10.0
+NL,Staff of the North,4,mage,60000000,400000,0,10.0
+NL,Midgardian,1,armor,2665000,91500,68000000,10.0
+NL,Midgardian,2,armor,3035000,94000,75300000,10.0
+NL,Midgardian,3,armor,3405000,97000,82600000,10.0
+NL,Midgardian,4,armor,3780000,100000,90000000,10.0
+NL,Midgardian Guardian,1,guardian,108000000,91500,0,10.0
+NL,Midgardian Guardian,2,guardian,120000000,94000,0,10.0
+NL,Midgardian Guardian,3,guardian,132000000,97000,0,10.0
+NL,Midgardian Guardian,4,guardian,144000000,100000,0,10.0
+NL,Jotunn,1,armor,3780000,100000,90000000,10.0
+NL,Jotunn,2,armor,4120000,110000,102700000,10.0
+NL,Jotunn,3,armor,4460000,120000,115400000,10.0
+NL,Jotunn,4,armor,4800000,130000,128000000,10.0
+NL,Jotunn Guardian,1,guardian,144000000,100000,0,10.0
+NL,Jotunn Guardian,2,guardian,164266666,110000,0,10.0
+NL,Jotunn Guardian,3,guardian,184533332,120000,0,10.0
+NL,Jotunn Guardian,4,guardian,204800000,130000,0,10.0
+NL,Valhalla,1,armor,4800000,130000,128000000,10.0
+NL,Valhalla,2,armor,5130000,133000,139000000,10.0
+NL,Valhalla,3,armor,5460000,137000,150000000,10.0
+NL,Valhalla,4,armor,5800000,140000,161000000,10.0
+NL,Valhalla Guardian,1,guardian,204800000,130000,0,10.0
+NL,Valhalla Guardian,2,guardian,222400000,133000,0,10.0
+NL,Valhalla Guardian,3,guardian,240000000,137000,0,10.0
+NL,Valhalla Guardian,4,guardian,257600000,140000,0,10.0
+NL,Mjolnir,5,warrior,66600000,440000,0,10.0
+NL,Gungnir,5,mage,66600000,440000,0,10.0
+NL,Hofund,6,warrior,72727200,480480,0,10.0
+NL,Laevateinn,6,mage,72727200,480480,0,10.0
+GS,Dracani Gilded Sword,1,warrior,60000000,400000,0,10.0
+GS,Dracani Gilded Sword,2,warrior,64000000,411000,0,10.0
+GS,Dracani Gilded Sword,3,warrior,67000000,422000,0,10.0
+GS,Dracani Gilded Sword,4,warrior,70000000,433000,0,10.0
+GS,Dracani Spellclaws,1,mage,60000000,400000,0,10.0
+GS,Dracani Spellclaws,2,mage,64000000,411000,0,10.0
+GS,Dracani Spellclaws,3,mage,67000000,422000,0,10.0
+GS,Dracani Spellclaws,4,mage,70000000,433000,0,10.0
+GS,Dracani Flanged Mace,1,warrior,70000000,433000,0,10.0
+GS,Dracani Flanged Mace,2,warrior,74000000,444000,0,10.0
+GS,Dracani Flanged Mace,3,warrior,77000000,455000,0,10.0
+GS,Dracani Flanged Mace,4,warrior,80000000,466000,0,10.0
+GS,Oathsworn Spellblade,1,mage,70000000,433000,0,10.0
+GS,Oathsworn Spellblade,2,mage,74000000,444000,0,10.0
+GS,Oathsworn Spellblade,3,mage,77000000,455000,0,10.0
+GS,Oathsworn Spellblade,4,mage,80000000,466000,0,10.0
+GS,Dracani Royal Glaive,1,warrior,80000000,466000,0,10.0
+GS,Dracani Royal Glaive,2,warrior,84000000,477000,0,10.0
+GS,Dracani Royal Glaive,3,warrior,87000000,488000,0,10.0
+GS,Dracani Royal Glaive,4,warrior,90000000,500000,0,10.0
+GS,Dracani Gilded Lance,1,mage,80000000,466000,0,10.0
+GS,Dracani Gilded Lance,2,mage,84000000,477000,0,10.0
+GS,Dracani Gilded Lance,3,mage,87000000,488000,0,10.0
+GS,Dracani Gilded Lance,4,mage,90000000,500000,0,10.0
+GS,Oathsworn Hammer,1,warrior,90000000,500000,0,10.0
+GS,Oathsworn Hammer,2,warrior,93889000,540000,0,10.0
+GS,Oathsworn Hammer,3,warrior,97778000,570000,0,10.0
+GS,Oathsworn Hammer,4,warrior,101667000,600000,0,10.0
+GS,Dracani Gilded Staff,1,mage,90000000,500000,0,10.0
+GS,Dracani Gilded Staff,2,mage,93889000,540000,0,10.0
+GS,Dracani Gilded Staff,3,mage,97778000,570000,0,10.0
+GS,Dracani Gilded Staff,4,mage,101667000,600000,0,10.0
+GS,Oathsworn Sword and Shield,1,warrior,101667000,600000,0,10.0
+GS,Oathsworn Sword and Shield,2,warrior,105556000,640000,0,10.0
+GS,Oathsworn Sword and Shield,3,warrior,109445000,670000,0,10.0
+GS,Oathsworn Sword and Shield,4,warrior,113332000,700000,0,10.0
+GS,Oathsworn Spellscythe,1,mage,101667000,600000,0,10.0
+GS,Oathsworn Spellscythe,2,mage,105556000,640000,0,10.0
+GS,Oathsworn Spellscythe,3,mage,109445000,670000,0,10.0
+GS,Oathsworn Spellscythe,4,mage,113332000,700000,0,10.0
+GS,Oathsworn Halberd,1,warrior,113332000,700000,0,10.0
+GS,Oathsworn Halberd,2,warrior,117221000,740000,0,10.0
+GS,Oathsworn Halberd,3,warrior,121110000,770000,0,10.0
+GS,Oathsworn Halberd,4,warrior,125000000,800000,0,10.0
+GS,Oathsworn Staff and Tome,1,mage,113332000,700000,0,10.0
+GS,Oathsworn Staff and Tome,2,mage,117221000,740000,0,10.0
+GS,Oathsworn Staff and Tome,3,mage,121110000,770000,0,10.0
+GS,Oathsworn Staff and Tome,4,mage,125000000,800000,0,10.0
+GS,Dracani,1,armor,5800000,140000,161000000,10.0
+GS,Dracani,2,armor,6400000,160000,179000000,10.0
+GS,Dracani,3,armor,7000000,180000,197000000,10.0
+GS,Dracani,4,armor,7600000,200000,215000000,10.0
+GS,Dracani Guardian,1,guardian,257600000,140000,0,10.0
+GS,Dracani Guardian,2,guardian,285733000,160000,0,10.0
+GS,Dracani Guardian,3,guardian,313866000,180000,0,10.0
+GS,Dracani Guardian,4,guardian,342000000,200000,0,10.0
+GS,Oathsworn,1,armor,7600000,200000,215000000,10.0
+GS,Oathsworn,2,armor,8166000,235000,245333000,10.0
+GS,Oathsworn,3,armor,8732000,270000,275666000,10.0
+GS,Oathsworn,4,armor,9300000,300000,306000000,10.0
+GS,Oathsworn Guardian,1,guardian,342000000,200000,0,10.0
+GS,Oathsworn Guardian,2,guardian,390133000,235000,0,10.0
+GS,Oathsworn Guardian,3,guardian,438266000,270000,0,10.0
+GS,Oathsworn Guardian,4,guardian,486400000,300000,0,10.0
+GS,Gildenscale,1,armor,9300000,300000,306000000,10.0
+GS,Gildenscale,2,armor,9966000,317000,332330000,10.0
+GS,Gildenscale,3,armor,10632000,334000,358660000,10.0
+GS,Gildenscale,4,armor,11300000,350000,385000000,10.0
+GS,Gildenscale Guardian,1,guardian,486400000,300000,0,10.0
+GS,Gildenscale Guardian,2,guardian,528200000,317000,0,10.0
+GS,Gildenscale Guardian,3,guardian,570000000,334000,0,10.0
+GS,Gildenscale Guardian,4,guardian,611800000,350000,0,10.0
+GS,Gildenscale Oath and Aegis,5,warrior,139500000,850000,0,10.0
+GS,Daybreak and Gildensong,5,mage,139500000,850000,0,10.0

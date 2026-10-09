@@ -325,6 +325,11 @@ bool mob_hurt_by(Game *g, int mob, int damage, int element, bool cooks)
     Mob *m = &g->mobs[mob];
     if (content.mobs[m->kind].immune && !mob_weak_to(g, mob, element)) return false;
     if (m->hp <= 0) m->hp = content.mobs[m->kind].health; /* (from before creatures had any) */
+    /* (One whose health is counted in units: a blow of less than one does nothing.) */
+    if (content.mobs[m->kind].health_unit > 1) {
+        damage /= content.mobs[m->kind].health_unit;
+        if (damage <= 0) return false;
+    }
     m->hp -= damage;
     if (m->hp > 0) {
         provoke(g, m);

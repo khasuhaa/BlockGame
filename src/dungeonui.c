@@ -224,7 +224,7 @@ void dungeonui_draw_over(const Game *g, const Hud *hud)
         DrawRectangleRec((Rectangle){ bar.x - 3, bar.y - 3, bar.width + 6, bar.height + 6 }, panel_color);
         DrawRectangleRec((Rectangle){ bar.x, bar.y, bar.width * (share > 1.0f ? 1.0f : share < 0.0f ? 0.0f : share), bar.height }, (Color){ 196, 60, 60, 255 });
         DrawRectangleLinesEx((Rectangle){ bar.x - 3, bar.y - 3, bar.width + 6, bar.height + 6 }, 2.0f, edge_color);
-        short_number(mob->hp, a, sizeof a);
+        short_number((long)mob->hp * (content.mobs[mob->kind].health_unit > 1 ? content.mobs[mob->kind].health_unit : 1), a, sizeof a);
         snprintf(text, sizeof text, "%s  %s", content.mobs[mob->kind].label, a);
         DrawText(text, (int)((float)GetScreenWidth() / 2.0f - (float)MeasureText(text, 16) / 2.0f), (int)bar.y + 1, 16, RAYWHITE);
         break;

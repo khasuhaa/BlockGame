@@ -25,8 +25,8 @@ BI = {t['name']: t for t in json.load(open(os.path.join(DATA, 'items.json')))['i
 BTR = {t['name']: t for t in json.load(open(os.path.join(DATA, 'trees.json')))['trees']}
 
 tiles, items, recipes, trees, mobs, biomes, veins, decor, plants, structures, villages, sets = [], [], [], [], [], [], [], [], [], [], [], []
-TP = {1: 30, 2: 100, 3: 300, 4: 900, 5: 2500, 6: 6000, 7: 15000, 8: 40000, 9: 120000, 10: 400000, 11: 1500000}
-NUM = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI']
+TP = {1: 30, 2: 100, 3: 300, 4: 900, 5: 2500, 6: 6000, 7: 15000, 8: 40000, 9: 120000, 10: 400000, 11: 600000, 12: 800000, 13: 1000000, 14: 1300000, 15: 1600000}
+NUM = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI']
 def lo(r): return 2 * r - 1
 def hi(r): return 2 * r
 
@@ -510,11 +510,14 @@ def hue(col, name, amount=0.06):
     h, l, s_ = colorsys.rgb_to_hls(*[v / 255 for v in col[:3]]); k = rnd(name)
     r_, g_, b_ = colorsys.hls_to_rgb((h + k.uniform(-amount, amount)) % 1.0, max(0.12, min(0.9, l + k.uniform(-0.06, 0.06))), s_)
     return (int(r_ * 255), int(g_ * 255), int(b_ * 255), 255)
-GRADE = [None, c('aaaab2'), c('60c860'), c('5a96f0'), c('b464e6'), c('f0be3c')]
-GRADE_NAME = [None, 'Common', 'Uncommon', 'Rare', 'Epic', 'Legendary']
+GRADE = [None, c('aaaab2'), c('60c860'), c('5a96f0'), c('b464e6'), c('f0be3c'), c('f05a5a')]
+GRADE_NAME = [None, 'Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Ultimate']
 
 # ---- what a thing is made of, by a word in its name -----------------------------------------------------------------------------------
-STUFF = [('bronze', 'c8964a', 'e0c080'), ('iron', '8a8e9a', 'c0c4d0'), ('steel', 'b0b8c4', 'e0e8f0'), ('blacksteel', '3a3e4a', '8a8e9a'), ('titanium', 'c8d4e0', 'ffffff'), ('granite', '8a8480', 'b8b0a8'), ('stone', '8a8a84', 'b8b8b0'), ('coldstone', '7a8a9a', 'c0d0e0'),
+STUFF = [('hellstone', '6a1a1a', 'f06030'), ('hellfire', 'e03818', 'ffc040'), ('lava', 'f05a18', 'ffd050'), ('darkstone', '3a3038', '8a6a80'), ('volcanic', '5a2a22', 'f07030'), ('burned', '4a3a34', 'e06030'), ('aquatic', '2a90b0', 'a0f0f0'), ('riptide', '2a6ac0', 'c0f0ff'), ('triton', '3ab0a0', 'f0e080'),
+         ('oceanic', '2a70c0', 'a0e0ff'), ('fungal', '8a5a9a', 'e0c0f0'), ('forest', '3a8a3a', 'b0e080'), ('overgrown', '4a7a2a', 'c0e060'), ('eldenbark', '6a4a2a', '90e0a0'), ('crystalline', 'a0d0f8', 'ffffff'), ('norse', '8a9ab0', 'f0c840'), ('north', '90b8e0', 'ffffff'), ('viking', '8a6a4a', 'c0c8d0'),
+         ('frost', 'a0e0ff', 'ffffff'), ('midgardian', '6a8a6a', 'e0d0a0'), ('jotunn', '6a90c0', 'e0f4ff'), ('valhalla', 'f0d880', 'ffffff'), ('mjolnir', '9aa0b0', '60c0ff'), ('gungnir', 'd0b060', 'ffffff'), ('hofund', 'c0c8d8', 'f0c840'), ('laevateinn', 'c03020', 'ffc040'),
+         ('dracani', 'c89a30', 'f05030'), ('oathsworn', 'e0e4f0', 'f0c840'), ('gildenscale', 'f0c030', 'ffffff'), ('daybreak', 'ffb040', 'ffffff'), ('bronze', 'c8964a', 'e0c080'), ('iron', '8a8e9a', 'c0c4d0'), ('steel', 'b0b8c4', 'e0e8f0'), ('blacksteel', '3a3e4a', '8a8e9a'), ('titanium', 'c8d4e0', 'ffffff'), ('granite', '8a8480', 'b8b0a8'), ('stone', '8a8a84', 'b8b8b0'), ('coldstone', '7a8a9a', 'c0d0e0'),
          ('glacial', '80d0f0', 'e0f8ff'), ('frozen', '80c8f0', 'e0f4ff'), ('ice', '90d8f8', 'f0fcff'), ('snow', 'd8e8f8', 'ffffff'), ('winter', 'a0c8e8', 'ffffff'), ('water', '3a80d0', 'a0d0ff'), ('ocean', '2a70b0', '80c8f0'), ('sea', '2a8a9a', '80e0d0'),
          ('bluefire', '3a70f0', 'a0e0ff'), ('magma', 'e05020', 'ffc040'), ('molten', 'f06020', 'ffd060'), ('flame', 'f07020', 'ffe060'), ('fire', 'f06020', 'ffd060'), ('heat', 'e86030', 'ffc060'), ('infernal', 'c02818', 'ff8030'), ('solar', 'f0a020', 'fff0a0'),
          ('sun', 'f0b020', 'fff0a0'), ('blazing', 'f08020', 'ffe080'), ('phoenix', 'f06030', 'ffd040'), ('demon', '8a1a1a', 'f04030'), ('devilish', '9a1a1a', 'f05030'), ('crimson', 'b01828', 'f06070'), ('ruby', 'd02838', 'ff8090'), ('blood', '8a0a14', 'e03040'),
@@ -536,7 +539,7 @@ def stuff(name):
         if word in low: return hue(c(a), name, 0.03), hue(c(b), name + '!', 0.03)
     k = rnd(name); col = tuple(k.randint(90, 210) for _ in range(3)) + (255,)
     return col, lt(col, 1.4)
-KINDS = [('fists', ('fist',)), ('fan', ('fan',)), ('stars', ('stars',)), ('wings', ('wings',)), ('anchor', ('anchor',)), ('book', ('spellbook', 'tome')), ('grail', ('grail',)), ('device', ('device', 'orb')), ('trident', ('trident',)), ('scythe', ('scythe', 'sickle', 'reaver')),
+KINDS = [('fists', ('fist', 'claws', 'shield')), ('hammer', ('mjolnir', 'mace', 'sceptre')), ('spear', ('gungnir', 'lance', 'glaive', 'halberd')), ('staff', ('laevateinn', 'gildensong')), ('greataxe', ('executioner', 'waraxe', 'hatchets')), ('fists', ('fist',)), ('fan', ('fan',)), ('stars', ('stars',)), ('wings', ('wings',)), ('anchor', ('anchor',)), ('book', ('spellbook', 'tome')), ('grail', ('grail',)), ('device', ('device', 'orb')), ('trident', ('trident',)), ('scythe', ('scythe', 'sickle', 'reaver')),
          ('katana', ('katana', 'kris', 'cutlass', 'scimitar', 'rapier')), ('greataxe', ('greataxe', 'battleaxe', 'cleaver', 'royal axe', 'axes', 'bloodthrister')), ('axe', ('axe',)), ('hammer', ('hammer', 'maul', 'mallet', 'club', 'pulverizer', 'warhammer')),
          ('spear', ('spear', 'pike', 'polearm', 'battlestaff')), ('wand', ('wand',)), ('staff', ('staff', 'greatstaff')), ('dagger', ('dagger', 'knives', 'knife', 'fang', 'slicer', 'star')), ('greatsword', ('greatsword', 'claymore', 'godsword', 'slayer', 'fury', 'strongsword', 'flatblade', 'rageblade', 'splitter')),
          ('sword', ('sword', 'blade', 'defender', 'triumph'))]
@@ -630,8 +633,23 @@ DUNGEONS = [
   ('mad_inventor', 'The Inventor', 'golem', 'c8a040', '60e0ff'), [('machine', 'a07840', '60e0ff'), ('barrel', '8a6a3a', 'c8a040'), ('crate', '6a5a4a', 'c8a040')], [('chain', 'a07840', 'e0c080'), ('lantern', '6a4a22', 'ffb060')]),
  ('OO', 'orbital_outpost', 'Orbital Outpost', 10, ('paving', '6a7a9a'), '4a5a7a', '1a2038', '80c0ff',
   [('void_mite', 'Void mite', 'creature', '5a3ad0', '60f0ff', 'swarm'), ('outpost_trooper', 'Outpost trooper', 'person', 'c0d0e0', '3a5a9a', 'grunt'), ('plasma_caster', 'Plasma caster', 'person', '4a2a8a', 'f060f0', 'ranged'), ('star_hunter', 'Star hunter', 'phoenix', '60c0ff', 'ffffff', 'fast'), ('alien_brute', 'Alien brute', 'golem', '50d070', 'e0ff80', 'tank')],
-  ('alien_emperor', 'The Emperor', 'wyrm', '3a2a8a', '60f0ff'), [('machine', '6a7a9a', '80c0ff'), ('crystal', '8060f0', 'f0e0ff'), ('crate', '8a9ab0', '3a5a9a')], [('lantern', '4a5a7a', '80c0ff'), ('stalactite', '5a6a8a', 'a0c0ff')])]
-STONES = ['amethyst', 'sapphire', 'emerald', 'ruby', 'diamond', 'dg_palace_keystone', 'dg_canal_keystone', 'dg_harbor_keystone', 'dg_sewer_keystone', None]
+  ('alien_emperor', 'The Emperor', 'wyrm', '3a2a8a', '60f0ff'), [('machine', '6a7a9a', '80c0ff'), ('crystal', '8060f0', 'f0e0ff'), ('crate', '8a9ab0', '3a5a9a')], [('lantern', '4a5a7a', '80c0ff'), ('stalactite', '5a6a8a', 'a0c0ff')]),
+ ('VC', 'volcanic', 'Volcanic Chambers', 11, ('rock', '4a2620'), '3a2a28', '241210', 'ff7020',
+  [('magma_slug', 'Magma slug', 'serpent', 'e05018', 'ffc040', 'swarm'), ('ash_warrior', 'Ash warrior', 'person', '4a3a34', 'f06020', 'grunt'), ('lava_shaman', 'Lava shaman', 'person', '8a2a18', 'ffc040', 'ranged'), ('cinder_hawk', 'Cinder hawk', 'phoenix', 'f06020', 'ffd050', 'fast'), ('obsidian_giant', 'Obsidian giant', 'golem', '2a2430', 'f05a18', 'tank')],
+  ('lava_king', 'The Lava King', 'dragon', 'c03010', 'ffd050'), [('crystal', 'f05a18', 'ffd050'), ('pillar', '4a3a38', '2a2020'), ('brazier', '3a2a28', 'ff7020')], [('stalactite', '5a3028', 'f06020'), ('chain', '3a3030', 'f05a18')]),
+ ('AT', 'aquatic_temple', 'Aquatic Temple', 12, ('brick', '3a8a9a'), '2a6a7a', '143a48', '60f0f0',
+  [('reef_biter', 'Reef biter', 'fish', '3a90c0', 'f0e080', 'swarm'), ('triton_guard', 'Triton guard', 'person', '2a7a8a', 'f0e080', 'grunt'), ('tide_caller', 'Tide caller', 'person', '2a4a9a', '60f0f0', 'ranged'), ('temple_eel', 'Temple eel', 'serpent', '2a6a5a', 'f0f060', 'fast'), ('coral_colossus', 'Coral colossus', 'golem', 'f08a80', 'f0e0d0', 'tank')],
+  ('sea_king', 'The Sea King', 'wyrm', '2a80b0', 'f0e080'), [('statue', '4ab0b0', 'f0e080'), ('urn', '3a8a9a', 'f0e0d0'), ('crystal', '60e0f0', 'ffffff')], [('chain', '3a7a8a', 'a0e0e0'), ('lantern', '2a6a7a', '60f0f0')]),
+ ('EF', 'enchanted_forest', 'Enchanted Forest', 13, ('planks', '4a3a22'), '3a5a2a', '1a2a14', 'a0ff80',
+  [('spore_sprite', 'Spore sprite', 'wraith', 'c080e0', 'f0e0ff', 'swarm'), ('fungal_warrior', 'Fungal warrior', 'person', '8a5a9a', 'e0c0f0', 'grunt'), ('vine_weaver', 'Vine weaver', 'person', '3a7a2a', 'c0f060', 'ranged'), ('shard_stag', 'Shard stag', 'stag', '90c0e0', 'ffffff', 'fast'), ('bark_titan', 'Bark titan', 'golem', '6a4a2a', '90e0a0', 'tank')],
+  ('elden_heart', 'The Eldenbark', 'golem', '5a4020', 'a0ff80'), [('crystal', 'a0d0f8', 'ffffff'), ('statue', '6a8a5a', 'c0e0a0'), ('urn', '8a5a9a', 'e0c0f0')], [('stalactite', '3a6a2a', 'a0ff80'), ('lantern', '4a3a22', 'a0ff80')]),
+ ('NL', 'northern_lands', 'Northern Lands', 14, ('rock', '8a9ab0'), 'c0d0e0', '3a4a60', 'a0e0ff',
+  [('rime_wolf', 'Rime wolf', 'quad', 'e0f0ff', '6090c0', 'fast'), ('norse_raider', 'Norse raider', 'person', '8a6a4a', 'c0c8d0', 'grunt'), ('rune_seer', 'Rune seer', 'person', '3a5a8a', 'a0e0ff', 'ranged'), ('frost_raven', 'Frost raven', 'bird', '2a3040', 'a0e0ff', 'swarm'), ('frost_giant', 'Frost giant', 'golem', '80b0e0', 'ffffff', 'tank')],
+  ('jotunn_lord', 'The Jotunn', 'golem', '6a90c0', 'f0c840'), [('pillar', '9ab0c8', '5a708a'), ('brazier', '4a5a70', 'a0e0ff'), ('crate', '8a6a4a', 'c0c8d0')], [('banner', '2a4a8a', 'f0c840'), ('stalactite', 'b0d8f0', 'ffffff')]),
+ ('GS', 'gilded_skies', 'Gilded Skies', 15, ('brick', 'e8d8a0'), 'f0e8c8', '6a5a30', 'fff0a0',
+  [('gilded_wisp', 'Gilded wisp', 'wraith', 'f0d060', 'ffffff', 'swarm'), ('oathsworn_knight', 'Oathsworn knight', 'person', 'e0e4f0', 'f0c840', 'grunt'), ('dracani_mage', 'Dracani mage', 'person', 'c03020', 'f0c030', 'ranged'), ('sky_drake', 'Sky drake', 'phoenix', 'f0b030', 'ffffff', 'fast'), ('gilded_sentinel', 'Gilded sentinel', 'golem', 'f0c030', 'ffffff', 'tank')],
+  ('gilded_dragon', 'The Gildenscale', 'dragon', 'f0c030', 'ffffff'), [('statue', 'f0c030', 'ffffff'), ('pillar', 'f0e8c8', 'c8a850'), ('brazier', 'c8a850', 'fff0a0')], [('banner', 'f0f0f0', 'f0c030'), ('lantern', 'c8a850', 'fff0a0')])]
+STONES = ['amethyst', 'sapphire', 'emerald', 'ruby', 'diamond', 'dg_palace_keystone', 'dg_canal_keystone', 'dg_harbor_keystone', 'dg_sewer_keystone', 'dg_outpost_keystone', 'dg_volcanic_keystone', 'dg_aquatic_keystone', 'dg_forest_keystone', 'dg_northern_keystone', None]
 def shape(kind, a, b):
     t = P()
     if kind == 'urn': t.r(6, 5, 9, 6, a); t.disc(7.5, 10.5, 3.6, a); t.r(6, 14, 9, 15, b); t.r(5, 9, 10, 9, b); t.p(6, 8, lt(a))
@@ -694,7 +712,7 @@ for k, (code, name, label, tier, (wkind, wcol), fcol, bcol, glow, foes, boss, de
     # What is found there.
     weapons = {}; armours = {}
     for r_ in rows: (armours if r_['class'] in ('armor', 'guardian') else weapons).setdefault(r_['name'], []).append(r_)
-    order = sorted((n for n in weapons if weapons[n][0]['grade'] != '5'), key=lambda n: int(weapons[n][0]['power']))
+    order = sorted((n for n in weapons if weapons[n][0]['grade'] not in ('5', '6')), key=lambda n: int(weapons[n][0]['power']))
     low = int(weapons[order[0]][0]['power']); top = max(int(r_['power']) for n in order for r_ in weapons[n])
     lootlist = []
     def loot_item(nm, lab, r_, rank, extra, pic, price_k):
@@ -706,7 +724,7 @@ for k, (code, name, label, tier, (wkind, wcol), fcol, bcol, glow, foes, boss, de
         rank = order.index(n) / max(1, len(order) - 1) if n in order else 1.0; pic = arm(n, grades[0]['class'])
         for r_ in grades:
             cls = r_['class']
-            loot_item('dg_%s_%s' % (slug(n)[:24], r_['grade']), n, r_, rank, dict(rolled={'power': int(r_['power']), 'upgrades': int(r_['upgrades']), 'gain': float(r_['gain']), 'class': cls}, range=7 if cls == 'mage' else None), pic, 1.0 if r_['grade'] != '5' else 3.0)
+            loot_item('dg_%s_%s' % (slug(n)[:24], r_['grade']), n, r_, rank, dict(rolled={'power': int(r_['power']), 'upgrades': int(r_['upgrades']), 'gain': float(r_['gain']), 'class': cls}, range=7 if cls == 'mage' else None), pic, 1.0 if r_['grade'] not in ('5', '6') else 3.0)
     lines = sorted(armours, key=lambda n: (armours[n][0]['class'], int(armours[n][0]['power'])))
     for n, grades in armours.items():
         guardian = grades[0]['class'] == 'guardian'; same = [x for x in lines if (armours[x][0]['class'] == 'guardian') == guardian]
@@ -721,10 +739,12 @@ for k, (code, name, label, tier, (wkind, wcol), fcol, bcol, glow, foes, boss, de
     assert len(lootlist) <= 320, (code, len(lootlist))
     # Who is met there: their numbers set against what somebody brings from the dungeon before.
     blow = max(6, int(prev_top * 0.6)) if k else 6; can_take = 100 + 2 * prev_health
+    unit = 1
+    while blow * 90 * 30 / unit > 1.5e9: unit *= 10
     names = []
     for n, lab, kind_, body, acc, role in foes:
         hp, kills, rest, step, cap = ROLE[role]; mn = 'dg_' + n; names.append(mn)
-        base = {'name': mn, 'label': lab, 'texture': 'mobs/%s.png' % mn, 'walk': ['mobs/%s_walk.png' % mn, 'mobs/%s.png' % mn], 'hop': 0.06, 'step_ticks': step, 'move_chance': 0.2, 'turn_chance': 0.25, 'health': int(blow * hp), 'cap': 12,
+        base = {'name': mn, 'label': lab, 'texture': 'mobs/%s.png' % mn, 'walk': ['mobs/%s_walk.png' % mn, 'mobs/%s.png' % mn], 'hop': 0.06, 'step_ticks': step, 'move_chance': 0.2, 'turn_chance': 0.25, 'health': int(blow * hp / unit), 'health_unit': unit if unit > 1 else None, 'cap': 12,
                 'drops': [drop('copper_coin', 0, 2 + tier), drop('dg_%s_dust' % name, 0, 1, 0.3)]}
         for f in (0, 1): (person(c(body), c(acc), f, hue(c('e0b890'), n, 0.02), role != 'ranged', k % 3) if kind_ == 'person' else beast(kind_, c(body), c(acc), f)).save('mobs', mn + ('_walk' if f else ''))
         if kind_ == 'bird' or kind_ == 'phoenix' or kind_ == 'wraith': base['flies'] = True; base['move_chance'] = 0.5
@@ -733,7 +753,7 @@ for k, (code, name, label, tier, (wkind, wcol), fcol, bcol, glow, foes, boss, de
         mobs.append(clean(base))
     bn, blab, bkind, bbody, bacc = boss; mn = 'dg_' + bn; names.append(mn)
     for f in (0, 1): beast(bkind, c(bbody), c(bacc), f, big=True).save('mobs', mn + ('_walk' if f else ''))
-    mobs.append({'name': mn, 'label': blab, 'texture': 'mobs/%s.png' % mn, 'walk': ['mobs/%s_walk.png' % mn, 'mobs/%s.png' % mn], 'hop': 0.0, 'step_ticks': 5, 'move_chance': 0.3, 'turn_chance': 0.2, 'health': int(blow * 90), 'cap': 1, 'size': [3, 3], 'boss': True,
+    mobs.append({'name': mn, 'label': blab, 'texture': 'mobs/%s.png' % mn, 'walk': ['mobs/%s_walk.png' % mn, 'mobs/%s.png' % mn], 'hop': 0.0, 'step_ticks': 5, 'move_chance': 0.3, 'turn_chance': 0.2, 'health': int(blow * 90 / unit), 'health_unit': unit, 'cap': 1, 'size': [3, 3], 'boss': True,
                  'sting': {'power': max(1, can_take // 5), 'rest_ticks': 35, 'sight': 18}, 'strike': {'power': max(1, can_take // 9), 'range': 11, 'rest_ticks': 70}, 'drops': [drop('gold_coin', tier, 3 * tier), drop('dg_%s_dust' % name, 2, 5)]})
     dungeons.append(clean({'name': name, 'label': label, 'tier': tier, 'wall': d + '_wall', 'floor': d + '_floor', 'back': d + '_back', 'door': d + '_door', 'mark': 'dg_mark', 'boss_mark': 'dg_boss_mark', 'chest': 'dg_reward_chest', 'exit': 'dg_way_out',
                            'light': d + '_lamp', 'decor': decor_names, 'hanging': hang_names, 'rooms': [7, 10] if tier < 4 else [9, 12], 'mobs': names, 'stone': STONES[k], 'gold': TP[tier] * 2, 'loot': lootlist}))
@@ -741,13 +761,15 @@ for k, (code, name, label, tier, (wkind, wcol), fcol, bcol, glow, foes, boss, de
     prev_top = top; prev_health = max(int(r_['health']) for n in armours for r_ in armours[n] if r_['class'] == 'armor')
 
 # ---- portals VII to X, raised by what dungeons VI to IX give -----------------------------------------------------------------------------------
-TIERCOL = {7: ramp('5a2a22', 'f0a0c0', 'ffffff'), 8: ramp('1a4444', '60f0c0', 'ffffff'), 9: ramp('1a2a2a', '60ffd0', 'ffffff'), 10: ramp('4a3018', 'ffb060', 'fff0e0')}
-for tier, (stone, lab, col) in zip(range(7, 11), (('dg_palace_keystone', 'Palace keystone', 'f0a0c0'), ('dg_canal_keystone', 'Canal keystone', '60f0c0'), ('dg_harbor_keystone', 'Harbour keystone', '60ffd0'), ('dg_sewer_keystone', 'Sewer keystone', 'ffb060'))):
-    thing(gemstone(c(col), True), stone, lab, 6, 'special', 3.0 * (tier - 5))
+KEYS = [('dg_palace_keystone', 'Palace keystone', 'f0a0c0', '5a2a22'), ('dg_canal_keystone', 'Canal keystone', '60f0c0', '1a4444'), ('dg_harbor_keystone', 'Harbour keystone', '60ffd0', '1a2a2a'), ('dg_sewer_keystone', 'Sewer keystone', 'ffb060', '4a3018'), ('dg_outpost_keystone', 'Outpost keystone', '80c0ff', '1a2038'),
+        ('dg_volcanic_keystone', 'Volcanic keystone', 'ff7020', '3a1410'), ('dg_aquatic_keystone', 'Aquatic keystone', '60f0f0', '143a48'), ('dg_forest_keystone', 'Forest keystone', 'a0ff80', '1a2a14'), ('dg_northern_keystone', 'Northern keystone', 'a0e0ff', '2a3a50')]
+TIERCOL = {7 + n: ramp(dark, col, 'ffffff') for n, (stone, lab, col, dark) in enumerate(KEYS)}
+for tier, (stone, lab, col, dark) in zip(range(7, 7 + len(KEYS)), KEYS):
+    thing(gemstone(c(col), True), stone, lab, 6, 'special', 3.0 * min(tier - 5, 6))
     for base, n, plab, cost, crystals in (('portal_6', 'dg_portal_%d' % tier, 'Portal', [(stone, 1)], 0), ('trade_portal_6', 'dg_trade_portal_%d' % tier, 'Trade portal', [(stone, 1), ('platinum_coin', (tier - 6) * 2)], (tier - 6) * 400)):
         e = {'cost': [{'item': i, 'count': n_} for i, n_ in cost]}
         if crystals: e['crystals'] = crystals
-        clone_tile(base, n, plab, TIERCOL[tier], 'tint', bench_level=None, trade_level=None, extends=e); clone_item(base, n, plab + ' ' + NUM[tier], TIERCOL[tier], tier, 'portals', 1.0, 'tint', places=n)
+        clone_tile(base, n, plab, TIERCOL[tier], 'tint', bench_level=None, trade_level=None, extends=e); clone_item(base, n, plab + ' ' + NUM[tier], TIERCOL[tier], min(tier, 11), 'portals', 1.0, 'tint', places=n)
 
 # ---- written out -------------------------------------------------------------------------------------------------------------------------------
 def dump(name, obj):
@@ -773,8 +795,8 @@ for n, i in enumerate(items):
 dump('tiles.json', {'tiles': tiles}); dump('items.json', {'items': items}); dump('recipes.json', {'recipes': recipes}); dump('mobs.json', {'mobs': mobs})
 dump('worldgen.json', {'dimensions': [{'name': 'dg_dungeon', 'label': 'Dungeon', 'generator': 'dungeon', 'height': 44, 'rock': 'dg_bedrock', 'edge': 'dg_bedrock', 'platform': 'dg_bedrock', 'ambient': 7}], 'dungeons': dungeons})
 dump('trade.json', {'categories': [{'name': 'loot', 'label': 'Loot', 'free_only': True}]})
-HARD = [('Easy', 1, 1, 0.0, 0.35, [600, 300, 100, 0, 0], [3, 4], 0.34, 1.0, 0), ('Hard', 3, 2, 0.25, 0.65, [350, 350, 220, 80, 0], [3, 5], 1.0, 2.5, 1), ('Insane', 10, 4, 0.5, 0.9, [150, 300, 300, 246, 4], [4, 5], 1.5, 5.0, 2), ('Nightmare', 30, 8, 0.7, 1.0, [50, 200, 320, 418, 12], [4, 6], 2.0, 10.0, 3)]
-json.dump({'combat': {'health': 100}, 'dungeons': {'upgrade_cost': 2.0, 'upgrade_steps': 50, 'grades': [{'label': GRADE_NAME[g], 'color': list(GRADE[g][:3])} for g in range(1, 6)],
+HARD = [('Easy', 1, 1, 0.0, 0.35, [600, 300, 100, 0, 0, 0], [3, 4], 0.34, 1.0, 0), ('Hard', 3, 2, 0.25, 0.65, [350, 350, 220, 80, 0, 0], [3, 5], 1.0, 2.5, 1), ('Insane', 10, 4, 0.5, 0.9, [150, 300, 300, 246, 4, 0], [4, 5], 1.5, 5.0, 2), ('Nightmare', 30, 8, 0.7, 1.0, [50, 200, 320, 418, 10, 2], [4, 6], 2.0, 10.0, 3)]
+json.dump({'combat': {'health': 100}, 'dungeons': {'upgrade_cost': 2.0, 'upgrade_steps': 50, 'grades': [{'label': GRADE_NAME[g], 'color': list(GRADE[g][:3])} for g in range(1, 7)],
            'difficulties': [{'label': l, 'health': h, 'damage': dm, 'from': a, 'to': b, 'grades': gr, 'loot': lt_, 'stone': st, 'gold': go, 'more': mo} for l, h, dm, a, b, gr, lt_, st, go, mo in HARD]}}, open(os.path.join(mod, 'rules.json'), 'w'), indent=1)
 json.dump({'label': 'Dungeoneering', 'icon': 'icon.png', 'description': 'Ten dungeons behind the ten tiers of portal: rooms to fight through, a boss, and a chest of loot whose numbers are its own.'}, open(os.path.join(mod, 'mod.json'), 'w'), indent=1)
 Image.open(os.path.join(TEX, 'tiles', 'dungeon_gate.png')).save(os.path.join(mod, 'icon.png'))

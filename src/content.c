@@ -2192,6 +2192,8 @@ static bool read_mobs(Reader *r, const cJSON *root)
         m->cap = (int)num(e, "cap", 0);
         if (str(e, "caged") && !item_ref(r, e, "caged", &m->caged)) return false;
         m->health = (int)num(e, "health", 1);
+        m->health_unit = (int)num(e, "health_unit", 1);
+        if (m->health_unit < 1) m->health_unit = 1;
         m->size_min = m->size_max = 1;
         pair(e, "size", &m->size_min, &m->size_max);
         if (m->size_min < 1 || m->size_max < m->size_min || m->size_max > MAX_ITEM_SIZES)
