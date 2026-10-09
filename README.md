@@ -427,6 +427,8 @@ The mouse wheel zooms the view in and out in steps, about the cursor: whatever i
 
 The player can mine, place, plant, open and pick up within the ten tiles around their body, or the eight around them while crawling. A tile at a corner of that range cannot be reached when the two tiles between it and the body are both blocks: there is no reaching diagonally through a closed corner. The player goes somewhere else to do it if there is anywhere, and otherwise the action is refused.
 
+A block is dug from where digging it will not drop the character: asked to dig what they stand on, they step off it first and dig it from beside. Only with nowhere else to dig it from - walled in - do they dig it out from under themselves and go down with it.
+
 ## Building and benches
 
 With a block selected (dirt or a workbench), clicking an air tile that touches a block queues placing it there, marked with a green outline and a faded copy of the block. Other air tiles still queue a move. Select a slot that is not a block to walk onto tiles next to the ground.

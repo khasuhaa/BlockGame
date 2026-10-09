@@ -2506,6 +2506,11 @@ static bool validate(Reader *r)
             return fail(r, "item \"%s\" plants a tree called \"%s\", which does not exist", it->name,
                         it->plants_name);
     }
+    /* What is part of a tree: trunks and leaves, and what they decay into. */
+    for (int i = 0; i < content.tile_count; i++) content.tiles[i].of_tree = content.tiles[i].log_of >= 0 || content.tiles[i].leaves_of >= 0;
+    for (int pass = 0; pass < 3; pass++)
+        for (int i = 0; i < content.tile_count; i++)
+            if (content.tiles[i].of_tree && content.tiles[i].decays_into != TILE_AIR) content.tiles[content.tiles[i].decays_into].of_tree = true;
     /* A loot pool's biomes, by name: one the game has not got (another mod's, which is not on) is left out, and a
      * pool that named some and has none of them left is nowhere. */
     for (int i = 0; i < content.pool_count; i++) {

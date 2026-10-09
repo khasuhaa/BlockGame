@@ -812,13 +812,30 @@ static void straighten_swim(const World *w, Pose start, Step *steps, int *count)
     free(made);
 }
 
+/* Whether somebody in a pose would still be there with the block an action digs out gone: not dropped by it. */
+static bool keeps_footing(const World *w, Pose pose, Action a)
+{
+    int layer = action_layer(w, a);
+    if (a.type != ACTION_MINE || layer < 0 || !world_in_bounds(w, a.target.x, a.target.y)) return true;
+    /* (Looked at with the block out for a moment: nothing else is touched, and it is put straight back.) */
+    uint16_t *at = &w->layers[layer][(size_t)a.target.y * w->width + world_wrap_x(w, a.target.x)], was = *at;
+    *at = TILE_AIR;
+    Pose after = pose_rest(w, pose);
+    *at = was;
+    return after.feet.x == pose.feet.x && after.feet.y == pose.feet.y;
+}
+
+/* How much further a search goes on, once it has somewhere to dig from, looking for somewhere to dig from that
+ * the digging will not drop them out of. */
+#define SAFE_SEARCH 700
+
 static bool plan_action(Game *g, const World *w, Pose start, Action a,
                         Step *out, int *out_count, Pose *end)
 {
     if (!target_valid(w, a)) return false;
 
     int start_idx = pose_index(w, start);
-    int goal_idx = -1;
+    int goal_idx = -1, unsafe_at = -1;
     int head = 0, tail = 0;
 
     /* Stamping poses with the search number saves clearing them every time. */
@@ -831,9 +848,18 @@ static bool plan_action(Game *g, const World *w, Pose start, Action a,
         int idx = g->bfs_queue[head++];
         Pose pose = pose_at_index(w, idx);
         if (is_goal(w, pose, a)) {
-            goal_idx = idx;
-            break;
+            /* Digging is done from where it will not take the ground from under them, if there is such a place
+             * near: the nearest that will do is kept in case there is not, and the search goes on a little. */
+            if (keeps_footing(w, pose, a)) {
+                goal_idx = idx;
+                break;
+            }
+            if (goal_idx < 0) {
+                goal_idx = idx;
+                unsafe_at = head;
+            }
         }
+        if (unsafe_at >= 0 && head > unsafe_at + SAFE_SEARCH) break;
         Step moves[MAX_MOVES];
         int n = list_moves(w, pose, moves);
         for (int i = 0; i < n; i++) {

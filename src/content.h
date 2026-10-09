@@ -363,6 +363,7 @@ typedef struct {
     bool dungeon_gate, loot_forge, dungeon_door, dungeon_exit;
     int dungeon_spawn, gate_reach;
     char gate_beside[CONTENT_NAME_LEN];
+    bool of_tree;    /* (worked out) part of a tree: its trunk or its leaves, or what either decays into */
     bool buried_treasure; /* "buried_treasure": a treasure map may be of where one of these lies */
     /* Rocketry. "rocket": a part of one - the fuel it holds, the thrust it gives, how likely it is to work, whether it
      * saves the crew when one does not. "pad": what a rocket stands on. "launch": on a way to another place - it is gone

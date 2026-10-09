@@ -211,11 +211,28 @@ static void test_click_mine(void)
     CHECK(world_get(&g.world, start.x + 6, s) == TILE_AIR);
     CHECK(g.player.feet.x == start.x + 5 && g.player.feet.y == start.y);
 
-    /* Mining the block underfoot drops the player into the hole. */
+    /* The block underfoot: they step off it first, and dig it from where the digging does not drop them. */
     CHECK(game_click_tile(&g, start.x + 5, s));
     run(&g, 3.0f);
     CHECK(world_get(&g.world, start.x + 5, s) == TILE_AIR);
-    CHECK(g.player.feet.x == start.x + 5 && g.player.feet.y == s);
+    CHECK(g.player.feet.x != start.x + 5 && g.player.feet.y == start.y && abs(g.player.feet.x - (start.x + 5)) <= 2);
+    /* With nowhere else to dig it from - walled in, in a shaft one square wide - they dig it and go down with it. */
+    {
+        int cx = start.x + 20;
+        for (int y = start.y - 3; y <= start.y; y++) {
+            world_set(&g.world, cx - 1, y, world_get(&g.world, cx, s));
+            world_set(&g.world, cx + 1, y, world_get(&g.world, cx, s));
+        }
+        world_set(&g.world, cx, start.y - 2, world_get(&g.world, cx, s));
+        TilePos was = g.player.feet;
+        g.player.feet = g.player.step_to = (TilePos){ cx, start.y };
+        CHECK(game_click_tile(&g, cx, s));
+        run(&g, 3.0f);
+        CHECK(world_get(&g.world, cx, s) == TILE_AIR && g.player.feet.x == cx && g.player.feet.y == s);
+        g.player.feet = g.player.step_to = was;
+    }
+    /* (Down in the hole, for what follows.) */
+    g.player.feet = g.player.step_to = (TilePos){ start.x + 5, s };
 
     /* From a one-deep pit the player can still climb out. */
     CHECK(game_click_tile(&g, start.x, start.y));

@@ -791,6 +791,13 @@ static void block_depth(const Game *g, int layer, const TileDef *def, int x, int
         world3d_solid(-0.1f * TILE_SIZE, -0.66f * TILE_SIZE, sides, W3D_FRAME);
     } else if (def->window) {
         world3d_solid(Z_BACK + 0.12f * TILE_SIZE, Z_BACK, sides, W3D_PANEL); /* a window is in the backwall */
+    } else if (def->of_tree && def->model == 0) {
+        /* A tree stands in the background as a bench does - the back half - and not flat against the backwall:
+         * its trunk and its leaves are material, as deep as that half is. (The sides against more of the same tree are not shown.) */
+        static const int beside[4][3] = { { -1, 0, W3D_LEFT }, { 1, 0, W3D_RIGHT }, { 0, -1, W3D_TOP }, { 0, 1, W3D_BOTTOM } };
+        for (int i = 0; i < 4; i++)
+            if (tile_def(world_get_at(w, layer, x + beside[i][0], y + beside[i][1]))->of_tree && world_in_bounds(w, 0, y + beside[i][1])) sides &= ~beside[i][2];
+        world3d_solid(Z_MID - 0.02f * TILE_SIZE, Z_BACK + 0.02f * TILE_SIZE, sides, W3D_BLOCK);
     } else if (model == W3D_PANEL && def->climbable) {
         world3d_solid(Z_BACK + 0.3f * TILE_SIZE, Z_BACK + 0.04f * TILE_SIZE, sides, W3D_PANEL); /* something climbed is against the back */
     } else if (model == W3D_PANEL) {
