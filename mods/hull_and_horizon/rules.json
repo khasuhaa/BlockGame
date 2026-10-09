@@ -1,0 +1,23 @@
+{
+  "time": {"tick_rate": 10, "max_tick_rate": 300, "day_ticks": 1000, "night_ticks": 800, "twilight_ticks": 80, "chunk_width": 16, "random_events_per_chunk": 10, "random_event_base": 1, "max_random_events": 40, "season_days": 10, "seasons": [{"name": "Spring", "thaws": true}, {"name": "Summer"}, {"name": "Autumn"}, {"name": "Winter", "snows": true, "freezes": true}]},
+  "player": {"walk_time": 0.24, "fall_time": 0.07, "climb_time": 0.48, "hop_time": 0.2, "crawl_time": 0.48, "fly_speed": 2.5, "hop_height": 0.35, "max_drop": 1, "flail_time": 0.6, "max_wall_hop": 2, "place_time": 0.15, "craft_time": 0.1, "start_items": [{"item": "shipwright", "count": 1}, {"item": "driftwood_hook", "count": 1}, {"item": "kelp", "count": 3}, {"item": "fresh_water", "count": 2}]},
+  "drops": {"fall_speed": 12.0, "pickup_delay": 0.45, "collect_time": 0.15, "lifetime": 600, "float_speed": 5.0},
+  "light": {"sun": 15, "moon": 5, "air_falloff": 1, "solid_falloff": 2, "minimum": 0, "glow": 8, "darkness": 0.98, "contrast": 1.5, "bloom": 0.25, "water_depth_per_level": 4},
+  "environment": {"fall_ticks": 1200, "rise_ticks": 300, "harm_ticks": 1200, "clothed": 0.1},
+  "happiness": {"slow": 0.5, "boost": 0.2},
+  "vitals": {"hunger_ticks": 36000, "energy_ticks": 1800, "sleep_ticks": 600, "health_regen_ticks": 6000, "starve_ticks": 3000, "starve_floor": 0.1, "food_health": 0.1, "saturation_ticks": 3600, "full_margin": 0.02, "rest_speed": 3, "energy_over": 0.5},
+  "meditation": {"ticks": 900, "loot": [{"item": "sea_shell", "weight": 16}, {"item": "kelp", "weight": 8}, {"item": "driftwood", "weight": 8}, {"item": "pearl", "weight": 1}]},
+  "players": {"max": 3, "skin": "player/base.png"},
+  "death": {"bar": 1.0, "respawn_ticks": 1800, "respawn_cost": 100},
+  "combat": {"hand_damage": 2, "poison_damage": 0.005, "attack_time": 0.35},
+  "teleport": {"bench": "portal", "level": 1, "cost": 10, "free_distance": 100, "per_blocks": 10},
+  "fog": {"enabled": false, "radius": 20, "fade": 8},
+  "view": {"zoom": [48, 40, 32, 24, 16, 6, 4, 2], "start": 32, "map_from": 12, "map_to": 8},
+  "water": {"color": [44, 112, 170, 120], "flow": 4, "swim_time": 0.18, "boat_speed": 2.0, "oxygen_ticks": 300, "oxygen_refill_ticks": 40, "drown_ticks": 300},
+  "interface": {"denial_time": 0.6},
+  "weather": {"period_ticks": 600, "rain_chance": 0.3, "snow_layers": 4, "snow_line": 50, "snow_chance": 0.004, "melt_chance": 0.002, "ice": "ice", "freeze_chance": 0.5, "thaw_chance": 0.5},
+  "building": {"wall_span": 10, "burn_time": 0.3},
+  "power": {"lift_time": 0.04},
+  "crafting": {"rush_seconds_per_crystal": 10},
+  "questbook": true
+}

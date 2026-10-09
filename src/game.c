@@ -5253,6 +5253,8 @@ float game_day_phase(const Game *g, bool *is_day)
 float game_daylight(const Game *g)
 {
     /* Dusk is centred on the end of the day, dawn on the end of the night. */
+    /* (A sea that is dark has no day.) */
+    if (game_adrift(g) && game_sea(g)->dark) return 0.0f;
     const float half = TWILIGHT_TICKS / 2.0f;
     int cycle = DAY_TICKS + NIGHT_TICKS;
     float t = (float)(g->tick % (uint64_t)cycle);

@@ -292,7 +292,7 @@ void benchui_close(BenchUi *ui, Game *g)
 /* A trade block has a menu of its own; this one stays out of its way. */
 static bool is_trade(const Game *g)
 {
-    return g->bench_open && (tile_def(open_bench(g))->trade || tile_def(open_bench(g))->dungeon_gate || tile_def(open_bench(g))->loot_forge);
+    return g->bench_open && (tile_def(open_bench(g))->trade || tile_def(open_bench(g))->dungeon_gate || tile_def(open_bench(g))->loot_forge || tile_def(open_bench(g))->helm);
 }
 
 bool benchui_mouse_over(const BenchUi *ui, const Game *g, const View *v)

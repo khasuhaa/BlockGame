@@ -1,6 +1,7 @@
 /* Headless tests for the game rules: no window, just the simulation. */
 #include "../src/digital.h"
 #include "../src/game.h"
+#include "../src/ship.h"
 #include "../src/guide.h"
 #include "../src/industry.h"
 #include "../src/light.h"
@@ -59,6 +60,19 @@ static bool calm_content_load(const char *dir, char *err, size_t size)
     return ok;
 }
 #define content_load calm_content_load
+
+/* A mod that is a game of its own is never loaded on top of the game's data: the tests that go through every mod
+ * do not see it, and it has a test of its own (test_hull_mod), which looks for it with scan_all_mods. */
+static void layered_mods_scan(ModList *list, const char *mods_dir, const char *saves_dir)
+{
+    mods_scan(list, mods_dir, saves_dir);
+    int kept = 0;
+    for (int i = 0; i < list->count; i++)
+        if (!list->mods[i].standalone) list->mods[kept++] = list->mods[i];
+    list->count = kept;
+}
+static void (*const scan_all_mods)(ModList *, const char *, const char *) = mods_scan;
+#define mods_scan layered_mods_scan
 
 /* And they put characters down wherever the test wants them, and click where nothing has been uncovered: so the
  * fog of war is off in a world a test makes, unless the test is of the fog (which makes its world with
@@ -14397,6 +14411,197 @@ static void test_alchemie_mod(void)
     }
 }
 
+/* Hull & Horizon: a mod that is a game of its own, loaded in place of the game's data - a sea, and a ship of blocks. */
+static void test_hull_mod(void)
+{
+    char err[256];
+    /* The game by itself is not adrift, and a world from before there were ships loads as it was. */
+    content_reset();
+    CHECK(content_load("data", err, sizeof err) && !content.worldgen.adrift && content.worldgen.sea_count == 0);
+    {
+        static Game old;
+        CHECK(load_game(&old, "tests/fixtures/v41_plain.world") && old.character_count >= 1 && old.tick == 30 && old.sea == 0 && old.alongside == 0 && old.passage == 0 && !game_adrift(&old));
+        game_free(&old);
+    }
+    /* Asked for with another mod, it is loaded and the other is not; and nothing of the game's is there. */
+    {
+        static ModList mods;
+        scan_all_mods(&mods, MODS_DIR, "build/settest/saves");
+        int hull = -1, other = -1;
+        for (int i = 0; i < mods.count; i++) {
+            mods.mods[i].enabled = false;
+            if (strcmp(mods.mods[i].id, "hull_and_horizon") == 0) hull = i;
+            else if (strcmp(mods.mods[i].id, "industry") == 0) other = i;
+        }
+        CHECK(hull >= 0 && other >= 0 && mods.mods[hull].standalone && !mods.mods[other].standalone);
+        if (hull < 0 || other < 0) return;
+        mods.mods[hull].enabled = mods.mods[other].enabled = true;
+        CHECK(mods_load_content(&mods, "data", err, sizeof err) && strstr(err, "Hull & Horizon") && mods.mods[hull].enabled && !mods.mods[other].enabled);
+        CHECK(tile_id("dirt") < 0 && item_id("workbench") < 0 && item_id("conveyor") < 0 && tile_id("lashed_driftwood") > 0);
+    }
+    content_reset();
+    if (!content_load("mods/hull_and_horizon", err, sizeof err)) {
+        printf("FAIL hull and horizon does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    const WorldGenDef *gen = &content.worldgen;
+    CHECK(content.tile_count == 206 && content.item_count == 464 && content.recipe_count == 314 && content.mob_count == 37);
+    CHECK(gen->adrift && gen->sea_count == 6 && content.structure_count == 34 && strcmp(gen->seas[0].name, "slick") == 0 && gen->seas[5].dark);
+    /* The shipwright's bench makes benches and blocks to trade at and nothing else; every creature can be caged;
+     * every tab of the book is a tree. */
+    for (int r = 0; r < content.recipe_count; r++) {
+        const Recipe *rc = &content.recipes[r];
+        if (strcmp(rc->bench, "shipwright") != 0) continue;
+        const TileDef *made = tile_def(item_def(rc->output.id)->places);
+        CHECK(item_def(rc->output.id)->places != TILE_AIR && (made->bench || made->trade));
+    }
+    for (int k = 0; k < content.mob_count; k++) CHECK(content.mobs[k].caged != ITEM_NONE && content.mobs[k].model_part_count > 0);
+    CHECK(game_quests_on() && content.quest_tab_count == 5);
+    for (int t = 0; t < content.quest_tab_count; t++) {
+        int hubs = 0;
+        for (int i = 0; i < content.quest_count; i++) hubs += content.quests[i].tab == t && content.quests[i].hub;
+        CHECK(hubs >= 5);
+    }
+    /* Five keels, each with more room than the last. */
+    int longest = gen->keel_long;
+    for (int lv = 2; lv <= 5; lv++) {
+        char name[32];
+        snprintf(name, sizeof name, "shipwright_%d", lv);
+        const TileDef *k = tile_def(tile_id(name));
+        CHECK(k->keel_level == lv - 1 && k->keel_long > longest && k->bench);
+        longest = k->keel_long;
+    }
+    CHECK(longest == 128);
+
+    static Game g;
+    CHECK(game_init(&g, gen->width, gen->height, 4242, WORLD_TERRAIN));
+    World *w = &g.world;
+    int water = w->sea_row + 1, mid = w->spawn_x;
+    /* Sea, and two logs afloat in the middle of it with a bell on them. */
+    CHECK(game_adrift(&g) && w->sea_row == 63 && g.player.feet.x == mid && g.player.feet.y == w->sea_row);
+    CHECK(tile_def(world_get(w, mid, water))->ship[SHIP_BURDEN] > 0 && world_is_solid(w, mid - 1, water) && !world_is_solid(w, mid + 1, water) && !world_is_solid(w, mid - 2, water));
+    CHECK(world_is_water(w, mid + 1, water) && world_is_water(w, 5, water + 40) && !world_is_water(w, 5, w->sea_row) && tile_def(world_get(w, mid, w->sea_row))->bench);
+    ship_measure(&g);
+    CHECK(g.ship.keel == 0 && g.ship.stats[SHIP_BURDEN] == 6 && g.ship.x1 - g.ship.x0 + 1 == gen->keel_long && g.ship.freeboard == 0 && g.ship.length == 2);
+    /* Her room: nothing goes up outside it, nor anything heavier than she will bear. */
+    TileType logs = tile_id("lashed_driftwood"), bench = tile_id("shipwright"), engine = tile_id("steam_turbine");
+    CHECK(world_build_allowed(w, mid + 2, water, logs) && !world_build_allowed(w, mid + 30, water, logs) && !world_build_allowed(w, mid, water + 3, logs) && !world_build_allowed(w, mid, water - 9, logs));
+    CHECK(world_build_allowed(w, mid, w->sea_row, bench) && !world_build_allowed(w, mid - 1, w->sea_row, engine));
+    g.inventory.slots[0] = (ItemStack){ (uint16_t)item_id("lashed_driftwood"), 4, 0 };
+    g.inventory.sel_slot = 0, g.inventory.sel_inner = -1;
+
+    /* Things adrift: they come from ahead a square at a time, go under her, and are gone astern. */
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    for (int dx = -3; dx <= 3; dx++)
+        if (!world_is_solid(w, mid + dx, water)) world_set_at(w, LAYER_FOREGROUND, mid + dx, water, logs);
+    game_drop_item(&g, item_id("driftwood"), mid + 6, water);
+    int d = -1;
+    for (int i = 0; i < MAX_DROPS; i++)
+        if (g.drops[i].active) d = i;
+    CHECK(d >= 0 && ship_drop_adrift(&g, d));
+    bool under = false, back_up = false;
+    for (int t = 0; t < 200 && g.drops[d].active && world_dx(w, mid, g.drops[d].x) > -6; t++) {
+        game_update(&g, 0.1f);
+        if (world_dx(w, mid, g.drops[d].x) == 0 && (int)g.drops[d].y == water + 1) under = true;
+        if (under && world_dx(w, mid, g.drops[d].x) == -5 && (int)g.drops[d].y == water) back_up = true;
+    }
+    CHECK(under && back_up);
+    /* A hook hauls one in from further than a hand reaches. */
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    game_drop_item(&g, item_id("old_cask"), mid + 4, water);
+    for (int i = 0; i < MAX_DROPS; i++)
+        if (g.drops[i].active) d = i;
+    CHECK(!ship_hook(&g, d));
+    g.inventory.slots[0] = (ItemStack){ (uint16_t)item_id("driftwood_hook"), 1, 0 };
+    CHECK(item_def(item_id("driftwood_hook"))->hook == 5 && ship_hook(&g, d) && g.drops[d].x == mid && (int)g.drops[d].y == w->sea_row);
+    g.drops[d].x = mid + 7;
+    g.drops[d].y = (float)water;
+    CHECK(!ship_hook(&g, d));
+    /* A net keeps what drifts into it. */
+    for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
+    world_set_at(w, LAYER_BACKGROUND, mid + 4, water, tile_id("drift_net"));
+    game_drop_item(&g, item_id("kelp"), mid + 6, water);
+    for (int t = 0; t < 60; t++) game_tick(&g);
+    g.bench_open = true;
+    g.bench_pos = (TilePos){ mid + 4, water };
+    uint16_t net = game_open_storage(&g);
+    int kelp = 0;
+    for (int i = 0; net != 0 && i < CONTAINER_MAX_SLOTS; i++)
+        if (g.inventory.containers[net].slots[i].id == item_id("kelp")) kelp += g.inventory.containers[net].slots[i].count;
+    CHECK(net != 0 && kelp >= 1);
+    g.bench_open = false;
+
+    /* The seas: she cannot leave the first without a keel and some way on her. */
+    int lacking = -1;
+    CHECK(g.sea == 0 && !ship_can_sail(&g, 1, &lacking) && lacking == NEED_KEEL && !ship_set_course(&g, 1));
+    for (int dx = -4; dx <= 4; dx++) world_set_at(w, LAYER_FOREGROUND, mid + dx, water, tile_id("plank_hull"));
+    world_set_at(w, LAYER_BACKGROUND, mid - 2, w->sea_row, tile_id("shipwright_2"));
+    ship_measure(&g);
+    CHECK(g.ship.keel == 1 && g.ship.x1 - g.ship.x0 + 1 == 20 && g.ship.stats[SHIP_STRENGTH] == 2 && !ship_can_sail(&g, 1, &lacking) && lacking == NEED_WAY);
+    for (int k = 1; k <= 6; k++) world_set_at(w, LAYER_BACKGROUND, mid + 2, w->sea_row - k + 1, tile_id("pole_mast"));
+    for (int k = 1; k <= 5; k++)
+        for (int s = 1; s <= 2; s++) world_set_at(w, LAYER_BACKGROUND, mid + 2 + s, w->sea_row - k, tile_id("canvas_sail"));
+    ship_measure(&g);
+    CHECK(g.ship.way >= 1 && ship_can_sail(&g, 1, NULL) && !ship_can_sail(&g, 2, &lacking));
+    /* (A sail furled draws nothing.) */
+    int way = g.ship.way;
+    for (int k = 1; k <= 5; k++)
+        for (int s = 1; s <= 2; s++) world_set_at(w, LAYER_BACKGROUND, mid + 2 + s, w->sea_row - k, tile_id("canvas_sail_furled"));
+    ship_measure(&g);
+    CHECK(g.ship.way == 0 && way > 0 && tile_def(tile_id("canvas_sail"))->use_becomes == tile_id("canvas_sail_furled"));
+    for (int k = 1; k <= 5; k++)
+        for (int s = 1; s <= 2; s++) world_set_at(w, LAYER_BACKGROUND, mid + 2 + s, w->sea_row - k, tile_id("canvas_sail"));
+    ship_measure(&g);
+    CHECK(ship_set_course(&g, 1) && g.passage > 0 && g.sea == 0 && !ship_set_course(&g, 1));
+    for (int t = 0; t < 600 && g.passage > 0; t++) game_tick(&g);
+    CHECK(g.passage == 0 && g.sea == 1 && strcmp(game_sea(&g)->name, "shoals") == 0);
+
+    /* Something comes alongside; what is dug from it is gone, what is built on it is kept, and the rest goes when it is let go. */
+    g.alongside_next = g.tick;
+    for (int t = 0; t < 30 && g.alongside == 0; t++) game_tick(&g);
+    CHECK(g.alongside > 0 && ship_alongside(&g) != NULL && g.alongside_x == world_wrap_x(w, mid + g.ship.bow + 1));
+    int ax = g.alongside_x, solid = 0, top = -1;
+    for (int y = water - 12; y < water + 10; y++)
+        for (int x = ax; x < ax + 6; x++) solid += world_is_solid(w, x, y);
+    for (int y = water + 9; y >= water - 12; y--)
+        if (world_is_solid(w, ax + 3, y)) top = y;
+    CHECK(solid > 6 && top > 0);
+    world_set_at(w, LAYER_FOREGROUND, ax + 3, top - 1, logs);
+    /* (Saved with it alongside, it is alongside when the world is opened again.) */
+    CHECK(save_game(&g, "build/test_hull.world"));
+    {
+        static Game again;
+        CHECK(load_game(&again, "build/test_hull.world") && again.sea == 1 && again.alongside == g.alongside && again.alongside_x == ax && again.alongside_until == g.alongside_until);
+        ship_measure(&again);
+        CHECK(again.ship.keel == 1);
+        game_free(&again);
+    }
+    CHECK(ship_cast_off(&g) && g.alongside == 0 && ship_alongside(&g) == NULL);
+    solid = 0;
+    for (int y = water - 12; y < water + 10; y++)
+        for (int x = ax; x < ax + 12; x++) solid += world_is_solid(w, x, y);
+    CHECK(solid == 1 && world_get(w, ax + 3, top - 1) == logs && world_is_water(w, ax + 1, water + 1));
+
+    /* A pot fishes the bed of the sea she is in. */
+    world_set_at(w, LAYER_BACKGROUND, mid - 3, w->sea_row, tile_id("lobster_pot"));
+    CHECK(game_store_at(&g, mid - 3, w->sea_row, item_id("kelp")));
+    for (int t = 0; t < 2000; t++) game_tick(&g);
+    g.bench_open = true;
+    g.bench_pos = (TilePos){ mid - 3, w->sea_row };
+    uint16_t pot = game_open_storage(&g);
+    int caught = 0;
+    for (int i = 0; pot != 0 && i < CONTAINER_MAX_SLOTS; i++) caught += g.inventory.containers[pot].slots[i].count;
+    CHECK(pot != 0 && caught >= 3);
+    g.bench_open = false;
+    /* The open sea is level whatever is built in it. */
+    CHECK(world_water(w, 9, water) == WATER_FULL && world_water(w, 9, w->sea_row) == 0 && world_water(w, mid + 60, water + 5) == WATER_FULL);
+    game_free(&g);
+    /* (What runs after this has the game's own data again.) */
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+}
+
 int main(void)
 {
     char err[256];
@@ -14538,6 +14743,7 @@ int main(void)
     test_plunder_mod();
     test_dungeoneering_mod();
     test_questbook();
+    test_hull_mod();
     test_equip_selected();
     test_worn();
     test_trade_tiers();

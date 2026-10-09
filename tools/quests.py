@@ -298,6 +298,8 @@ mods = os.path.join(repo, 'mods')
 for n, mod_id in enumerate(sorted(os.listdir(mods))):
     d = os.path.join(mods, mod_id)
     if mod_id == 'questbook' or not os.path.isdir(d): continue
+    # (A mod that is a game of its own writes its own book: it is not the game with something added.)
+    if os.path.exists(os.path.join(d, 'mod.json')) and json.load(open(os.path.join(d, 'mod.json'))).get('standalone'): continue
     k = write(d, mod_id, 10 + n); total += k; print('%s: %d' % (mod_id, k))
 book = os.path.join(mods, 'questbook'); os.makedirs(book, exist_ok=True)
 json.dump({'questbook': True}, open(os.path.join(book, 'rules.json'), 'w'), indent=1)

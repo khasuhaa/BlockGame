@@ -18,6 +18,8 @@
 #include "train.h"
 #include "trainui.h"
 #include "dungeonui.h"
+#include "helmui.h"
+#include "ship.h"
 #include "questui.h"
 #include "mobmodel.h"
 #include "world3d.h"
@@ -42,6 +44,9 @@ static TermUi term_ui;
 /* The menu over something on the rails. */
 static TrainUi train_ui;
 static DungeonUi dungeon_ui;
+static HelmUi helm_ui;
+/* How far the sea has gone by a ship adrift, in squares: what is drawn moving goes by this. */
+static float sea_gone;
 static QuestUi quest_ui;
 
 /* The terminal of a storage network at a square, if there is one there. */
@@ -464,6 +469,7 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
     if (tradeui_handle_input(trade, g, &ui_view)) return;
     if (trainui_handle_input(&train_ui, g, &ui_view)) return;
     if (dungeonui_handle_input(&dungeon_ui, g, &ui_view)) return;
+    if (helmui_handle_input(&helm_ui, g, &ui_view)) return;
     bool on_bench = benchui_handle_input(bench, g, &ui_view);
     if (bench->teleported) {
         /* Gone with the player. */
@@ -669,8 +675,33 @@ static void draw_sky(const Game *g, Vector2 origin)
     const World *w = &g->world;
     float light = game_daylight(g);
     Color sky = mix((Color){ 12, 16, 40, 255 }, (Color){ 135, 190, 235, 255 }, light);
+    /* (A ship adrift is under the sky of the sea she is in.) */
+    const SeaDef *sea = game_sea(g);
+    if (sea && sea->has_sky) sky = mix((Color){ 10, 12, 30, 255 }, (Color){ sea->sky[0], sea->sky[1], sea->sky[2], 255 }, sea->dark ? 1.0f : light);
     /* (Drawn straight to the screen, not through the zoom.) */
     DrawRectangle(0, (int)(origin.y * zoom), GetScreenWidth(), (int)(w->height * TILE_SIZE * zoom) + 1, sky);
+    if (sea) {
+        /* The sea goes by: cloud at its own pace, and far off on the horizon things that are passed and left behind. */
+        sea_gone += GetFrameTime() * ship_speed(g);
+        float wide = (float)GetScreenWidth(), level = (origin.y + (float)(w->sea_row + 1) * TILE_SIZE) * zoom;
+        Color cloud = mix(sky, (Color){ 250, 250, 255, 255 }, sea->dark ? 0.12f : 0.25f + 0.45f * light), far = mix(sky, (Color){ 20, 30, 50, 255 }, 0.35f);
+        for (int k = 0; k < 16; k++) {
+            uint32_t h = (uint32_t)(k + 1) * 2654435761u;
+            float span = wide + 400.0f, pace = 1.5f + (float)(h % 5u) * 0.6f;
+            float x = fmodf((float)(h % 4001u) / 4001.0f * span - sea_gone * pace, span);
+            if (x < 0.0f) x += span;
+            float y = level - 90.0f - (float)((h >> 8) % 320u), big = 26.0f + (float)((h >> 16) % 30u);
+            DrawRectangleRounded((Rectangle){ x - 200.0f, y, big * 3.4f, big * 0.55f }, 0.9f, 6, cloud);
+            DrawRectangleRounded((Rectangle){ x - 200.0f + big * 0.7f, y - big * 0.3f, big * 1.6f, big * 0.6f }, 0.9f, 6, cloud);
+        }
+        for (int k = 0; k < 5; k++) {
+            uint32_t h = (uint32_t)(k + 7) * 2246822519u;
+            float span = wide * 3.0f, x = fmodf((float)(h % 5003u) / 5003.0f * span - sea_gone * 5.0f, span);
+            if (x < 0.0f) x += span;
+            float high = 10.0f + (float)((h >> 9) % 26u), broad = 60.0f + (float)((h >> 15) % 120u);
+            DrawTriangle((Vector2){ x - 300.0f, level }, (Vector2){ x - 300.0f + broad, level }, (Vector2){ x - 300.0f + broad * 0.45f, level - high }, far);
+        }
+    }
     /* (A place with no sky has the dark behind it; and some have a sky of their own colours.) */
     for (int i = 0; i < w->region_count; i++) {
         const DimensionDef *d = w->regions[i].dim >= 0 ? &content.dimensions[w->regions[i].dim] : NULL;
@@ -934,10 +965,18 @@ static void draw_world(const Game *g, Vector2 origin)
                  * lighter line along its surface. */
                 const int *c = content.rules.water_color;
                 Color water = { (unsigned char)c[0], (unsigned char)c[1], (unsigned char)c[2], (unsigned char)c[3] };
+                const SeaDef *sea = game_sea(g);
+                if (sea && sea->has_water) water = (Color){ sea->water[0], sea->water[1], sea->water[2], sea->water[3] };
                 bool top = world_water(w, x, y - 1) == 0;
                 float depth = top ? (float)TILE_SIZE * (float)wet / WATER_FULL : (float)TILE_SIZE;
                 DrawRectangleRec((Rectangle){ px, py + TILE_SIZE - depth, TILE_SIZE, depth }, water);
                 if (top) DrawRectangleRec((Rectangle){ px, py + TILE_SIZE - depth, TILE_SIZE, 3 }, Fade(WHITE, 0.35f));
+                if (top && sea && y == w->sea_row + 1) {
+                    /* Foam going by on the top of the open sea: a streak every few squares, at the pace of what drifts. */
+                    float m = fmodf((float)x + sea_gone, 4.0f), from = m < 1.2f ? 0.0f : m > 3.0f ? 4.0f - m : -1.0f;
+                    float to = m < 1.2f ? (1.2f - m < 1.0f ? 1.2f - m : 1.0f) : 1.0f;
+                    if (from >= 0.0f && to > from) DrawRectangleRec((Rectangle){ px + from * TILE_SIZE, py + TILE_SIZE - depth + 3, (to - from) * TILE_SIZE, 2 }, Fade(WHITE, 0.3f));
+                }
             }
         }
     }
@@ -1333,6 +1372,8 @@ static Vector2 drop_screen_pos(const Game *g, int i, Vector2 origin)
     /* Fruit drifts slowly on its leaf; things on the ground bob. */
     float bob = d->attached ? sinf(d->age * 2.0f + (float)d->x) * 3.0f
                             : sinf(d->age * 4.0f + (float)d->x) * 2.0f;
+    /* (What the sea is carrying slides toward the square it is going to.) */
+    x -= ship_drop_slide(g, i);
     return (Vector2){ origin.x + view_near_x(&view, x) * TILE_SIZE, origin.y + y * TILE_SIZE + bob };
 }
 
@@ -2243,6 +2284,7 @@ static void session_draw(Session *s)
         tradeui_draw(&s->trade, g, &ui_view);
         trainui_draw(&train_ui, g, &ui_view);
         dungeonui_draw(&dungeon_ui, g, &ui_view);
+        helmui_draw(&helm_ui, g, &ui_view);
     }
     playerui_set_view(&ui_view, !on_map);
     if (g->character_count == 0) {

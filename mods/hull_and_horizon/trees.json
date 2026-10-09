@@ -1,0 +1,8 @@
+{
+  "trees": [
+    {"name": "palm", "log": "palm_log", "leaves": "palm_leaves", "fruit": "coconut", "fruit_ticks": 1800, "layer": "background", "soil": ["tree_tub", "island_soil", "island_grass"], "max_height": 8, "weight": 1, "rows": [{"offset": 0, "left": 2, "right": 2, "center": true}, {"offset": 1, "left": 1, "right": 1}]},
+    {"name": "oak", "log": "oak_log", "leaves": "oak_leaves", "fruit": "acorn", "fruit_ticks": 1800, "layer": "background", "soil": ["tree_tub", "island_soil", "island_grass"], "max_height": 6, "weight": 1, "rows": [{"offset": -1, "left": 1, "right": 1, "center": true}, {"offset": 0, "left": 2, "right": 2}, {"offset": 1, "left": 2, "right": 2}, {"offset": 2, "left": 1, "right": 1}]},
+    {"name": "pine", "log": "pine_log", "leaves": "pine_leaves", "fruit": "pine_cone", "fruit_ticks": 1800, "layer": "background", "soil": ["tree_tub", "island_soil", "island_grass"], "max_height": 6, "weight": 1, "rows": [{"offset": -1, "left": 1, "right": 1, "center": true}, {"offset": 0, "left": 2, "right": 2}, {"offset": 1, "left": 2, "right": 2}, {"offset": 2, "left": 1, "right": 1}]},
+    {"name": "lime_tree", "log": "lime_log", "leaves": "lime_leaves", "fruit": "lime", "fruit_ticks": 1800, "layer": "background", "soil": ["tree_tub", "island_soil", "island_grass"], "max_height": 6, "weight": 1, "rows": [{"offset": -1, "left": 1, "right": 1, "center": true}, {"offset": 0, "left": 2, "right": 2}, {"offset": 1, "left": 2, "right": 2}, {"offset": 2, "left": 1, "right": 1}]}
+  ]
+}

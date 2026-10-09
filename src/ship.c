@@ -77,13 +77,14 @@ void ship_measure(Game *g)
                 r.stats[SHIP_BURDEN] += def->ship[SHIP_BURDEN];
                 r.stats[SHIP_WEIGHT] += def->ship[SHIP_WEIGHT];
                 r.stats[SHIP_SAIL] += def->ship[SHIP_SAIL];
-                r.stats[SHIP_THRUST] += def->ship[SHIP_THRUST];
+                /* (An engine that burns something gives nothing cold.) */
+                if (def->fuel_capacity <= 0 || game_fuel_at(g, w->spawn_x + dx, y) > 0) r.stats[SHIP_THRUST] += def->ship[SHIP_THRUST];
                 r.stats[SHIP_GUNS] += def->ship[SHIP_GUNS];
                 for (int k = SHIP_REACH; k <= SHIP_PUMP; k++)
                     if (def->ship[k] > r.stats[k]) r.stats[k] = def->ship[k];
                 if (def->ship[SHIP_BURDEN] > 0 && layer == LAYER_FOREGROUND) {
                     /* (The hull is as strong as the weakest of it.) */
-                    if (weakest == 0 || def->ship[SHIP_STRENGTH] < weakest) weakest = def->ship[SHIP_STRENGTH];
+                    if (def->ship[SHIP_STRENGTH] > 0 && (weakest == 0 || def->ship[SHIP_STRENGTH] < weakest)) weakest = def->ship[SHIP_STRENGTH];
                     if (top < 0) top = y;
                 }
             }
@@ -97,7 +98,7 @@ void ship_measure(Game *g)
     for (int dx = first; dx <= last; dx++) {
         int top = -1;
         for (int y = r.y0; y <= r.y1 && top < 0; y++)
-            if (world_in_bounds(w, w->spawn_x + dx, y) && tile_def(world_get(w, w->spawn_x + dx, y))->ship[SHIP_BURDEN] > 0) top = y;
+            if (world_in_bounds(w, w->spawn_x + dx, y) && world_is_solid(w, w->spawn_x + dx, y)) top = y; /* (her deck, or her side) */
         int out = top < 0 ? 0 : water - top;
         if (out < 0) out = 0;
         if (lowest < 0 || out < lowest) lowest = out;
@@ -105,7 +106,7 @@ void ship_measure(Game *g)
     r.freeboard = lowest < 0 ? 0 : lowest;
     r.length = first > last ? 0 : last - first + 1;
     r.bow = first > last ? 0 : last;
-    r.way = (r.stats[SHIP_SAIL] + r.stats[SHIP_THRUST]) * 20 / (20 + r.stats[SHIP_WEIGHT]);
+    r.way = (r.stats[SHIP_SAIL] + r.stats[SHIP_THRUST]) * 4 / (20 + r.stats[SHIP_WEIGHT]);
     r.measured = true;
     g->ship = r;
 
@@ -258,6 +259,16 @@ float ship_drift_phase(const Game *g)
     return done < 0.0f ? 0.0f : done > 1.0f ? 1.0f : done;
 }
 
+float ship_drop_slide(const Game *g, int drop)
+{
+    if (!ship_drop_adrift(g, drop)) return 0.0f;
+    const World *w = &g->world;
+    const Drop *d = &g->drops[drop];
+    int row = (int)(d->y + 0.001f), nx = world_wrap_x(w, d->x - 1);
+    /* (One that will go under her, or is held, waits where it is.) */
+    return world_is_water(w, nx, row) ? ship_drift_phase(g) : 0.0f;
+}
+
 float ship_speed(const Game *g)
 {
     return game_adrift(g) ? (float)(g->tick_rate > 0 ? g->tick_rate : 10) / (float)drift_interval(g) : 0.0f;
@@ -352,8 +363,9 @@ static void trawl(Game *g)
         Storage *st = &g->storages[i];
         if (!st->used) continue;
         const TileDef *def = tile_def(game_bench_at(g, st->x, st->y));
-        if (def->trawl <= 0 || g->ship.way <= 0) continue;
-        int work = st->work + 10 * g->ship.way;
+        if (def->trawl <= 0) continue;
+        /* (Lying still it fishes too, slowly: the more way on her, the more ground it covers.) */
+        int work = st->work + 10 * (1 + g->ship.way);
         if (work < def->trawl) {
             st->work = (int16_t)work;
             continue;
@@ -373,6 +385,52 @@ static void trawl(Game *g)
             roll -= sea->bed[k].weight;
         }
     }
+}
+
+/* Her pumps: water that stands inside her, where the sea cannot get at it, is thrown over the side - so many
+ * squares of it each time, from the top down. What the sea can reach under water is the sea, and stays. */
+static void pump_bilge(Game *g)
+{
+    World *w = &g->world;
+    int power = g->ship.stats[SHIP_PUMP];
+    if (power <= 0) return;
+    int x0 = g->ship.x0 - 1, x1 = g->ship.x1 + 1, y0 = w->sea_row + 1, y1 = g->ship.y1 + 1;
+    int wide = x1 - x0 + 1, high = y1 - y0 + 1;
+    if (wide <= 0 || high <= 0 || wide * high > 1 << 16) return;
+    static uint8_t reached[1 << 16];
+    static int32_t queue[1 << 16];
+    int head = 0, tail = 0;
+    memset(reached, 0, (size_t)(wide * high));
+    for (int y = 0; y < high; y++)
+        for (int x = 0; x < wide; x++) {
+            if (x != 0 && x != wide - 1 && y != high - 1) continue;
+            if (world_is_solid(w, w->spawn_x + x0 + x, y0 + y)) continue;
+            reached[y * wide + x] = 1;
+            queue[tail++] = y * wide + x;
+        }
+    while (head < tail) {
+        int at = queue[head++], x = at % wide, y = at / wide;
+        static const int dirs[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
+        for (int k = 0; k < 4; k++) {
+            int nx = x + dirs[k][0], ny = y + dirs[k][1];
+            if (nx < 0 || ny < 0 || nx >= wide || ny >= high || reached[ny * wide + nx]) continue;
+            if (world_is_solid(w, w->spawn_x + x0 + nx, y0 + ny)) continue;
+            reached[ny * wide + nx] = 1;
+            queue[tail++] = ny * wide + nx;
+        }
+    }
+    int left = power * WATER_FULL;
+    for (int y = g->ship.y0; y <= g->ship.y1 && left > 0; y++)
+        for (int dx = g->ship.x0; dx <= g->ship.x1 && left > 0; dx++) {
+            int x = w->spawn_x + dx, have = world_water(w, x, y);
+            if (have <= 0) continue;
+            if (y >= y0 && reached[(y - y0) * wide + (dx - x0)]) continue;
+            /* (Above the waterline nothing holds the sea: water there is in a barrel, or on its way overboard.) */
+            if (y < y0) continue;
+            int take = have < left ? have : left;
+            world_set_water(w, x, y, have - take);
+            left -= take;
+        }
 }
 
 /* Her guns fire by themselves at whatever comes for her. */
@@ -411,6 +469,7 @@ void ship_tick(Game *g)
     if (g->tick % 10 == 0) {
         level_sea(g);
         trawl(g);
+        pump_bilge(g);
         fire_guns(g);
     }
 

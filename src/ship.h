@@ -31,6 +31,8 @@ bool ship_hook(Game *g, int drop);
 /* Whether a drop is being carried by the sea, and how far it is toward the next square it will be in (0 to 1). */
 bool ship_drop_adrift(const Game *g, int drop);
 float ship_drift_phase(const Game *g);
+/* How far a drop is to be drawn toward the square the sea is taking it to: 0 for one that is going nowhere. */
+float ship_drop_slide(const Game *g, int drop);
 /* How fast the sea goes by, in squares a second: for whatever draws it. */
 float ship_speed(const Game *g);
 /* Whether the block that is open is a helm. */

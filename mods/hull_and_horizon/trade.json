@@ -1,0 +1,30 @@
+{
+  "default_price": 10,
+  "sell_share": 0.9,
+  "discover": true,
+  "categories": [
+    {"name": "blocks", "label": "Hull and timber"},
+    {"name": "nature", "label": "Stores", "also": ["food"]},
+    {"name": "tools", "label": "Tools and arms"},
+    {"name": "clothing", "label": "Slops"},
+    {"name": "ores", "label": "Metal"},
+    {"name": "crafted", "label": "Fittings", "also": ["materials", "building"]},
+    {"name": "benches", "label": "Benches", "free_only": true},
+    {"name": "creatures", "label": "Creatures", "free_only": true, "also": ["animals"]},
+    {"name": "special", "label": "Special", "free_only": true}
+  ],
+  "currencies": [
+    {"item": "cowrie", "value": 1},
+    {"item": "silver_piece", "value": 100},
+    {"item": "gold_doubloon", "value": 10000}
+  ],
+  "crystals": {"start": 0, "icon": "ui/crystal.png"},
+  "tier_prices": [
+    0,
+    50,
+    150,
+    500,
+    1500,
+    5000
+  ]
+}
