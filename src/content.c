@@ -2676,6 +2676,10 @@ static bool read_quests(Reader *r, const cJSON *root)
             if (!item_ref(r, one, "item", &q->rewards[q->reward_count].item)) return false;
             q->rewards[q->reward_count++].count = (int)num(one, "count", 1);
         }
+        q->pick = flag(e, "pick", false) && q->reward_count > 1;
+        q->hub = flag(e, "hub", false);
+        q->crystals = (int)num(e, "crystals", 0);
+        pair(e, "at", &q->x, &q->y);
         q->icon = q->kind == QUEST_HAVE ? item : q->reward_count > 0 ? q->rewards[0].item : ITEM_NONE;
         if (str(e, "icon") && !item_ref(r, e, "icon", &q->icon)) return false;
     }

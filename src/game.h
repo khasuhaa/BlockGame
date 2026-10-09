@@ -621,8 +621,9 @@ bool game_quests_on(void);
 int game_quest_state(const Game *g, int quest);
 /* How far its task has got, of how many. */
 int game_quest_progress(const Game *g, int quest, int *of);
-/* Takes what a done quest gives. And every such in a tab (-1: any): how many were. */
-bool game_quest_claim(Game *g, int quest);
+/* Takes what a done quest gives - where one of several is to be picked, `choice` is which (otherwise it is not
+ * looked at). And every such in a tab (-1: any) that asks for no choosing: how many were. */
+bool game_quest_claim(Game *g, int quest, int choice);
 int game_quest_claim_all(Game *g, int tab);
 /* Ticks a quest whose task nothing can see done. */
 bool game_quest_check(Game *g, int quest);

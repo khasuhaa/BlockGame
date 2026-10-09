@@ -13018,7 +13018,7 @@ static void test_questbook(void)
     game_init(&g, 512, 401, 5, WORLD_TERRAIN);
     g.tick_rate = 20;
     /* (No book: nothing is kept track of, and nothing can be ticked or claimed.) */
-    CHECK(content.quests[0].kind == QUEST_CHECK && !game_quest_check(&g, 0) && !game_quest_claim(&g, 0));
+    CHECK(content.quests[0].kind == QUEST_CHECK && !game_quest_check(&g, 0) && !game_quest_claim(&g, 0, -1));
     for (int i = 0; i < 40; i++) game_tick(&g);
     int any = 0;
     for (int i = 0; i < content.quest_count; i++) any += g.quest_state[i] != 0;
@@ -13045,14 +13045,14 @@ static void test_questbook(void)
     for (int i = 1; i < content.quest_count && locked < 0; i++)
         if (i != have && content.quests[i].kind == QUEST_HAVE && content.quests[i].need_count > 0 && content.quests[i].needs[0] != 0 && content.quests[i].target != content.quests[have].target) locked = i;
     CHECK(locked > 0);
-    CHECK(game_quest_state(&g, 0) == QUEST_OPEN && game_quest_state(&g, have) == QUEST_LOCKED && !game_quest_claim(&g, 0));
+    CHECK(game_quest_state(&g, 0) == QUEST_OPEN && game_quest_state(&g, have) == QUEST_LOCKED && !game_quest_claim(&g, 0, -1));
     game_give_items(&g, (ItemId)content.quests[have].target, content.quests[have].count);
     game_give_items(&g, (ItemId)content.quests[locked].target, content.quests[locked].count);
     for (int i = 0; i < 40; i++) game_tick(&g);
     CHECK(g.quest_state[have] == 0 && g.quest_state[locked] == 0); /* (held, but not yet open: nothing) */
     CHECK(game_quest_check(&g, 0) && game_quest_state(&g, 0) == QUEST_DONE && !game_quest_check(&g, 0));
     long had = trade_wallet(inv);
-    CHECK(game_quest_claim(&g, 0) && game_quest_state(&g, 0) == QUEST_CLAIMED && trade_wallet(inv) > had && !game_quest_claim(&g, 0));
+    CHECK(game_quest_claim(&g, 0, -1) && game_quest_state(&g, 0) == QUEST_CLAIMED && trade_wallet(inv) > had && !game_quest_claim(&g, 0, -1));
     /* A thing held: seen when the quest is open, and the one after it only once this one is done. */
     int of = 0;
     CHECK(game_quest_state(&g, have) == QUEST_OPEN && game_quest_progress(&g, have, &of) == of && of == content.quests[have].count);
@@ -13092,15 +13092,32 @@ static void test_questbook(void)
     for (int i = 0; i < 20; i++) game_tick(&g);
     CHECK(by_already || game_quest_state(&g, near) == QUEST_DONE);
     /* Everything in a tab that is done is claimed at once. */
-    int waiting = 0;
-    for (int i = 0; i < content.quest_count; i++) waiting += g.quest_state[i] == QUEST_DONE;
-    CHECK(waiting >= 3 && game_quest_claim_all(&g, 0) == waiting && game_quest_claim_all(&g, -1) == 0);
+    /* Where one of several is to be picked, nothing is given until one is - and then that one, and the crystals. */
+    int pick = -1;
+    for (int i = 1; i < content.quest_count && pick < 0; i++)
+        if (content.quests[i].pick && content.quests[i].crystals > 0 && content.quests[i].rewards[0].item != content.quests[i].rewards[1].item) pick = i;
+    CHECK(pick > 0 && content.quests[pick].hub && content.quests[pick].reward_count >= 2);
+    g.quest_state[pick] = QUEST_DONE;
+    clear_inventory(&g);
+    int crystals = g.crystals;
+    CHECK(!game_quest_claim(&g, pick, -1) && !game_quest_claim(&g, pick, 9) && g.quest_state[pick] == QUEST_DONE);
+    CHECK(game_quest_claim(&g, pick, 1) && g.quest_state[pick] == QUEST_CLAIMED && g.crystals == crystals + content.quests[pick].crystals);
+    CHECK(inventory_count(inv, content.quests[pick].rewards[1].item) == content.quests[pick].rewards[1].count && inventory_count(inv, content.quests[pick].rewards[0].item) == 0);
+    /* Everything else in a tab that is done is claimed at once; what wants picking is left. */
+    int waiting = 0, choosing = 0;
+    for (int i = 0; i < content.quest_count; i++) {
+        waiting += g.quest_state[i] == QUEST_DONE && !content.quests[i].pick;
+        choosing += g.quest_state[i] == QUEST_DONE && content.quests[i].pick;
+    }
+    CHECK(waiting >= 1 && game_quest_claim_all(&g, 0) == waiting && game_quest_claim_all(&g, -1) == 0);
+    for (int i = 0; i < content.quest_count; i++) choosing -= g.quest_state[i] == QUEST_DONE;
+    CHECK(choosing == 0);
     /* Saved and loaded, they stand as they stood - by name. */
     g.quest_progress[kill] = 3;
     CHECK(save_game(&g, "build/test_quests.world"));
     static Game back;
     CHECK(load_game(&back, "build/test_quests.world"));
-    CHECK(memcmp(back.quest_state, g.quest_state, sizeof g.quest_state) == 0 && back.quest_progress[kill] == 3 && back.quest_state[have] == QUEST_CLAIMED);
+    CHECK(memcmp(back.quest_state, g.quest_state, sizeof g.quest_state) == 0 && back.quest_progress[kill] == 3 && back.quest_state[have] == g.quest_state[have] && back.quest_state[have] != 0);
     game_free(&back);
     /* A world from before there were any loads, with none of them done. */
     CHECK(load_game(&back, "tests/fixtures/v39_plain.world"));
@@ -13123,18 +13140,28 @@ static void test_questbook(void)
         content_reset();
         CHECK(content_load("data", err, sizeof err) && content_load(dir, err, sizeof err));
         CHECK(!game_quests_on() && content.quest_tab_count == 2 && strcmp(content.quest_tabs[1].name, id) == 0);
-        int mine = 0, first = -1;
+        int mine = 0, first = -1, hubs = 0, widest = 0;
+        static int hang[MAX_QUESTS];
+        memset(hang, 0, sizeof hang);
         for (int i = 0; i < content.quest_count; i++) {
             if (content.quests[i].tab != 1) continue;
             if (first < 0) first = i;
             mine++;
             CHECK(content.quests[i].reward_count > 0 && content.quests[i].label[0] && content.quests[i].text[0]);
             /* (Nothing waits on something after it, so there is always a way through.) */
-            for (int k = 0; k < content.quests[i].need_count; k++) CHECK(content.quests[i].needs[k] < i && content.quests[content.quests[i].needs[k]].tab == 1);
+            for (int k = 0; k < content.quests[i].need_count; k++) {
+                CHECK(content.quests[i].needs[k] < i && content.quests[content.quests[i].needs[k]].tab == 1);
+                if (++hang[content.quests[i].needs[k]] > widest) widest = hang[content.quests[i].needs[k]];
+            }
+            hubs += content.quests[i].hub;
+            /* (No two in one place on the page.) */
+            for (int o = first; o < i; o++) CHECK(content.quests[o].tab != 1 || content.quests[o].x != content.quests[i].x || content.quests[o].y != content.quests[i].y);
         }
         bool big = strcmp(id, "dimensions") == 0 || strcmp(id, "seeker_of_the_dao") == 0 || strcmp(id, "beyond_the_sky") == 0 || strcmp(id, "plunder_and_thunder") == 0 || strcmp(id, "dungeoneering") == 0;
         if (mine < (big ? 100 : 30)) printf("FAIL %s has %d quests\n", id, mine), failures++;
         CHECK(first >= 0 && content.quests[first].kind == QUEST_CHECK && content.quests[first].need_count == 0);
+        /* A tree, not a line: several heads, each with others hanging from it, and more than one way on from the first. */
+        if (hubs < 4 || widest < 3 || hang[first] < 2) printf("FAIL %s: %d heads, %d from the fullest, %d from the first\n", id, hubs, widest, hang[first]), failures++;
         tabs_seen++;
     }
     CHECK(tabs_seen >= 15);

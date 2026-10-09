@@ -91,7 +91,7 @@ def write(d, mod_id, order):
             return s
         if i in SRC: return SRC[i]
         return 'Found out in the world.'
-    quota = 60 if not own else 112 if mod_id in MAJOR else 33
+    quota = 80 if not own else 160 if mod_id in MAJOR else 40
     cand = []   # (rank, label, text, task, icon, milestone)
     mine = [i for i in items]
     top = max([tier(i['name']) for i in mine] + [1])
@@ -105,11 +105,12 @@ def write(d, mod_id, order):
         group.sort(key=lambda t: t.get('bench_level', t.get('trade_level', 1)) or 1)
         picks = [group[0]] + ([group[-1]] if len(group) > 1 else []) if len(kinds) > 14 else group
         for t in picks:
-            it = places.get(t['name']); lvl = t.get('bench_level') or t.get('trade_level') or (group.index(t) + 1)
+            it = places.get(t['name']); tail = re.search(r'_(\d+)$', t['name']); lvl = t.get('bench_level') or t.get('trade_level') or (int(tail.group(1)) if tail and t.get('extends') else group.index(t) + 1)
             if t is group[0]: text = (how(it) if it else 'Find one.') + ' Set it down and stand by it.'
             else: text = 'Raise the %s, a grade at a time, until it is this.' % group[0]['label'].lower()
-            lab = t['label'] + ('' if t is group[0] or re.search(r' [IVX]+$', t['label']) else ' %s' % ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV'][min(lvl, 14)])
-            cand.append(((rank(it) if it else 0.3) + (0.0 if t is group[0] else 0.08 * group.index(t)), lab, text, {'near': t['name']}, it, t is not group[0]))
+            lab = t['label'] + ('' if (t is group[0] and not t.get('extends')) or re.search(r' [IVX]+$', t['label']) else ' %s' % ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV'][min(lvl, 14)])
+            at_ = (lvl - 1) / max(1, len(dungeons)) if dungeons and t.get('extends') else 0.0 if dungeons else (rank(it) if it else 0.3) + (0.0 if t is group[0] else 0.08 * group.index(t))
+            cand.append((at_, lab, text if not t.get('extends') else 'Raise the portal with the stone the dungeon before gives.', {'near': t['name']}, it, t is not group[0]))
             if it: used_items.add(it)
     # (Not more than a third of the line: the first of each before the last of any.)
     cand.sort(key=lambda q: (q[5], q[0])); cand = cand[:max(4, quota // 3)]
@@ -145,7 +146,14 @@ def write(d, mod_id, order):
         return n in by or how(n) != 'Found out in the world.'
     pool = sorted((i for i in mine if wanted(i)), key=lambda i: (rank(i['name']), 0 if i.get('equip') or i.get('relic') or i.get('damage') or i.get('category') in ('tools', 'special', 'clothing') else 1, i['name']))
     room = max(0, quota - 1 - len(cand))
-    pick = pool if len(pool) <= room else [pool[int(k * len(pool) / room)] for k in range(room)]
+    # (So many from each kind of thing - never fewer than six where there are six - each lot spread from first to last.)
+    kinds_ = {}
+    for i in pool: kinds_.setdefault(i.get('category'), []).append(i)
+    pick = []
+    for c_, lot in sorted(kinds_.items(), key=lambda kv: str(kv[0])):
+        share = min(len(lot), max(6, round(room * len(lot) / max(1, len(pool)))))
+        pick += lot if len(lot) <= share else [lot[int(k * len(lot) / share)] for k in range(share)]
+    if len(pick) > room: pick.sort(key=lambda i: rank(i['name'])); pick = [pick[int(k * len(pick) / room)] for k in range(room)]
     for i in pick:
         n = i['name']; made = n in by; many = 1 if made or i.get('max_stack') == 1 else 8
         cand.append((rank(n), i['label'], how(n), {'have': n, 'count': many} if many > 1 else {'have': n}, n, bool(i.get('relic') or i.get('equip')) and tier(n) >= top - 1))
@@ -164,9 +172,89 @@ def write(d, mod_id, order):
         for n, w_ in enumerate(wants[:quota - 1 - len(cand)]):
             cand.append((0.02 + 0.5 * n / max(1, len(wants)), I[w_]['label'], 'Wanted for what is made here. ' + how(w_), {'have': w_, 'count': 8 if I[w_].get('max_stack', 99) != 1 else 1}, w_, False))
     cand.sort(key=lambda q: q[0])
-    # Written out: a welcome first, then chapters of eight - a chapter's first quest waits on the last chapter's first.
+    # Set out as a tree: a branch to each kind of thing, a column to each stage of the way. In a branch every stage
+    # has a head, which waits on the head of the stage before; and the head opens every other quest of its stage.
     short = SHORT.get(mod_id, mod_id[:6]); label = 'The world' if not own else json.load(open(os.path.join(d, 'mod.json'))).get('label', mod_id)
     about = 'The game as it comes: a portal, a workbench, and the ground under you.' if not own else json.load(open(os.path.join(d, 'mod.json'))).get('description', label)
+    CATL = {c_['name']: c_['label'] for c_ in load(base, 'trade.json', 'categories') + load(d, 'trade.json', 'categories')}
+    stones = {dg.get('stone') for dg in dungeons}
+    def branch_of(task):
+        if 'near' in task: return 'Benches'
+        if 'kill' in task: return 'Creatures'
+        if 'in' in task or 'biome' in task: return 'Places'
+        it = I.get(task['have'], {})
+        if dungeons and (it.get('rolled') or task['have'] in stones): return 'Loot'
+        c_ = it.get('category') or 'crafted'
+        return CATL.get(c_, c_.replace('_', ' ').capitalize())
+    S = len(dungeons) if dungeons else 6 if mod_id in MAJOR else 4
+    tree = {}
+    for q in cand: tree.setdefault(branch_of(q[3]), {}).setdefault(min(S - 1, int(q[0] * S)), []).append(q)
+    small = [b for b in tree if sum(len(v) for v in tree[b].values()) < 3 and b != 'Benches']
+    for b in small:
+        for st, qs in tree.pop(b).items(): tree.setdefault('Sundries', {}).setdefault(st, []).extend(qs)
+    order_ = sorted(tree, key=lambda b: (b != 'Benches', min(min(q[0] for q in qs) for qs in tree[b].values())))
+    # What a quest gives: not coin alone - something toward what comes next, something to eat or to take, crystals for the heads.
+    eats = sorted((i for i in I.values() if (i.get('food') or i.get('effect')) and i.get('max_stack', 64) != 1 and not i.get('equip') and not i.get('relic') and not i.get('rolled') and not i['name'].startswith('caged_') and (i in mine or not own or i.get('food'))), key=lambda i: (i not in mine, tier(i['name']), i['name']))
+    own_eats = [i for i in eats if i in mine] or eats
+    dungeon_of = {m_: dg for dg in dungeons for m_ in dg['mobs']}
+    cap = [99]
+    def give(item, n):
+        # (Nothing from further along than the quest is.)
+        if item not in I or ('coin' not in item and tier(item) > cap[0]): return None
+        return {'item': item, 'count': int(max(1, min(n, I[item].get('max_stack', 64) or 64, 64)))}
+    def snack(key, n):
+        if not own_eats: return None
+        pool_ = [i for i in own_eats if tier(i['name']) <= max(1, int(key[0] * top) + 1)] or own_eats[:6]
+        return give(pool_[zlib.crc32(key[1].encode()) % len(pool_)]['name'], n)
+    def toward(qs, n):
+        """Something the makings of these quests want."""
+        want = {}
+        for q in qs:
+            if 'have' in q[3] and q[3]['have'] in by:
+                for x in min(by[q[3]['have']], key=lambda r: len(r['inputs']))['inputs']:
+                    if 'coin' not in x['item'] and x['item'] not in by: want[x['item']] = want.get(x['item'], 0) + x['count']
+        best = sorted(want, key=lambda k_: (-want[k_], k_))
+        return [give(k_, n) for k_ in best[:2]]
+    def rewards(q, stage, hub, nexts):
+        r_, lab, text, task, icon, big = q
+        worth = TIER_WORTH[min(11, max(1, int(r_ * top) + 1))]
+        out, pick, crystals = [], False, 0
+        cap[0] = int(r_ * top) + 2
+        if hub:
+            options = [coins(worth * 3)[0]] + [x for x in toward(nexts, 8)[:1] if x] + [x for x in [snack((r_, lab), 3)] if x]
+            out, pick, crystals = options, len(options) > 1, 5 + 3 * stage
+        elif 'kill' in task:
+            dg = dungeon_of.get(task['kill'])
+            if dg and big:
+                loot = [l['item'] for l in dg.get('loot', []) if I[l['item']].get('grade') == 3 and not I[l['item']].get('equip')]
+                war = [i for i in loot if I[i]['rolled'].get('class') == 'warrior']; mage = [i for i in loot if I[i]['rolled'].get('class') == 'mage']
+                out = [give(x[len(x) // 2], 1) for x in (war, mage) if x] + [coins(worth * 3)[0]]; pick, crystals = True, 20
+            else:
+                out = [give(dr['item'], 3) for dr in M[task['kill']].get('drops', [])[:2] if 'coin' not in dr['item']] + [coins(worth)[0]]
+                crystals = 15 if big else 0
+        elif 'near' in task:
+            kind = T[task['near']].get('bench_kind', task['near']); want = {}
+            for r in recipes if own else all_rec:
+                if r.get('bench') == kind:
+                    for x in r['inputs']:
+                        if 'coin' not in x['item'] and x['item'] not in by: want[x['item']] = want.get(x['item'], 0) + 1
+            out = [give(k_, 6) for k_ in sorted(want, key=lambda k_: (-want[k_], k_))[:2]] + [coins(worth * 0.5)[0]]
+            crystals = 10 if big else 0
+        elif 'in' in task or 'biome' in task:
+            out = [snack((r_, lab), 4), coins(worth)[0]]; crystals = 5 if 'in' in task else 0
+        else:
+            it = task['have']
+            if it in by:
+                ins = [x for x in min(by[it], key=lambda r: len(r['inputs']))['inputs'] if 'coin' not in x['item']]
+                out = [give(x['item'], max(1, x['count'] // 2)) for x in ins[:2]] + [coins(worth * 0.4)[0]]
+            else:
+                out = [snack((r_, lab), 2), coins(worth * 0.6)[0]]
+            if big: crystals = 10
+        out = [x for x in out if x][:4] or coins(worth)
+        seen, tidy = set(), []
+        for x in out:
+            if x['item'] not in seen: seen.add(x['item']); tidy.append(x)
+        return tidy, pick and len(tidy) > 1, crystals
     names, quests = set(), []
     def name_of(task):
         what = next(iter(v for k, v in task.items() if k != 'count'))
@@ -175,26 +263,30 @@ def write(d, mod_id, order):
         names.add(n); return n
     intro = short + '.welcome'; names.add(intro)
     tab_icon = next((c_[4] for c_ in cand if c_[4]), None)
-    quests.append({'name': intro, 'tab': mod_id, 'label': label, 'text': about[:159], 'task': {'check': True}, 'rewards': coins(10), 'icon': tab_icon})
-    of_item, head, due = {}, intro, False
-    for n, (r_, lab, text, task, icon, big) in enumerate(cand):
-        q = {'name': name_of(task), 'tab': mod_id, 'label': lab[:47], 'text': text[:159], 'task': task}
-        due = due or n % 8 == 0
-        # (A chapter does not wait on a thing that is a matter of luck.)
-        soft = 'have' in task and (I.get(task['have'], {}).get('grade') == 5 or I.get(task['have'], {}).get('relic')) or task.get('kill') and big and not dungeons
-        first = due and not soft
-        needs = [head]
-        if 'have' in task and task['have'] in by:
-            for x in min(by[task['have']], key=lambda r: len(r['inputs']))['inputs']:
-                if x['item'] in of_item and of_item[x['item']] not in needs and len(needs) < 3: needs.append(of_item[x['item']])
-        q['needs'] = needs
-        worth = TIER_WORTH[min(11, max(1, int(r_ * top) + 1))] * (3 if first or big else 1) * (0.5 if task.get('have') and not big else 1)
-        q['rewards'] = coins(max(5, worth))
-        if icon: q['icon'] = icon
-        if not q.get('icon') and 'have' not in task: q['icon'] = q['rewards'][0]['item']
-        quests.append(q)
-        if 'have' in task: of_item[task['have']] = q['name']
-        if first: head = q['name']; due = False
+    first = {'name': intro, 'tab': mod_id, 'label': label, 'text': about[:250], 'task': {'check': True}, 'rewards': [x for x in [snack((0.0, label), 3)] if x] + coins(10), 'icon': tab_icon, 'at': [0, 0], 'hub': True}
+    quests.append(first)
+    ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI']
+    y = 0
+    for b in order_:
+        stages = sorted(tree[b]); head = intro; rows = 0
+        for n, st in enumerate(stages):
+            qs = sorted(tree[b][st], key=lambda q: (q[5], 'have' in q[3] and bool(I.get(q[3]['have'], {}).get('grade', 0) >= 5 or I.get(q[3]['have'], {}).get('relic')), q[0]))
+            nexts = tree[b][stages[n + 1]] if n + 1 < len(stages) else qs
+            x0 = 2 + st * 4
+            for k, q in enumerate(qs):
+                hub = k == 0
+                rw, pick, crystals = rewards(q, n, hub, nexts if hub else [])
+                e = {'name': name_of(q[3]), 'tab': mod_id, 'label': ('%s %s' % (b, ROMAN[min(n + 1, 16)]))[:47] if hub else q[1][:47], 'text': (('%s. ' % q[1] if hub else '') + q[2])[:250], 'needs': [head], 'task': q[3], 'rewards': rw,
+                     'at': [x0, y] if hub else [x0 + (k - 1) % 3, y + 1 + (k - 1) // 3]}
+                if hub: e['hub'] = True
+                if pick: e['pick'] = True
+                if crystals: e['crystals'] = crystals
+                if q[4]: e['icon'] = q[4]
+                elif 'have' not in q[3]: e['icon'] = rw[0]['item']
+                quests.append(e)
+                if hub: head = e['name']
+            rows = max(rows, (len(qs) - 1 + 2) // 3)
+        y += rows + 2
     out = {'tabs': [{'name': mod_id, 'label': label, 'order': order, 'icon': tab_icon}], 'quests': quests}
     if not tab_icon: out['tabs'][0].pop('icon'); quests[0].pop('icon')
     with open(os.path.join(d, 'quests.json'), 'w') as f:

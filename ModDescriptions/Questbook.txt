@@ -37,3 +37,29 @@ NOT BUILT
    - More than one task to a quest; a choice of rewards; rewards that are not items.
    - The quests laid out as a tree, as modpack questbooks have them.
    - Looked at in one screenshot, with four tabs. Not played.
+
+----------------------------------------------------------------------------------------------------------------
+THE SECOND PASS   (the owner sent the first back)
+----------------------------------------------------------------------------------------------------------------
+SAID: it should not be linear quests but a tree, like a modpack's - tier 1 pills, then tier 2 pills, then tier 3,
+where "tier 1 pills" unlocks all the tier 1 pill quests. And the rewards should not just be coins: get creative.
+
+DONE
+   - A tab is a tree on a page that is dragged about. A branch for each kind of thing a mod has (benches,
+     creatures, places, and each kind of item - pills, scriptures, artifacts, loot, cargo, tools ...); stages
+     along the branch; a head to each stage ("Pills II"), waiting on the head before it; every other quest of
+     the stage hanging from its head. The chapters of eight are gone.
+   - More quests, so that the branches have something on them: about 160 for each big mod (198 for
+     Dungeoneering), 40 for each of the others, 80 for the game - 1,318 in all.
+   - Rewards by what the quest was: part of the makings back for a thing made; what is worked at a bench for
+     setting it down; more of what a creature leaves for hunting it; food for finding a place. Heads give a
+     CHOICE of one - coin, or what the next stage's makings want, or something to eat or drink from the mod -
+     and crystals besides. A dungeon's boss gives the choice of a Rare warrior's or a Rare mage's weapon of
+     that dungeon. Nothing is given from further along than the quest itself.
+   - In the engine: a quest's place on the page, heads, "pick" and crystals.
+
+STILL NOT
+   - Written by hand: the branches and stages are worked out from each mod's categories and tiers.
+   - Lines across branches: a thing made waits only on its stage's head, not on the quests for its makings.
+   - Zoom. Looked at in two screenshots (Seeker of the Dao, Dungeoneering); not played.
+

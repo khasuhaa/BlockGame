@@ -3002,12 +3002,16 @@ int game_quest_progress(const Game *g, int quest, int *of)
     return got > many ? many : got;
 }
 
-bool game_quest_claim(Game *g, int quest)
+bool game_quest_claim(Game *g, int quest, int choice)
 {
     if (!game_quests_on() || game_quest_state(g, quest) != QUEST_DONE) return false;
     const QuestDef *q = &content.quests[quest];
+    /* (Where one of several is to be chosen, nothing is given until one is.) */
+    if (q->pick && (choice < 0 || choice >= q->reward_count)) return false;
     g->quest_state[quest] = QUEST_CLAIMED;
-    for (int i = 0; i < q->reward_count; i++) game_give_items(g, q->rewards[i].item, q->rewards[i].count);
+    for (int i = 0; i < q->reward_count; i++)
+        if (!q->pick || i == choice) game_give_items(g, q->rewards[i].item, q->rewards[i].count);
+    g->crystals += q->crystals;
     return true;
 }
 
@@ -3015,7 +3019,7 @@ int game_quest_claim_all(Game *g, int tab)
 {
     int n = 0;
     for (int i = 0; i < content.quest_count; i++)
-        if ((tab < 0 || content.quests[i].tab == tab) && game_quest_claim(g, i)) n++;
+        if ((tab < 0 || content.quests[i].tab == tab) && game_quest_claim(g, i, -1)) n++;
     return n;
 }
 

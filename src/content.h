@@ -916,7 +916,7 @@ typedef struct {
 } QuestTabDef;
 typedef struct {
     char name[CONTENT_NAME_LEN];
-    char label[48], text[160];
+    char label[48], text[256];
     int tab;
     ItemId icon;
     char need_names[MAX_QUEST_NEEDS][CONTENT_NAME_LEN];
@@ -930,6 +930,10 @@ typedef struct {
         int count;
     } rewards[MAX_QUEST_REWARDS];
     int reward_count;
+    /* "pick": of what it gives, one is chosen. "crystals": so many crystals besides, whatever is chosen. "at": where
+     * it stands on its tab's page, in squares; "hub": drawn larger - one that others hang from. */
+    bool pick, hub;
+    int crystals, x, y;
 } QuestDef;
 
 #define MAX_DUNGEONS 16
