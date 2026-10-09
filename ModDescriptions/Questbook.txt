@@ -1,0 +1,39 @@
+QUESTBOOK   (a quest mod; asked for and built in one go - this is the record, not a proposal)
+
+ASKED FOR. A questbook like the ones in Minecraft modpacks: it detects that a task is done, and rewards are claimed
+from the book. An API other mods can use - but with the questbook not enabled, the other mods still work. A decent
+questline of 100+ quests for each major content mod and about 30+ for each of the others. Tabs: a tab for each mod
+that is on.
+
+DECIDED WHERE NOTHING WAS SAID
+   - THE API IS A FILE. A mod brings quests by having a quests.json beside its other files. The engine reads it
+     always; only the Questbook mod (one rule: "questbook": true) makes it mean anything. So a mod needs nothing
+     of the Questbook mod, and is exactly as it was with the book off. This is the game's rule for everything a
+     mod does - through the data - and no mod depends on another.
+   - WHICH MODS ARE MAJOR: Dimensions, Seeker of the Dao, Beyond the Sky, Plunder & Thunder, Dungeoneering.
+     The other ten have about thirty each; the game itself has a tab of sixty.
+   - QUESTS ARE THE WORLD'S, not a character's: whoever is played does them and claims them.
+   - REWARDS ARE COIN, more the further along; three times as much for the first quest of a chapter and for
+     the big things.
+   - THE BOOK IS A BUTTON under the crystals, not an item and not a key.
+   - A QUEST'S ORDER: chapters of eight; each chapter waits on the first quest of the one before; a thing made
+     waits also on the quests for what it is made from, where those have quests. A chapter never waits on a
+     matter of luck (a legendary, a relic).
+
+BUILT
+   - The engine: quests.json (tabs and quests), seven kinds of task the game sees done - have, kill, near, in,
+     biome, stage, and check (ticked by hand) - locking, claiming one or all, saved with the world by name
+     (save format 40).
+   - The book: tabs with their counts, the list of the open tab, the quest chosen - its text, its task and how
+     far it has got, what it comes after, what it gives - and Claim.
+   - 966 quests in 16 tabs, written by tools/quests.py from each mod's own data: 128 for Dungeoneering, 112
+     each for the other four big mods, 33 for each of the ten others, 60 for the game.
+
+NOT BUILT
+   - Quests written by hand. Every one is worked out from the data: it is "have this", "defeat these", "stand
+     by this bench", "reach this place", and its text says what the thing is made from or where it is found.
+     They follow each mod from its first bench to its last making, but nobody chose them. For the big mods a
+     hand-written line through the generated one would be the next thing worth doing.
+   - More than one task to a quest; a choice of rewards; rewards that are not items.
+   - The quests laid out as a tree, as modpack questbooks have them.
+   - Looked at in one screenshot, with four tabs. Not played.

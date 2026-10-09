@@ -901,6 +901,37 @@ enum { DIM_ISLANDS, DIM_CAVERNS, DIM_VOID, DIM_GROVE, DIM_SURFACE, DIM_DUNGEON }
  * What it is built of, what is met there (creatures by name: they are read after this is), and what its chest holds:
  * each thing in `loot` has a `rank` from 0 to 1 - how far up the dungeon's list it is - and a difficulty gives the
  * ranks between two shares of it. */
+/* Quests: things to do, each with a task the game can see done and something to claim for it. Any directory of
+ * content may bring a "quests.json": tabs, and quests in them. They are only kept track of, and shown, where the
+ * rules say there is a questbook ("questbook": true) - without that they are so much unread data. */
+#define MAX_QUESTS 2048
+#define MAX_QUEST_TABS 24
+#define MAX_QUEST_NEEDS 3
+#define MAX_QUEST_REWARDS 4
+enum { QUEST_HAVE, QUEST_KILL, QUEST_NEAR, QUEST_IN, QUEST_BIOME, QUEST_STAGE, QUEST_CHECK };
+typedef struct {
+    char name[CONTENT_NAME_LEN], label[CONTENT_NAME_LEN];
+    ItemId icon;
+    int order;              /* tabs are listed lowest first */
+} QuestTabDef;
+typedef struct {
+    char name[CONTENT_NAME_LEN];
+    char label[48], text[160];
+    int tab;
+    ItemId icon;
+    char need_names[MAX_QUEST_NEEDS][CONTENT_NAME_LEN];
+    int needs[MAX_QUEST_NEEDS], need_count; /* the quests that have to be done before this one can be */
+    /* The task. "have": so many of an item in the bar, in what is open in it, or on. "kill": so many of a creature
+     * dead. "near": a block within a few squares. "in": being in a dimension. "biome": standing in one. "stage":
+     * having reached a stage of cultivation. "check": nothing the game can see - it is ticked by hand. */
+    int kind, target, count;
+    struct {
+        ItemId item;
+        int count;
+    } rewards[MAX_QUEST_REWARDS];
+    int reward_count;
+} QuestDef;
+
 #define MAX_DUNGEONS 16
 #define MAX_DUNGEON_LOOT 320
 #define MAX_DIFFICULTIES 6
@@ -1254,6 +1285,7 @@ typedef struct {
     float flail_time;      /* seconds someone attacked throws their arms about */
     int max_drop;          /* how far they will let themselves fall by a step of their own: blocks; 0 for any distance */
     int respawn_cost;      /* crystals to come back at once, right after dying; less as the wait runs down */
+    bool questbook;        /* "questbook": quests are kept track of, and there is a book of them */
     int dungeon_health;    /* what a character's health adds up to with nothing on, where blows are numbers */
     float upgrade_cost;    /* what upgrading a rolled thing all the way costs: so many times its price */
     int upgrade_steps;     /* in how many goes */
@@ -1446,6 +1478,10 @@ typedef struct {
     int dimension_count;
     DungeonDef dungeons[MAX_DUNGEONS];
     int dungeon_count;
+    QuestTabDef quest_tabs[MAX_QUEST_TABS];
+    int quest_tab_count;
+    QuestDef quests[MAX_QUESTS];
+    int quest_count;
     RulesDef rules;
     SetDef sets[MAX_SETS];
     int set_count;

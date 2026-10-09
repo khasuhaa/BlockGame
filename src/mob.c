@@ -252,6 +252,7 @@ static bool spawns_in(const World *w, const MobDef *def, int x, int y)
 
 static void kill_mob(Game *g, int mob, bool cooked)
 {
+    if (mob >= 0 && mob < MAX_MOBS && g->mobs[mob].active) game_quest_killed(g, g->mobs[mob].kind);
     if (mob < 0 || mob >= MAX_MOBS || !g->mobs[mob].active) return;
     Mob *m = &g->mobs[mob];
     const MobDef *def = &content.mobs[m->kind];

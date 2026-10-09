@@ -7,7 +7,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 39u
+#define SAVE_VERSION 40u
 
 /* Up to version 28 a world had room for a quarter as many of these, and they
  * were written out whole: every reader of an older version goes by these. */
@@ -552,6 +552,16 @@ bool save_game(const Game *g, const char *path)
             ok = fwrite(known, sizeof known, 1, f) == 1;
         }
     }
+    /* (From version 40: how the quests stand - those that have got anywhere, each by name.) */
+    uint32_t quests = 0;
+    for (int i = 0; i < content.quest_count; i++) quests += g->quest_state[i] != 0 || g->quest_progress[i] != 0;
+    ok = ok && fwrite(&quests, sizeof quests, 1, f) == 1;
+    for (int i = 0; ok && i < content.quest_count; i++) {
+        if (g->quest_state[i] == 0 && g->quest_progress[i] == 0) continue;
+        char name[CONTENT_NAME_LEN] = { 0 };
+        snprintf(name, sizeof name, "%s", content.quests[i].name);
+        ok = fwrite(name, sizeof name, 1, f) == 1 && fwrite(&g->quest_state[i], 1, 1, f) == 1 && fwrite(&g->quest_progress[i], sizeof(uint16_t), 1, f) == 1;
+    }
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
         remove(tmp);
@@ -915,6 +925,24 @@ bool load_game(Game *g, const char *path)
             if (!ok) break;
             if (c == g->live) g->dao = dao;
             else g->characters[c].dao = dao;
+        }
+        /* How the quests stood: one the game has not got now (its mod is off) is forgotten. */
+        memset(g->quest_state, 0, sizeof g->quest_state);
+        memset(g->quest_progress, 0, sizeof g->quest_progress);
+        uint32_t quests = 0;
+        if (ok && h.version >= 40 && (fread(&quests, sizeof quests, 1, f) != 1 || quests > 65536u)) ok = false;
+        for (uint32_t n = 0; ok && h.version >= 40 && n < quests; n++) {
+            char name[CONTENT_NAME_LEN] = { 0 };
+            uint8_t state = 0;
+            uint16_t progress = 0;
+            if (fread(name, sizeof name, 1, f) != 1 || fread(&state, 1, 1, f) != 1 || fread(&progress, sizeof progress, 1, f) != 1) { ok = false; break; }
+            name[CONTENT_NAME_LEN - 1] = '\0';
+            for (int i = 0; i < content.quest_count; i++)
+                if (strcmp(content.quests[i].name, name) == 0) {
+                    g->quest_state[i] = state <= QUEST_CLAIMED ? state : 0;
+                    g->quest_progress[i] = progress;
+                    break;
+                }
         }
         bool nobody = ok && h.version >= 15 && people[0] == 0;
         g->started = extra.started != 2;

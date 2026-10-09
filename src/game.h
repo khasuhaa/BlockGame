@@ -417,6 +417,10 @@ typedef struct {
     bool quick_craft;  /* a setting of the world: everything made takes one tick */
     /* Which items somebody in this world has had in their hands: the trade portal deals only in those. */
     uint8_t discovered[MAX_ITEMS];
+    /* Quests, for the world and whoever is in it: how each stands (0 not done, QUEST_DONE, QUEST_CLAIMED), and how
+     * far a task that is counted has got. By quest, as content has them: a save names them. */
+    uint8_t quest_state[MAX_QUESTS];
+    uint16_t quest_progress[MAX_QUESTS];
     /* What is written on the world's signs: each text has a number, which a
      * sign that is up keeps with its square and one that is carried has as
      * its meter. Number 0 is no text. */
@@ -608,6 +612,22 @@ bool game_rocket_report(const Game *g, int x, int y, int *fuel, int *thrust, flo
 bool game_recipe_known(const Game *g, const Recipe *r);
 /* Makes the game's own room for a world that has just been given more rows. False if there was not the memory. */
 bool game_world_grew(Game *g);
+
+/* ---- quests ---- */
+enum { QUEST_LOCKED = -1, QUEST_OPEN = 0, QUEST_DONE = 1, QUEST_CLAIMED = 2 };
+/* Whether there is a questbook: the rules say so and there is something in it. */
+bool game_quests_on(void);
+/* How a quest stands: locked until all it needs are done; open; done, with something to claim; claimed. */
+int game_quest_state(const Game *g, int quest);
+/* How far its task has got, of how many. */
+int game_quest_progress(const Game *g, int quest, int *of);
+/* Takes what a done quest gives. And every such in a tab (-1: any): how many were. */
+bool game_quest_claim(Game *g, int quest);
+int game_quest_claim_all(Game *g, int tab);
+/* Ticks a quest whose task nothing can see done. */
+bool game_quest_check(Game *g, int quest);
+/* A creature of that kind has died. */
+void game_quest_killed(Game *g, int kind);
 
 /* ---- dungeons ---- */
 /* How the numbers of a "rolled" thing fell, and where its upgrading has got to. Its meter keeps it: how far from the

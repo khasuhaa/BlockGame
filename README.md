@@ -1152,6 +1152,20 @@ A mod of dungeons and loot. Ten dungeons, one behind each tier of portal; rooms 
 
 **Not built** (the plan asked for them): abilities and their slots; a dungeon level and points; difficulties that must be earned in order (all four are open); a hardcore setting; bosses with attacks that are warned of and walked out of (a boss is a big creature that hits hard up close and from afar); traps, side rooms, shrines and keys; rooms drawn by hand (they are laid out by rule: a width, a height, lamps, furnishings); legendaries with powers of their own; rings; sets; reforging; an armoury stand, trophies, a board of best runs; potions for a run; the endless dungeon; more than one character in a run. It has not been played: how hard each dungeon is was worked out from the list, not found by playing.
 
+### Questbook
+
+A mod that switches on a book of quests. With it on there is a **Quests** button under the crystals; it turns gold when something is waiting to be claimed.
+
+The book has a **tab for the game itself and one for each mod that is on** and has quests - every mod the game comes with has: a hundred and more for the big ones (Dimensions, Seeker of the Dao, Beyond the Sky, Plunder & Thunder, Dungeoneering), about thirty for the others, sixty for the game. Beside each tab is how many of its quests are done.
+
+A quest has a **task the game sees done by itself**: having a thing (in the bar, in a basket open in it, or on), so many of a creature dead, standing by a block (a bench set down, or raised to a grade), reaching another place, standing in a kind of country, reaching a stage of cultivation. The first quest of each tab is a welcome, ticked by hand. A quest is **locked** until the ones it comes after are done, and each tab runs in chapters of eight, each chapter waiting on the first quest of the one before. A thing held before its quest opened counts as soon as it does; a creature killed before its quest opened does not.
+
+A quest done is **claimed** - one at a time, or all of a tab's at once - for what it gives, which is coin, more of it the further along. Quests are the world's, not a character's: whoever is being played does them and claims them.
+
+**For mods.** A mod brings quests by having a `quests.json` beside its other files: `"tabs"` (a name, a label, an order) and `"quests"` (a name, the tab, a label, a line of text, what it `"needs"`, a `"task"`, `"rewards"`). Nothing else is asked of it, and with the Questbook mod off the file is simply not used - the mod is as it was. The ones here were written by `tools/quests.py` from each mod's own benches, makings, creatures and places.
+
+**Not built**: quests with more than one task, or a choice of rewards; rewards other than items; a map of quests as a tree (they are a list); quests written by hand - they say what a thing is made from or where it is found, and no more; a key for the book (it is the button).
+
 ### Golden chests
 
 Under a beach, quite often - about one column in six, a dozen or more to a world - a golden chest lies buried at the bottom of the sand: behind the sand, in the background, so it is not seen or opened until the sand in front of it is dug away. (Golden chests and portal chests are things of the background: they are walked past, not into.) A golden chest is what a portal chest is made from (with 100 crystals, at a tier 6 portal), and a tier 2 metalwork bench melts one down into a gold coin. It opens and is carried off like any chest. The first time it is opened or dug up it holds 1 to 5 gold coins, up to 3 gold ore, up to 3 iron ingots, perhaps a titanium ingot, and one gem shard: of amethyst most often, then sapphire, emerald, and ruby least. What a block is found holding is its `"loot"` in `tiles.json`, and where it is buried is `"buried"` on a biome in `worldgen.json`; a golden chest the player puts down, or buys, holds only what they put in it.

@@ -2074,6 +2074,7 @@ static bool read_rules(Reader *r, const cJSON *root)
                 if (k < MAX_GRADES) d->grades[k++] = (int)one->valuedouble;
         }
     }
+    if (field(root, "questbook")) u->questbook = flag(root, "questbook", false);
     const cJSON *teleport = field(root, "teleport");
     if (teleport) {
         copy_name(u->teleport_bench, sizeof u->teleport_bench, str(teleport, "bench"));
@@ -2594,10 +2595,105 @@ static bool validate(Reader *r)
     return true;
 }
 
+/* "quests.json": tabs, and the quests in them. Either of the same name as one already there takes its place. */
+static bool read_quests(Reader *r, const cJSON *root)
+{
+    const cJSON *e, *one;
+    cJSON_ArrayForEach(e, field(root, "tabs")) {
+        const char *name = str(e, "name");
+        if (!name) return fail(r, "a tab has no \"name\"");
+        int id = -1;
+        for (int i = 0; i < content.quest_tab_count; i++)
+            if (strcmp(content.quest_tabs[i].name, name) == 0) id = i;
+        if (id < 0) {
+            if (content.quest_tab_count >= MAX_QUEST_TABS) return fail(r, "too many tabs of quests");
+            id = content.quest_tab_count++;
+        }
+        QuestTabDef *t = &content.quest_tabs[id];
+        memset(t, 0, sizeof *t);
+        copy_name(t->name, sizeof t->name, name);
+        copy_name(t->label, sizeof t->label, str(e, "label") ? str(e, "label") : name);
+        t->order = (int)num(e, "order", 100);
+        if (str(e, "icon") && !item_ref(r, e, "icon", &t->icon)) return false;
+    }
+    cJSON_ArrayForEach(e, field(root, "quests")) {
+        const char *name = str(e, "name"), *tab = str(e, "tab");
+        if (!name || !tab) return fail(r, "a quest has no \"name\" or no \"tab\"");
+        int id = -1;
+        for (int i = 0; i < content.quest_count; i++)
+            if (strcmp(content.quests[i].name, name) == 0) id = i;
+        if (id < 0) {
+            if (content.quest_count >= MAX_QUESTS) return fail(r, "too many quests");
+            id = content.quest_count++;
+        }
+        QuestDef *q = &content.quests[id];
+        memset(q, 0, sizeof *q);
+        copy_name(q->name, sizeof q->name, name);
+        snprintf(q->label, sizeof q->label, "%s", str(e, "label") ? str(e, "label") : name);
+        snprintf(q->text, sizeof q->text, "%s", str(e, "text") ? str(e, "text") : "");
+        q->tab = -1;
+        for (int i = 0; i < content.quest_tab_count; i++)
+            if (strcmp(content.quest_tabs[i].name, tab) == 0) q->tab = i;
+        if (q->tab < 0) return fail(r, "quest \"%s\" is in the tab \"%s\", which does not exist", name, tab);
+        cJSON_ArrayForEach(one, field(e, "needs")) {
+            if (!cJSON_IsString(one) || q->need_count >= MAX_QUEST_NEEDS) return fail(r, "quest \"%s\": \"needs\" is at most %d quests, by name", name, MAX_QUEST_NEEDS);
+            copy_name(q->need_names[q->need_count++], CONTENT_NAME_LEN, one->valuestring);
+        }
+        const cJSON *task = field(e, "task");
+        q->count = (int)num(task, "count", 1);
+        if (q->count < 1) q->count = 1;
+        ItemId item = ITEM_NONE;
+        if (str(task, "have")) {
+            if (!item_ref(r, task, "have", &item)) return false;
+            q->kind = QUEST_HAVE, q->target = item;
+        } else if (str(task, "kill")) {
+            q->kind = QUEST_KILL, q->target = mob_id(str(task, "kill"));
+            if (q->target < 0) return fail(r, "quest \"%s\": there is no creature \"%s\"", name, str(task, "kill"));
+        } else if (str(task, "near")) {
+            q->kind = QUEST_NEAR, q->target = tile_id(str(task, "near"));
+            if (q->target == TILE_AIR) return fail(r, "quest \"%s\": there is no block \"%s\"", name, str(task, "near"));
+        } else if (str(task, "in")) {
+            q->kind = QUEST_IN, q->target = -1;
+            for (int i = 0; i < content.dimension_count; i++)
+                if (strcmp(content.dimensions[i].name, str(task, "in")) == 0) q->target = i;
+            if (q->target < 0) return fail(r, "quest \"%s\": there is no dimension \"%s\"", name, str(task, "in"));
+        } else if (str(task, "biome")) {
+            q->kind = QUEST_BIOME, q->target = -1;
+            for (int i = 0; i < content.biome_count; i++)
+                if (strcmp(content.biomes[i].name, str(task, "biome")) == 0) q->target = i;
+            if (q->target < 0) return fail(r, "quest \"%s\": there is no biome \"%s\"", name, str(task, "biome"));
+        } else if (field(task, "stage")) {
+            q->kind = QUEST_STAGE, q->target = (int)num(task, "stage", 1);
+        } else if (flag(task, "check", false)) {
+            q->kind = QUEST_CHECK;
+        } else {
+            return fail(r, "quest \"%s\": its \"task\" is one of \"have\", \"kill\", \"near\", \"in\", \"biome\", \"stage\" or \"check\"", name);
+        }
+        cJSON_ArrayForEach(one, field(e, "rewards")) {
+            if (q->reward_count >= MAX_QUEST_REWARDS) return fail(r, "quest \"%s\": at most %d rewards", name, MAX_QUEST_REWARDS);
+            if (!item_ref(r, one, "item", &q->rewards[q->reward_count].item)) return false;
+            q->rewards[q->reward_count++].count = (int)num(one, "count", 1);
+        }
+        q->icon = q->kind == QUEST_HAVE ? item : q->reward_count > 0 ? q->rewards[0].item : ITEM_NONE;
+        if (str(e, "icon") && !item_ref(r, e, "icon", &q->icon)) return false;
+    }
+    /* What each waits on, now that they are all there. */
+    for (int i = 0; i < content.quest_count; i++) {
+        QuestDef *q = &content.quests[i];
+        for (int k = 0; k < q->need_count; k++) {
+            q->needs[k] = -1;
+            for (int o = 0; o < content.quest_count; o++)
+                if (o != i && strcmp(content.quests[o].name, q->need_names[k]) == 0) q->needs[k] = o;
+            if (q->needs[k] < 0) return fail(r, "quest \"%s\" needs \"%s\", which does not exist", q->name, q->need_names[k]);
+        }
+    }
+    return true;
+}
+
 bool content_load(const char *dir, char *error, size_t error_size)
 {
     static const char *files[] = { "tiles.json", "items.json", "recipes.json", "trees.json",
-                                   "worldgen.json", "rules.json", "trade.json", "mobs.json" };
+                                   "worldgen.json", "rules.json", "trade.json", "mobs.json", "quests.json" };
     enum { FILE_COUNT = sizeof files / sizeof files[0] };
     Reader r = { "", error, error_size, false };
     cJSON *roots[FILE_COUNT];
@@ -2613,7 +2709,7 @@ bool content_load(const char *dir, char *error, size_t error_size)
     }
     static bool (*const readers[FILE_COUNT])(Reader *, const cJSON *) = {
         read_tiles, read_items, read_recipes, read_trees, read_worldgen, read_rules, read_trade,
-        read_mobs,
+        read_mobs, read_quests,
     };
     for (int i = 0; i < FILE_COUNT && !r.failed; i++) {
         r.file = files[i];

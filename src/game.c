@@ -2957,6 +2957,93 @@ int game_enter_dimension(Game *g, int dim)
     return region;
 }
 
+/* ---- quests ----------------------------------------------------------------------------------------------------- */
+
+bool game_quests_on(void)
+{
+    return content.rules.questbook && content.quest_count > 0;
+}
+
+int game_quest_state(const Game *g, int quest)
+{
+    if (quest < 0 || quest >= content.quest_count) return QUEST_LOCKED;
+    if (g->quest_state[quest] != 0) return g->quest_state[quest];
+    const QuestDef *q = &content.quests[quest];
+    for (int k = 0; k < q->need_count; k++)
+        if (q->needs[k] >= 0 && g->quest_state[q->needs[k]] == 0) return QUEST_LOCKED;
+    return QUEST_OPEN;
+}
+
+int game_quest_progress(const Game *g, int quest, int *of)
+{
+    if (quest < 0 || quest >= content.quest_count) return 0;
+    const QuestDef *q = &content.quests[quest];
+    const World *w = &g->world;
+    int many = q->kind == QUEST_HAVE || q->kind == QUEST_KILL ? q->count : 1, got = 0;
+    if (of) *of = many;
+    if (g->quest_state[quest] != 0) return many;
+    switch (q->kind) {
+    case QUEST_HAVE:
+        got = inventory_count(&g->inventory, (ItemId)q->target);
+        for (int i = 0; i < ARMOR_SLOTS; i++) got += g->inventory.armor[i].count > 0 && g->inventory.armor[i].id == q->target;
+        break;
+    case QUEST_KILL: got = g->quest_progress[quest]; break;
+    case QUEST_NEAR:
+        for (int dy = -8; dy <= 8 && !got; dy++)
+            for (int dx = -10; dx <= 10 && !got; dx++)
+                for (int layer = 0; layer < BLOCK_LAYERS && !got; layer++)
+                    got = world_in_bounds(w, g->player.feet.x + dx, g->player.feet.y + dy) && world_get_at(w, layer, g->player.feet.x + dx, g->player.feet.y + dy) == (TileType)q->target;
+        break;
+    case QUEST_IN: got = world_dimension_at(w, g->player.feet.y) == q->target; break;
+    case QUEST_BIOME: got = world_biome_at(w, g->player.feet.x, g->player.feet.y) == q->target; break;
+    case QUEST_STAGE: got = g->dao.stage >= q->target; break;
+    default: break;
+    }
+    return got > many ? many : got;
+}
+
+bool game_quest_claim(Game *g, int quest)
+{
+    if (!game_quests_on() || game_quest_state(g, quest) != QUEST_DONE) return false;
+    const QuestDef *q = &content.quests[quest];
+    g->quest_state[quest] = QUEST_CLAIMED;
+    for (int i = 0; i < q->reward_count; i++) game_give_items(g, q->rewards[i].item, q->rewards[i].count);
+    return true;
+}
+
+int game_quest_claim_all(Game *g, int tab)
+{
+    int n = 0;
+    for (int i = 0; i < content.quest_count; i++)
+        if ((tab < 0 || content.quests[i].tab == tab) && game_quest_claim(g, i)) n++;
+    return n;
+}
+
+bool game_quest_check(Game *g, int quest)
+{
+    if (!game_quests_on() || game_quest_state(g, quest) != QUEST_OPEN || content.quests[quest].kind != QUEST_CHECK) return false;
+    g->quest_state[quest] = QUEST_DONE;
+    return true;
+}
+
+void game_quest_killed(Game *g, int kind)
+{
+    if (!game_quests_on()) return;
+    for (int i = 0; i < content.quest_count; i++)
+        if (content.quests[i].kind == QUEST_KILL && content.quests[i].target == kind && game_quest_state(g, i) == QUEST_OPEN && g->quest_progress[i] < 60000) g->quest_progress[i]++;
+}
+
+/* Every quest that is open and whose task is seen to be done, is done. (Looked at for whoever is being played.) */
+static void quests_tick(Game *g)
+{
+    if (g->tick % 20 != 0 || !game_quests_on() || !game_alive(g)) return;
+    for (int i = 0; i < content.quest_count; i++) {
+        if (content.quests[i].kind == QUEST_CHECK || game_quest_state(g, i) != QUEST_OPEN) continue;
+        int of = 1;
+        if (game_quest_progress(g, i, &of) >= of) g->quest_state[i] = QUEST_DONE;
+    }
+}
+
 /* ---- dungeons, and what is found in them ------------------------------------------------------------------------ */
 
 #define ROLL_SPAN 21 /* a tenth under to a tenth over, by hundredths */
@@ -4712,6 +4799,7 @@ void game_tick(Game *g)
 
     mobs_tick(g);
     dungeon_tick(g);
+    quests_tick(g);
     signal_tick(g);
     dao_world_tick(g);
     if (g->mount > 0 && (g->mount > MAX_MOBS || !g->mobs[g->mount - 1].active)) g->mount = 0; /* (what they rode is gone) */

@@ -18,6 +18,7 @@
 #include "train.h"
 #include "trainui.h"
 #include "dungeonui.h"
+#include "questui.h"
 #include "world3d.h"
 #include "digital.h"
 #include "view.h"
@@ -40,6 +41,7 @@ static TermUi term_ui;
 /* The menu over something on the rails. */
 static TrainUi train_ui;
 static DungeonUi dungeon_ui;
+static QuestUi quest_ui;
 
 /* The terminal of a storage network at a square, if there is one there. */
 static bool terminal_at(const Game *g, TilePos t)
@@ -444,6 +446,7 @@ static void handle_input(Game *g, MapCamera *cam, Hud *hud, BenchUi *bench, Trad
         game_discard(g, hud->discard_slot, hud->discard_count);
     if (on_hud) return;
     if (daoui_handle_input(&dao_ui, g)) return;
+    if (questui_handle_input(&quest_ui, g)) return;
     bool on_players = playerui_handle_input(player, g);
     if (player->switched) {
         /* Another character is being played: the view and the menus go over to them. */
@@ -2320,6 +2323,7 @@ static void session_draw(Session *s)
         }
     }
     daoui_draw(&dao_ui, g);
+    questui_draw(&quest_ui, g);
     if (g->lightning > 0) {
         /* A bolt of a tribulation: down the column it struck, and the whole view white for a moment. */
         Vector2 at = view_tile_pos(&ui_view, (float)g->lightning_x + 0.5f, (float)g->player.feet.y);

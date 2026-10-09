@@ -13006,6 +13006,147 @@ static void test_sky_mod(void)
         if (&mods.mods[i] != mine) CHECK(!mods_conflict(mine, &mods.mods[i], what, sizeof what));
 }
 
+/* The questbook: quests come with the game and with each mod, and are nothing until the rules say there is a book;
+ * then a task is seen done, a quest waits on those before it, and what it gives is claimed once. */
+static void test_questbook(void)
+{
+    char err[256];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    CHECK(content.quest_count >= 50 && content.quest_tab_count == 1 && !content.rules.questbook && !game_quests_on());
+    static Game g;
+    game_init(&g, 512, 401, 5, WORLD_TERRAIN);
+    g.tick_rate = 20;
+    /* (No book: nothing is kept track of, and nothing can be ticked or claimed.) */
+    CHECK(content.quests[0].kind == QUEST_CHECK && !game_quest_check(&g, 0) && !game_quest_claim(&g, 0));
+    for (int i = 0; i < 40; i++) game_tick(&g);
+    int any = 0;
+    for (int i = 0; i < content.quest_count; i++) any += g.quest_state[i] != 0;
+    CHECK(any == 0);
+    game_free(&g);
+
+    CHECK(content_load("mods/questbook", err, sizeof err));
+    CHECK(content.rules.questbook && game_quests_on());
+    game_init(&g, 512, 401, 5, WORLD_TERRAIN);
+    g.tick_rate = 20;
+    Inventory *inv = &g.inventory;
+    World *w = &g.world;
+    clear_inventory(&g);
+    /* The first is ticked by hand; everything else waits on it. */
+    int have = -1, kill = -1, near = -1, locked = -1;
+    for (int i = 1; i < content.quest_count; i++) {
+        const QuestDef *q = &content.quests[i];
+        bool after_first = q->need_count == 1 && q->needs[0] == 0;
+        if (have < 0 && q->kind == QUEST_HAVE && after_first) have = i;
+        if (kill < 0 && q->kind == QUEST_KILL) kill = i;
+        if (near < 0 && q->kind == QUEST_NEAR) near = i;
+    }
+    CHECK(have > 0 && kill > 0 && near > 0);
+    for (int i = 1; i < content.quest_count && locked < 0; i++)
+        if (i != have && content.quests[i].kind == QUEST_HAVE && content.quests[i].need_count > 0 && content.quests[i].needs[0] != 0 && content.quests[i].target != content.quests[have].target) locked = i;
+    CHECK(locked > 0);
+    CHECK(game_quest_state(&g, 0) == QUEST_OPEN && game_quest_state(&g, have) == QUEST_LOCKED && !game_quest_claim(&g, 0));
+    game_give_items(&g, (ItemId)content.quests[have].target, content.quests[have].count);
+    game_give_items(&g, (ItemId)content.quests[locked].target, content.quests[locked].count);
+    for (int i = 0; i < 40; i++) game_tick(&g);
+    CHECK(g.quest_state[have] == 0 && g.quest_state[locked] == 0); /* (held, but not yet open: nothing) */
+    CHECK(game_quest_check(&g, 0) && game_quest_state(&g, 0) == QUEST_DONE && !game_quest_check(&g, 0));
+    long had = trade_wallet(inv);
+    CHECK(game_quest_claim(&g, 0) && game_quest_state(&g, 0) == QUEST_CLAIMED && trade_wallet(inv) > had && !game_quest_claim(&g, 0));
+    /* A thing held: seen when the quest is open, and the one after it only once this one is done. */
+    int of = 0;
+    CHECK(game_quest_state(&g, have) == QUEST_OPEN && game_quest_progress(&g, have, &of) == of && of == content.quests[have].count);
+    CHECK(game_quest_state(&g, locked) == QUEST_LOCKED);
+    game_give_items(&g, (ItemId)content.quests[locked].target, content.quests[locked].count);
+    for (int i = 0; i < 20; i++) game_tick(&g);
+    CHECK(game_quest_state(&g, have) == QUEST_DONE);
+    for (int i = 0; i < 20; i++) game_tick(&g);
+    for (int k = 0; k < content.quests[locked].need_count; k++) g.quest_state[content.quests[locked].needs[k]] = QUEST_DONE;
+    for (int i = 0; i < 20; i++) game_tick(&g);
+    CHECK(game_quest_state(&g, locked) == QUEST_DONE);
+    /* Given away afterwards, it is still done. */
+    clear_inventory(&g);
+    for (int i = 0; i < 20; i++) game_tick(&g);
+    CHECK(game_quest_state(&g, have) == QUEST_DONE && game_quest_progress(&g, have, &of) == of);
+    /* Creatures are counted as they die, once the quest is open and not before. */
+    int kind = content.quests[kill].target, many = content.quests[kill].count;
+    int m = mob_spawn(&g, kind, g.player.feet.x + 2, g.player.feet.y, false, false);
+    bool was_locked = game_quest_state(&g, kill) == QUEST_LOCKED;
+    mob_hurt(&g, m, 100000000);
+    CHECK(!was_locked || g.quest_progress[kill] == 0);
+    for (int k = 0; k < content.quests[kill].need_count; k++) g.quest_state[content.quests[kill].needs[k]] = QUEST_DONE;
+    g.quest_progress[kill] = 0;
+    for (int n = 0; n < many; n++) {
+        CHECK(game_quest_state(&g, kill) == QUEST_OPEN && game_quest_progress(&g, kill, &of) == n && of == many);
+        m = mob_spawn(&g, kind, g.player.feet.x + 2, g.player.feet.y, false, false);
+        mob_hurt(&g, m, 100000000);
+        for (int i = 0; i < 20; i++) game_tick(&g);
+    }
+    CHECK(game_quest_state(&g, kill) == QUEST_DONE);
+    /* A block stood by. */
+    for (int k = 0; k < content.quests[near].need_count; k++) g.quest_state[content.quests[near].needs[k]] = QUEST_DONE;
+    for (int i = 0; i < 20; i++) game_tick(&g);
+    bool by_already = g.quest_state[near] != 0;
+    TileType block = (TileType)content.quests[near].target;
+    world_set_at(w, tile_def(block)->layer, g.player.feet.x + 3, g.player.feet.y - 4, block);
+    for (int i = 0; i < 20; i++) game_tick(&g);
+    CHECK(by_already || game_quest_state(&g, near) == QUEST_DONE);
+    /* Everything in a tab that is done is claimed at once. */
+    int waiting = 0;
+    for (int i = 0; i < content.quest_count; i++) waiting += g.quest_state[i] == QUEST_DONE;
+    CHECK(waiting >= 3 && game_quest_claim_all(&g, 0) == waiting && game_quest_claim_all(&g, -1) == 0);
+    /* Saved and loaded, they stand as they stood - by name. */
+    g.quest_progress[kill] = 3;
+    CHECK(save_game(&g, "build/test_quests.world"));
+    static Game back;
+    CHECK(load_game(&back, "build/test_quests.world"));
+    CHECK(memcmp(back.quest_state, g.quest_state, sizeof g.quest_state) == 0 && back.quest_progress[kill] == 3 && back.quest_state[have] == QUEST_CLAIMED);
+    game_free(&back);
+    /* A world from before there were any loads, with none of them done. */
+    CHECK(load_game(&back, "tests/fixtures/v39_plain.world"));
+    any = 0;
+    for (int i = 0; i < content.quest_count; i++) any += back.quest_state[i] != 0 || back.quest_progress[i] != 0;
+    CHECK(any == 0 && back.world.width == 512 && inventory_count(&back.inventory, item_id("stone")) >= 7);
+    game_free(&back);
+    game_free(&g);
+
+    /* Every mod brings a tab of its own: a hundred quests and more for the big ones, thirty and more for the rest. Each
+     * loads without the book as well as with it. */
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/settest/saves");
+    int tabs_seen = 0;
+    for (int m_ = 0; m_ < mods.count; m_++) {
+        const char *id = mods.mods[m_].id;
+        char dir[160];
+        if (strcmp(id, "questbook") == 0) continue;
+        snprintf(dir, sizeof dir, "%s/%s", MODS_DIR, id);
+        content_reset();
+        CHECK(content_load("data", err, sizeof err) && content_load(dir, err, sizeof err));
+        CHECK(!game_quests_on() && content.quest_tab_count == 2 && strcmp(content.quest_tabs[1].name, id) == 0);
+        int mine = 0, first = -1;
+        for (int i = 0; i < content.quest_count; i++) {
+            if (content.quests[i].tab != 1) continue;
+            if (first < 0) first = i;
+            mine++;
+            CHECK(content.quests[i].reward_count > 0 && content.quests[i].label[0] && content.quests[i].text[0]);
+            /* (Nothing waits on something after it, so there is always a way through.) */
+            for (int k = 0; k < content.quests[i].need_count; k++) CHECK(content.quests[i].needs[k] < i && content.quests[content.quests[i].needs[k]].tab == 1);
+        }
+        bool big = strcmp(id, "dimensions") == 0 || strcmp(id, "seeker_of_the_dao") == 0 || strcmp(id, "beyond_the_sky") == 0 || strcmp(id, "plunder_and_thunder") == 0 || strcmp(id, "dungeoneering") == 0;
+        if (mine < (big ? 100 : 30)) printf("FAIL %s has %d quests\n", id, mine), failures++;
+        CHECK(first >= 0 && content.quests[first].kind == QUEST_CHECK && content.quests[first].need_count == 0);
+        tabs_seen++;
+    }
+    CHECK(tabs_seen >= 15);
+    const ModInfo *mine_mod = NULL;
+    for (int i = 0; i < mods.count; i++)
+        if (strcmp(mods.mods[i].id, "questbook") == 0) mine_mod = &mods.mods[i];
+    CHECK(mine_mod != NULL && strcmp(mine_mod->label, "Questbook") == 0);
+    char what[64];
+    for (int i = 0; mine_mod && i < mods.count; i++)
+        if (&mods.mods[i] != mine_mod) CHECK(!mods_conflict(mine_mod, &mods.mods[i], what, sizeof what));
+}
+
 /* Dungeoneering: a place made over each time it is gone into, doors that open when a room is cleared, creatures whose
  * blows are numbers, and loot whose numbers are its own. */
 static void test_dungeoneering_mod(void)
@@ -14209,6 +14350,7 @@ int main(void)
     test_sky_mod();
     test_plunder_mod();
     test_dungeoneering_mod();
+    test_questbook();
     test_equip_selected();
     test_worn();
     test_trade_tiers();
