@@ -307,3 +307,46 @@ A QUEST BOOK of its own, written by `tools/quests.py` from the data as every oth
    - Seventy things to come alongside, each drawn and built by hand in several sizes, is the largest single
      piece of work in it and the first place it would be cut.
    - Balance, prices, how often anything turns up: guesses, as in every mod so far.
+
+================================================================================================================
+WHAT WAS DECIDED, WHAT WAS BUILT, AND WHAT WAS NOT   (October 2026)
+================================================================================================================
+
+THE OWNER'S ANSWER: "You can decide anything yourself. Make the mod. NO ending." So every recommendation above
+was taken, except Q10: there is no Maelstrom and nothing that finishes the mod. The Leviathan is a creature of
+the last sea and no more.
+
+BUILT (tools/mod_hull_and_horizon.py; engine in src/ship.c and src/helmui.c; tests in test_hull_mod)
+   - Q1: `"standalone": true` in a mod.json. Such a mod is loaded in place of data/, alone.
+   - Q2: the "adrift" world: 768 by 160 of sea, the start raft, a moving sky, foam, far rocks; things adrift that
+     really move, a square at a time, and go under the ship.
+   - Q3/Q4: five keels as levels of the shipwright's bench - raft, sailboat, caravel, galleon, dreadnought -
+     each a room to build in. Makings 4, 7, 12 and 16 deep, asserted by the generator.
+   - Q5: burden, the simple way. Also way, freeboard, strength, cable, reach, depth, guns: counted from blocks.
+   - Q7: drift (hooks, nets); the bed (pot, trawl, bell, bathysphere); 35 structures that come alongside and are
+     stripped; crops in boxes and trees in tubs; trade desks and markets. Metal as planned: scrap, then copper,
+     iron, bronze, steel, black alloy.
+   - Six seas with needs, a helm with a menu, passages, save version 42.
+   - Q9, in part: castaways become characters at the ship's bell.
+   - Q12: every picture drawn fresh by the generator, 16 by 16 doubled; the seven hulls each drawn their own way.
+   - A book of quests: five tabs, a tab a keel, each a tree. Bilge pumps. Engines that want fuel. Sails that furl.
+   SIZE, AS BUILT: 205 blocks, 463 items (37 caged creatures), 314 recipes, 37 creatures, 18 kinds of bench,
+   35 structures, 106 quests - against ~380 / ~850 / ~1,000 / ~60 / ~70 proposed. About half.
+
+NOT BUILT
+   - Q6: holes, leaks, anything that hurts the hull, being driven back to a calmer sea. Nothing damages the ship.
+   - Weather at sea: no swell that rises, no water over a low deck, no sail torn in a gale. Freeboard is only
+     something a sea asks for.
+   - Q5's second way: real draught.
+   - Q8 as written: guns are not aimed and want no powder - they fire by themselves, all as one. No other ships
+     under way and no boarding: a raider is a hull that comes alongside with raiders on its deck.
+   - Q9: hands with posts. Q10: the Maelstrom (by the owner's word).
+   - Section 2's fifth way (paddles in the wake, windmills, lightning rods, salt pans): none of it. Power is not
+     a thing: a dynamo is furniture.
+   - Fresh water as a need of crew or crops; a fire needing clay or stone under it (`"needs_under"`).
+   - Diving as a way of getting things: one may swim down, but there is nothing there but what is alongside.
+   - The Ice and the Black Water have five things alongside each, the others seven or eight.
+   - NEVER PLAYED. Looked at in screenshots: the raft by day and night, a caravel in the Trade Wind with the
+     helm's menu open, a steel hull in the Black Water. Drift rates, what each sea asks, burden and weights,
+     prices and creatures' strength are all guesses. The progression was walked on paper once for dead ends
+     (three were found and taken out); it has not been walked in the game.

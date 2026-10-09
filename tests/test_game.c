@@ -14447,7 +14447,7 @@ static void test_hull_mod(void)
     }
     const WorldGenDef *gen = &content.worldgen;
     CHECK(content.tile_count == 206 && content.item_count == 464 && content.recipe_count == 314 && content.mob_count == 37);
-    CHECK(gen->adrift && gen->sea_count == 6 && content.structure_count == 34 && strcmp(gen->seas[0].name, "slick") == 0 && gen->seas[5].dark);
+    CHECK(gen->adrift && gen->sea_count == 6 && content.structure_count == 35 && strcmp(gen->seas[0].name, "slick") == 0 && gen->seas[5].dark);
     /* The shipwright's bench makes benches and blocks to trade at and nothing else; every creature can be caged;
      * every tab of the book is a tree. */
     for (int r = 0; r < content.recipe_count; r++) {
@@ -14483,7 +14483,7 @@ static void test_hull_mod(void)
     CHECK(tile_def(world_get(w, mid, water))->ship[SHIP_BURDEN] > 0 && world_is_solid(w, mid - 1, water) && !world_is_solid(w, mid + 1, water) && !world_is_solid(w, mid - 2, water));
     CHECK(world_is_water(w, mid + 1, water) && world_is_water(w, 5, water + 40) && !world_is_water(w, 5, w->sea_row) && tile_def(world_get(w, mid, w->sea_row))->bench);
     ship_measure(&g);
-    CHECK(g.ship.keel == 0 && g.ship.stats[SHIP_BURDEN] == 6 && g.ship.x1 - g.ship.x0 + 1 == gen->keel_long && g.ship.freeboard == 0 && g.ship.length == 2);
+    CHECK(g.ship.keel == 0 && g.ship.stats[SHIP_BURDEN] == 9 && g.ship.x1 - g.ship.x0 + 1 == gen->keel_long && g.ship.freeboard == 0 && g.ship.length == 2);
     /* Her room: nothing goes up outside it, nor anything heavier than she will bear. */
     TileType logs = tile_id("lashed_driftwood"), bench = tile_id("shipwright"), engine = tile_id("steam_turbine");
     CHECK(world_build_allowed(w, mid + 2, water, logs) && !world_build_allowed(w, mid + 30, water, logs) && !world_build_allowed(w, mid, water + 3, logs) && !world_build_allowed(w, mid, water - 9, logs));
