@@ -404,6 +404,13 @@ static bool read_tiles(Reader *r, const cJSON *root)
                 t->catches = flag(e, "catches", false);
                 t->helm = flag(e, "helm", false);
                 t->trawl = (int)num(e, "trawl", 0);
+                if (!tile_ref(r, e, "holed", &t->holed)) return false;
+                const cJSON *under;
+                t->needs_under_count = 0;
+                cJSON_ArrayForEach(under, field(e, "needs_under")) {
+                    if (!cJSON_IsString(under) || tile_id(under->valuestring) < 0 || t->needs_under_count >= 8) return fail(r, "tile \"%s\": \"needs_under\" lists at most 8 blocks that exist", t->name);
+                    t->needs_under[t->needs_under_count++] = tile_id(under->valuestring);
+                }
             }
             t->rocket_fuel = (int)num(field(e, "rocket"), "fuel", 0);
             t->rocket_thrust = (int)num(field(e, "rocket"), "thrust", 0);

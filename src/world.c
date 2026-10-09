@@ -1204,6 +1204,12 @@ void world_unstamp(World *w, int x0, int base, int width, int height)
 
 bool world_build_allowed(const World *w, int x, int y, TileType tile)
 {
+    /* (Some things stand only on what will take them: a forge on a hearth.) */
+    if (tile_def(tile)->needs_under_count > 0) {
+        bool held = false;
+        for (int k = 0; k < tile_def(tile)->needs_under_count; k++) held = held || world_get(w, x, y + 1) == tile_def(tile)->needs_under[k];
+        if (!held) return false;
+    }
     if (!w->build_limit) return true;
     int dx = world_dx(w, w->spawn_x, x);
     if (dx < w->build_x0 || dx > w->build_x1 || y < w->build_y0 || y > w->build_y1) return false;

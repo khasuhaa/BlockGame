@@ -425,12 +425,48 @@ static void pump_bilge(Game *g)
             int x = w->spawn_x + dx, have = world_water(w, x, y);
             if (have <= 0) continue;
             if (y >= y0 && reached[(y - y0) * wide + (dx - x0)]) continue;
-            /* (Above the waterline nothing holds the sea: water there is in a barrel, or on its way overboard.) */
-            if (y < y0) continue;
+            /* (Above the waterline it is what came aboard over the side.) */
             int take = have < left ? have : left;
             world_set_water(w, x, y, have - take);
             left -= take;
         }
+}
+
+/* What hunts in the sea bites at her: a piece of hull under water that is no stronger than the sea she is in asks
+ * may be holed by one that is against it, and the sea comes in there until it is cut out and made good. */
+static void bite_hull(Game *g)
+{
+    World *w = &g->world;
+    static const int dirs[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
+    for (int i = 0; i < MAX_MOBS; i++) {
+        const Mob *m = &g->mobs[i];
+        if (!m->active || m->owned || !content.mobs[m->kind].hunts) continue;
+        for (int k = 0; k < 4; k++) {
+            int x = world_wrap_x(w, m->x + dirs[k][0]), y = m->y + dirs[k][1];
+            const TileDef *def = tile_def(world_get(w, x, y));
+            if (y <= w->sea_row || def->holed == TILE_AIR || def->ship[SHIP_STRENGTH] > game_sea(g)->needs[NEED_STRENGTH] + 1) continue;
+            if (game_random(g) % 8u != 0) continue;
+            world_set_at(w, LAYER_FOREGROUND, x, y, def->holed);
+            water_wake(w, x);
+            return;
+        }
+    }
+}
+
+/* Weather: while it rains the sea stands up as high as the sea she is in runs, and comes aboard wherever her
+ * deck or her side is lower than that - a little at a time, onto the top of her, to run down whatever is open. */
+static void ship_seas(Game *g)
+{
+    World *w = &g->world;
+    int high = (int)(game_sea(g)->swell + 0.5f);
+    if (high < 1 || game_rain(g) <= 0.0f) return;
+    for (int dx = g->ship.bow - g->ship.length + 1; g->ship.length > 0 && dx <= g->ship.bow; dx++) {
+        int x = w->spawn_x + dx, top = -1;
+        for (int y = g->ship.y0; y <= g->ship.y1 && top < 0; y++)
+            if (world_is_solid(w, x, y)) top = y;
+        if (top < 1 || w->sea_row + 1 - top >= high || world_is_solid(w, x, top - 1)) continue;
+        if (game_random(g) % 4u == 0) water_add(w, x, top - 1, 2);
+    }
 }
 
 /* Her guns fire by themselves at whatever comes for her. */
@@ -442,7 +478,7 @@ static void fire_guns(Game *g)
         const Mob *m = &g->mobs[i];
         if (!m->active || m->owned) continue;
         const MobDef *def = &content.mobs[m->kind];
-        if (!def->hunts && def->sting_ticks <= 0 && def->strike_range <= 0 && def->sting_power <= 0) continue;
+        if (!def->hunts && def->sting_ticks <= 0 && def->strike_power <= 0 && def->sting_power <= 0) continue;
         int dx = world_dx(w, w->spawn_x, m->x);
         if (dx < g->ship.x0 - GUN_RANGE || dx > g->ship.x1 + GUN_RANGE || m->y < g->ship.y0 - GUN_RANGE || m->y > g->ship.y1 + GUN_RANGE) continue;
         g->shot.from_x = (float)(w->spawn_x + (dx < 0 ? g->ship.x0 : g->ship.x1)) + 0.5f, g->shot.from_y = (float)w->sea_row - 0.5f;
@@ -470,6 +506,8 @@ void ship_tick(Game *g)
         level_sea(g);
         trawl(g);
         pump_bilge(g);
+        if (g->tick % 20 == 0) bite_hull(g);
+        if (g->tick % 20 == 10) ship_seas(g);
         fire_guns(g);
     }
 

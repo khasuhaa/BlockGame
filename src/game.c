@@ -927,6 +927,7 @@ static Pose sim_pending(Game *g)
 {
     const Player *p = &g->player;
     g->sim.sea_row = g->world.sea_row;
+    g->sim.spawn_x = g->world.spawn_x; /* (her room is measured from the middle of her) */
     g->sim.build_limit = g->world.build_limit, g->sim.build_x0 = g->world.build_x0, g->sim.build_x1 = g->world.build_x1;
     g->sim.build_y0 = g->world.build_y0, g->sim.build_y1 = g->world.build_y1, g->sim.build_room = g->world.build_room;
     /* (The plan takes the water as it lies now.) */

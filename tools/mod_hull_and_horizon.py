@@ -689,11 +689,12 @@ def bench_pic(kind, trim=BRASSY):
     elif kind == 'electric_bench': tbl(IRON); t.disc(4.5, 6, 2.5, COPPER); t.r(8, 4, 12, 8, c('2a3a2a')); t.p(9, 5, c('60f080')).p(11, 6, c('f0e060')); t.line(6, 6, 8, 6, RED)
     elif kind == 'armoury': tbl(IRON); t.r(2, 5, 12, 7, STEEL); t.r(12, 4, 14, 8, dk(STEEL)); t.r(4, 2, 5, 4, BRASSY); t.r(7, 2, 8, 4, BRASSY); t.r(10, 2, 11, 4, BRASSY)
     return t.outline()
+HEARTH = ['brick_hearth', 'ballast_block', 'steel_deck', 'steel_hull', 'armoured_hull', 'sand_bank', 'shore_rock']   # (what will take a fire that is more than a cooking fire)
 def bench(kind, label, tier, level=1, fuel=False, **kw):
     name = kind if level == 1 else '%s_%d' % (kind, level)
     tr = [None, BRASSY, c('d0d8e0'), c('60d0f0'), c('f05030'), c('c080f0')][min(level, 5)]
     bench_pic(kind, tr).save('tiles', name); icon_of(name)
-    tile(name, label, False, bench=True, bench_kind=kind, bench_level=level, popup_name='bench', tool='axe', mine_time=0.4, fuel_capacity=3000 if fuel else None, light=8 if fuel else None, light_needs_fuel=True if fuel else None, ship={'weight': 2}, **kw)
+    tile(name, label, False, bench=True, bench_kind=kind, bench_level=level, popup_name='bench', tool='axe', mine_time=0.4, fuel_capacity=3000 if fuel else None, needs_under=HEARTH if fuel and kind != 'galley' else None, light=8 if fuel else None, light_needs_fuel=True if fuel else None, ship={'weight': 2}, **kw)
     item(name, label, tier, 'benches', 1.0, places=name)
 BENCHES = [  # kind, label, tier, the shipwright's level it is made at, burns fuel, what it is made of
     ('sawpit', 'Sawpit', 1, 1, False, [('driftwood', 4)]), ('ropewalk', 'Ropewalk', 1, 1, False, [('driftwood', 3), ('tangled_rope', 2)]), ('galley', 'Galley fire', 1, 1, True, [('driftwood', 4), ('sea_shell', 2)]),
@@ -793,7 +794,10 @@ HULLS = [  # name, label, tier, strength, burden, picture, tool, bench, level, i
     ('armoured_hull', 'Armoured hull', 6, 7, 14, plate('armoured_hull', c('4a505e'), True, True), 'pickaxe', 'plate_mill', 1, [('steel_hull', 2), ('armour_plate', 1)]),
 ]
 for n, lab, tier, strength, burden, pic, tool, b, lv, ins in HULLS:
-    T(pic, n, lab, tier, tool=tool, mine_time=0.3 + 0.15 * strength, shade=10, ship={'burden': burden, 'strength': strength}, burns=True if strength < 4 else None); R(b, n, ins, 2, level=lv)
+    T(pic, n, lab, tier, tool=tool, mine_time=0.3 + 0.15 * strength, shade=10, ship={'burden': burden, 'strength': strength}, burns=True if strength < 4 else None, holed=n + '_holed'); R(b, n, ins, 2, level=lv)
+    # (Bitten through: the sea comes in by it. It is cut out for what can be saved of it, and a sound piece put back.)
+    pic.r(5, 4, 10, 11, (0, 0, 0, 0)).r(4, 6, 11, 9, (0, 0, 0, 0)).p(4, 4, INK).p(11, 11, INK).p(11, 5, INK).p(5, 12, INK).save('tiles', n + '_holed')
+    tile(n + '_holed', lab + ', holed', False, layer=None, tool=tool, mine_time=0.3, drop=None, drops=[{'item': 'driftwood' if strength < 4 else 'copper_scrap' if strength == 4 else 'iron_scrap', 'count': 1}], see_through=True)
 DECKS = [('driftwood_deck', 'Driftwood deck', 1, DRIFT, 'axe', 'sawpit', 1, [('driftwood', 2)]), ('plank_deck', 'Plank deck', 2, PLANK, 'axe', 'sawpit', 1, [('plank', 2)]), ('oak_deck', 'Holystoned oak deck', 3, c('d8c8a0'), 'axe', 'sawpit', 1, [('oak_beam', 1)]),
          ('teak_deck', 'Great-timber deck', 4, c('9a6a3a'), 'axe', 'sawpit', 1, [('great_timber', 1)]), ('steel_deck', 'Steel deck', 5, c('8a94a0'), 'pickaxe', 'plate_mill', 1, [('steel_plate', 1)])]
 for n, lab, tier, col, tool, b, lv, ins in DECKS:
@@ -1048,6 +1052,92 @@ for n, lab, coat, hat, hk, health, power, drops_ in [('sea_raider', 'Raider', '8
     mobs.append({'name': n, 'label': lab, 'texture': 'mobs/%s.png' % n, 'walk': ['mobs/%s_walk.png' % n, 'mobs/%s.png' % n], 'hop': 0.06, 'step_ticks': 3, 'move_chance': 0.3, 'turn_chance': 0.2, 'health': health, 'cap': 4 if n == 'sea_raider' else 1,
                  'spawn': on(['raider_deck'], 0.3 if n == 'sea_raider' else 0.05), 'drops': drops_, 'sting': {'ticks': 30, 'rest_ticks': 40, 'sight': 10}, 'shape': 'person'})
 
+# ---- more of everything: paint, panelling, a smokehouse, the cabin's comforts, and what else swims ---------------------------------
+PIGMENTS = [('white', 'White', 'f0f0e8', [('shell_lime', 2)]), ('red', 'Red', 'b03a30', [('coral_branch', 2)]), ('black', 'Black', '2a2a30', [('charcoal', 2)]), ('green', 'Green', '4a8a4a', [('kelp', 4)]), ('yellow', 'Yellow', 'd8b830', [('sulphur', 1)]), ('blue', 'Blue', '3a5aa0', [('abalone', 2)])]
+for key, lab, col, ins in PIGMENTS:
+    I(barrel(c(col)).outline(), key + '_paint', lab + ' paint', 3, 'crafted', 0.5); R('caulkers_kettle', key + '_paint', ins + [('lamp_oil', 1)], 2)
+    t = planks(key + '_strake', c(col)); t.r(0, 15, 15, 15, dk(c(col), 0.5))
+    T(t, key + '_strake', lab + ' strake', 3, mine_time=0.75, shade=10, ship={'burden': 5, 'strength': 3}, holed='tarred_hull_holed'); R('caulkers_kettle', key + '_strake', [('tarred_hull', 2), (key + '_paint', 1)], 2)
+    sail_pic(mix(CLOTH, c(col), 0.75)).save('tiles', key + '_sail'); sail_pic(mix(CLOTH, c(col), 0.75), True).save('tiles', key + '_sail_furled'); icon_of(key + '_sail')
+    tile(key + '_sail', lab + ' sail', False, tool='machete', mine_time=0.2, attaches=True, model='panel', use_becomes=key + '_sail_furled', ship={'sail': 4, 'weight': 1}); tile(key + '_sail_furled', lab + ' sail, furled', False, tool='machete', mine_time=0.2, attaches=True, model='panel', use_becomes=key + '_sail', drop=key + '_sail', ship={'weight': 1})
+    item(key + '_sail', lab + ' sail', 3, 'crafted', 1.0, places=key + '_sail'); R('sail_loft', key + '_sail', [('canvas_sail', 1), (key + '_paint', 1)])
+    T(flag(c(col)), key + '_pennant', lab + ' pennant', 3, False, 'crafted', 0.4, attaches=True, ship={'weight': 0}); R('sail_loft', key + '_pennant', [('canvas', 1), (key + '_paint', 1)], 2)
+def panel(name, col, kind):
+    t = P(col)
+    if kind == 'panel': t.r(1, 1, 14, 14, lt(col, 1.1)); t.r(2, 2, 13, 13, col); t.r(7, 1, 8, 14, dk(col, 0.7)); t.r(0, 0, 15, 0, dk(col, 0.6))
+    elif kind == 'beam': t = P(); t.r(0, 5, 15, 10, col); t.r(0, 5, 15, 5, lt(col)); t.r(0, 10, 15, 10, dk(col, 0.6)); [t.p(x, 7, dk(col, 0.5)) for x in (2, 13)]
+    else: t = P(); t.r(6, 0, 9, 15, col); t.r(6, 0, 6, 15, lt(col)); t.r(9, 0, 9, 15, dk(col, 0.6)); t.r(4, 0, 11, 1, col); t.r(4, 14, 11, 15, col)
+    return t
+for key, lab, tier, col, b, mat, tool in [('driftwood', 'Driftwood', 1, DRIFT, 'sawpit', 'driftwood', 'axe'), ('plank', 'Plank', 2, PLANK, 'sawpit', 'plank', 'axe'), ('oak', 'Oak', 3, c('8a6a3c'), 'carpenters_bench', 'oak_beam', 'axe'), ('great', 'Great-timber', 4, c('7a5a34'), 'carpenters_bench', 'great_timber', 'axe'),
+                                         ('copper', 'Copper', 3, COPPER, 'forge', 'copper_sheet', 'pickaxe'), ('iron', 'Iron', 4, IRON, 'forge', 'iron_strap', 'pickaxe'), ('steel', 'Steel', 5, STEEL, 'plate_mill', 'steel_plate', 'pickaxe'), ('black', 'Black-alloy', 6, c('3a3e4c'), 'plate_mill', 'armour_plate', 'pickaxe')]:
+    lv = 2 if b == 'forge' and tier >= 4 else 1
+    T(panel(key, col, 'panel'), key + '_bulkhead', lab + ' bulkhead', tier, tool=tool, mine_time=0.5, shade=8); R(b, key + '_bulkhead', [(mat, 1)], 2, level=lv)
+    T(panel(key, col, 'beam'), key + '_deck_beam', lab + ' deck beam', tier, False, tool=tool, attaches=True, supports=True); R(b, key + '_deck_beam', [(mat, 1)], 3, level=lv)
+    T(panel(key, col, 'post'), key + '_stanchion', lab + ' stanchion', tier, False, tool=tool, attaches=True, supports=True); R(b, key + '_stanchion', [(mat, 1)], 3, level=lv)
+bench('smokehouse', 'Smokehouse', 2, fuel=True); R('shipwright', 'smokehouse', [('plank', 6), ('fired_brick', 4), ('copper_sheet', 1)], level=2, time=160)
+for n, lab, tier, pic in CATCHES:
+    if n in ('hen_egg',): continue
+    I(meat(c('8a5a40')) if 'fish' not in n else fishpic(c('a07850'), c('d0b080'), 'big' in n), 'smoked_' + n, 'Smoked ' + lab.lower(), tier, 'nature', 0.9, food=0.26 + 0.04 * tier, cooked=True); R('smokehouse', 'smoked_' + n, [(n, 2), ('kindling', 1)], 2, time=160)
+    I(barrel(c('c0b090'), mark=c('e0e0e8')).outline(), 'salted_' + n, 'Salted ' + lab.lower(), tier, 'nature', 0.7, food=0.2 + 0.03 * tier, cooked=True); R('coopers_block', 'salted_' + n, [(n, 3), ('sea_salt', 1), ('cask_stave', 1)], 3)
+MORE_MEALS = [('crab_cakes', 'Crab cakes', 2, 'e0a060', [('crab_meat', 2), ('flour', 1)], 0.5, None), ('squid_rings', 'Fried squid', 3, 'e8c880', [('squid', 1), ('flour', 1), ('whale_oil', 1)], 0.55, None), ('shark_fin_soup', 'Shark soup', 2, 'c0b0a0', [('shark_steak', 1), ('kelp', 2), ('fresh_water', 1)], 0.5, lasts(3000, strength=1)),
+              ('egg_and_biscuit', 'Egg and biscuit', 3, 'f0e0a0', [('hen_egg', 2), ('hardtack', 1)], 0.5, None), ('goat_stew', 'Goat stew', 3, '9a6a40', [('goat_meat', 1), ('potato', 2), ('fresh_water', 1)], 0.7, lasts(3000, regen=1.5)), ('coconut_curry', 'Coconut curry', 3, 'e0b040', [('coconut', 1), ('big_fish', 1), ('lime', 1)], 0.7, None),
+              ('abalone_chowder', 'Abalone chowder', 3, 'c0e0d0', [('abalone', 2), ('potato', 1), ('coconut_milk', 1)], 0.65, lasts(3000, lung=2.0)), ('rum', 'Rum', 4, '8a4a18', [('sugar', 3), ('fresh_water', 1)], 0.05, lasts(4000, warmth=0.5, strength=1)), ('figgy_dowdy', 'Figgy-dowdy', 4, '7a4a3a', [('hardtack', 2), ('sugar', 1), ('rum', 1)], 0.8, None),
+              ('seal_flipper_pie', 'Flipper pie', 5, '8a5a4a', [('seal_meat', 2), ('flour', 2)], 0.85, lasts(5000, warmth=0.4)), ('blubber_broth', 'Blubber broth', 5, 'e0d0b0', [('whale_blubber', 1), ('frozen_fish', 2), ('fresh_water', 1)], 0.6, lasts(5000, warmth=0.6)), ('tusk_tea', 'Kelp tea', 1, '6a8a5a', [('kelp', 2), ('fresh_water', 1)], 0.08, lasts(2000, regen=1.2)),
+              ('admirals_feast', "Admiral's feast", 6, 'f0c060', [('captains_table', 1), ('abyssal_broth', 1), ('rum', 1)], 1.0, lasts(9000, regen=3.0, strength=3, lung=2.0))]
+for n, lab, tier, col, ins, food, eff in MORE_MEALS: I(cup(c(col)) if n in ('rum', 'tusk_tea') else bowl(c(col)), n, lab, tier, 'nature', 1.0, food=food, cooked=True, effect=eff); R('galley', n, ins, time=100)
+COMFORTS = [(table_pic(DRIFT).r(4, 3, 5, 6, DRIFT), 'cask_seat', 'Cask seat', 1, 'coopers_block', [('cask_stave', 3)], {}), (P().r(5, 8, 10, 9, PLANK).r(5, 2, 6, 15, dk(PLANK)).r(9, 9, 10, 15, dk(PLANK)), 'ships_chair', 'Chair', 2, 'carpenters_bench', [('plank', 2), ('trenail', 2)], {}),
+            (P(c('7a4a2a')).r(1, 1, 14, 14, PAPER).line(3, 10, 7, 5, c('2a6a9a')).line(7, 5, 12, 9, c('2a6a9a')).p(10, 6, RED), 'wall_chart', 'Chart on the bulkhead', 2, 'chart_table', [('patched_canvas', 1), ('plank', 1)], {}),
+            (P().r(2, 2, 13, 13, c('7a4a2a')).r(3, 3, 12, 6, c('a04a4a')).r(3, 8, 12, 12, c('3a5a9a')).r(3, 7, 12, 7, dk(c('7a4a2a'))), 'book_locker', 'Book locker', 3, 'carpenters_bench', [('oak_beam', 2), ('patched_canvas', 2)], {}),
+            (P().r(3, 13, 12, 15, IRON).r(4, 6, 11, 12, c('3a3a44')).r(5, 8, 10, 11, c('f08030')).r(7, 0, 8, 5, IRON), 'cabin_stove', 'Cabin stove', 4, 'forge', [('pig_iron', 3), ('iron_strap', 2)], {'light': 8}),
+            (P().r(0, 12, 15, 15, c('a03a3a')).r(0, 12, 15, 12, GOLD).r(2, 13, 13, 14, c('c05a4a')), 'cabin_rug', 'Cabin rug', 3, 'sail_loft', [('cloth_bale', 1), ('red_paint', 1)], {}),
+            (P().disc(7.5, 7.5, 6, WHITE).disc(7.5, 7.5, 3.6, (0, 0, 0, 0)).r(7, 1, 8, 4, RED).r(7, 11, 8, 14, RED).r(1, 7, 4, 8, RED).r(11, 7, 14, 8, RED), 'life_ring', 'Life ring', 2, 'sail_loft', [('canvas', 1), ('glass_float', 1)], {}),
+            (P().disc(7.5, 7.5, 5.5, BRASSY).disc(7.5, 7.5, 4, c('f0f0e0')).line(7, 7, 7, 4, INK).line(7, 7, 10, 8, INK), 'ships_clock', "Ship's clock", 4, 'chart_table', [('brass_ingot', 1), ('cog_wheel', 2), ('glass_pane', 1)], {}),
+            (P().r(6, 8, 9, 15, c('8a5a30')).line(3, 7, 12, 2, BRASSY).disc(7.5, 6, 2.6, BRASSY), 'sextant_stand', 'Sextant', 4, 'chart_table', [('brass_ingot', 2), ('lens', 1)], {}),
+            (P().r(2, 4, 13, 13, c('a0d8e8')).r(2, 4, 13, 4, IRON).r(2, 13, 13, 14, IRON).r(4, 10, 6, 11, c('f08040')).r(9, 7, 11, 8, c('40c0a0')).r(3, 12, 12, 12, SAND), 'aquarium', 'Aquarium', 3, 'kiln', [('glass_pane', 4), ('lead_ingot', 1), ('sand', 1)], {}),
+            (box_pic(PLANK).r(4, 6, 11, 12, (0, 0, 0, 0)).r(6, 6, 6, 12, PLANK).r(9, 6, 9, 12, PLANK), 'hen_coop', 'Hen coop', 3, 'carpenters_bench', [('plank', 4), ('kelp_twine', 2)], {}),
+            (P().r(1, 6, 14, 7, PLANK).r(1, 11, 14, 12, PLANK).r(2, 4, 3, 15, dk(PLANK)).r(12, 4, 13, 15, dk(PLANK)).r(7, 4, 8, 15, dk(PLANK)), 'goat_pen', 'Pen', 3, 'carpenters_bench', [('plank', 3), ('trenail', 4)], {}),
+            (fang(WHITE).r(2, 13, 13, 15, c('7a4a2a')), 'shark_jaw_trophy', 'Shark jaw', 2, 'carpenters_bench', [('shark_tooth', 6), ('plank', 1)], {}), (fang(c('f0e8d0')).r(2, 13, 13, 15, c('7a4a2a')), 'tusk_trophy', 'Mounted tusk', 5, 'carpenters_bench', [('narwhal_tusk', 1), ('oak_beam', 1)], {}),
+            (shell_pic(c('6a8a4a')).r(2, 13, 13, 15, c('7a4a2a')), 'shell_trophy', 'Mounted shell', 2, 'carpenters_bench', [('turtle_shell', 1), ('plank', 1)], {}), (P().r(7, 4, 8, 15, IRON).line(8, 4, 13, 2, RED).line(8, 5, 13, 6, RED).r(3, 3, 12, 3, IRON), 'wind_vane', 'Wind vane', 3, 'forge', [('copper_rod', 1), ('copper_sheet', 1)], {'attaches': True}),
+            (lamp_pic(c('2a4a2a'), c('60f080')), 'starboard_light', 'Starboard light', 3, 'coopers_block', [('ships_lantern', 1), ('green_paint', 1)], {'light': 10}), (lamp_pic(c('4a2a2a'), c('f06050')), 'port_light', 'Port light', 3, 'coopers_block', [('ships_lantern', 1), ('red_paint', 1)], {'light': 10}),
+            (P().r(6, 6, 9, 15, IRON).disc(7.5, 4, 3.5, STEEL).disc(9, 4, 2, c('fff4b0')), 'signal_lamp', 'Signal lamp', 5, 'electric_bench', [('light_bulb', 1), ('steel_plate', 1)], {'light': 12}),
+            (P().r(2, 9, 13, 15, c('8a5a30')).r(2, 9, 13, 9, BRASSY).r(4, 3, 11, 8, c('3a3a44')).r(5, 4, 6, 7, WHITE).r(8, 4, 10, 5, WHITE), 'ships_organ', 'Harmonium', 4, 'carpenters_bench', [('great_timber', 2), ('brass_ingot', 2), ('bellows', 1)], {}),
+            (P().r(1, 12, 14, 15, c('8a5a30')).disc(4, 9, 2.6, c('3a3a44')).disc(11, 9, 2.6, c('3a3a44')).disc(7.5, 6, 2.6, c('3a3a44')), 'shot_garland', 'Shot garland', 3, 'gunfoundry', [('round_shot', 6), ('oak_beam', 1)], {}),
+            (P().r(1, 4, 14, 6, PLANK).r(1, 10, 14, 12, PLANK).r(3, 2, 4, 15, dk(PLANK)).r(11, 2, 12, 15, dk(PLANK)), 'boat_chocks', "Ship's boat", 3, 'carpenters_bench', [('plank', 8), ('copper_bolt', 4), ('rope', 2)], {'ship': {'weight': 3, 'reach': 0}}),
+            (P().r(3, 6, 12, 15, STEEL).r(3, 6, 12, 6, lt(STEEL)).r(5, 2, 10, 5, c('a0d8e8')).r(5, 9, 10, 10, RED), 'bridge_screen', 'Bridge screen', 5, 'plate_mill', [('steel_plate', 2), ('glass_pane', 2)], {}),
+            (P().r(7, 0, 8, 15, STEEL).line(8, 2, 14, 5, STEEL).line(8, 6, 14, 9, STEEL).line(7, 2, 1, 5, STEEL).line(7, 6, 1, 9, STEEL), 'wireless_aerial', 'Wireless aerial', 6, 'electric_bench', [('copper_wire', 8), ('steel_tube', 2), ('black_alloy', 1)], {'attaches': True})]
+for pic, n, lab, tier, b, ins, kw in COMFORTS: fit(pic, n, lab, tier, kw.pop('ship', {'weight': 1}), b, 2 if b == 'forge' and tier >= 4 else 1, ins, **kw)
+for key, lab, tier, col, speed, b, lv, mat in [('bronze', 'Bronze', 4, c('b88a4a'), 5.0, 'forge', 2, 'bronze_ingot')]:
+    for cls, word, pic in (('axe', 'adze', weapon('axe', col)), ('pickaxe', 'pick', pick_pic(col)), ('shovel', 'shovel', weapon('shovel', col)), ('machete', 'knife', weapon('cutlass', col))):
+        I(pic, '%s_%s' % (key, word), '%s %s' % (lab, word), tier, 'tools', 1.2, tool={'class': cls, 'speed': speed}, max_stack=1); R(b, '%s_%s' % (key, word), [(mat, 2), ('seasoned_beam', 1), ('rope', 1)], level=lv)
+for key, lab, tier, col, armor, warm, hat, b, mat, extra in [('duck', 'Duck', 2, c('e8e0c8'), 0.02, 0.08, 'bandana', 'sail_loft', 'canvas', None), ('stokers', "Stoker's", 5, c('3a3a40'), 0.06, 0.05, 'bandana', 'sail_loft', 'heavy_canvas', 'coal'), ('abyssal', 'Abyssal', 6, c('3a2e5a'), 0.12, 0.3, 'helm', 'armoury', 'black_alloy', 'leviathan_scale')]:
+    for slot, word, kind, n_ in (('head', {'bandana': 'cap', 'tricorn': 'hat', 'helm': 'helmet'}[hat], hat, 2), ('chest', 'coat', 'coat', 4), ('legs', 'breeches', 'breeches', 3), ('boots', 'boots', 'boots', 2)):
+        I(hatpic(kind, col), '%s_%s' % (key, word), '%s %s' % (lab, word), tier, 'clothing', 1.0, equip=slot, max_stack=1, armor=armor, warmth=warm, boons={'lung': 5.0} if key == 'abyssal' and slot == 'head' else None); R(b, '%s_%s' % (key, word), [(mat, n_)] + ([(extra, 1)] if extra else []) + [('linen_thread', 1)])
+MORE_FITS = [(gun_pic(c('4a4a52'), 2, IRON), 'sea_mortar', 'Mortar', 4, {'weight': 14, 'guns': 12}, 'gunfoundry', 1, [('pig_iron', 8), ('gunpowder', 8), ('seasoned_beam', 2)], 1, {'tool': 'pickaxe'}),
+             (gun_pic(STEEL, 0, IRON), 'quick_firer', 'Quick-firing gun', 5, {'weight': 8, 'guns': 10}, 'armoury', 1, [('steel_tube', 2), ('cog_wheel', 2), ('gunpowder', 4)], 1, {'tool': 'pickaxe'}),
+             (P().r(1, 8, 14, 14, c('8a5a30')).disc(7.5, 7.5, 6, c('8a5a30')).disc(7.5, 7.5, 4, (0, 0, 0, 0)).r(7, 1, 8, 14, c('8a5a30')).r(1, 7, 14, 8, c('8a5a30')), 'paddle_wheel', 'Paddle wheel', 5, {'weight': 12, 'thrust': 20}, 'engine_shop', 1, [('great_timber', 4), ('iron_strap', 6), ('bearing', 1), ('piston', 1)], 1, {'fuel_capacity': 4000}),
+             (P().r(4, 2, 11, 15, CLOTH).r(4, 2, 11, 2, dk(CLOTH)).line(4, 2, 0, 0, ROPE).line(11, 2, 15, 0, ROPE), 'sweeps', 'Sweeps', 2, {'weight': 1, 'thrust': 1}, 'carpenters_bench', 1, [('plank', 3), ('rope', 1)], 2, {}),
+             (anchor_pic(c('3a3e4c'), STEEL), 'stockless_anchor', 'Stockless anchor', 6, {'weight': 14, 'cable': 5}, 'armoury', 1, [('black_alloy', 4), ('chain_link', 16), ('steam_windlass', 1)], 1, {'tool': 'pickaxe'}),
+             (crane_pic(c('3a3e4c'), True), 'salvage_crane', 'Salvage crane', 6, {'weight': 18, 'reach': 3}, 'engine_shop', 1, [('steam_crane', 1), ('black_alloy', 3), ('chain_link', 12)], 1, {'tool': 'pickaxe'}),
+             (pump_pic(c('3a3e4c'), STEEL), 'turbine_pump', 'Turbine pump', 6, {'weight': 8, 'pump': 20}, 'engine_shop', 1, [('steam_pump', 1), ('black_alloy', 2)], 1, {'tool': 'pickaxe'}),
+             (searchlight_pic().r(6, 10, 9, 15, c('3a3e4c')), 'ghost_searchlight', 'Ghost-oil searchlight', 6, {'weight': 5, 'light': 2}, 'electric_bench', 1, [('searchlight', 1), ('ghost_oil', 2), ('lens', 2)], 1, {'light': 15, 'tool': 'pickaxe'})]
+for pic, n, lab, tier, ship, b, lv, ins, cnt, kw in MORE_FITS: fit(pic, n, lab, tier, ship, b, lv, ins, cnt, **kw)
+for b, out, ins, cnt in [('sawpit', 'driftwood', [('wreck_planking', 1)], 2), ('forge', 'copper_ingot', [('wreck_sheathing', 1)], 1), ('carpenters_bench', 'rope', [('standing_rigging', 2)], 1), ('coopers_block', 'cask_stave', [('driftwood', 2)], 3), ('sail_loft', 'patched_canvas', [('rag_sail', 1)], 2),
+                         ('galley', 'shell_lime', [('coral_branch', 2)], 1), ('galley', 'shell_lime', [('clam', 3)], 1), ('kiln', 'glass_pane', [('glass_bottle', 3)], 1), ('kiln', 'glass_pane', [('glass_float', 2)], 1), ('ropewalk', 'lamp_wick', [('flax_fibre', 1)], 3), ('caulkers_kettle', 'lamp_oil', [('whale_oil', 1)], 2),
+                         ('caulkers_kettle', 'lamp_oil', [('coconut', 3)], 1), ('forge', 'lead_ingot', [('ration_tin', 4)], 1), ('forge', 'iron_bloom', [('wreck_ironwork', 1)], 1), ('forge', 'brass_ingot', [('wreck_brasswork', 1)], 1), ('kiln', 'charcoal', [('kindling', 4)], 1), ('kiln', 'charcoal', [('bamboo', 3)], 2),
+                         ('sawpit', 'kindling', [('driftwood', 1)], 3), ('ropewalk', 'hawser', [('rope', 4), ('whale_oil', 1)], 1), ('sail_loft', 'canvas', [('hemp_fibre', 4)], 1), ('forge', 'copper_wire', [('engine_wreckage', 1)], 6), ('engine_shop', 'cog_wheel', [('engine_wreckage', 1)], 3), ('plate_mill', 'rivet', [('drowned_plate', 1)], 6)]: R(b, out, ins, cnt, level=2 if b == 'forge' and out in ('iron_bloom', 'brass_ingot') else 1, time=80)
+MORE_BEASTS = [('fish', 'herring', 'Herring', 'a0b8c8', 'e0e8f0', 3, [drop('small_fish', 1, 1)], sw(0.05, ['slick', 'ice']), False, {'swim': {}, 'cap': 8}), ('fish', 'cod', 'Cod', '8a8a5a', 'e0d8b0', 8, [drop('big_fish', 1, 1)], sw(0.02, ['roaring_sea', 'ice']), False, {'swim': {}, 'cap': 5}),
+               ('wraith', 'jellyfish', 'Jellyfish', 'd0a0e0', 'f0d0f0', 6, [drop('kelp', 0, 1)], sw(0.02, ['shoals', 'trade_wind']), True, {'swim': HUNT(5, 0.08), 'cap': 4}), ('fish', 'pufferfish', 'Pufferfish', 'e0c060', 'f0f0e0', 5, [drop('small_fish', 1, 1)], sw(0.02, ['shoals']), False, {'swim': {}, 'cap': 4}),
+               ('serpent', 'octopus', 'Octopus', 'c0604a', 'f0b0a0', 16, [drop('squid', 1, 2)], sw(0.008, ['shoals', 'trade_wind']), False, {'swim': {}, 'cap': 2}), ('serpent', 'sea_snake', 'Sea snake', 'e0d040', '2a2a30', 10, [drop('small_fish', 1, 2)], sw(0.008, ['trade_wind']), True, {'swim': HUNT(8, 0.15), 'cap': 2}),
+               ('bird', 'pelican', 'Pelican', 'f0f0e8', 'f0a030', 8, [drop('gull_feather', 2, 3), drop('small_fish', 0, 2)], sky(0.01, ['shoals', 'trade_wind']), False, {}), ('bird', 'cormorant', 'Cormorant', '2a2a30', 'f0c040', 5, [drop('gull_feather', 1, 2)], on(['shore_rock', 'basalt_stack'], 0.2), False, {}),
+               ('bird', 'frigatebird', 'Frigatebird', '1a1a22', 'c83030', 7, [drop('gull_feather', 2, 3)], sky(0.01, ['trade_wind']), False, {}), ('fish', 'barracuda', 'Barracuda', '8a9aa8', 'd0d8e0', 18, [drop('big_fish', 1, 2)], sw(0.01, ['shoals', 'trade_wind']), True, {'swim': HUNT(14, 0.18), 'cap': 3}),
+               ('fish', 'manta', 'Manta', '3a3a4a', 'e0e0e8', 40, [drop('big_fish', 2, 3)], sw(0.004, ['trade_wind']), False, {'swim': {}, 'cap': 2, 'size': [2, 3]}), ('fish', 'sunfish', 'Sunfish', 'b0b8c0', 'e0e8f0', 30, [drop('big_fish', 2, 4)], sw(0.004, ['roaring_sea']), False, {'swim': {}, 'cap': 2, 'size': [2, 2]}),
+               ('tortoise', 'reef_lobster', 'Lobster', 'c8402a', '8a2a1a', 6, [drop('crab_meat', 1, 3)], on(['coral_reef'], 0.25), False, {}), ('bird', 'tern', 'Tern', 'f8f8f8', 'e04030', 3, [drop('gull_feather', 1, 2)], sky(0.02, ['ice', 'slick']), False, {}),
+               ('fish', 'beluga', 'Beluga', 'f0f0f4', 'd0d8e0', 70, [drop('whale_meat', 1, 3), drop('whale_blubber', 2, 4)], sw(0.004, ['ice']), False, {'swim': {}, 'cap': 2, 'size': [2, 2]}), ('quad', 'leopard_seal', 'Leopard seal', '7a7a80', '3a3a40', 60, [drop('seal_meat', 2, 3), drop('seal_skin', 1, 2)], sw(0.005, ['ice']), True, {'swim': HUNT(16, 0.25), 'cap': 2}),
+               ('fish', 'ghost_shark', 'Ghost shark', '6a8a90', '80f0d0', 260, [drop('shark_steak', 2, 4), drop('ghost_oil', 0, 1), drop('shark_tooth', 2, 4)], sw(0.006, ['black_water']), True, {'swim': HUNT(26, 0.45), 'cap': 2, 'size': [2, 2]}), ('fish', 'viperfish', 'Viperfish', '1a1a2a', 'f04060', 120, [drop('light_gland', 1, 2)], sw(0.01, ['black_water']), True, {'swim': HUNT(18, 0.35), 'cap': 3}),
+               ('serpent', 'kraken_spawn', 'Kraken spawn', '5a2a4a', 'f08090', 400, [drop('squid', 4, 8), drop('kraken_ink', 2, 4), drop('abyssal_pearl', 0, 1)], sw(0.004, ['black_water']), True, {'swim': HUNT(24, 0.5), 'cap': 1, 'size': [3, 4]}), ('bird', 'bone_gull', 'Bone gull', 'c8c0d8', '80f0d0', 30, [drop('whale_bone', 0, 1), drop('gull_feather', 1, 3)], sky(0.01, ['black_water']), False, {}),
+               ('boar', 'island_pig', 'Pig', 'e0a8a0', 'c08078', 12, [drop('goat_meat', 2, 3)], on(['island_grass'], 0.12), False, {}), ('rabbit', 'ice_hare', 'Ice hare', 'f0f0f4', 'd0d0d8', 4, [drop('goat_meat', 1, 1), drop('bear_fur', 0, 1)], on(['pack_snow'], 0.12), False, {})]
+for kind, n, lab, body, accent, health, drops_, spawn, mean, kw in MORE_BEASTS: creature(kind, n, lab, body, accent, health, drops_, spawn, mean, **kw)
+
 # ---- coin, trade, and what is left in chests ------------------------------------------------------------------------------
 for n, lab, col in (('cowrie', 'Cowrie', c('f0d8c8')), ('silver_piece', 'Silver piece', c('d0d8e0')), ('gold_doubloon', 'Gold doubloon', GOLD)):
     (shell_pic(col) if n == 'cowrie' else P().disc(7.5, 8, 5, col).disc(7.5, 8, 3.4, dk(col, 0.85)).p(6, 6, WHITE).outline()).save('items', n); items.append({'name': n, 'label': lab, 'texture': 'items/%s.png' % n})
@@ -1112,7 +1202,7 @@ class Built:
             rows.append(text)
         assert len(rows) <= 20 and s.w <= 32, name
         structures.append({'name': name, 'rows': rows, 'legend': {k: clean({'front': v[0], 'back': v[1], 'wall': v[2]}) for k, v in legend.items()}}); return s.sunk
-def isle(name, wide, peak, sunk, top, body, core=None, veins=(), trees=(), things=(), room=8):
+def isle(name, wide, peak, sunk, top, body, core=None, veins=(), trees=(), things=(), room=8, vary=True):
     b = Built(wide, peak + room, sunk); g = rnd(name)
     for x in range(wide):
         f = math.sin(math.pi * (x + 0.5) / wide); high = round(peak * f); deep = max(1, round(sunk * f ** 0.6))
@@ -1123,6 +1213,12 @@ def isle(name, wide, peak, sunk, top, body, core=None, veins=(), trees=(), thing
             b.put(x, level, front=t)
     for x, kind, tall in trees: b.tree(x, kind, tall)
     for x, back in things: b.stand(x, back)
+    # (And the same again smaller, and bigger: the sea has more than one of everything.)
+    if vary:
+        for word, f, dp in (('little', 0.62, -1), ('great', 1.4, 1)):
+            w2, p2, s2 = max(5, round(wide * f)), max(0 if peak == 0 else 1, peak + dp), max(1, sunk + dp)
+            if w2 > 32 or p2 + room + s2 > 20 or len(word + '_' + name) > 31: continue
+            SUNK[word + '_' + name] = isle(word + '_' + name, w2, p2, s2, top, body, core, veins, [(min(w2 - 2, max(1, round(x * f))), k, t) for x, k, t in trees], [(min(w2 - 2, max(1, round(x * f))), bk) for x, bk in things], room, vary=False)
     return b.done(name)
 def hulk(name, long, free, deep, hull, deck_, inside=(), on_deck=(), masts=(), hatch='deck_hatch', mast='pole_mast'):
     """A ship: a shell of hull with a deck on it, dry inside, a hatch to get in by."""
@@ -1144,7 +1240,7 @@ def hulk(name, long, free, deep, hull, deck_, inside=(), on_deck=(), masts=(), h
         for k in range(1, tall + 1): b.put(x, free + k, back=mast)
     return b.done(name)
 SUNK = {}
-SUNK['drifting_wreckage'] = isle('drifting_wreckage', 6, 1, 1, 'wreck_planking', 'wreck_planking', things=[(3, 'washed_chest')], room=2)
+SUNK['drifting_wreckage'] = isle('drifting_wreckage', 6, 1, 1, 'wreck_planking', 'wreck_planking', things=[(3, 'washed_chest')], room=2, vary=False)
 SUNK['sandbar'] = isle('sandbar', 9, 1, 3, 'sand_bank', 'sand_bank', 'shore_rock', things=[(4, 'washed_chest')], room=2)
 SUNK['long_sandbar'] = isle('long_sandbar', 20, 2, 4, 'sand_bank', 'sand_bank', 'shore_rock', veins=[('clay_bank', 0.12)], trees=[(6, 'palm', 4), (14, 'palm', 5)])
 SUNK['palm_islet'] = isle('palm_islet', 16, 3, 5, 'island_grass', 'island_soil', 'shore_rock', trees=[(4, 'palm', 5), (8, 'palm', 4), (12, 'palm', 5)], things=[(6, 'flax_3'), (10, 'potato_3'), (7, 'washed_chest')])
@@ -1210,6 +1306,12 @@ seas += [
      'bed': bed(('manganese_nodule', 8, 3), ('coal', 6, 3), ('black_ore', 10, 4), ('abyssal_pearl', 3, 4), ('leviathan_scale', 2, 4), ('drowned_plate', 6, 3), ('light_gland', 4, 2)),
      'alongside': [A('drowned_ironclad', 'Drowned ironclad', 5, 4, 1), A('black_spire', 'Black spire', 5, 4), A('ghost_hulk', 'Ghost hulk', 4, 0, stay=1800), A('leviathan_boneyard', 'Leviathan boneyard', 3, 4, 2), A('black_market_hulk', 'Black market', 3, 3)]},
 ]
+
+for s_ in seas:
+    for a_ in list(s_['alongside']):
+        for word, dc in (('little', -1), ('great', 1)):
+            n_ = word + '_' + a_['structure']
+            if n_ in SUNK and len(s_['alongside']) < 30: s_['alongside'].append(dict(a_, structure=n_, label=word.capitalize() + ' ' + a_['label'].lower(), weight=max(1, a_['weight'] // 2), cable=max(0, a_['cable'] + dc), sunk=SUNK[n_]))
 
 # ---- checks: names, and how many makings deep each keel is --------------------------------------------------------------------
 names_i, names_t = {i['name'] for i in items}, {t['name'] for t in tiles}

@@ -350,3 +350,23 @@ NOT BUILT
      helm's menu open, a steel hull in the Black Water. Drift rates, what each sea asks, burden and weights,
      prices and creatures' strength are all guesses. The progression was walked on paper once for dead ends
      (three were found and taken out); it has not been walked in the game.
+
+AFTERWARDS (the owner: "Continue and finish.")
+   BUILT SINCE
+   - Q6, in part: what hunts bites through hull too weak for the sea she is in (`"holed"` on a block: its twin,
+     which is not hull and lets the sea in). Stronger hull is the answer, and pumps.
+   - Weather, in part: in rain the sea comes aboard over a deck lower than that sea runs.
+   - `"needs_under"`: a fire that is more than a cooking fire stands only on a hearth.
+   - More of everything: six paints, painted strakes, sails and pennants; bulkheads, deck beams and stanchions in
+     eight stuffs; a smokehouse; smoked and salted catch; thirteen more dishes; twenty-four comforts for a cabin;
+     bronze tools; three more outfits; a mortar, a quick-firer, a paddle wheel, sweeps, a stockless anchor, a
+     salvage crane, a turbine pump; twenty-two more creatures; a little and a great size of most things that
+     come alongside.
+   - A BUG THAT WOULD HAVE STOPPED THE GAME: nothing could be put down at all. The game plans in a copy of the
+     world, and the copy did not know where the ship's middle was, so every square was outside her room. The
+     first tests set blocks into the world directly and did not see it. There is a test through the game now.
+   SIZE NOW: 293 blocks, 617 items (59 caged creatures), 469 recipes, 59 creatures, 19 kinds of bench,
+   72 structures, 106 quests. Blocks, items and recipes are still short of the plan; creatures and structures meet it.
+   STILL NOT BUILT: sails torn in a gale; being driven back to a calmer sea; real draught; aimed guns and powder
+   used; ships under way and boarding; hands with posts; anything that works by her moving; fresh water as a
+   need; the Maelstrom (by the owner's word). STILL NEVER PLAYED.

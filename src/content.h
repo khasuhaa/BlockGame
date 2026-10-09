@@ -378,6 +378,11 @@ typedef struct {
     int keel_level, keel_long, keel_above, keel_below;
     bool catches, helm;
     int trawl;
+    /* "holed": what this piece of hull becomes when something bites through it - a block the sea comes in by.
+     * "needs_under": it is put down only on one of these (a forge on a hearth). */
+    TileType holed;
+    TileType needs_under[8];
+    int needs_under_count;
     int dungeon_spawn, gate_reach;
     char gate_beside[CONTENT_NAME_LEN];
     bool of_tree;    /* (worked out) part of a tree: its trunk or its leaves, or what either decays into */

@@ -14446,8 +14446,8 @@ static void test_hull_mod(void)
         return;
     }
     const WorldGenDef *gen = &content.worldgen;
-    CHECK(content.tile_count == 206 && content.item_count == 464 && content.recipe_count == 314 && content.mob_count == 37);
-    CHECK(gen->adrift && gen->sea_count == 6 && content.structure_count == 35 && strcmp(gen->seas[0].name, "slick") == 0 && gen->seas[5].dark);
+    CHECK(content.tile_count == 294 && content.item_count == 618 && content.recipe_count == 469 && content.mob_count == 59);
+    CHECK(gen->adrift && gen->sea_count == 6 && content.structure_count == 72 && strcmp(gen->seas[0].name, "slick") == 0 && gen->seas[5].dark);
     /* The shipwright's bench makes benches and blocks to trade at and nothing else; every creature can be caged;
      * every tab of the book is a tree. */
     for (int r = 0; r < content.recipe_count; r++) {
@@ -14490,6 +14490,9 @@ static void test_hull_mod(void)
     CHECK(world_build_allowed(w, mid, w->sea_row, bench) && !world_build_allowed(w, mid - 1, w->sea_row, engine));
     g.inventory.slots[0] = (ItemStack){ (uint16_t)item_id("lashed_driftwood"), 4, 0 };
     g.inventory.sel_slot = 0, g.inventory.sel_inner = -1;
+    /* (And through the game itself, which plans in a copy of the world: that copy has to know where her middle is.) */
+    CHECK(!game_queue_action(&g, ACTION_PLACE, mid + 30, water) && game_queue_action(&g, ACTION_PLACE, mid + 1, water));
+    game_cancel_actions(&g);
 
     /* Things adrift: they come from ahead a square at a time, go under her, and are gone astern. */
     for (int i = 0; i < MAX_DROPS; i++) g.drops[i].active = false;
@@ -14582,6 +14585,29 @@ static void test_hull_mod(void)
     for (int y = water - 12; y < water + 10; y++)
         for (int x = ax; x < ax + 12; x++) solid += world_is_solid(w, x, y);
     CHECK(solid == 1 && world_get(w, ax + 3, top - 1) == logs && world_is_water(w, ax + 1, water + 1));
+
+    /* A forge stands only on a hearth. */
+    CHECK(tile_def(tile_id("forge"))->needs_under_count > 0 && tile_def(tile_id("galley"))->needs_under_count == 0);
+    world_set_at(w, LAYER_FOREGROUND, mid + 1, water, tile_id("ballast_block"));
+    CHECK(!world_build_allowed(w, mid - 1, w->sea_row, tile_id("forge")) && world_build_allowed(w, mid + 1, w->sea_row, tile_id("forge")) && world_build_allowed(w, mid - 1, w->sea_row, tile_id("galley")));
+    /* What hunts bites through hull that is too weak for the sea she is in: the piece is holed, and is not hull. */
+    TileType plank = tile_id("plank_hull"), holed = tile_id("plank_hull_holed");
+    CHECK(tile_def(plank)->holed == holed && !tile_def(holed)->solid && tile_def(holed)->ship[SHIP_BURDEN] == 0 && tile_def(tile_id("steel_hull"))->holed != TILE_AIR);
+    world_set_at(w, LAYER_FOREGROUND, mid - 4, water + 1, plank);
+    int shark = mob_spawn(&g, mob_id("reef_shark"), mid - 5, water + 1, false, false);
+    bool bitten = false;
+    g.sea = 2; /* (plank is too weak for the Trade Wind) */
+    for (int t = 0; shark >= 0 && t < 4000 && !bitten; t++) {
+        g.mobs[shark].active = true;
+        g.mobs[shark].x = world_wrap_x(w, mid - 5), g.mobs[shark].y = water + 1;
+        g.tick += 20 - g.tick % 20;
+        ship_tick(&g);
+        bitten = world_get(w, mid - 4, water + 1) == holed;
+    }
+    CHECK(shark >= 0 && bitten);
+    if (shark >= 0) g.mobs[shark].active = false;
+    g.sea = 1;
+    world_set_at(w, LAYER_FOREGROUND, mid - 4, water + 1, TILE_AIR);
 
     /* A pot fishes the bed of the sea she is in. */
     world_set_at(w, LAYER_BACKGROUND, mid - 3, w->sea_row, tile_id("lobster_pot"));

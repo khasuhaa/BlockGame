@@ -158,7 +158,8 @@ bool world_grow_plant(World *w, int layer, int x, int y);
  * And takes whatever is in such a stretch away again, leaving sea and sky. */
 bool world_stamp(World *w, const char *structure, int x0, int base, int *width, int *height);
 void world_unstamp(World *w, int x0, int base, int width, int height);
-/* Whether a block may be put on a square, by the room the world's ship has (always, in a world with no such limit). */
+/* Whether a block may be put on a square: on what it needs under it, if it needs anything, and within the room
+ * the world's ship has, if the world has a ship. */
 bool world_build_allowed(const World *w, int x, int y, TileType tile);
 int world_structure(const World *w, int layer, int x, int y, int *bottom);
 
