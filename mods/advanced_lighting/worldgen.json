@@ -1,0 +1,6 @@
+{
+  "cave_decor": [
+    {"name": "glimmercap", "tile": "glimmercap", "per_100_columns": 7, "depth": [5, 185]},
+    {"name": "glimmer_moss", "tile": "glimmer_moss", "per_100_columns": 5, "depth": [5, 185]}
+  ]
+}

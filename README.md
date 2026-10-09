@@ -1176,6 +1176,10 @@ Quests are the world's, not a character's: whoever is being played does them and
 
 **Not built**: quests with more than one task; quests written by hand - they say what a thing is made from or where it is found, and no more; lines between branches (a thing made does not wait on the quests for what it is made of, only on its stage's head); zooming the page; a key for the book (it is the button).
 
+### Advanced Lighting
+
+Fifty blocks, forty-nine of them lights. A **hanging lantern**, a **wall sconce** and a **floor lamp** in each of the game's eight metals - copper and tin the dimmest, titanium and platinum as bright as light goes - from the metalwork bench. A **gem lamp** for each of the five gems. **Cloth lanterns** to hang, in white, red, green, yellow and blue. A **candle**, a **candelabra** and a hanging **candle ring**. A **brazier** and a stone **fire bowl**, which burn fuel and are dark without it, and a **standing torch**. **Floodlights** that throw a beam up or down, and a **beacon** that does the same. A **street lamp** and the **lamp post** it stands on, and **lit glass**, a block that glows. In the caves of a new world **glimmercaps** and **glimmer moss** grow, which glow where they are and can be put in a jar for a lamp. Forty quests. 50 blocks, 50 items, 48 recipes. Looked at once in a screenshot, at night; not played.
+
 ### QOL Utils
 
 A small mod of handy things, with no quests of its own. **Scaffolding** (climbed, and taken down at a touch) and a **rope ladder** from the woodwork bench; a **stacking crate** (sixteen slots) and a **pack basket** (sixteen slots, opened where it is carried); a **bright lantern** from the craft bench; a **bedroll** from the tailor's. Five **charms** for the relic slots - magnet (what is dropped comes to you from four squares), swift, diver, miner and maker - which give characters relic slots whether or not Discovery Road is on. And two rules: what is dropped lies three times as long, and is picked up sooner. 5 blocks, 11 items, 11 recipes.

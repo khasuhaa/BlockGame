@@ -300,14 +300,19 @@ def own_book(d):
     quests are about the game's things, which this tool would not count as the mod's). One that says "utility" has no book."""
     f = os.path.join(d, 'mod.json')
     return os.path.exists(f) and bool(json.load(open(f)).get('standalone') or json.load(open(f)).get('own_quests') or json.load(open(f)).get('utility'))
-# A tab's place in the book is its mod's place among the mods this tool writes for (and the questbook, which has always
-# been counted): a mod that writes its own book takes no place, so that adding one does not move everybody after it.
-n = -1
-for mod_id in sorted(os.listdir(mods)):
-    d = os.path.join(mods, mod_id)
-    if own_book(d): continue
-    n += 1
-    if mod_id == 'questbook' or not os.path.isdir(d): continue
+# A tab's place in the book is kept: a mod that has a book already keeps the place written in it, and a new one
+# takes the next place after the last. (It used to be the mod's place in the list of mods, so that adding a mod
+# moved the tab of every mod after it.)
+def place_of(d):
+    f = os.path.join(d, 'quests.json')
+    try: return json.load(open(f))['tabs'][0]['order']
+    except Exception: return None
+dirs = [(m, os.path.join(mods, m)) for m in sorted(os.listdir(mods)) if m != 'questbook' and os.path.isdir(os.path.join(mods, m)) and not own_book(os.path.join(mods, m))]
+taken = [place_of(d) for _, d in dirs if place_of(d) is not None]
+for mod_id, d in dirs:
+    n = place_of(d)
+    if n is None: n = max(taken + [9]) + 1; taken.append(n)
+    n -= 10
     k = write(d, mod_id, 10 + n); total += k; print('%s: %d' % (mod_id, k))
 book = os.path.join(mods, 'questbook'); os.makedirs(book, exist_ok=True)
 json.dump({'questbook': True}, open(os.path.join(book, 'rules.json'), 'w'), indent=1)

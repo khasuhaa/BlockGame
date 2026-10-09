@@ -14411,6 +14411,53 @@ static void test_alchemie_mod(void)
     }
 }
 
+/* Advanced Lighting: some fifty lights, and two things that glow in caves. */
+static void test_lighting_mod(void)
+{
+    char err[256], what[64];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err));
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count, decor = content.decor_count;
+    if (!content_load("mods/advanced_lighting", err, sizeof err)) {
+        printf("FAIL advanced lighting does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    CHECK(content.tile_count - tiles == 50 && content.item_count - items == 50 && content.recipe_count - recipes == 48 && content.decor_count - decor == 2);
+    int lit = 0, hung = 0, beams = 0, fuelled = 0;
+    for (TileType t = (TileType)tiles; t < content.tile_count; t++) {
+        const TileDef *def = tile_def(t);
+        lit += def->light > 0;
+        hung += def->hangs;
+        beams += def->beam_light > 0;
+        fuelled += def->light_needs_fuel;
+        /* (Everything of it is a light, but the post a lamp stands on.) */
+        CHECK(def->light > 0 || def->supports);
+    }
+    CHECK(lit == 49 && hung == 14 && beams == 3 && fuelled == 2);
+    CHECK(tile_def(tile_id("platinum_floor_lamp"))->light == 15 && tile_def(tile_id("copper_wall_sconce"))->light == 9 && tile_def(tile_id("lit_glass_block"))->solid && tile_def(tile_id("glimmercap"))->light == 7);
+    for (int r = recipes; r < content.recipe_count; r++) CHECK(strcmp(content.recipes[r].bench, "workbench") != 0);
+    for (ItemId i = (ItemId)items; i < content.item_count; i++) CHECK(item_def(i)->category >= 0 && item_def(i)->price >= 10);
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/settest/saves");
+    const ModInfo *mine = NULL;
+    for (int i = 0; i < mods.count; i++)
+        if (strcmp(mods.mods[i].id, "advanced_lighting") == 0) mine = &mods.mods[i];
+    CHECK(mine != NULL);
+    for (int i = 0; mine && i < mods.count; i++)
+        if (&mods.mods[i] != mine) CHECK(!mods_conflict(mine, &mods.mods[i], what, sizeof what));
+    /* A new world has them growing in its caves. */
+    static Game g;
+    CHECK(game_init(&g, 2048, content.worldgen.height, 31337, WORLD_TERRAIN));
+    int caps = 0;
+    for (int y = 0; y < g.world.height; y++)
+        for (int x = 0; x < g.world.width; x++) caps += world_get(&g.world, x, y) == tile_id("glimmercap") || world_get_at(&g.world, LAYER_BACKGROUND, x, y) == tile_id("glimmercap");
+    CHECK(caps > 20);
+    game_free(&g);
+    content_reset();
+    CHECK(content_load("data", err, sizeof err) && content.tile_count == tiles);
+}
+
 /* QOL Utils and Graphics Quality: two small mods with no book of quests. */
 static void test_utility_mods(void)
 {
@@ -14903,6 +14950,7 @@ int main(void)
     test_plunder_mod();
     test_dungeoneering_mod();
     test_questbook();
+    test_lighting_mod();
     test_utility_mods();
     test_skyblock_mod();
     test_hull_mod();
