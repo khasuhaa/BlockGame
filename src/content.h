@@ -29,6 +29,8 @@
 #define MAX_STRUCTURES 128
 #define MAX_SEAS 16
 #define MAX_DISASTERS 16
+/* What a post's worker does ("work": {"kind"} on a block that stores things; see workers.h). */
+enum { POST_NONE, POST_MINE, POST_FARM, POST_LUMBER, POST_BREED, POST_FISH, POST_GATHER, POST_GUARD };
 #define MAX_SEA_DRIFT 64
 #define MAX_SEA_ALONGSIDE 32
 /* What a block adds to the ship it is part of ("ship" on a block): what the hull will bear and what is aboard, sail
@@ -382,6 +384,18 @@ typedef struct {
     /* "holed": what this piece of hull becomes when something bites through it - a block the sea comes in by.
      * "needs_under": it is put down only on one of these (a forge on a hearth). */
     TileType holed;
+    /* "work": a post - the kind of work, how far it reaches, how many ticks between one piece of work and the next,
+     * the creature shown doing it, the block a miner ladders its shaft with, how big a flock a breeder lets grow,
+     * and what a fisher catches. "work_marker": it marks the end of a farmer's patch. */
+    int work_kind, work_reach, work_ticks, work_flock;
+    TileType work_ladder;
+    char work_mob[CONTENT_NAME_LEN];
+    struct {
+        ItemId item;
+        int weight;
+    } work_catch[8];
+    int work_catch_count;
+    bool work_marker;
     int wards;  /* "wards": a bolt that would strike within so many columns of it strikes it instead, and does nothing */
     int spring; /* "spring": shut in by a block either side and one under it, it fills with water by itself (a chance in so many of the random events it gets; 1 for every one) */
     TileType needs_under[8];
@@ -583,6 +597,7 @@ typedef struct {
     bool natal;        /* "natal": worn, it gives more the further its wearer has got past the stage it needs */
     float flight_qi;   /* "flight_qi": what holding its wearer up costs them a tick, off the ground */
     int technique_element; /* "technique": {"element"}: 0 to 4, or -1 */
+    bool hires;        /* "hires": in a post's chest, there is somebody to do the post's work */
     int hook;          /* "hook": in hand, something adrift this near is hauled in by a click on it */
     bool cast_blink;   /* "cast": {"blink"}: the caster is there */
     bool cages;        /* used on a creature of the land, it takes it up: the item that creature is when caged */
@@ -1400,6 +1415,7 @@ typedef struct {
      * data and each mod that is on), and how much of each thing it does. With no shader the world is drawn as it was. */
     DisasterDef disasters[MAX_DISASTERS]; /* "disasters": {"period_ticks", "list"}: each is looked at once a period */
     int disaster_count, disaster_period;
+    int worker_meal_steps; /* "workers": {"meal_steps"}: a worker eats something out of the chest every so many pieces of work; 0 for never */
     char gfx_shader[CONTENT_PATH_LEN];
     float gfx_bloom, gfx_vignette, gfx_saturation, gfx_contrast, gfx_warmth;
     bool questbook;        /* "questbook": quests are kept track of, and there is a book of them */
@@ -1477,6 +1493,7 @@ typedef struct {
     bool spawn_cave;    /* it turns up only under ground: where there is backwall behind it */
     int spawn_time;     /* 0 at any time; 1 only by day; 2 only by night */
     bool spawn_water;   /* it turns up in water */
+    bool worker;        /* "worker": it is a post's worker - shown where the work is, and gone when the post is */
     unsigned spawn_seas; /* "spawn": {"seas"}: only while the ship is in one of these seas (a bit each); 0 for any */
     int spawn_biomes[MAX_MOB_BIOMES]; /* the only biomes it turns up in; anywhere, if none are named */
     int spawn_biome_count;
@@ -1611,6 +1628,7 @@ typedef struct {
     int set_count;
     PoolDef pools[MAX_POOLS];
     int pool_count;
+    bool has_workers; /* some block is a post */
     bool has_relics; /* some item is a relic: characters have somewhere to carry them */
     TradeDef trade;
 } Content;

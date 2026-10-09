@@ -407,6 +407,26 @@ static bool read_tiles(Reader *r, const cJSON *root)
                 if (!tile_ref(r, e, "holed", &t->holed)) return false;
                 t->spring = (int)num(e, "spring", 0);
                 t->wards = (int)num(e, "wards", 0);
+                {
+                    static const char *const kinds[] = { "", "mine", "farm", "lumber", "breed", "fish", "gather", "guard" };
+                    const cJSON *work = field(e, "work"), *one;
+                    const char *kind = str(work, "kind");
+                    t->work_kind = POST_NONE;
+                    for (int k = 1; kind && k < 8; k++)
+                        if (strcmp(kind, kinds[k]) == 0) t->work_kind = k;
+                    if (work && t->work_kind == POST_NONE) return fail(r, "tile \"%s\": \"work\" needs a \"kind\" there is", t->name);
+                    t->work_reach = (int)num(work, "reach", 12), t->work_ticks = (int)num(work, "ticks", 40), t->work_flock = (int)num(work, "flock", 6);
+                    copy_name(t->work_mob, sizeof t->work_mob, str(work, "mob"));
+                    if (!tile_ref(r, work, "ladder", &t->work_ladder)) return false;
+                    t->work_catch_count = 0;
+                    cJSON_ArrayForEach(one, field(work, "catch")) {
+                        if (t->work_catch_count >= 8 || !item_ref(r, one, "item", &t->work_catch[t->work_catch_count].item)) return fail(r, "tile \"%s\": a post catches at most 8 things that exist", t->name);
+                        t->work_catch[t->work_catch_count++].weight = (int)num(one, "weight", 1);
+                    }
+                    if (work && (t->work_ticks < 10 || t->work_reach < 1)) return fail(r, "tile \"%s\": a post works every 10 ticks or slower, and reaches a square or more", t->name);
+                    if (t->work_kind != POST_NONE) content.has_workers = true;
+                    t->work_marker = flag(e, "work_marker", false);
+                }
                 const cJSON *under;
                 t->needs_under_count = 0;
                 cJSON_ArrayForEach(under, field(e, "needs_under")) {
@@ -828,6 +848,7 @@ static bool read_items(Reader *r, const cJSON *root)
         it->cast_hold = (int)num(cast, "hold", 0);
         it->cast_blink = flag(cast, "blink", false);
         it->hook = (int)num(e, "hook", 0);
+        it->hires = flag(e, "hires", false);
         const char *sky = str(cast, "weather");
         it->cast_weather = !sky ? 0 : strcmp(sky, "rain") == 0 ? 1 : 2;
         it->cast_weather_ticks = (int)num(cast, "weather_ticks", 0);
@@ -2222,6 +2243,7 @@ static bool read_rules(Reader *r, const cJSON *root)
             if (def->every < 1 || def->reach < 1 || def->depth_max < def->depth_min) return fail(r, "disaster \"%s\": it strikes every tick or slower, within a column or more, and its \"depth\" is a range", dn);
         }
     }
+    if (field(root, "workers")) u->worker_meal_steps = (int)num(field(root, "workers"), "meal_steps", 0);
     {
         const cJSON *gfx = field(root, "graphics");
         if (gfx) {
@@ -2391,6 +2413,7 @@ static bool read_mobs(Reader *r, const cJSON *root)
         m->hunts = flag(swim, "hunts", false);
         m->sight = (int)num(swim, "sight", 12);
         m->spawn_water = flag(field(e, "spawn"), "water", false);
+        m->worker = flag(e, "worker", false);
         {
             const cJSON *sea;
             m->spawn_seas = 0;

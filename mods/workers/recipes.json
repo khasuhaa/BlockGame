@@ -1,0 +1,14 @@
+{
+  "recipes": [
+    {"bench": "woodwork_bench", "output": {"item": "miner_post", "count": 1}, "inputs": [{"item": "wood", "count": 4}, {"item": "stone", "count": 4}], "time": 80},
+    {"bench": "woodwork_bench", "output": {"item": "farmer_post", "count": 1}, "inputs": [{"item": "wood", "count": 4}, {"item": "wheat", "count": 4}], "time": 80},
+    {"bench": "woodwork_bench", "output": {"item": "lumberjack_post", "count": 1}, "inputs": [{"item": "wood", "count": 8}], "time": 80},
+    {"bench": "woodwork_bench", "output": {"item": "breeder_post", "count": 1}, "inputs": [{"item": "wood", "count": 4}, {"item": "feather", "count": 4}], "time": 80},
+    {"bench": "woodwork_bench", "output": {"item": "fisher_post", "count": 1}, "inputs": [{"item": "wood", "count": 4}, {"item": "string", "count": 4}], "time": 80},
+    {"bench": "woodwork_bench", "output": {"item": "gatherer_post", "count": 1}, "inputs": [{"item": "wood", "count": 4}, {"item": "basket", "count": 1}], "time": 80},
+    {"bench": "woodwork_bench", "output": {"item": "guard_post", "count": 1}, "inputs": [{"item": "wood", "count": 4}, {"item": "iron_ingot", "count": 2}], "time": 80},
+    {"bench": "woodwork_bench", "output": {"item": "mine_ladder", "count": 3}, "inputs": [{"item": "stick", "count": 3}], "time": 80},
+    {"bench": "woodwork_bench", "output": {"item": "boundary_stake", "count": 2}, "inputs": [{"item": "stick", "count": 2}], "time": 80},
+    {"bench": "craft_bench", "output": {"item": "hired_hand", "count": 1}, "inputs": [{"item": "bread", "count": 3}, {"item": "linen_shirt", "count": 1}], "time": 80}
+  ]
+}

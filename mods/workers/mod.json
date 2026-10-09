@@ -1,0 +1,6 @@
+{
+ "label": "Workers",
+ "icon": "icon.png",
+ "utility": true,
+ "description": "Posts with workers: a miner who strip-mines from a laddered shaft, a farmer for a staked patch, a lumberjack, a dodo breeder, a fisher, a gatherer and a guard. Each works out of its post's chest once a hired hand is put in it."
+}

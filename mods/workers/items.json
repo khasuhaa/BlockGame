@@ -1,0 +1,21 @@
+{
+  "items": [
+    {"name": "miner_post", "label": "Miner's post", "places": "miner_post", "texture": "items/miner_post.png", "category": "crafted", "price": 300, "tier": 2, "container": {"slots": 12}},
+    {"name": "farmer_post", "label": "Farmer's post", "places": "farmer_post", "texture": "items/farmer_post.png", "category": "crafted", "price": 300, "tier": 2, "container": {"slots": 12}},
+    {"name": "lumberjack_post", "label": "Lumberjack's post", "places": "lumberjack_post", "texture": "items/lumberjack_post.png", "category": "crafted", "price": 300, "tier": 2, "container": {"slots": 12}},
+    {"name": "breeder_post", "label": "Dodo breeder's post", "places": "breeder_post", "texture": "items/breeder_post.png", "category": "crafted", "price": 300, "tier": 2, "container": {"slots": 12}},
+    {"name": "fisher_post", "label": "Fisher's post", "places": "fisher_post", "texture": "items/fisher_post.png", "category": "crafted", "price": 300, "tier": 2, "container": {"slots": 12}},
+    {"name": "gatherer_post", "label": "Gatherer's post", "places": "gatherer_post", "texture": "items/gatherer_post.png", "category": "crafted", "price": 300, "tier": 2, "container": {"slots": 12}},
+    {"name": "guard_post", "label": "Guard's post", "places": "guard_post", "texture": "items/guard_post.png", "category": "crafted", "price": 300, "tier": 2, "container": {"slots": 12}},
+    {"name": "mine_ladder", "label": "Mine ladder", "places": "mine_ladder", "texture": "items/mine_ladder.png", "category": "crafted", "price": 10, "tier": 1},
+    {"name": "boundary_stake", "label": "Boundary stake", "places": "boundary_stake", "texture": "items/boundary_stake.png", "category": "crafted", "price": 10, "tier": 1},
+    {"name": "hired_hand", "label": "Hired hand", "texture": "items/hired_hand.png", "category": "crafted", "price": 900, "tier": 3, "hires": true, "max_stack": 1},
+    {"name": "caged_hired_miner", "label": "Caged miner", "texture": "items/caged_hired_miner.png", "category": "creatures", "max_stack": 1, "price": 3000},
+    {"name": "caged_hired_farmer", "label": "Caged farmer", "texture": "items/caged_hired_farmer.png", "category": "creatures", "max_stack": 1, "price": 3000},
+    {"name": "caged_hired_lumberjack", "label": "Caged lumberjack", "texture": "items/caged_hired_lumberjack.png", "category": "creatures", "max_stack": 1, "price": 3000},
+    {"name": "caged_hired_breeder", "label": "Caged dodo breeder", "texture": "items/caged_hired_breeder.png", "category": "creatures", "max_stack": 1, "price": 3000},
+    {"name": "caged_hired_fisher", "label": "Caged fisher", "texture": "items/caged_hired_fisher.png", "category": "creatures", "max_stack": 1, "price": 3000},
+    {"name": "caged_hired_gatherer", "label": "Caged gatherer", "texture": "items/caged_hired_gatherer.png", "category": "creatures", "max_stack": 1, "price": 3000},
+    {"name": "caged_hired_guard", "label": "Caged guard", "texture": "items/caged_hired_guard.png", "category": "creatures", "max_stack": 1, "price": 3000}
+  ]
+}

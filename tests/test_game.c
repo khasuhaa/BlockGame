@@ -3,6 +3,7 @@
 #include "../src/game.h"
 #include "../src/ship.h"
 #include "../src/disaster.h"
+#include "../src/workers.h"
 #include "../src/water.h"
 #include "../src/guide.h"
 #include "../src/industry.h"
@@ -14413,6 +14414,144 @@ static void test_alchemie_mod(void)
     }
 }
 
+/* Workers: posts whose workers do a job out of the post's chest. */
+static Storage *post_at(Game *g, int x, int y)
+{
+    for (int i = 0; i < MAX_STORAGES; i++)
+        if (g->storages[i].used && g->storages[i].x == x && g->storages[i].y == y) return &g->storages[i];
+    return NULL;
+}
+
+static int post_has(Game *g, int x, int y, ItemId item)
+{
+    Storage *st = post_at(g, x, y);
+    int n = 0;
+    for (int i = 0; st && st->container && i < CONTAINER_MAX_SLOTS; i++)
+        if (g->inventory.containers[st->container].slots[i].id == item) n += g->inventory.containers[st->container].slots[i].count;
+    return n;
+}
+
+static void post_work(Game *g, int steps)
+{
+    for (int t = 0; t < steps; t++) {
+        g->tick += 10 - g->tick % 10;
+        workers_tick(g);
+    }
+}
+
+static void test_workers_mod(void)
+{
+    char err[256], what[64];
+    content_reset();
+    CHECK(content_load("data", err, sizeof err) && !content.has_workers);
+    int tiles = content.tile_count, items = content.item_count, recipes = content.recipe_count, mobs = content.mob_count;
+    if (!content_load("mods/workers", err, sizeof err)) {
+        printf("FAIL workers does not load: %s\n", err);
+        failures++;
+        return;
+    }
+    CHECK(content.tile_count - tiles == 9 && content.item_count - items == 17 && content.recipe_count - recipes == 10 && content.mob_count - mobs == 7 && content.has_workers && content.rules.worker_meal_steps == 60);
+    for (int k = mobs; k < content.mob_count; k++) CHECK(content.mobs[k].worker && content.mobs[k].caged != ITEM_NONE && content.mobs[k].model_part_count > 0);
+    for (int r = recipes; r < content.recipe_count; r++) CHECK(strcmp(content.recipes[r].bench, "workbench") != 0);
+    ItemId hand = item_id("hired_hand"), bread = item_id("bread"), soil_item = tile_def(content.worldgen.soil)->drop, spade = ITEM_NONE;
+    for (ItemId i = 1; i < content.item_count && spade == ITEM_NONE; i++)
+        if (item_def(i)->tool_class >= 0 && item_def(i)->tool_class == tile_def(content.worldgen.soil)->tool_class) spade = i;
+    CHECK(hand > 0 && item_def(hand)->hires && bread > 0 && spade != ITEM_NONE && soil_item != ITEM_NONE);
+
+    static Game g;
+    CHECK(game_init(&g, 256, 200, 5150, WORLD_FLAT));
+    World *w = &g.world;
+    int px = g.player.feet.x, row = g.player.feet.y, ground = w->surface_y;
+    CHECK(row == ground - 1);
+    /* The miner. With nobody hired the post does nothing; hired and fed, it sinks a laddered shaft beside itself
+     * and drives a tunnel two high from it as far as it reaches, then goes two further down and does it again. */
+    int mx = px + 4, sx = mx + 1;
+    world_set_at(w, LAYER_BACKGROUND, mx, row, tile_id("miner_post"));
+    CHECK(game_store_at(&g, mx, row, spade));
+    post_work(&g, 60);
+    CHECK(game_worker_state(&g, mx, row) == 0 && world_is_solid(w, sx, ground));
+    CHECK(game_store_at(&g, mx, row, hand));
+    for (int k = 0; k < 40; k++) CHECK(game_store_at(&g, mx, row, bread));
+    post_work(&g, 3 * 20);
+    CHECK(game_worker_state(&g, mx, row) == 1 && !world_is_solid(w, sx, ground) && world_get_at(w, LAYER_BACKGROUND, sx, ground) == tile_id("mine_ladder"));
+    int workers = 0, miner = -1;
+    for (int i = 0; i < MAX_MOBS; i++)
+        if (g.mobs[i].active && content.mobs[g.mobs[i].kind].worker) workers++, miner = i;
+    CHECK(workers == 1 && miner >= 0 && strcmp(content.mobs[g.mobs[miner].kind].name, "hired_miner") == 0 && g.mobs[miner].owned);
+    post_work(&g, 3 * 400);
+    int top = row + 3, far = sx + tile_def(tile_id("miner_post"))->work_reach;
+    CHECK(tile_def(tile_id("miner_post"))->work_reach == 48 && !world_is_solid(w, sx + 1, top) && !world_is_solid(w, sx + 1, top + 1) && !world_is_solid(w, far, top) && !world_is_solid(w, far, top + 1));
+    /* (No further than it reaches, the floor of the top level's neighbour left alone, and the ground over it whole.) */
+    CHECK(world_is_solid(w, far + 1, top) && world_is_solid(w, sx + 5, top - 1) && world_is_solid(w, sx + 5, ground));
+    /* (Down the shaft there is a ladder all the way: a way back.) */
+    int deepest = ground;
+    while (!world_is_solid(w, sx, deepest + 1)) deepest++;
+    bool laddered = true;
+    for (int y = ground; y <= deepest; y++) laddered = laddered && world_get_at(w, LAYER_BACKGROUND, sx, y) == tile_id("mine_ladder");
+    CHECK(deepest >= top + 3 && laddered && post_has(&g, mx, row, soil_item) > 0 && post_has(&g, mx, row, bread) < 40);
+    /* Let go, the worker is gone and the post is still. */
+    Storage *mine_post = post_at(&g, mx, row);
+    for (int i = 0; mine_post && i < CONTAINER_MAX_SLOTS; i++)
+        if (g.inventory.containers[mine_post->container].slots[i].id == hand) g.inventory.containers[mine_post->container].slots[i] = (ItemStack){ 0 };
+    post_work(&g, 6);
+    workers = 0;
+    for (int i = 0; i < MAX_MOBS; i++) workers += g.mobs[i].active && content.mobs[g.mobs[i].kind].worker;
+    CHECK(workers == 0 && game_worker_state(&g, mx, row) == 0);
+
+    /* The farmer: sows the patch between its stakes from the chest, reaps what is ripe, and sows again. */
+    int fx = px - 8;
+    ItemId wheat = item_id("wheat");
+    TileType sown = item_def(wheat)->sows, ripe = sown;
+    while (tile_def(ripe)->grows_into != TILE_AIR) ripe = tile_def(ripe)->grows_into;
+    world_set_at(w, LAYER_BACKGROUND, fx, row, tile_id("farmer_post"));
+    world_set_at(w, LAYER_BACKGROUND, fx - 3, row, tile_id("boundary_stake"));
+    world_set_at(w, LAYER_BACKGROUND, fx + 3, row, tile_id("boundary_stake"));
+    CHECK(sown != TILE_AIR && ripe != sown && game_store_at(&g, fx, row, hand));
+    for (int k = 0; k < 8; k++) CHECK(game_store_at(&g, fx, row, wheat) && game_store_at(&g, fx, row, bread));
+    post_work(&g, 3 * 12);
+    int planted = 0, outside = 0;
+    for (int dx = -6; dx <= 6; dx++) {
+        bool crop = world_get_at(w, LAYER_BACKGROUND, fx + dx, row) == sown;
+        planted += crop && abs(dx) <= 2;
+        outside += crop && abs(dx) > 2;
+    }
+    CHECK(planted == 4 && outside == 0 && post_has(&g, fx, row, wheat) == 4 && game_worker_state(&g, fx, row) == 3);
+    for (int dx = -2; dx <= 2; dx++)
+        if (dx != 0) world_set_at(w, LAYER_BACKGROUND, fx + dx, row, ripe);
+    post_work(&g, 3 * 20);
+    planted = 0;
+    for (int dx = -2; dx <= 2; dx++) planted += world_get_at(w, LAYER_BACKGROUND, fx + dx, row) == sown;
+    CHECK(planted == 4 && post_has(&g, fx, row, wheat) >= 4);
+
+    /* The gatherer brings in what lies about; and a post with nothing to eat stops. */
+    int gx = px - 30;
+    world_set_at(w, LAYER_BACKGROUND, gx, row, tile_id("gatherer_post"));
+    CHECK(game_store_at(&g, gx, row, hand));
+    for (int k = 0; k < 70; k++) game_drop_item(&g, item_id("stick"), gx + 2 + k % 9, row);
+    post_work(&g, 2 * 4);
+    CHECK(post_has(&g, gx, row, item_id("stick")) == 70 && game_worker_state(&g, gx, row) == 3);
+    /* (A meal is due after sixty pieces of work: with none in the chest the post stops until there is.) */
+    post_at(&g, gx, row)->recipe = 60;
+    game_drop_item(&g, item_id("stick"), gx + 3, row);
+    post_work(&g, 2 * 4);
+    CHECK(post_has(&g, gx, row, item_id("stick")) == 70 && game_worker_state(&g, gx, row) == 2);
+    CHECK(game_store_at(&g, gx, row, bread));
+    post_work(&g, 2 * 4);
+    CHECK(post_has(&g, gx, row, item_id("stick")) == 71 && post_has(&g, gx, row, bread) == 0);
+    game_free(&g);
+
+    static ModList mods;
+    mods_scan(&mods, MODS_DIR, "build/settest/saves");
+    const ModInfo *mine = NULL;
+    for (int i = 0; i < mods.count; i++)
+        if (strcmp(mods.mods[i].id, "workers") == 0) mine = &mods.mods[i];
+    CHECK(mine != NULL && mine->utility);
+    for (int i = 0; mine && i < mods.count; i++)
+        if (&mods.mods[i] != mine) CHECK(!mods_conflict(mine, &mods.mods[i], what, sizeof what));
+    content_reset();
+    CHECK(content_load("data", err, sizeof err) && content.tile_count == tiles);
+}
+
 /* Natural Disasters: what the rules say happens now and then, and what stands against it. */
 static int tiles_of(const Game *g, TileType t)
 {
@@ -15054,6 +15193,7 @@ int main(void)
     test_plunder_mod();
     test_dungeoneering_mod();
     test_questbook();
+    test_workers_mod();
     test_disasters_mod();
     test_lighting_mod();
     test_utility_mods();

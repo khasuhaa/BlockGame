@@ -1176,6 +1176,20 @@ Quests are the world's, not a character's: whoever is being played does them and
 
 **Not built**: quests with more than one task; quests written by hand - they say what a thing is made from or where it is found, and no more; lines between branches (a thing made does not wait on the quests for what it is made of, only on its stage's head); zooming the page; a key for the book (it is the button).
 
+### Workers
+
+Seven **posts**, made at the woodwork bench. A post is a chest of twelve slots with a job. Put a **hired hand** in it (made at the craft bench from bread and a shirt) and a worker appears and does the job, out of that chest and into it. A worker eats one thing from the chest for every sixty pieces of work; with nothing to eat the worker stands by the post until there is. Take the hired hand out and the worker goes.
+
+- **Miner.** Give the post tools: the miner digs only what a tool in the chest is for. A shaft goes down in the square to the right of the post, with a **mine ladder** put in every square of it, so there is always a way back. Three squares under the post a tunnel two high is driven to the right, as far as 48 squares or the first block the tools will not dig. Then the shaft goes two further down and another tunnel is driven, and so on. What is dug goes into the chest (what there is no room for is left lying). At the bottom of the world the miner comes back and stands by the post.
+- **Farmer.** Put a **boundary stake** on the post's level to either side, within sixteen squares: the patch is the ground between the post and the furthest stake each way. What is ripe there is reaped into the chest, and what is bare is sown with the first thing in the chest that will grow on that ground.
+- **Lumberjack.** With an axe in the chest: trees within sixteen squares that have three of trunk or more are cut at the foot, and what falls is brought in. Nothing is replanted.
+- **Dodo breeder.** Eggs laid within ten squares are left to hatch until there are six creatures about, and gathered into the chest after that; feathers and whatever else lies about are brought in too.
+- **Fisher.** With water within eight squares, a fish (or now and then kelp) every so often.
+- **Gatherer.** Whatever lies dropped within fourteen squares is brought in.
+- **Guard.** Whatever stings, strikes or hunts within twelve squares is struck with the best weapon in the chest.
+
+9 blocks, 17 items (7 of them the workers, caged), 10 recipes, no quests. The miner, the farmer, the gatherer and the meals are tested in the rules; the lumberjack, breeder, fisher and guard are written and not tested. None of it has been seen on the screen or played: workers are put where their work is, not walked there, and how fast they work is a guess.
+
 ### Natural Disasters
 
 Now and then something happens. Every 300 ticks each disaster has a small chance of beginning; while one is going on its name is shown at the top of the screen, and every so often it strikes somewhere within reach of a character:
