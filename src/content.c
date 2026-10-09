@@ -392,6 +392,19 @@ static bool read_tiles(Reader *r, const cJSON *root)
                 t->dungeon_exit = flag(e, "dungeon_exit", false);
                 t->dungeon_spawn = (int)num(e, "dungeon_spawn", 0);
             }
+            {
+                static const char *const stats[SHIP_STATS] = { "burden", "weight", "sail", "thrust", "strength", "reach", "depth", "cable", "light", "pump", "guns" };
+                const cJSON *ship = field(e, "ship"), *keel = field(e, "keel");
+                for (int k = 0; k < SHIP_STATS; k++) t->ship[k] = (int)num(ship, stats[k], 0);
+                t->keel_level = (int)num(keel, "level", 0);
+                t->keel_long = (int)num(keel, "long", 0);
+                t->keel_above = (int)num(keel, "above", 0);
+                t->keel_below = (int)num(keel, "below", 0);
+                if (keel && (t->keel_level < 1 || t->keel_long < 2)) return fail(r, "tile \"%s\": a \"keel\" has a \"level\" of 1 or more and is 2 or more \"long\"", t->name);
+                t->catches = flag(e, "catches", false);
+                t->helm = flag(e, "helm", false);
+                t->trawl = (int)num(e, "trawl", 0);
+            }
             t->rocket_fuel = (int)num(field(e, "rocket"), "fuel", 0);
             t->rocket_thrust = (int)num(field(e, "rocket"), "thrust", 0);
             t->rocket_reliability = (float)num(field(e, "rocket"), "reliability", 1.0);
@@ -805,6 +818,7 @@ static bool read_items(Reader *r, const cJSON *root)
         it->cast_drain = (int)num(cast, "drain", 0);
         it->cast_hold = (int)num(cast, "hold", 0);
         it->cast_blink = flag(cast, "blink", false);
+        it->hook = (int)num(e, "hook", 0);
         const char *sky = str(cast, "weather");
         it->cast_weather = !sky ? 0 : strcmp(sky, "rain") == 0 ? 1 : 2;
         it->cast_weather_ticks = (int)num(cast, "weather_ticks", 0);
@@ -1220,6 +1234,72 @@ static bool read_worldgen(Reader *r, const cJSON *root)
                 copy_name(g->isle_biomes[g->isle_biome_count++], CONTENT_NAME_LEN, one->valuestring);
             }
             if (g->isle_gap_min < 4 || g->isle_min < 6 || g->isle_max < g->isle_min || g->sea_depth_min < 2) return fail(r, "\"ocean\": islands are 6 or more long, 4 or more apart, in a sea 2 or more deep");
+        }
+    }
+    {
+        static const char *const needs[SEA_NEEDS] = { "keel", "way", "freeboard", "strength", "cable", "depth", "light", "guns", "reach" };
+        const cJSON *adrift = field(root, "adrift"), *e, *one;
+        if (adrift) {
+            g->adrift = true;
+            g->adrift_waterline = (int)num(adrift, "waterline", 60);
+            g->drift_ticks = (int)num(adrift, "drift_ticks", 12);
+            g->drift_ahead = (int)num(adrift, "ahead", 40);
+            g->keel_long = (int)num(field(adrift, "keel"), "long", 10);
+            g->keel_above = (int)num(field(adrift, "keel"), "above", 3);
+            g->keel_below = (int)num(field(adrift, "keel"), "below", 1);
+            copy_name(g->adrift_start, CONTENT_NAME_LEN, str(adrift, "start"));
+            if (g->drift_ticks < 2 || g->drift_ahead < 4 || g->keel_long < 2) return fail(r, "\"adrift\": things take 2 ticks or more a square, appear 4 or more ahead, and the ship is 2 or more long");
+        }
+        cJSON_ArrayForEach(e, field(root, "seas")) {
+            const char *sea_name = str(e, "name");
+            if (!sea_name) return fail(r, "a sea has no \"name\"");
+            SeaDef *sea = NULL;
+            for (int i = 0; i < g->sea_count; i++)
+                if (strcmp(g->seas[i].name, sea_name) == 0) sea = &g->seas[i];
+            if (!sea) {
+                if (g->sea_count >= MAX_SEAS) return fail(r, "too many seas (%d at most)", MAX_SEAS);
+                sea = &g->seas[g->sea_count++];
+            }
+            memset(sea, 0, sizeof *sea);
+            copy_name(sea->name, CONTENT_NAME_LEN, sea_name);
+            copy_name(sea->label, CONTENT_NAME_LEN, str(e, "label") ? str(e, "label") : sea_name);
+            for (int k = 0; k < SEA_NEEDS; k++) sea->needs[k] = (int)num(field(e, "needs"), needs[k], 0);
+            sea->passage_ticks = (int)num(e, "passage_ticks", 600);
+            sea->drift_rate = (float)num(e, "drift_per_1000_ticks", 20.0);
+            sea->alongside_every = (int)num(e, "alongside_every", 2400);
+            sea->swell = (float)num(e, "swell", 1.0);
+            sea->dark = flag(e, "dark", false);
+            cJSON_ArrayForEach(one, field(e, "drift")) {
+                if (sea->drift_count >= MAX_SEA_DRIFT) return fail(r, "sea \"%s\": at most %d things adrift", sea_name, MAX_SEA_DRIFT);
+                const char *when = str(one, "when");
+                if (!item_ref(r, one, "item", &sea->drift[sea->drift_count].item)) return false;
+                if (sea->drift[sea->drift_count].item == ITEM_NONE) return fail(r, "sea \"%s\": something adrift has no \"item\"", sea_name);
+                sea->drift[sea->drift_count].weight = (int)num(one, "weight", 1);
+                sea->drift[sea->drift_count++].when = !when ? 0 : strcmp(when, "day") == 0 ? 1 : strcmp(when, "night") == 0 ? 2 : 0;
+            }
+            cJSON_ArrayForEach(one, field(e, "bed")) {
+                if (sea->bed_count >= MAX_SEA_DRIFT) return fail(r, "sea \"%s\": at most %d things on the bed", sea_name, MAX_SEA_DRIFT);
+                if (!item_ref(r, one, "item", &sea->bed[sea->bed_count].item)) return false;
+                if (sea->bed[sea->bed_count].item == ITEM_NONE) return fail(r, "sea \"%s\": something on the bed has no \"item\"", sea_name);
+                sea->bed[sea->bed_count].weight = (int)num(one, "weight", 1);
+                sea->bed[sea->bed_count++].depth = (int)num(one, "depth", 0);
+            }
+            cJSON_ArrayForEach(one, field(e, "alongside")) {
+                if (sea->alongside_count >= MAX_SEA_ALONGSIDE) return fail(r, "sea \"%s\": at most %d things alongside", sea_name, MAX_SEA_ALONGSIDE);
+                if (!str(one, "structure")) return fail(r, "sea \"%s\": something alongside has no \"structure\"", sea_name);
+                copy_name(sea->alongside[sea->alongside_count].structure, CONTENT_NAME_LEN, str(one, "structure"));
+                copy_name(sea->alongside[sea->alongside_count].label, CONTENT_NAME_LEN, str(one, "label") ? str(one, "label") : str(one, "structure"));
+                sea->alongside[sea->alongside_count].weight = (int)num(one, "weight", 1);
+                sea->alongside[sea->alongside_count].cable = (int)num(one, "cable", 0);
+                sea->alongside[sea->alongside_count].reach = (int)num(one, "reach", 0);
+                sea->alongside[sea->alongside_count].stay = (int)num(one, "stay", 1800);
+                sea->alongside[sea->alongside_count++].sunk = (int)num(one, "sunk", 1);
+            }
+            const cJSON *sky = field(e, "sky"), *water = field(e, "water");
+            sea->has_sky = cJSON_GetArraySize(sky) == 3;
+            sea->has_water = cJSON_GetArraySize(water) == 4;
+            for (int k = 0; sea->has_sky && k < 3; k++) sea->sky[k] = (unsigned char)cJSON_GetArrayItem(sky, k)->valuedouble;
+            for (int k = 0; sea->has_water && k < 4; k++) sea->water[k] = (unsigned char)cJSON_GetArrayItem(water, k)->valuedouble;
         }
     }
     /* "dungeons": each by name, a later one of the same name in place of the earlier. */
@@ -2250,6 +2330,17 @@ static bool read_mobs(Reader *r, const cJSON *root)
         m->hunts = flag(swim, "hunts", false);
         m->sight = (int)num(swim, "sight", 12);
         m->spawn_water = flag(field(e, "spawn"), "water", false);
+        {
+            const cJSON *sea;
+            m->spawn_seas = 0;
+            cJSON_ArrayForEach(sea, field(field(e, "spawn"), "seas")) {
+                int found = -1;
+                for (int i = 0; cJSON_IsString(sea) && i < content.worldgen.sea_count; i++)
+                    if (strcmp(content.worldgen.seas[i].name, sea->valuestring) == 0) found = i;
+                if (found < 0) return fail(r, "mob \"%s\" spawns in a sea there is not", name);
+                m->spawn_seas |= 1u << found;
+            }
+        }
         /* "biome" is one biome, or a list of them. */
         const cJSON *where = field(field(e, "spawn"), "biome"), *place;
         for (int k = 0, n = cJSON_IsString(where) ? 1 : cJSON_GetArraySize(where); where && k < n; k++) {

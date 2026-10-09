@@ -60,6 +60,7 @@ void mods_scan(ModList *list, const char *mods_dir, const char *saves_dir)
         const cJSON *label = cJSON_GetObjectItemCaseSensitive(root, "label"), *icon = cJSON_GetObjectItemCaseSensitive(root, "icon");
         snprintf(m->label, sizeof m->label, "%s", cJSON_IsString(label) ? label->valuestring : e->d_name);
         if (cJSON_IsString(icon) && !strstr(icon->valuestring, "..")) snprintf(m->icon, sizeof m->icon, "%s/%s", m->dir, icon->valuestring);
+        m->standalone = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root, "standalone"));
         cJSON_Delete(root);
     }
     if (d) closedir(d);
@@ -355,6 +356,21 @@ bool mods_load_content(ModList *list, const char *data_dir, char *error, size_t 
 {
     char why[256];
     if (error_size > 0) error[0] = '\0';
+    /* A mod that is a game of its own is loaded in place of the game's data, and nothing else with it: every
+     * other mod names things of the game's that would not be there. */
+    for (int i = 0; i < list->count; i++) {
+        if (!list->mods[i].enabled || !list->mods[i].standalone) continue;
+        for (int k = 0; k < list->count; k++) {
+            if (k == i || !list->mods[k].enabled) continue;
+            list->mods[k].enabled = false;
+            snprintf(error, error_size, "%s is a game of its own: the other mods are off.", list->mods[i].label);
+        }
+        content_reset();
+        if (content_load(list->mods[i].dir, why, sizeof why)) return true;
+        list->mods[i].enabled = false;
+        snprintf(error, error_size, "%s: %s", list->mods[i].label, why);
+        break;
+    }
     /* Two that cannot be on together: then none is. */
     for (int i = 0; i < list->count; i++) {
         for (int k = i + 1; k < list->count; k++) {

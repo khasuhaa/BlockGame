@@ -343,6 +343,15 @@ typedef struct {
     float speed;       /* something worked by hand: how fast it is going the way it is going, in squares a second */
 } Vehicle;
 
+/* A ship counted up (a world adrift; see ship.h): the level of the keel aboard, what her blocks add up to, how
+ * fast the sea goes by, how far out of it her side stands, and her room - columns from the middle of the world,
+ * and rows. */
+typedef struct {
+    bool measured;
+    int keel, stats[SHIP_STATS], way, freeboard, length, bow;
+    int x0, x1, y0, y1;
+} ShipReport;
+
 typedef struct {
     World world;
     Player player;
@@ -474,6 +483,13 @@ typedef struct {
     int travels;      /* how many times anybody has gone from one place to another: the view watches it. Not saved. */
     TilePos gate_from;
     bool gate_from_set;
+    /* A world adrift: the ship as last counted (not saved), the sea she is in, the one she is bound for and the
+     * ticks of the passage left, and what is alongside - which of the sea's, plus one, where it was set down,
+     * when it goes, and when the next comes. */
+    ShipReport ship;
+    int sea, sea_to, passage;
+    int alongside, alongside_x, alongside_base;
+    uint64_t alongside_until, alongside_next;
     int32_t *bfs_parent;
     uint32_t *bfs_seen; /* poses reached in search number bfs_gen */
     uint32_t bfs_gen;
@@ -618,6 +634,10 @@ bool game_rocket_report(const Game *g, int x, int y, int *fuel, int *thrust, flo
 bool game_recipe_known(const Game *g, const Recipe *r);
 /* Makes the game's own room for a world that has just been given more rows. False if there was not the memory. */
 bool game_world_grew(Game *g);
+/* One of an item into the block that stores things on a square: false if there is none, or it has no room.
+ * And the record of whatever stores things there dropped, contents and all (its block is being taken away). */
+bool game_store_at(Game *g, int x, int y, ItemId item);
+void game_forget_storage(Game *g, int x, int y);
 
 /* ---- quests ---- */
 enum { QUEST_LOCKED = -1, QUEST_OPEN = 0, QUEST_DONE = 1, QUEST_CLAIMED = 2 };

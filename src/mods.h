@@ -25,6 +25,7 @@ typedef struct {
     char dir[160];                /* where it is */
     char icon[200];               /* its icon's file, or empty */
     bool enabled;
+    bool standalone;              /* a game of its own: loaded in place of the game's data, with no other mod */
 } ModInfo;
 
 typedef struct {

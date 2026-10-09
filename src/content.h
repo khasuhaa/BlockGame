@@ -27,6 +27,14 @@
 #define DAO_ELEMENTS 5
 #define DAO_MERIDIANS 12
 #define MAX_STRUCTURES 128
+#define MAX_SEAS 16
+#define MAX_SEA_DRIFT 64
+#define MAX_SEA_ALONGSIDE 32
+/* What a block adds to the ship it is part of ("ship" on a block): what the hull will bear and what is aboard, sail
+ * and engine, and the best or the worst of the rest. */
+enum { SHIP_BURDEN, SHIP_WEIGHT, SHIP_SAIL, SHIP_THRUST, SHIP_STRENGTH, SHIP_REACH, SHIP_DEPTH, SHIP_CABLE, SHIP_LIGHT, SHIP_PUMP, SHIP_GUNS, SHIP_STATS };
+/* What a sea may ask of a ship ("needs" on a sea). */
+enum { NEED_KEEL, NEED_WAY, NEED_FREEBOARD, NEED_STRENGTH, NEED_CABLE, NEED_DEPTH, NEED_LIGHT, NEED_GUNS, NEED_REACH, SEA_NEEDS };
 #define STRUCTURE_MAX_WIDTH 32
 #define STRUCTURE_MAX_HEIGHT 20
 #define MAX_VILLAGE_KINDS 24
@@ -361,6 +369,15 @@ typedef struct {
      * left on the near side of it; "dungeon_spawn" is a mark that becomes one of the dungeon's creatures (1) or its
      * boss (2) when somebody comes near; "dungeon_exit" is the way out. */
     bool dungeon_gate, loot_forge, dungeon_door, dungeon_exit;
+    /* Ships (a world that is "adrift"). "ship": what this block adds to the ship it is part of (see SHIP_BURDEN).
+     * "keel": with one of these aboard the ship may be so long, so high above the water and so deep under it; the
+     * highest level aboard counts. "catches": standing in the sea, it takes what drifts into its square and keeps
+     * it. "helm": where a course is set (its menu is its own). "trawl": every so many ticks under way it brings
+     * up something from the bed of the sea the ship is in. */
+    int ship[SHIP_STATS];
+    int keel_level, keel_long, keel_above, keel_below;
+    bool catches, helm;
+    int trawl;
     int dungeon_spawn, gate_reach;
     char gate_beside[CONTENT_NAME_LEN];
     bool of_tree;    /* (worked out) part of a tree: its trunk or its leaves, or what either decays into */
@@ -558,6 +575,7 @@ typedef struct {
     bool natal;        /* "natal": worn, it gives more the further its wearer has got past the stage it needs */
     float flight_qi;   /* "flight_qi": what holding its wearer up costs them a tick, off the ground */
     int technique_element; /* "technique": {"element"}: 0 to 4, or -1 */
+    int hook;          /* "hook": in hand, something adrift this near is hauled in by a click on it */
     bool cast_blink;   /* "cast": {"blink"}: the caster is there */
     bool cages;        /* used on a creature of the land, it takes it up: the item that creature is when caged */
     int releases;      /* the kind of creature that is in it, to be let out where it is put down; -1 for none */
@@ -883,6 +901,34 @@ typedef struct {
     } cells[STRUCTURE_MAX_HEIGHT][STRUCTURE_MAX_WIDTH];
 } StructureDef;
 
+/* A sea: one of the waters a ship adrift may be in. What it asks of her before she can go there; what drifts by
+ * in it (by day, by night or both), and how much; what lies on its bed, by how deep; what comes alongside, how
+ * often, and what cable and reach each wants; and how it looks. */
+typedef struct {
+    char name[CONTENT_NAME_LEN], label[CONTENT_NAME_LEN];
+    int needs[SEA_NEEDS];
+    int passage_ticks;
+    float drift_rate; /* things in a thousand ticks, lying still */
+    struct {
+        ItemId item;
+        int weight, when; /* 0 at any time, 1 by day, 2 by night */
+    } drift[MAX_SEA_DRIFT];
+    int drift_count;
+    struct {
+        ItemId item;
+        int weight, depth;
+    } bed[MAX_SEA_DRIFT];
+    int bed_count;
+    struct {
+        char structure[CONTENT_NAME_LEN], label[CONTENT_NAME_LEN];
+        int weight, cable, reach, stay, sunk; /* (sunk: how many of its bottom rows are under water) */
+    } alongside[MAX_SEA_ALONGSIDE];
+    int alongside_count, alongside_every;
+    unsigned char sky[3], water[4];
+    bool has_sky, has_water, dark;
+    float swell;
+} SeaDef;
+
 enum { VILLAGE_GROUND, VILLAGE_CAVE, VILLAGE_ISLAND };
 
 /* A kind of village: where it is put - on the ground, in a hall cut for it under ground, or on an island made
@@ -1123,6 +1169,15 @@ typedef struct {
     /* "ocean": the world is sea with islands in it - how far apart, how long, how high; every so many of them a great
      * one; how deep the sea lies; and what is sunk in it. (With none of this the world is as it always was.) */
     bool ocean;
+    /* "adrift": the world is open sea and nothing else, with one structure afloat in the middle of it: the ship.
+     * She never moves; the sea goes by. How big a new world is, the row the water begins under, what she starts
+     * as, how big she may be with no keel, how many ticks a thing adrift takes to pass one square when she lies
+     * still, and how far ahead of her things appear. "seas": the waters she may be in, the first where she begins. */
+    bool adrift;
+    int adrift_waterline, keel_long, keel_above, keel_below, drift_ticks, drift_ahead;
+    char adrift_start[CONTENT_NAME_LEN];
+    SeaDef seas[MAX_SEAS];
+    int sea_count;
     int isle_gap_min, isle_gap_max, isle_min, isle_max, isle_peak, great_every, great_min, great_max, great_peak, sea_depth_min, sea_depth_max;
     char buried_name[CONTENT_NAME_LEN];
     TileType buried; /* "buried": what lies under the beaches, so many to 1,000 columns */
@@ -1387,6 +1442,7 @@ typedef struct {
     bool spawn_cave;    /* it turns up only under ground: where there is backwall behind it */
     int spawn_time;     /* 0 at any time; 1 only by day; 2 only by night */
     bool spawn_water;   /* it turns up in water */
+    unsigned spawn_seas; /* "spawn": {"seas"}: only while the ship is in one of these seas (a bit each); 0 for any */
     int spawn_biomes[MAX_MOB_BIOMES]; /* the only biomes it turns up in; anywhere, if none are named */
     int spawn_biome_count;
     /* A creature that stings. It makes for a player who comes near and

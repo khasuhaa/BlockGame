@@ -1166,6 +1166,69 @@ static bool generate_terrain(World *w)
     return true;
 }
 
+bool world_stamp(World *w, const char *structure, int x0, int base, int *width, int *height)
+{
+    const StructureDef *s = NULL;
+    for (int i = 0; i < content.structure_count; i++)
+        if (strcmp(content.structures[i].name, structure) == 0) s = &content.structures[i];
+    if (!s) return false;
+    stamp_structure(w, s, x0, base);
+    for (int sy = 0; sy < s->height; sy++)
+        for (int sx = 0; sx < s->width; sx++) {
+            int x = world_wrap_x(w, x0 + sx), y = base - (s->height - 1) + sy;
+            if (y < 1 || y >= w->height - 1) continue;
+            size_t cell = (size_t)y * w->width + x;
+            bool open = !tile_def((TileType)w->layers[LAYER_FOREGROUND][cell])->solid && w->layers[LAYER_WALL][cell] == TILE_AIR;
+            if (w->sea_row >= 0 && y > w->sea_row && open) w->water[cell] = WATER_FULL;
+        }
+    w->devices_known = false;
+    if (width) *width = s->width;
+    if (height) *height = s->height;
+    return true;
+}
+
+void world_unstamp(World *w, int x0, int base, int width, int height)
+{
+    for (int sy = 0; sy < height; sy++)
+        for (int sx = 0; sx < width; sx++) {
+            int x = world_wrap_x(w, x0 + sx), y = base - (height - 1) + sy;
+            if (y < 1 || y >= w->height - 1) continue;
+            size_t cell = (size_t)y * w->width + x;
+            for (int l = 0; l < LAYER_COUNT; l++) w->layers[l][cell] = TILE_AIR;
+            w->meta[cell] = 0;
+            w->paint[0][cell] = w->paint[1][cell] = 0;
+            w->water[cell] = w->sea_row >= 0 && y > w->sea_row ? WATER_FULL : 0;
+        }
+    w->devices_known = false;
+}
+
+bool world_build_allowed(const World *w, int x, int y, TileType tile)
+{
+    if (!w->build_limit) return true;
+    int dx = world_dx(w, w->spawn_x, x);
+    if (dx < w->build_x0 || dx > w->build_x1 || y < w->build_y0 || y > w->build_y1) return false;
+    return tile_def(tile)->ship[SHIP_WEIGHT] <= w->build_room;
+}
+
+/* A world adrift: sea from the waterline down to a floor nobody reaches, and afloat in the middle of it the
+ * structure the data names - the ship as she begins. */
+static void generate_adrift(World *w)
+{
+    const WorldGenDef *gen = &content.worldgen;
+    int water = gen->adrift_waterline;
+    if (water < 8) water = 8;
+    if (water > w->height - 8) water = w->height - 8;
+    w->sea_row = water - 1;
+    w->y_top = w->sea_row;
+    w->spawn_x = w->width / 2;
+    w->spawn_y = w->sea_row;
+    for (int x = 0; x < w->width; x++) w->layers[LAYER_FOREGROUND][(size_t)(w->height - 1) * w->width + x] = (uint16_t)gen->soil;
+    int wide = 0;
+    for (int i = 0; i < content.structure_count; i++)
+        if (strcmp(content.structures[i].name, gen->adrift_start) == 0) wide = content.structures[i].width;
+    world_stamp(w, gen->adrift_start, w->spawn_x - wide / 2, water, NULL, NULL);
+}
+
 /* Level soil; the seed only picks the ground level and spawn column. */
 static void generate_flat(World *w)
 {
@@ -1339,6 +1402,8 @@ bool world_init_with(World *w, int width, int height, uint32_t seed, WorldKind k
     } else if (kind == WORLD_FLAT) {
         generate_flat(w);
         raise_walls(w);
+    } else if (content.worldgen.adrift) {
+        generate_adrift(w);
     } else if (!generate_terrain(w)) {
         world_free(w);
         return false;

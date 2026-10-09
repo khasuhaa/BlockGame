@@ -73,6 +73,10 @@ typedef struct {
     Region regions[MAX_REGIONS];
     int region_count;
     int home_height;  /* the rows it began with */
+    /* A ship's room (a world that is adrift): nothing is put up outside these columns and rows, nor anything
+     * heavier than what the hull will still bear. Set by the game from the keel aboard; not saved. */
+    bool build_limit;
+    int build_x0, build_x1, build_y0, build_y1, build_room;
 } World;
 
 /* How wide a WORLD_DEBUG world has to be to hold everything that is set out in it. */
@@ -149,6 +153,13 @@ bool world_grow_plant(World *w, int layer, int x, int y);
 /* Some blocks stand several tiles tall and are one thing. Given any tile of
  * one, this returns how many tiles it has and sets `bottom` to its lowest
  * row; its tiles are that row and the ones above it. 1 for an ordinary block. */
+/* Sets a structure down by name, its bottom row on a row of the world and its left side on a column: the sea is
+ * left standing in whatever of it is open and under water. False if there is no such structure; its size is given.
+ * And takes whatever is in such a stretch away again, leaving sea and sky. */
+bool world_stamp(World *w, const char *structure, int x0, int base, int *width, int *height);
+void world_unstamp(World *w, int x0, int base, int width, int height);
+/* Whether a block may be put on a square, by the room the world's ship has (always, in a world with no such limit). */
+bool world_build_allowed(const World *w, int x, int y, TileType tile);
 int world_structure(const World *w, int layer, int x, int y, int *bottom);
 
 /* What the block in the foreground of a square looks like. That is itself,

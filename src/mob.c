@@ -116,6 +116,8 @@ static bool spawns_now(const Game *g, const MobDef *def)
 {
     bool day;
     game_day_phase(g, &day);
+    /* (One that belongs to certain seas turns up only while the ship is in one of them.) */
+    if (def->spawn_seas != 0 && !(def->spawn_seas & (1u << (g->sea & 31)))) return false;
     return def->spawn_time == 0 || (def->spawn_time == 1) == day;
 }
 

@@ -7,7 +7,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 41u
+#define SAVE_VERSION 42u
 
 /* Up to version 28 a world had room for a quarter as many of these, and they
  * were written out whole: every reader of an older version goes by these. */
@@ -604,6 +604,20 @@ bool save_game(const Game *g, const char *path)
         snprintf(name, sizeof name, "%s", content.quests[i].name);
         ok = fwrite(name, sizeof name, 1, f) == 1 && fwrite(&g->quest_state[i], 1, 1, f) == 1 && fwrite(&g->quest_progress[i], sizeof(uint16_t), 1, f) == 1;
     }
+    /* (From version 42: a ship adrift - the sea she is in and the one she is bound for, by name, the passage left,
+     * and what is alongside: its structure by name, where it was set down, and the ticks it has still to stay.) */
+    {
+        const WorldGenDef *gen = &content.worldgen;
+        char names[3][CONTENT_NAME_LEN];
+        memset(names, 0, sizeof names);
+        if (g->sea >= 0 && g->sea < gen->sea_count) snprintf(names[0], CONTENT_NAME_LEN, "%s", gen->seas[g->sea].name);
+        if (g->sea_to >= 0 && g->sea_to < gen->sea_count) snprintf(names[1], CONTENT_NAME_LEN, "%s", gen->seas[g->sea_to].name);
+        if (g->alongside > 0 && g->sea >= 0 && g->sea < gen->sea_count && g->alongside <= gen->seas[g->sea].alongside_count)
+            snprintf(names[2], CONTENT_NAME_LEN, "%s", gen->seas[g->sea].alongside[g->alongside - 1].structure);
+        int32_t at[3] = { g->passage, g->alongside_x, g->alongside_base };
+        uint64_t stay = g->alongside_until > g->tick ? g->alongside_until - g->tick : 0;
+        ok = ok && fwrite(names, sizeof names, 1, f) == 1 && fwrite(at, sizeof at, 1, f) == 1 && fwrite(&stay, sizeof stay, 1, f) == 1;
+    }
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) {
         remove(tmp);
@@ -985,6 +999,29 @@ bool load_game(Game *g, const char *path)
                     break;
                 }
         }
+        /* A ship adrift. A sea the game has not got now is the first; a thing alongside it has not got is nothing. */
+        g->sea = g->sea_to = g->passage = g->alongside = 0;
+        g->alongside_until = g->alongside_next = 0;
+        memset(&g->ship, 0, sizeof g->ship);
+        if (ok && h.version >= 42) {
+            const WorldGenDef *gen = &content.worldgen;
+            char names[3][CONTENT_NAME_LEN];
+            int32_t at[3] = { 0 };
+            uint64_t stay = 0;
+            if (fread(names, sizeof names, 1, f) != 1 || fread(at, sizeof at, 1, f) != 1 || fread(&stay, sizeof stay, 1, f) != 1) ok = false;
+            for (int k = 0; ok && k < 3; k++) names[k][CONTENT_NAME_LEN - 1] = '\0';
+            for (int i = 0; ok && i < gen->sea_count; i++) {
+                if (strcmp(gen->seas[i].name, names[0]) == 0) g->sea = i;
+                if (strcmp(gen->seas[i].name, names[1]) == 0) g->sea_to = i;
+            }
+            if (ok && at[0] > 0 && names[1][0]) g->passage = at[0];
+            for (int i = 0; ok && names[2][0] && g->sea < gen->sea_count && i < gen->seas[g->sea].alongside_count; i++)
+                if (strcmp(gen->seas[g->sea].alongside[i].structure, names[2]) == 0) {
+                    g->alongside = i + 1;
+                    g->alongside_x = at[1], g->alongside_base = at[2];
+                    g->alongside_until = stay; /* (ticks from now: put right once the world's time is known) */
+                }
+        }
         bool nobody = ok && h.version >= 15 && people[0] == 0;
         g->started = extra.started != 2;
         int played = (int)people[1] < g->character_count ? (int)people[1] : 0;
@@ -1084,6 +1121,7 @@ bool load_game(Game *g, const char *path)
         g->player.climbing = h.climbing != 0;
         g->player.facing = h.facing < 0 ? -1 : 1;
         g->tick = h.tick;
+        if (g->alongside > 0) g->alongside_until += g->tick;
         g->tick_rate = h.tick_rate < 1 ? 1 : h.tick_rate > MAX_TICK_RATE ? MAX_TICK_RATE : h.tick_rate;
         g->rng = h.rng;
         g->next_drop_id = h.next_drop_id;

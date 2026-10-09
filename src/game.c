@@ -1,4 +1,5 @@
 #include "game.h"
+#include "ship.h"
 #include "dao.h"
 #include "signal.h"
 #include "digital.h"
@@ -680,6 +681,8 @@ static bool target_valid(const World *w, Action a)
     case ACTION_PLACE: {
         TileType placed = placed_tile(w, (ItemId)a.item, a.target);
         if (placed == TILE_AIR || !room_for(w, a.target, placed)) return false;
+        /* (A ship has only so much room, and will bear only so much.) */
+        if (!world_build_allowed(w, a.target.x, a.target.y, placed)) return false;
         /* Something that hangs goes under a block and nowhere else, backwall or no. */
         if (tile_def(placed)->hangs) return world_is_solid(w, a.target.x, a.target.y - 1);
         /* A boat goes on the top of water and nowhere else. */
@@ -924,6 +927,8 @@ static Pose sim_pending(Game *g)
 {
     const Player *p = &g->player;
     g->sim.sea_row = g->world.sea_row;
+    g->sim.build_limit = g->world.build_limit, g->sim.build_x0 = g->world.build_x0, g->sim.build_x1 = g->world.build_x1;
+    g->sim.build_y0 = g->world.build_y0, g->sim.build_y1 = g->world.build_y1, g->sim.build_room = g->world.build_room;
     /* (The plan takes the water as it lies now.) */
     memcpy(g->sim.water, g->world.water, (size_t)g->world.width * g->world.height);
     /* (And the numbers kept with squares: a lift is planned for as it stands, running or not.) */
@@ -1416,6 +1421,8 @@ bool game_can_collect(const Game *g, int drop)
 
 bool game_click_drop(Game *g, int drop)
 {
+    /* (With a hook in hand, what is adrift within its reach is hauled in.) */
+    if (ship_hook(g, drop)) return true;
     if (unqueue(g, match_drop, (TilePos){ 0, 0 }, drop)) return true;
     return game_queue_collect(g, drop);
 }
@@ -1759,6 +1766,39 @@ static void storage_ensure(Game *g, TilePos t, const TileDef *def)
         }
         if (item != ITEM_NONE && count > 0) container_put(&g->inventory, c, item, count);
     }
+}
+
+bool game_store_at(Game *g, int x, int y, ItemId item)
+{
+    TilePos t = { x, y };
+    const TileDef *def = tile_def(world_get(&g->world, x, y));
+    if (def->storage_columns <= 0) def = tile_def(world_get_at(&g->world, LAYER_BACKGROUND, x, y));
+    if (def->storage_columns <= 0 || def->storage_shared || item == ITEM_NONE) return false;
+    storage_ensure(g, t, def);
+    Storage *st = storage_at(g, t);
+    if (!st || st->container == 0) return false;
+    int slots = def->storage_columns * def->storage_rows, most = item_def(item)->max_stack;
+    if (slots > CONTAINER_MAX_SLOTS) slots = CONTAINER_MAX_SLOTS;
+    ItemStack *into = g->inventory.containers[st->container].slots;
+    for (int i = 0; i < slots; i++)
+        if (into[i].count > 0 && into[i].id == item && into[i].container == 0 && into[i].count < most) {
+            into[i].count++;
+            return true;
+        }
+    for (int i = 0; i < slots; i++)
+        if (into[i].count == 0) {
+            into[i] = (ItemStack){ (uint16_t)item, 1, 0 };
+            return true;
+        }
+    return false;
+}
+
+void game_forget_storage(Game *g, int x, int y)
+{
+    Storage *st = storage_at(g, (TilePos){ x, y });
+    if (!st) return;
+    container_free(&g->inventory, st->container);
+    st->used = false;
 }
 
 /* A tree cut through: every block of trunk above the cut decays, and so do
@@ -4913,6 +4953,7 @@ void game_tick(Game *g)
     industry_tick(g);
     digital_tick(g);
     train_tick(g);
+    ship_tick(g);
     /* Everybody gets hungry, whoever is being played. */
     for (int c = 0; c < g->character_count; c++) {
         game_use_character(g, c);
