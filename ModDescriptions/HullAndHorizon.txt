@@ -1,0 +1,309 @@
+HULL & HORIZON - PROPOSAL   (a ship-building mod; a TOTAL CONVERSION; for approval - nothing below is built)
+
+Turn the mod on and there is no land, no ground to dig and nothing of the game you know. There is a sea that
+never stops going by, and in the middle of it two planks lashed together with you standing on them.
+
+Everything you will ever have comes to you over the water or up from under it, and everything you make goes
+onto the thing you are standing on. Two planks become a raft with a sail made of a shirt. The raft becomes a
+boat with a keel. The boat becomes a ship with a hold under the waterline, then one with three masts and a gun
+deck, then one with no masts at all: steel, funnels, turrets, a searchlight sweeping black water.
+
+    a raft  ->  a sailboat  ->  a caravel  ->  a galleon  ->  a dreadnought
+
+The ship never goes anywhere. The sea does. That is the whole trick of the mod, and why the engine can do it.
+
+(Plunder & Thunder is also about ships, and is nothing like this. There a ship is a creature you ride round a
+world of islands. Here the ship IS the world: it is made of blocks, you live in it, and it is the only place
+there is. Nothing of that mod is used and the two cannot be on together - see Q1.)
+
+Size aimed at: ~380 blocks, ~850 items, ~1,000 recipes, ~60 creatures, 5 keels, 6 seas, ~70 things that come
+alongside. Great makings ten and more deep (a galleon's keel 10, a dreadnought's 15), enforced in the generator
+as Seeker of the Dao's are.
+
+================================================================================================================
+0. QUESTIONS
+================================================================================================================
+
+Q1. HOW THE BASE GAME GOES AWAY. Recommended: a mod may say `"standalone": true`. With such a mod on, `data/` is
+    NOT loaded under it - the mod's own files are the whole game: its own blocks, items, recipes, creatures,
+    rules, trade categories and coins, world generator and quests. The game's pictures stay within reach (a mod
+    may already name a texture of the game's), so its planks, water, glass and tools can be drawn with the art
+    there is. A standalone mod has a playset to itself: no other mod can be on with it, because every other mod
+    names things of the base game that would not be there. The mod list says so when it is ticked and turns the
+    rest off for that playset; it does not touch any other playset or any world.
+    Alternative, NOT recommended because it is not what was asked: the sea as a place reached from an ordinary
+    world, like one of Dimensions'. Then pickaxes and iron come aboard on the first day and there is no raft.
+
+Q2. WHAT MOVES. Recommended: the ship stands still in the grid and the sea is drawn going past - swell, foam at
+    the bow, a wake, clouds and a far horizon at their own speeds, all quicker as the ship makes more way. Things
+    in the water really do move: they drift in from ahead, pass down the side and are gone astern. So "speed" is
+    real: more sail, more things an hour. The engine cannot move a piece of the world, and does not have to.
+    The world is small - 384 squares wide and 160 tall, a sixteenth of an ordinary one - which is cheap.
+
+Q3. WHAT MAKES A BOAT A SAILBOAT. Recommended: the KEEL. Each stage is a keel laid at the shipwright's bench,
+    and a keel is a build envelope: so long, so high above the water, so deep below it. Inside the envelope you
+    build as you like, block by block; outside it nothing can be placed. The keel is laid under the ship you
+    have - nothing is taken down, the room simply gets bigger. A keel is the great making of its stage.
+    Alternative: no keels - the ship is measured, and is a galleon when it is big enough. Freer, but then there
+    is no great thing to work toward, and a hundred-block raft is the quickest way to everything.
+
+Q4. THE STAGE BETWEEN. You asked for one between sailboat and galleon. Recommended: the CARAVEL - two masts, the
+    first deck below the waterline, the first guns, the first ship that can anchor and the first that can leave
+    sight of where it began. Others that would do: a cog, a brig, a schooner. Say which name you like.
+
+Q5. WEIGHT. Recommended, simple: hull blocks give BURDEN, everything else aboard costs some, and the shipwright's
+    bench shows the two numbers. Over burden, nothing more can be placed. Alternative, prettier and more work:
+    real DRAUGHT - the heavier she is the higher the sea stands against her side, a row at a time, until the
+    lower deck's ports are under. I would build the first and keep the second for after it has been played.
+
+Q6. CAN SHE BE LOST. Recommended: no. A hull block that is holed (a shark, a reef, a shot) becomes its "holed"
+    twin and lets the sea in; water runs through the ship as the game's water does and spoils what stands in
+    it until it is plugged and pumped. A ship that is awash is driven back to the calm sea she came from with
+    her loose cargo overboard - and that cargo comes drifting past again over the next while. The keel, the
+    hull and everything fixed down are never destroyed. Say if you want sinking to be final, or to be an option.
+
+Q7. GETTING THINGS WITH NO GROUND TO DIG. This is the heart of it; section 2 has it at length. In short, six
+    ways, each of which a bigger ship does better: what DRIFTS past, what is under the KEEL, what comes
+    ALONGSIDE, what is GROWN aboard, what the ship's own WAY makes, and what OTHER SHIPS carry. Metal comes
+    from wrecks first and from the sea bed after. Say if any of the six is not wanted.
+
+Q8. FIGHTING. Recommended: none on the raft but a shark and a gull; from the caravel on, other ships - some to
+    trade with, some that come for you. Guns are blocks. A gun fires at what is clicked on if it bears (it looks
+    one way, and is turned with a wrench as Machinations' things are); it wants powder and shot from a magazine
+    next to it. Boarders come over the rail and are fought on your own deck. Alternative: a peaceful sea -
+    weather and beasts only - which costs the galleon and the dreadnought most of what they are for.
+
+Q9. CREW. The rules allow three characters. Recommended: you begin alone; the second and third are CASTAWAYS,
+    found adrift (the game's `becomes_player`). Beyond three, HANDS: hired or rescued, companions as the game
+    has them, each of whom keeps one post - helm, pump, gun, galley, lookout - and does it while you do not.
+    A dreadnought wants about twelve. No wages or mutiny (Plunder & Thunder planned those and they were cut).
+
+Q10. AN END. Recommended: the sixth sea is the Black Water, and in the middle of it the MAELSTROM, and under that
+    what made it. A dreadnought that goes in and comes out has finished the mod; the sea goes on after for as
+    long as you care to build. Alternative: no end, only further seas.
+
+Q11. DELIVERY. Recommended: five sittings, one a keel, each playable to its end -
+    (1) the standalone switch, the sea, the raft, drift, hooks and nets, the first two seas;
+    (2) the sailboat: masts and way, the helm and the chart, what comes alongside, growing things aboard;
+    (3) the caravel: below the waterline, leaks and pumps, anchors, other ships, guns, castaways and hands;
+    (4) the galleon: storms, cranes and salvage, the trawl and the bell, the foundry, the Ice;
+    (5) the dreadnought: steel, steam, power, turrets, the Black Water and the Maelstrom.
+    Say if you want it in one, and what to drop first. My order for dropping: the Ice, hands, real draught.
+
+Q12. ART. Recommended: the game's own pictures for wood, cloth, water, glass, stone and the plain tools (it is
+    the same art either way, and you said the mod uses the game's graphics), and fresh drawing, 16 by 16 doubled,
+    for everything that is a ship's: sails, rigging, wheels, guns, plate, funnels, the creatures and the wrecks.
+    Timber, bronze and steel fittings are to be different drawings, not one recoloured.
+
+================================================================================================================
+1. THE SHIP
+================================================================================================================
+
+Five keels. Length is along the water; "above" and "below" are decks' worth of height either side of it.
+
+   KEEL          LONG  ABOVE  BELOW   WHAT IT IS                                  WHAT IT FIRST ALLOWS
+   RAFT            10      3      0   lashed driftwood. No keel at all - the      a hook, a net, a rain barrel, a
+                                      starting two planks and what is tied on     cooking fire on a slab of clay
+   SAILBOAT        20     10      2   a real keel and one mast                    a helm and a chart: leaving the
+                                                                                  first sea. A cabin. A plot of soil
+   CARAVEL         40     18      5   two masts, a deck under water, a rail      an anchor, a hold, a pump, guns,
+                                                                                  a ship's boat, a second character
+   GALLEON         72     30      9   three masts, a gun deck, a great cabin,    a crane, a trawl, a diving bell,
+                                      a forecastle and a poop                     a foundry on a stone hearth
+   DREADNOUGHT    128     40     16   steel on frames. No masts. Boilers,         turrets, a dynamo, a searchlight,
+                                      funnels, a bridge, a double bottom          a bathysphere, the last sea
+
+A ship is whatever is joined to the keel. The shipwright's bench counts her up - as the game counts a rocket's
+stack before a launch - and shows what she comes to:
+
+   BURDEN     what the hull will bear, and what is aboard (Q5)
+   WAY        how fast the sea goes by: sail set, or engine, against her weight. More way, more drift an hour
+   FREEBOARD  how high her lowest open square stands above the water: what size of sea breaks over her
+   STRENGTH   what the hull is made of: lashed wood, plank, tarred plank, copper-sheathed, ironbound, steel plate
+   REACH      how far from her side things can be had: an arm's length, a hook, a boathook, a boat, a crane
+   DEPTH      how far down she can fetch: a line, a pot, a trawl, a bell, a bathysphere
+
+Those six numbers are the whole of how a bigger ship "paves the way": every sea asks for some of them and every
+way of getting things is limited by one. Nothing is gated on having made a particular item.
+
+PARTS, by kind (each a block or a few; about 380 in all, most in three or four materials that are drawn apart):
+   HULL         planks, ribs, strakes, a stem and a stern piece, a rail, hatches, ports that open, ballast
+   DECKS        boards, gratings (light and rain go through), ladders, companionways, a ship's lift for a dreadnought
+   MASTS        mast sections, yards, tops, a crow's nest (see what is coming sooner), a bowsprit
+   SAILS        squares and lateens in five cloths; SET or FURLED by a click - set in a gale, a sail tears
+   STEERING     a steering oar, a tiller, a wheel, a binnacle; the helm is where a course is set (section 3)
+   GROUND       a stone on a rope, a grapnel, a bower anchor and its capstan, a chain cable and steam windlass
+   CATCHING     nets hung outboard, a fish trap, a lobster pot, a line, a trawl and its winch, a whaleboat's davits
+   FETCHING     a hook, a boathook, a ship's boat, a derrick, a steam crane (lifts what nothing else will)
+   UNDER        a glass-bottomed box, a diving helmet and its pump, a bell, a bathysphere on a thousand fathoms
+   WATER        a rain barrel, a sailcloth catcher, a still, a cistern, a condenser - there is no fresh water
+                but what is caught or boiled, and crops and crew both want it
+   LIVING       hammocks, bunks, a galley stove, a table, a great cabin - the environment score as the game has it:
+                a wet, cold deck wears a character down and a dry cabin with a stove mends them
+   GROWING      planter boxes, tubs for trees, a glass frame, a hen coop, a goat pen, a mushroom locker in the bilge
+   WORKING      the benches (section 4), all of which must stand on something that will take them: a fire on clay
+                or stone, a foundry on a hearth of ballast, a boiler on iron
+   KEEPING      crates, lockers, casks, a hold, a magazine (dry, or the powder is spoiled), an ice room
+   FIGHTING     swivels, sakers, long guns, carronades, a mortar; then breech guns, turrets, a torpedo tube, plate
+   POWER        a treadwheel, a paddle in the wake, a windmill; then a boiler, an engine, a shaft, a dynamo, lamps
+
+================================================================================================================
+2. WHERE THINGS COME FROM   (Q7)
+================================================================================================================
+
+1. DRIFT. The sea carries things past, on the surface and a little under it: driftwood, weed, bottles, casks,
+   crates, spars with the canvas still on, a sea-chest, a hen coop with the hen in it. Each sea has its own
+   (section 3). They come from ahead and are gone astern, so they must be had as they pass: by hand from the
+   edge, with a HOOK thrown and hauled (a click on the thing), with a boathook, or without you - a NET hung
+   outboard takes what touches it and holds it until it is emptied. More WAY, more of it. More length, more nets.
+   A big ship also draws what a raft never sees: heavy flotsam rides low and wants a boat or a crane.
+
+2. UNDER THE KEEL. Fish on a line, then in traps, then in a trawl dragged astern that brings up what lies on the
+   bottom of the sea she is in - shell, sand, clay, weed, crab, and in the right seas nodules: the first ore
+   that is not from a wreck. What comes up is by DEPTH. A diver goes down under the ship herself on the game's
+   own breath bar: to scrape weed off the hull (it slows her), to plug a hole from outside, and in shoal water
+   to walk the bed. A bell is a room of air let down on a cable; a bathysphere goes to the Black Water's floor.
+
+3. ALONGSIDE. From the sailboat on, the lookout calls things the sea is bringing: a sandbar, a reef, an islet
+   with three palms and a spring, a rock with seabirds, a wreck on a shoal, a derelict with nobody aboard, an
+   iceberg, a dead whale, a floating market, a volcano's vent boiling the water. Such a thing is built of blocks
+   in the open water beside the ship, and it is stripped: its trees felled, its soil dug and carried aboard, its
+   stone quarried for ballast and hearths, its copper sheathing prised off, its guns swayed across by crane.
+   A raft cannot stop, so it gets nothing of this. A sailboat can lie by for a little while. A ship with an
+   ANCHOR holds a thing for as long as the cable and the weather allow - and the cable's length is which
+   things: a stone on a rope holds a sandbar, a chain cable holds the edge of the deep. REACH is how you get
+   across: a plank, a boat, a derrick. About seventy kinds, most of them in two or three sizes.
+   THIS IS WHERE EARTH, STONE, SEEDS, BEASTS AND MOST METAL COME FROM. Nothing is mined; islands are eaten.
+
+4. GROWN. Soil is cargo. Carried aboard and put in boxes it grows what was found: flax for canvas and rope, hemp,
+   potatoes, limes (a crew with none sickens), cane, cotton, oak and pine in tubs for the timber no drift will
+   give you in that size. Hens, goats, bees. Mushrooms in the dark of the bilge. All of it wants fresh water and
+   room, and room is the keel.
+
+5. THE SHIP'S OWN WAY. Things that work because she is moving or because she is tall: a paddle in the wake turns
+   a shaft; a windmill turns another; a sailcloth catcher fills a cistern in rain; a salt pan on the deck dries
+   brine in sun; a rod at the masthead in a thunderstorm charges a jar. Faster and taller is more of each. On a
+   dreadnought the same shaft is turned by steam and the same jar is a dynamo.
+
+6. OTHER SHIPS. Traders heave to and deal, at their own prices, in the mod's own coin (section 4). Derelicts are
+   boarded for what is in them. Raiders bring their powder, guns and iron to you, and leave them.
+
+WHAT METAL IS, STAGE BY STAGE
+   raft         nails and hoops - burned out of driftwood and old casks. Enough for a hook and a knife
+   sailboat     copper and lead - sheathing and scuppers off wrecks on the shoals; clay for a crucible
+   caravel      iron - anchors, chain and guns out of derelicts; charcoal from your own tubs; a forge
+   galleon      bronze and cast iron of your own - nodules from the trawl, coal from a collier's wreck or a seam
+                in a sea-stack, sulphur from the vents, saltpetre from the bird rocks: your own powder
+   dreadnought  steel - a converter that wants a hearth, a blast and power all at once; then plate, rivets, tube,
+                wire, and at the last the black ore that only the bathysphere brings up
+
+================================================================================================================
+3. THE SEAS
+================================================================================================================
+
+Six seas. A course is set at the HELM, on a chart that shows the seas and what each asks of the ship; the helm
+says in the ship's own six numbers what she lacks, and will not turn for a sea she cannot live in. Changing seas
+takes a while of sailing, during which the backdrop, the weather and the drift turn from the one to the other.
+(In the game a tier of portal is an age of progression. There are no portals here: the seas are the ages, and
+the chart is where a new line of progression would be hung.)
+
+   SEA              ASKS                          GIVES                                       AND BRINGS
+   THE SLICK        nothing: you begin here       a wreck's leavings - wood, rope, casks,     gulls, a shark that
+                                                  canvas, weed, small fish, nails             takes bites of a raft
+   THE SHOALS       a keel, a helm, some way      sand, clay, stone, soil, palms, seeds,      reefs that hole
+                                                  shellfish, copper, lead, turtles            plank; squalls
+   THE TRADE WIND   an anchor, strength of        iron, cloth, tar, livestock, glass, charts, raiders; fever;
+                    tarred plank, two masts       castaways, markets, derelicts               long calms
+   THE ROARING SEA  freeboard for a gale,         coal, sulphur, saltpetre, whale oil, great  gales that tear set
+                    sheathing, a pump             timber, bronze guns, sea-stacks, nodules    sail; whales; lightning
+   THE ICE          ironbound bows, a stove       fresh water by the berg, ships frozen whole fog, cold, floes
+                    in every cabin                with their stores, furs, the white bear     that nip a hull
+   THE BLACK WATER  steel, steam, a searchlight   the black ore, the drowned fleet's plate    no day; things that
+                                                  and engines, light-fish, the Maelstrom      come up; the Leviathan
+
+Each sea has its own sky, water colour, swell, weather, drift table, fish, bed (what the trawl finds), things
+that come alongside and ships. A day and a night pass as in the game; what drifts at night is not what drifts by
+day. Going back to an easier sea is always allowed and is how a hurt ship mends.
+
+WEATHER MATTERS BECAUSE THE SHIP IS BLOCKS. A sea has a height. In a blow it rises, and any square below it that
+is open to the outside takes water - which runs down hatches and along decks exactly as the game's water does,
+puts out fires, spoils powder and food it reaches and has to be pumped. So freeboard, hatches that shut, ports
+that close and a tight hull are not ornaments. Sail left set in a gale tears; a ship lying to an anchor in one
+drags and loses what she was holding.
+
+BEASTS (about 60, every one cageable and with a body): gull, booby, albatross (ill luck to kill), flying fish,
+dolphin (leads you to drift), shark, swordfish (holes plank), turtle, seal, walrus, white bear, whale and its
+calf, giant squid, the things on the reefs, the things in the weed, a rat that comes aboard with a cargo and
+eats the stores, a ship's cat that deals with it, the drowned crews of the Black Water, and the Leviathan -
+which is built big, in many parts, not drawn large.
+
+================================================================================================================
+4. MAKING, KEEPING AND TRADING
+================================================================================================================
+
+BENCHES. The first is the SHIPWRIGHT'S BENCH, and as in the game it makes benches, machines and the things to
+trade at and nothing else - and lays keels, which is its upgrade. It has a level for each keel. The rest, each
+taking what suits it: a ropewalk, a sail loft, a sawpit, a caulker's kettle, a cooper's block, a galley, a
+smokehouse, a chandler's table, a kiln, a forge, a gunfounder's pit, a powder mill, a chart table, a
+sickbay, then an engine shop, a plate mill, an electrical bench and an armoury. About 22.
+
+LONG MAKINGS. A sail is flax grown, retted, spun, woven, cut, sewn, roped and bent to a yard: eight. A galleon's
+keel is ten deep and a dreadnought's fifteen, and the generator will refuse to write the mod if a shorter way
+to either turns up.
+
+TRADE. Trading ships and floating markets, in the mod's own three coins (they read as coins do in the game: a
+hundred of one is one of the next). Every item has a category and a price, as the loader demands; the categories
+are the mod's own (timber, cordage and canvas, metal, fittings, guns, stores, livestock, curios, benches,
+creatures). What a trader will deal in rises with the sea she is met in.
+
+A QUEST BOOK of its own, written by `tools/quests.py` from the data as every other is: a tab a keel, each a tree.
+
+================================================================================================================
+5. WHAT THE ENGINE MUST LEARN   (all of it as data fields the base game or another mod could use)
+================================================================================================================
+
+ 1. `"standalone": true` on a mod (`src/mods.c`): its directory is loaded in place of `data/`; nothing else may
+    be on with it. The engine already knows no content by name, and the tests already run it against a second
+    small set of data (`tests/legacy`) - but the base game has never been ABSENT, and something will turn out
+    to lean on it. Finding those is the first job, and each is a bug in the engine by its own rules.
+ 2. A world generator `"adrift"`: sea from a waterline down, no bed, and a start structure named in the data.
+    A small world of its own size, set in `worldgen.json`.
+ 3. A moving backdrop (`"drift"` in the rules; drawn in `src/main.c` behind the world pass): layers with speeds,
+    the swell, the wake, all by the ship's way. And the sea's surface drawn rising and falling with the weather.
+ 4. Things adrift: the game's drops, given a table to appear from (`"drift"` on a sea), a speed along the
+    surface, and an end when they leave the world. `"catches"` on a block (a net); `"hook": {reach}` on an item.
+ 5. The ship counted (`game_ship_report`, in the manner of `game_rocket_report`): everything joined to a block
+    with `"keel": {long, above, below, level}`; `"ship": {burden, weight, sail, thrust, strength}` on blocks.
+    Placing outside the envelope, or over burden, is refused.
+ 6. Seas: `"seas"` in `worldgen.json` (what each asks, gives and brings); a block with `"helm"` and its screen
+    (a new `src/helmui.c`). Which sea, and how far along a passage, is saved BY NAME: a new save version, with a
+    fixture of the one before, and nothing else in the format changes.
+ 7. Coming alongside: `"alongside"` on a sea - structures (the system villages and wrecks use) set down in the
+    open water beside the ship and taken away again. What a player has put there or left there is brought back
+    aboard as drops, never deleted. `"anchor": {cable}` on a block decides what can be held and how long.
+ 8. Holes: `"holed"` on a hull block names its twin, which the sea comes through (a state that must survive a
+    save is a block of its own, as with levers); `"mends"` on an item puts it back. `"pump"` on a block.
+    A square `"spoils"` what is stored in it when wet, if the data says so.
+ 9. `"trawl": {depth}` and `"bell"`: machines that bring up from the sea's bed table, by way and by depth - the
+    same shape as the miner Industry already has.
+10. Guns as blocks: `"gun": {power, range, takes}`, fired by the click at what it bears on, turned by an item
+    that `"turns"`. Other ships: Plunder & Thunder's `"ship"` creature and `"boarding"`, which are in the
+    engine already and only need the boarders put on MY deck instead of theirs.
+11. `"needs_under"` on a block: what it must stand on (a forge on stone). One placement rule.
+12. Tests: `test_hull_mod` loads the mod ALONE and checks its counts, the keels, a ship counted, a sea refused
+    and allowed, a net filled, a thing brought alongside and taken away with the player's blocks kept, a hole
+    made and mended, and an old save loaded. Every existing test must pass untouched: with the mod off, not one
+    random number is drawn that was not drawn before and no world changes.
+
+================================================================================================================
+6. WHAT I AM NOT SURE OF
+================================================================================================================
+
+   - Whether the first hour is good. A raft game lives or dies on whether hooking things out of the sea is a
+     pleasure, and that is feel, which cannot be tested here and will not have been played.
+   - How much of the base game the engine quietly expects. Item 1 above may be an afternoon or a week.
+   - The Leviathan and the Maelstrom are the least worked-out part of this plan and the likeliest to come out
+     smaller than they read.
+   - Seventy things to come alongside, each drawn and built by hand in several sizes, is the largest single
+     piece of work in it and the first place it would be cut.
+   - Balance, prices, how often anything turns up: guesses, as in every mod so far.
