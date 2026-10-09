@@ -833,11 +833,11 @@ static bool read_items(Reader *r, const cJSON *root)
                 const cJSON *roll = field(e, "rolled");
                 const char *cls = str(roll, "class");
                 it->rolled = roll != NULL;
-                it->roll_power = (int)num(roll, "power", 0);
-                it->roll_ups = (int)num(roll, "upgrades", 0);
-                it->roll_health = (int)num(roll, "health", 0);
-                it->roll_gain = (float)num(roll, "gain", 0.0);
-                it->roll_health_gain = (float)num(roll, "health_gain", 0.0);
+                it->roll_power = (long long)num(roll, "power", 0);
+                it->roll_ups = (long long)num(roll, "upgrades", 0);
+                it->roll_health = (long long)num(roll, "health", 0);
+                it->roll_gain = num(roll, "gain", 0.0);
+                it->roll_health_gain = num(roll, "health_gain", 0.0);
                 it->loot_class = cls && strcmp(cls, "warrior") == 0 ? 1 : cls && strcmp(cls, "mage") == 0 ? 2 : 0;
                 it->grade = (int)num(e, "grade", 0);
                 if (it->grade < 0 || it->grade >= MAX_GRADES) return fail(r, "item \"%s\": \"grade\" is 1 to %d", it->name, MAX_GRADES - 1);
@@ -2176,8 +2176,8 @@ static bool read_mobs(Reader *r, const cJSON *root)
         m->strike_share = (float)num(field(e, "strike"), "share", 0.0);
         m->strike_range = (int)num(field(e, "strike"), "range", 6);
         m->strike_rest = (int)num(field(e, "strike"), "rest_ticks", 60);
-        m->strike_power = (int)num(field(e, "strike"), "power", 0);
-        m->sting_power = (int)num(field(e, "sting"), "power", 0);
+        m->strike_power = (long long)num(field(e, "strike"), "power", 0);
+        m->sting_power = (long long)num(field(e, "sting"), "power", 0);
         m->boss = flag(e, "boss", false);
         m->companion = field(e, "companion") != NULL;
         m->companion_bite = (int)num(field(e, "companion"), "bite", 2);
@@ -2192,7 +2192,7 @@ static bool read_mobs(Reader *r, const cJSON *root)
         m->cap = (int)num(e, "cap", 0);
         if (str(e, "caged") && !item_ref(r, e, "caged", &m->caged)) return false;
         m->health = (int)num(e, "health", 1);
-        m->health_unit = (int)num(e, "health_unit", 1);
+        m->health_unit = (long long)num(e, "health_unit", 1);
         if (m->health_unit < 1) m->health_unit = 1;
         m->size_min = m->size_max = 1;
         pair(e, "size", &m->size_min, &m->size_max);

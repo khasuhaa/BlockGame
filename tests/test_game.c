@@ -13205,8 +13205,8 @@ static void test_dungeoneering_mod(void)
         failures++;
         return;
     }
-    CHECK(content.tile_count - tiles == 205 && content.item_count - items == 2054 && content.recipe_count - recipes == 122 && content.mob_count - mobs == 90);
-    CHECK(content.dungeon_count == 15 && content.rules.difficulty_count == 4 && game_dungeon_dim() >= 0);
+    CHECK(content.tile_count - tiles == 401 && content.item_count - items == 3712 && content.recipe_count - recipes == 234 && content.mob_count - mobs == 174);
+    CHECK(content.dungeon_count == 29 && content.rules.difficulty_count == 4 && game_dungeon_dim() >= 0);
     int first = -1, second = -1;
     for (int i = 0; i < content.dungeon_count; i++) {
         if (content.dungeons[i].tier == 1) first = i;
@@ -13215,7 +13215,7 @@ static void test_dungeoneering_mod(void)
         for (int k = 0; k < content.dungeons[i].mob_count; k++) CHECK(mob_id(content.dungeons[i].mobs[k]) >= 0);
         CHECK(content.mobs[mob_id(content.dungeons[i].mobs[5])].boss);
         /* The stone of each is what raises the way to the next: the game's own gems for the first five. */
-        CHECK((content.dungeons[i].stone != ITEM_NONE) == (content.dungeons[i].tier < 15));
+        CHECK((content.dungeons[i].stone != ITEM_NONE) == (content.dungeons[i].tier < 29));
     }
     CHECK(first >= 0 && second >= 0 && content.dungeons[first].stone == item_id("amethyst") && content.dungeons[second].stone == item_id("sapphire"));
 
@@ -13251,7 +13251,8 @@ static void test_dungeoneering_mod(void)
     /* Twenty legendaries; a guardian's armour is health and nothing else. */
     int legends = 0;
     for (int i = 1; i < content.item_count; i++) legends += content.items[i].rolled && content.items[i].grade == 5;
-    CHECK(legends == 28 && item_def(item_id("dg_hofund_6"))->grade == 6 && content.rules.grade_labels[6][0]);
+    CHECK(legends == 56);
+    CHECK(item_def(item_id("dg_hofund_6"))->grade == 6 && content.rules.grade_labels[6][0]);
     CHECK(item_def(item_id("dg_iron_armor_g_c_1"))->roll_power == 0 && item_def(item_id("dg_iron_armor_g_c_1"))->roll_health == 60);
 
     /* At a forge it is upgraded, a go at a time, for coin - and sold for more the more was spent on it. */
@@ -13386,20 +13387,62 @@ static void test_dungeoneering_mod(void)
 
     /* Portals past the sixth, raised by what the later dungeons give. */
     CHECK(tile_def(tile_id("dg_portal_7"))->bench_level == 7 && tile_def(tile_id("dg_portal_10"))->bench_level == 10 && tile_def(tile_id("dg_trade_portal_10"))->trade_level == 10);
-    CHECK(tile_def(tile_id("dg_portal_15"))->bench_level == 15 && tile_def(tile_id("dg_trade_portal_15"))->trade_level == 15);
+    CHECK(tile_def(tile_id("dg_portal_29"))->bench_level == 29 && tile_def(tile_id("dg_trade_portal_29"))->trade_level == 29);
     /* The dungeons run in the order of the list, a tier of portal to each. */
-    const char *order[15] = { "desert_temple", "winter_outpost", "pirate_island", "kings_castle", "underworld", "samurai_palace", "the_canals", "ghastly_harbor", "steampunk_sewers", "orbital_outpost", "volcanic", "aquatic_temple", "enchanted_forest", "northern_lands", "gilded_skies" };
-    for (int t = 0; t < 15; t++) {
-        bool found = false;
-        for (int i = 0; i < content.dungeon_count; i++) found = found || (strcmp(content.dungeons[i].name, order[t]) == 0 && content.dungeons[i].tier == t + 1);
-        CHECK(found);
+    const char *order[29] = { "desert_temple", "winter_outpost", "pirate_island", "kings_castle", "underworld", "samurai_palace", "the_canals", "ghastly_harbor", "steampunk_sewers", "aether_shipyard", "orbital_outpost", "volcanic", "aquatic_temple", "enchanted_forest",
+                              "northern_lands", "gilded_skies", "mount_olympus", "withered_tombs", "colosseum", "cultists_lair", "mermaid_kingdom", "tartarus_depths", "celestial_fields", "blood_cathedral", "frozen_expanse", "abyssal_depths", "petrified_woods", "wailing_swamp", "shattered_dreams" };
+    long long last_most = 0;
+    for (int t = 0; t < 29; t++) {
+        const DungeonDef *found = NULL;
+        for (int i = 0; i < content.dungeon_count; i++)
+            if (strcmp(content.dungeons[i].name, order[t]) == 0 && content.dungeons[i].tier == t + 1) found = &content.dungeons[i];
+        CHECK(found != NULL);
+        /* Each has more to it than the one last_most - and no more than five times as much: there is no gap in the way up. */
+        long long most = 0;
+        for (int i = 0; found && i < found->loot_count; i++) {
+            const ItemDef *it = item_def(found->loot[i].item);
+            if (it->grade == 4 && it->loot_class > 0 && it->roll_power > most) most = it->roll_power;
+        }
+        if (t > 3 && !(most > last_most && most < last_most * 5)) printf("FAIL %s: %lld after %lld\n", order[t], most, last_most), failures++;
+        last_most = most;
+    }
+    /* The last of them: numbers past what thirty-two bits hold, whole. */
+    {
+        static Game h;
+        game_init(&h, 512, 401, 3, WORLD_TERRAIN);
+        h.inventory.slots[1] = (ItemStack){ (uint16_t)item_id("dg_claidheamh_mor_6"), 1, 0 };
+        inventory_select_slot(&h.inventory, 1);
+        for (int i = 0; i < 40; i++) game_tick(&h);
+        Roll big = game_roll(&h.inventory, inventory_selected(&h.inventory));
+        CHECK(big.fallen && big.power > 2000000000000LL && big.power < 2800000000000LL && big.ups > 10000000000LL && game_attack_damage(&h) >= big.power);
+        game_free(&h);
+    }
+    /* A world from when a creature's kind was a byte: its creatures are what they were. */
+    {
+        static Game old;
+        CHECK(load_game(&old, "tests/fixtures/v40_plain.world"));
+        int alive = 0, dodo = -1;
+        for (int i = 0; i < MAX_MOBS; i++)
+            if (old.mobs[i].active) alive++, dodo = i;
+        CHECK(alive == 1 && dodo >= 0 && strcmp(content.mobs[old.mobs[dodo].kind].name, "dodo") == 0 && old.mobs[dodo].owned && old.mobs[dodo].hp == 2);
+        CHECK(MAX_MOB_KINDS >= 1024 && sizeof old.mobs[0].kind == 2);
+        /* And one of a kind past the two hundred and fifty-fifth is saved and comes back. */
+        int last = content.mob_count - 1;
+        CHECK(last > 255 || content.mob_count > 150);
+        int m = mob_spawn(&old, last, old.player.feet.x + 3, old.player.feet.y, true, false);
+        CHECK(m >= 0 && save_game(&old, "build/test_kinds.world"));
+        static Game again;
+        CHECK(load_game(&again, "build/test_kinds.world") && again.mobs[m].active && again.mobs[m].kind == last);
+        game_free(&again);
+        game_free(&old);
     }
     /* One with more health than a number holds has it in units: a blow of less than one does nothing to it. */
     {
         static Game h;
         game_init(&h, 512, 401, 3, WORLD_TERRAIN);
-        int king = mob_id("dg_gilded_dragon"), unit = content.mobs[king].health_unit;
-        CHECK(unit > 1 && (double)content.mobs[king].health * unit > 3.0e9);
+        int king = mob_id("dg_the_dreamer");
+        long long unit = content.mobs[king].health_unit;
+        CHECK(unit > 1 && (double)content.mobs[king].health * (double)unit > 3.0e13);
         int m = mob_spawn(&h, king, h.player.feet.x + 3, h.player.feet.y, false, false);
         int32_t full = h.mobs[m].hp;
         mob_hurt(&h, m, unit - 1);

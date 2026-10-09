@@ -364,3 +364,28 @@ levels stand for ages of progression: the dungeons go in order, one to a tier.
    SIZE NOW: 205 blocks, 2,054 items, 122 recipes, 90 creatures, 15 dungeons.
    Not played, as before. Above tier X coin cannot keep pace with the numbers: prices there are kept low, and
    a chest's gold is capped at what it can hold.
+
+----------------------------------------------------------------------------------------------------------------
+THE SECOND DOCUMENT, AND THE GAP   (added afterwards, at the owner's asking)
+----------------------------------------------------------------------------------------------------------------
+The owner supplied itemValues.json - every dungeon by a two-letter code, thirteen of them past Gilded Skies - and
+pointed at a gap between Steampunk Sewers and Orbital Outpost, to be fixed.
+
+   - THE GAP. Steampunk Sewers asks levels 119 to 126 and Orbital Outpost 140 to 146; every other dungeon follows
+     the last by ten, and where the best of each is two or three times the one before, here it was nine. A
+     dungeon was made to stand there: the AETHER SHIPYARD, tier X. It is in neither document. Its 22 things are
+     named for it and each number is the mean, in proportion, of Steampunk Sewers' and Orbital Outpost's.
+     Everything after it moved up a tier: Orbital Outpost is XI, Gilded Skies XVI.
+   - THIRTEEN MORE, XVII to XXIX. The document names them only om, wt, ec, cl, mk, td, cf, bc, fe, ad, pw, ws,
+     sd. Read from the letters and from what is found in each: Mount Olympus, Withered Tombs, Eternal Colosseum,
+     Cultist's Lair, Mermaid Kingdom, Tartarus Depths, Celestial Fields, Blood Cathedral, Frozen Expanse,
+     Abyssal Depths, Petrified Woods, Wailing Swamp, Shattered Dreams. If any is wrong it is one word to change.
+   - THEIR NUMBERS. The second document gives a least and a most "potential" and no base or count of upgrades.
+     Those are worked out in the proportions the first document's last dungeon has: an upgrade adds 10, a
+     weapon's base is 15/16 of its potential. One figure in the document is the letter S (the most a purple
+     Cultists' armour can have); the least and the usual tenth stand in for it.
+   - Keystones and portals to XXIX. An Ultimate pair in each of the thirteen.
+   - IN THE ENGINE: numbers of 64 bits for power, health, upgrades and blows (the last dungeon's best is 2.4
+     million million); the gate's list scrolls; a creature's kind is two bytes in a save (version 41), because
+     174 kinds of creature here and the other mods' would not fit in one.
+   SIZE NOW: 401 blocks, 3,712 items, 234 recipes, 174 creatures, 29 dungeons. Not played.

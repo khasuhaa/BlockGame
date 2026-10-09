@@ -7,7 +7,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC 0x574B4C42u /* "BLKW" */
-#define SAVE_VERSION 40u
+#define SAVE_VERSION 41u
 
 /* Up to version 28 a world had room for a quarter as many of these, and they
  * were written out whole: every reader of an older version goes by these. */
@@ -334,15 +334,57 @@ static bool read_item_names(FILE *f, uint16_t map[MAX_ITEMS])
     return true;
 }
 
-/* Which saved creature kinds still exist, filled in as their names are read. */
-static bool mob_id_by_saved_name[256];
-static int mob_names_read;
+/* A creature as saved from version 10 to version 40: its kind a byte, near the beginning. */
+typedef struct {
+    bool active;
+    uint8_t kind;
+    bool owned;
+    bool baby;
+    int x, y;
+    int to_x, to_y;
+    int step_left, step_total;
+    int dir;
+    int age;
+    uint32_t id;
+    int32_t state, home_x, timer, hp, size, poison;
+} Mob40;
 
-static int mob_id_or_zero(const char *name)
+static bool read_mobs_40(FILE *f, Game *g, int count)
 {
-    int id = mob_id(name);
-    if (mob_names_read < 256) mob_id_by_saved_name[mob_names_read++] = id >= 0;
-    return id > 0 ? id : 0;
+    static Mob40 old[MAX_MOBS];
+    if (count > MAX_MOBS || fread(old, sizeof(Mob40) * (size_t)count, 1, f) != 1) return false;
+    for (int i = 0; i < count; i++) {
+        const Mob40 *m = &old[i];
+        g->mobs[i] = (Mob){ .active = m->active, .kind = m->kind, .owned = m->owned, .baby = m->baby,
+                            .x = m->x, .y = m->y, .to_x = m->to_x, .to_y = m->to_y,
+                            .step_left = m->step_left, .step_total = m->step_total, .dir = m->dir,
+                            .age = m->age, .id = m->id, .state = m->state, .home_x = m->home_x, .timer = m->timer,
+                            .hp = m->hp, .size = m->size, .poison = m->poison };
+    }
+    return true;
+}
+
+/* The kinds of creature a save knew, by name: what each is now, and whether there still is such a kind. (As many
+ * as there can ever be: a save from when a kind was a byte has 256 at most.) */
+#define SAVED_MOB_KINDS 4096
+static uint16_t mob_now[SAVED_MOB_KINDS];
+static bool mob_id_by_saved_name[SAVED_MOB_KINDS];
+
+static bool read_mob_names(FILE *f)
+{
+    uint32_t n;
+    memset(mob_now, 0, sizeof mob_now);
+    memset(mob_id_by_saved_name, 0, sizeof mob_id_by_saved_name);
+    if (fread(&n, sizeof n, 1, f) != 1 || n > SAVED_MOB_KINDS) return false;
+    for (uint32_t i = 0; i < n; i++) {
+        char name[CONTENT_NAME_LEN];
+        if (fread(name, sizeof name, 1, f) != 1) return false;
+        name[sizeof name - 1] = '\0';
+        int id = mob_id(name);
+        mob_id_by_saved_name[i] = id >= 0;
+        mob_now[i] = (uint16_t)(id > 0 ? id : 0);
+    }
+    return true;
 }
 
 static void legacy_names(uint16_t map[MAX_TILES], const char *const *names, int count,
@@ -628,20 +670,19 @@ bool load_game(Game *g, const char *path)
         }
         /* Creatures, from version 7: kinds by name, like blocks and items. */
         if (ok && h.version >= 7) {
-            uint8_t kinds[256];
-            mob_names_read = 0;
-            memset(mob_id_by_saved_name, 0, sizeof mob_id_by_saved_name);
-            ok = read_names(f, kinds, mob_id_or_zero) &&
+            /* (A creature's kind was a byte until version 41: the record is read as it was, and made what it is now.) */
+            ok = read_mob_names(f) &&
                  (h.version < 10 ? read_old_mobs(f, g)
-                  : h.version < 29 ? fread(g->mobs, sizeof(Mob) * V28_MOBS, 1, f) == 1
+                  : h.version < 29 ? read_mobs_40(f, g, V28_MOBS)
+                  : h.version < 41 ? read_mobs_40(f, g, MAX_MOBS)
                                    : fread(g->mobs, sizeof g->mobs, 1, f) == 1) &&
                  fread(&g->next_mob_id, sizeof g->next_mob_id, 1, f) == 1;
             for (int i = 0; ok && i < MAX_MOBS; i++) {
                 /* (A kind that no longer exists maps to 0 like any other; a
                  * creature of it is only kept if 0 really is its kind.) */
-                bool known = mob_id_by_saved_name[g->mobs[i].kind];
+                bool known = g->mobs[i].kind < SAVED_MOB_KINDS && mob_id_by_saved_name[g->mobs[i].kind];
                 if (!known) g->mobs[i].active = false;
-                g->mobs[i].kind = kinds[g->mobs[i].kind];
+                g->mobs[i].kind = known ? mob_now[g->mobs[i].kind] : 0;
             }
         }
         /* What has been uncovered, from version 8. An older world starts

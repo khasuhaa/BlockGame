@@ -19,10 +19,10 @@ void mobs_tick(Game *g);
 bool mobs_try_spawn(Game *g, int x, int y);
 bool mobs_try_hatch(Game *g, int x, int y);
 /* Takes so much off a creature. Returns true if that was the end of it. */
-bool mob_hurt(Game *g, int mob, int damage);
+bool mob_hurt(Game *g, int mob, long long damage);
 /* The same by magic: of an element (-1 for none), and leaving what it kills cooked if it is the kind of spell that does.
  * A creature that blows do nothing to is hurt only by the element it is weak to. */
-bool mob_hurt_by(Game *g, int mob, int damage, int element, bool cooks);
+bool mob_hurt_by(Game *g, int mob, long long damage, int element, bool cooks);
 /* Whether a creature is weak to an element. */
 bool mob_weak_to(const Game *g, int mob, int element);
 /* Poison: how many points of it a creature still has to suffer, and giving it

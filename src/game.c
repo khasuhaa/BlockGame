@@ -1604,13 +1604,13 @@ int game_attack_range(const Game *g)
     return held->count > 0 ? item_def(held->id)->range : 0;
 }
 
-int game_attack_damage(const Game *g)
+long long game_attack_damage(const Game *g)
 {
     const ItemStack *held = inventory_selected(&g->inventory);
-    int with = held->count > 0 ? item_def(held->id)->damage : 0;
+    long long with = held->count > 0 ? item_def(held->id)->damage : 0;
     /* (A thing whose numbers fell to it strikes with those, and with whatever of the kind is worn.) */
     if (held->count > 0 && item_def(held->id)->rolled && item_def(held->id)->loot_class > 0) {
-        int power = game_roll(&g->inventory, held).power + game_worn_power(g);
+        long long power = game_roll(&g->inventory, held).power + game_worn_power(g);
         if (power > with) with = power;
     }
     if (g->mount > 0 && g->mount <= MAX_MOBS && g->mobs[g->mount - 1].active && content.mobs[g->mobs[g->mount - 1].kind].gun_damage > 0)
@@ -3091,17 +3091,17 @@ Roll game_roll(const Inventory *inv, const ItemStack *s)
     out.fallen = reads > 0;
     out.base_percent = (int)(base * 100.0f + 0.5f);
     out.ups_percent = (int)(ups * 100.0f + 0.5f);
-    out.ups = def->roll_ups > 0 ? (int)((float)def->roll_ups * ups + 0.5f) : 0;
+    out.ups = def->roll_ups > 0 ? (long long)((double)def->roll_ups * (double)ups + 0.5) : 0;
     if (def->roll_ups > 0 && out.ups < 1) out.ups = 1;
     out.steps = content.rules.upgrade_steps > 0 ? content.rules.upgrade_steps : 50;
-    if (out.steps > out.ups) out.steps = out.ups;
+    if ((long long)out.steps > out.ups) out.steps = (int)out.ups;
     out.step = v / (ROLL_SPAN * ROLL_SPAN);
     if (out.step > out.steps) out.step = out.steps;
-    out.done = out.steps > 0 ? (int)((long)out.step * out.ups / out.steps) : 0;
-    out.base_power = def->roll_power > 0 ? (int)((float)def->roll_power * base + 0.5f) : 0;
-    out.base_health = def->roll_health > 0 ? (int)((float)def->roll_health * base + 0.5f) : 0;
-    out.power = out.base_power + (int)((float)out.done * def->roll_gain + 0.5f);
-    out.health = out.base_health + (int)((float)out.done * def->roll_health_gain + 0.5f);
+    out.done = out.steps > 0 ? (long long)((double)out.step * (double)out.ups / (double)out.steps) : 0;
+    out.base_power = def->roll_power > 0 ? (long long)((double)def->roll_power * (double)base + 0.5) : 0;
+    out.base_health = def->roll_health > 0 ? (long long)((double)def->roll_health * (double)base + 0.5) : 0;
+    out.power = out.base_power + (long long)((double)out.done * def->roll_gain + 0.5);
+    out.health = out.base_health + (long long)((double)out.done * def->roll_health_gain + 0.5);
     return out;
 }
 
@@ -3125,26 +3125,26 @@ static void roll_everything(Game *g)
     }
 }
 
-int game_worn_power(const Game *g)
+long long game_worn_power(const Game *g)
 {
-    int total = 0;
+    long long total = 0;
     for (int i = 0; i < ARMOR_SLOTS; i++) total += game_roll(&g->inventory, &g->inventory.armor[i]).power;
     return total;
 }
 
-int game_max_health(const Game *g)
+long long game_max_health(const Game *g)
 {
-    int total = content.rules.dungeon_health > 0 ? content.rules.dungeon_health : 100;
+    long long total = content.rules.dungeon_health > 0 ? content.rules.dungeon_health : 100;
     for (int i = 0; i < ARMOR_SLOTS; i++) total += game_roll(&g->inventory, &g->inventory.armor[i]).health;
     return total;
 }
 
-float game_blow(const Game *g, int power, int x, int y)
+float game_blow(const Game *g, long long power, int x, int y)
 {
     int hard = 0;
     float times = world_dungeon_run(&g->world, y, &hard) >= 0 && hard < content.rules.difficulty_count ? content.rules.difficulties[hard].damage : 1.0f;
     (void)x;
-    return (float)power * times / (float)game_max_health(g);
+    return (float)((double)power * (double)times / (double)game_max_health(g));
 }
 
 long game_rolled_worth(const Game *g, const ItemStack *s)

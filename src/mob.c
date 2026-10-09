@@ -52,7 +52,7 @@ int mob_spawn(Game *g, int kind, int x, int y, bool owned, bool baby)
         x = world_wrap_x(&g->world, x);
         const MobDef *def = &content.mobs[kind];
         int span = def->size_max - def->size_min + 1;
-        g->mobs[i] = (Mob){ .active = true, .kind = (uint8_t)kind, .owned = owned, .baby = baby,
+        g->mobs[i] = (Mob){ .active = true, .kind = (uint16_t)kind, .owned = owned, .baby = baby,
                             .x = x, .y = y, .to_x = x, .to_y = y,
                             .dir = (game_random(g) & 1) ? 1 : -1, .id = ++g->next_mob_id,
                             .hp = def->health > 0 ? def->health : 1,
@@ -319,7 +319,7 @@ static void provoke(Game *g, Mob *m)
     }
 }
 
-bool mob_hurt_by(Game *g, int mob, int damage, int element, bool cooks)
+bool mob_hurt_by(Game *g, int mob, long long damage, int element, bool cooks)
 {
     if (mob < 0 || mob >= MAX_MOBS || !g->mobs[mob].active || damage <= 0) return false;
     Mob *m = &g->mobs[mob];
@@ -330,7 +330,9 @@ bool mob_hurt_by(Game *g, int mob, int damage, int element, bool cooks)
         damage /= content.mobs[m->kind].health_unit;
         if (damage <= 0) return false;
     }
-    m->hp -= damage;
+    /* (More than is left, however much more, is all that is left.) */
+    if (damage > m->hp) damage = m->hp;
+    m->hp -= (int32_t)damage;
     if (m->hp > 0) {
         provoke(g, m);
         return false;
@@ -339,7 +341,7 @@ bool mob_hurt_by(Game *g, int mob, int damage, int element, bool cooks)
     return true;
 }
 
-bool mob_hurt(Game *g, int mob, int damage)
+bool mob_hurt(Game *g, int mob, long long damage)
 {
     return mob_hurt_by(g, mob, damage, -1, false);
 }

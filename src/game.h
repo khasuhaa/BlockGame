@@ -189,7 +189,7 @@ typedef struct {
 /* A creature. It stands in one tile, and walks to the next over several ticks. */
 typedef struct {
     bool active;
-    uint8_t kind;  /* which of content.mobs */
+    uint8_t kind_was; /* (where its kind was kept when there could be no more than 255 of them: not used) */
     bool owned;    /* the player's: it does not go away with distance */
     bool baby;
     int x, y;      /* the tile it is in */
@@ -206,6 +206,7 @@ typedef struct {
     int32_t hp;     /* what it can still take; 0 in a record from before creatures had any: full */
     int32_t size;   /* blocks long; 0 or 1 for the ordinary size */
     int32_t poison; /* poison in it still to do its work: see mob_poison */
+    uint16_t kind;  /* which of content.mobs (at the end: it was a byte near the beginning until save version 41) */
 } Mob;
 
 typedef enum {
@@ -635,18 +636,18 @@ void game_quest_killed(Game *g, int kind);
  * middle its base is, how far its count of upgrades, and how many of `steps` goes at upgrading it has had. */
 typedef struct {
     bool rolled, fallen;       /* it is such a thing; and its numbers have fallen (until then: the middle) */
-    int power, health;         /* what it has now */
-    int base_power, base_health; /* what it had with no upgrades */
-    int ups, done;             /* how many upgrades it can have, and has */
+    long long power, health;   /* what it has now */
+    long long base_power, base_health; /* what it had with no upgrades */
+    long long ups, done;       /* how many upgrades it can have, and has */
     int steps, step;           /* the goes that takes, and how many have been had */
     int base_percent, ups_percent;
 } Roll;
 Roll game_roll(const Inventory *inv, const ItemStack *s);
 /* What is worn adds to a blow, and to what a character can take where blows are numbers. */
-int game_worn_power(const Game *g);
-int game_max_health(const Game *g);
+long long game_worn_power(const Game *g);
+long long game_max_health(const Game *g);
 /* The share of the health bar a blow of `power` takes from the character, struck at that square: more in a dungeon made harder. */
-float game_blow(const Game *g, int power, int x, int y);
+float game_blow(const Game *g, long long power, int x, int y);
 /* At a forge: what the thing in hand would sell for, what `steps` more goes at upgrading it cost, and doing either. */
 bool game_forge_open(const Game *g);
 long game_rolled_worth(const Game *g, const ItemStack *s);
@@ -852,7 +853,7 @@ void game_poison(Game *g, int ticks);
 int game_attack_range(const Game *g);
 /* What a blow from the player takes off a creature: what is in their hand
  * if that is a weapon, a bare hand's worth otherwise. */
-int game_attack_damage(const Game *g);
+long long game_attack_damage(const Game *g);
 /* True while any part of the player is in water. */
 bool game_player_in_water(const Game *g);
 /* Leaves one of a sized item lying in a tile, of a given size. */

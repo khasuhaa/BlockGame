@@ -10,6 +10,7 @@
  * what is drawn over the game for both: what a rolled thing under the cursor has, and a boss's health. */
 typedef struct {
     bool pressed; /* a press that began on a menu */
+    float scroll; /* how far down the gate's list is, in pixels */
 } DungeonUi;
 
 /* Returns true while the mouse belongs to a menu. */

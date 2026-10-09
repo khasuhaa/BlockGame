@@ -25,8 +25,8 @@ BI = {t['name']: t for t in json.load(open(os.path.join(DATA, 'items.json')))['i
 BTR = {t['name']: t for t in json.load(open(os.path.join(DATA, 'trees.json')))['trees']}
 
 tiles, items, recipes, trees, mobs, biomes, veins, decor, plants, structures, villages, sets = [], [], [], [], [], [], [], [], [], [], [], []
-TP = {1: 30, 2: 100, 3: 300, 4: 900, 5: 2500, 6: 6000, 7: 15000, 8: 40000, 9: 120000, 10: 400000, 11: 600000, 12: 800000, 13: 1000000, 14: 1300000, 15: 1600000}
-NUM = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI']
+TP = {1: 30, 2: 100, 3: 300, 4: 900, 5: 2500, 6: 6000, 7: 15000, 8: 40000, 9: 120000, 10: 400000}; TP.update({t: 400000 + 150000 * (t - 10) for t in range(11, 33)})
+NUM = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX', 'XXI', 'XXII', 'XXIII', 'XXIV', 'XXV', 'XXVI', 'XXVII', 'XXVIII', 'XXIX', 'XXX', 'XXXI', 'XXXII']
 def lo(r): return 2 * r - 1
 def hi(r): return 2 * r
 
@@ -510,11 +510,22 @@ def hue(col, name, amount=0.06):
     h, l, s_ = colorsys.rgb_to_hls(*[v / 255 for v in col[:3]]); k = rnd(name)
     r_, g_, b_ = colorsys.hls_to_rgb((h + k.uniform(-amount, amount)) % 1.0, max(0.12, min(0.9, l + k.uniform(-0.06, 0.06))), s_)
     return (int(r_ * 255), int(g_ * 255), int(b_ * 255), 255)
+def hue_gem(pic, name):
+    """(A mark of its own on each keystone, so that two of a colour are told apart.)"""
+    k = rnd(name); pic.p(k.randint(5, 10), k.randint(5, 10), WHITE); pic.p(k.randint(4, 11), k.randint(9, 12), INK); return pic
 GRADE = [None, c('aaaab2'), c('60c860'), c('5a96f0'), c('b464e6'), c('f0be3c'), c('f05a5a')]
 GRADE_NAME = [None, 'Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Ultimate']
 
 # ---- what a thing is made of, by a word in its name -----------------------------------------------------------------------------------
-STUFF = [('hellstone', '6a1a1a', 'f06030'), ('hellfire', 'e03818', 'ffc040'), ('lava', 'f05a18', 'ffd050'), ('darkstone', '3a3038', '8a6a80'), ('volcanic', '5a2a22', 'f07030'), ('burned', '4a3a34', 'e06030'), ('aquatic', '2a90b0', 'a0f0f0'), ('riptide', '2a6ac0', 'c0f0ff'), ('triton', '3ab0a0', 'f0e080'),
+STUFF = [('olympian', 'e8e4d8', 'f0c840'), ('almighty', 'f0d060', 'ffffff'), ('athenian', 'c8a040', '60a0ff'), ('thunder', '60a0ff', 'ffffff'), ('skeletal', 'e8e0d0', '8a8a7a'), ('skeleton', 'e8e0d0', '8a8a7a'), ('essence', '80ffd0', 'ffffff'), ('soulshard', '60e0c0', 'ffffff'), ('spirit', 'a0f0e0', 'ffffff'),
+         ('centurion', 'c03030', 'c8a040'), ('praetorian', '6a2a8a', 'f0c840'), ('imperial', 'f0c840', 'a02828'), ('ritual', '5a2a5a', 'c040ff'), ('black rock', '2a2a30', '8a4a8a'), ('unholy', '4a1a4a', 'a0ff60'), ('cultist', '4a2a4a', 'c040ff'), ('fishhook', '8a9aa0', 'f0e080'), ('scaled', '40a0a0', 'a0fff0'),
+         ('coral', 'f08a80', 'ffe0d0'), ('mermaid', '40c0b0', 'f0a0d0'), ('glimmershine', 'a0fff0', 'ffffff'), ('glistening', '80d0d0', 'ffffff'), ('shining', 'f0e8a0', 'ffffff'), ('hades', '2a2a34', 'ff3020'), ('thanatos', '3a3a44', 'c0c0d0'), ('tartarus', '4a1a1a', 'ff6030'),
+         ('starstruck', '3a4a9a', 'f0f0a0'), ('shimmering', 'c0d0ff', 'ffffff'), ('starry', '2a3a7a', 'f0f0a0'), ('constellation', '4a5ab0', 'ffffff'), ('bloodied', '8a1020', 'e0c0c0'), ('sacrific', '6a1010', 'f0c840'), ('bloodthirsty', 'a01020', 'ff6070'), ('bloodbane', '5a0a14', 'ff2040'), ('devilseal', '3a0a0a', 'f0c840'),
+         ('icy', 'a0e0ff', 'ffffff'), ('deepsnow', 'e0f0ff', '80c0f0'), ('blizzard', 'c0e0f8', 'ffffff'), ('deepfrost', '60b0f0', 'ffffff'), ('darkened', '2a2a3a', '6a6a8a'), ('deepborn', '1a2a4a', '4080c0'), ('darksworn', '1a1a2a', '6040ff'), ('abyssal', '14142a', 'a060ff'), ('shadeborn', '2a2a4a', 'a080ff'),
+         ('shadowice', '3a4a6a', 'a0c0ff'), ('shadowsteel', '2a2a3a', '8a8aa0'), ('petrified', '9a9488', 'c8c0b0'), ('admantite', '4a6a5a', 'a0f0c0'), ('solidified', '8a8478', 'c0e080'), ('stonewood', '7a7060', 'a09880'), ('earthly', '8a6a3a', 'c0e080'), ('mythril', 'c0e0f0', 'ffffff'), ('immortal', 'f0e8c0', 'c0e080'),
+         ('dirt', '6a5a3a', '9a8a6a'), ('sunken', '3a5a4a', '80c0a0'), ('ghastly', '6ab0a0', 'e0fff8'), ('undead', '5a7a4a', 'c0e0a0'), ('deathwind', '4a6a3a', '80ff60'), ('lich', '3a5a3a', '80ff60'), ('dreamer', 'c0a0e0', 'ffffff'), ('fortunata', 'f0c0f0', 'f0c840'),
+         ('rivet', '9a7a4a', 'c0c8d0'), ('spark', '60c0ff', 'ffffff'), ('propeller', 'b08850', 'e0e8f0'), ('barometer', 'c8a040', 'a0e0ff'), ('brass', 'c8a040', 'f0e0a0'), ('aether', '80c0ff', 'ffffff'), ('cloudsteel', 'c0d8f0', 'ffffff'), ('stormglass', '6080c0', 'c0f0ff'), ('piston', '8a8e9a', 'f0a030'),
+         ('lightning', 'f0f060', 'ffffff'), ('skyforged', 'a0c0f0', 'f0c840'), ('deckhand', '8a6a4a', 'c0b090'), ('aeronaut', '5a6a9a', 'e0e8f0'), ('skycaptain', '3a4a8a', 'f0c840'), ('stormcaller', '4a5a9a', 'f0f060'), ('zephyr', 'a0e0d0', 'ffffff'), ('hellstone', '6a1a1a', 'f06030'), ('hellfire', 'e03818', 'ffc040'), ('lava', 'f05a18', 'ffd050'), ('darkstone', '3a3038', '8a6a80'), ('volcanic', '5a2a22', 'f07030'), ('burned', '4a3a34', 'e06030'), ('aquatic', '2a90b0', 'a0f0f0'), ('riptide', '2a6ac0', 'c0f0ff'), ('triton', '3ab0a0', 'f0e080'),
          ('oceanic', '2a70c0', 'a0e0ff'), ('fungal', '8a5a9a', 'e0c0f0'), ('forest', '3a8a3a', 'b0e080'), ('overgrown', '4a7a2a', 'c0e060'), ('eldenbark', '6a4a2a', '90e0a0'), ('crystalline', 'a0d0f8', 'ffffff'), ('norse', '8a9ab0', 'f0c840'), ('north', '90b8e0', 'ffffff'), ('viking', '8a6a4a', 'c0c8d0'),
          ('frost', 'a0e0ff', 'ffffff'), ('midgardian', '6a8a6a', 'e0d0a0'), ('jotunn', '6a90c0', 'e0f4ff'), ('valhalla', 'f0d880', 'ffffff'), ('mjolnir', '9aa0b0', '60c0ff'), ('gungnir', 'd0b060', 'ffffff'), ('hofund', 'c0c8d8', 'f0c840'), ('laevateinn', 'c03020', 'ffc040'),
          ('dracani', 'c89a30', 'f05030'), ('oathsworn', 'e0e4f0', 'f0c840'), ('gildenscale', 'f0c030', 'ffffff'), ('daybreak', 'ffb040', 'ffffff'), ('bronze', 'c8964a', 'e0c080'), ('iron', '8a8e9a', 'c0c4d0'), ('steel', 'b0b8c4', 'e0e8f0'), ('blacksteel', '3a3e4a', '8a8e9a'), ('titanium', 'c8d4e0', 'ffffff'), ('granite', '8a8480', 'b8b0a8'), ('stone', '8a8a84', 'b8b8b0'), ('coldstone', '7a8a9a', 'c0d0e0'),
@@ -539,7 +550,7 @@ def stuff(name):
         if word in low: return hue(c(a), name, 0.03), hue(c(b), name + '!', 0.03)
     k = rnd(name); col = tuple(k.randint(90, 210) for _ in range(3)) + (255,)
     return col, lt(col, 1.4)
-KINDS = [('fists', ('fist', 'claws', 'shield')), ('hammer', ('mjolnir', 'mace', 'sceptre')), ('spear', ('gungnir', 'lance', 'glaive', 'halberd')), ('staff', ('laevateinn', 'gildensong')), ('greataxe', ('executioner', 'waraxe', 'hatchets')), ('fists', ('fist',)), ('fan', ('fan',)), ('stars', ('stars',)), ('wings', ('wings',)), ('anchor', ('anchor',)), ('book', ('spellbook', 'tome')), ('grail', ('grail',)), ('device', ('device', 'orb')), ('trident', ('trident',)), ('scythe', ('scythe', 'sickle', 'reaver')),
+KINDS = [('spear', ('javelin',)), ('book', ('scroll', 'spelltome')), ('device', ('artefact', 'orb', 'aura', 'force')), ('fists', ('bastion',)), ('fists', ('fist', 'claws', 'shield')), ('hammer', ('mjolnir', 'mace', 'sceptre')), ('spear', ('gungnir', 'lance', 'glaive', 'halberd')), ('staff', ('laevateinn', 'gildensong')), ('greataxe', ('executioner', 'waraxe', 'hatchets')), ('fists', ('fist',)), ('fan', ('fan',)), ('stars', ('stars',)), ('wings', ('wings',)), ('anchor', ('anchor',)), ('book', ('spellbook', 'tome')), ('grail', ('grail',)), ('device', ('device', 'orb')), ('trident', ('trident',)), ('scythe', ('scythe', 'sickle', 'reaver')),
          ('katana', ('katana', 'kris', 'cutlass', 'scimitar', 'rapier')), ('greataxe', ('greataxe', 'battleaxe', 'cleaver', 'royal axe', 'axes', 'bloodthrister')), ('axe', ('axe',)), ('hammer', ('hammer', 'maul', 'mallet', 'club', 'pulverizer', 'warhammer')),
          ('spear', ('spear', 'pike', 'polearm', 'battlestaff')), ('wand', ('wand',)), ('staff', ('staff', 'greatstaff')), ('dagger', ('dagger', 'knives', 'knife', 'fang', 'slicer', 'star')), ('greatsword', ('greatsword', 'claymore', 'godsword', 'slayer', 'fury', 'strongsword', 'flatblade', 'rageblade', 'splitter')),
          ('sword', ('sword', 'blade', 'defender', 'triumph'))]
@@ -631,25 +642,69 @@ DUNGEONS = [
  ('SS', 'steampunk_sewers', 'Steampunk Sewers', 9, ('paving', '8a6a3a'), '6a5a4a', '3a2e22', 'ffb060',
   [('gear_rat', 'Clockwork rat', 'rabbit', 'c89a4a', '60e0ff', 'swarm'), ('sewer_engineer', 'Mad engineer', 'person', '6a5a3a', 'f0a030', 'grunt'), ('tesla_caster', 'Spark caster', 'person', '3a4a6a', '60e0ff', 'ranged'), ('steam_drone', 'Steam drone', 'bird', 'b08850', 'ffffff', 'fast'), ('boiler_golem', 'Boiler golem', 'golem', 'a07840', 'f06020', 'tank')],
   ('mad_inventor', 'The Inventor', 'golem', 'c8a040', '60e0ff'), [('machine', 'a07840', '60e0ff'), ('barrel', '8a6a3a', 'c8a040'), ('crate', '6a5a4a', 'c8a040')], [('chain', 'a07840', 'e0c080'), ('lantern', '6a4a22', 'ffb060')]),
- ('OO', 'orbital_outpost', 'Orbital Outpost', 10, ('paving', '6a7a9a'), '4a5a7a', '1a2038', '80c0ff',
+ ('AS', 'aether_shipyard', 'Aether Shipyard', 10, ('planks', '9a7a4a'), '7a6a5a', '3a3040', 'a0e0ff',
+  [('deck_gremlin', 'Deck gremlin', 'ape', '5a8a5a', 'f0c040', 'swarm'), ('shipyard_rigger', 'Rigger', 'person', '6a5a8a', 'e0e8f0', 'grunt'), ('storm_gunner', 'Storm gunner', 'person', '3a4a7a', 'a0e0ff', 'ranged'), ('cloud_ray', 'Cloud ray', 'bird', 'c0d8f0', 'ffffff', 'fast'), ('boiler_knight', 'Boiler knight', 'golem', 'b08850', 'a0e0ff', 'tank')],
+  ('sky_admiral', 'The Sky Admiral', 'phoenix', '4a5a9a', 'f0c840'), [('machine', 'b08850', 'a0e0ff'), ('crate', '9a7a4a', '5a4a3a'), ('anchor', '8a8e9a', 'c0c8d0')], [('chain', 'b08850', 'e0c080'), ('lantern', '5a4a3a', 'a0e0ff')]),
+ ('OO', 'orbital_outpost', 'Orbital Outpost', 11, ('paving', '6a7a9a'), '4a5a7a', '1a2038', '80c0ff',
   [('void_mite', 'Void mite', 'creature', '5a3ad0', '60f0ff', 'swarm'), ('outpost_trooper', 'Outpost trooper', 'person', 'c0d0e0', '3a5a9a', 'grunt'), ('plasma_caster', 'Plasma caster', 'person', '4a2a8a', 'f060f0', 'ranged'), ('star_hunter', 'Star hunter', 'phoenix', '60c0ff', 'ffffff', 'fast'), ('alien_brute', 'Alien brute', 'golem', '50d070', 'e0ff80', 'tank')],
   ('alien_emperor', 'The Emperor', 'wyrm', '3a2a8a', '60f0ff'), [('machine', '6a7a9a', '80c0ff'), ('crystal', '8060f0', 'f0e0ff'), ('crate', '8a9ab0', '3a5a9a')], [('lantern', '4a5a7a', '80c0ff'), ('stalactite', '5a6a8a', 'a0c0ff')]),
- ('VC', 'volcanic', 'Volcanic Chambers', 11, ('rock', '4a2620'), '3a2a28', '241210', 'ff7020',
+ ('VC', 'volcanic', 'Volcanic Chambers', 12, ('rock', '4a2620'), '3a2a28', '241210', 'ff7020',
   [('magma_slug', 'Magma slug', 'serpent', 'e05018', 'ffc040', 'swarm'), ('ash_warrior', 'Ash warrior', 'person', '4a3a34', 'f06020', 'grunt'), ('lava_shaman', 'Lava shaman', 'person', '8a2a18', 'ffc040', 'ranged'), ('cinder_hawk', 'Cinder hawk', 'phoenix', 'f06020', 'ffd050', 'fast'), ('obsidian_giant', 'Obsidian giant', 'golem', '2a2430', 'f05a18', 'tank')],
   ('lava_king', 'The Lava King', 'dragon', 'c03010', 'ffd050'), [('crystal', 'f05a18', 'ffd050'), ('pillar', '4a3a38', '2a2020'), ('brazier', '3a2a28', 'ff7020')], [('stalactite', '5a3028', 'f06020'), ('chain', '3a3030', 'f05a18')]),
- ('AT', 'aquatic_temple', 'Aquatic Temple', 12, ('brick', '3a8a9a'), '2a6a7a', '143a48', '60f0f0',
+ ('AT', 'aquatic_temple', 'Aquatic Temple', 13, ('brick', '3a8a9a'), '2a6a7a', '143a48', '60f0f0',
   [('reef_biter', 'Reef biter', 'fish', '3a90c0', 'f0e080', 'swarm'), ('triton_guard', 'Triton guard', 'person', '2a7a8a', 'f0e080', 'grunt'), ('tide_caller', 'Tide caller', 'person', '2a4a9a', '60f0f0', 'ranged'), ('temple_eel', 'Temple eel', 'serpent', '2a6a5a', 'f0f060', 'fast'), ('coral_colossus', 'Coral colossus', 'golem', 'f08a80', 'f0e0d0', 'tank')],
   ('sea_king', 'The Sea King', 'wyrm', '2a80b0', 'f0e080'), [('statue', '4ab0b0', 'f0e080'), ('urn', '3a8a9a', 'f0e0d0'), ('crystal', '60e0f0', 'ffffff')], [('chain', '3a7a8a', 'a0e0e0'), ('lantern', '2a6a7a', '60f0f0')]),
- ('EF', 'enchanted_forest', 'Enchanted Forest', 13, ('planks', '4a3a22'), '3a5a2a', '1a2a14', 'a0ff80',
+ ('EF', 'enchanted_forest', 'Enchanted Forest', 14, ('planks', '4a3a22'), '3a5a2a', '1a2a14', 'a0ff80',
   [('spore_sprite', 'Spore sprite', 'wraith', 'c080e0', 'f0e0ff', 'swarm'), ('fungal_warrior', 'Fungal warrior', 'person', '8a5a9a', 'e0c0f0', 'grunt'), ('vine_weaver', 'Vine weaver', 'person', '3a7a2a', 'c0f060', 'ranged'), ('shard_stag', 'Shard stag', 'stag', '90c0e0', 'ffffff', 'fast'), ('bark_titan', 'Bark titan', 'golem', '6a4a2a', '90e0a0', 'tank')],
   ('elden_heart', 'The Eldenbark', 'golem', '5a4020', 'a0ff80'), [('crystal', 'a0d0f8', 'ffffff'), ('statue', '6a8a5a', 'c0e0a0'), ('urn', '8a5a9a', 'e0c0f0')], [('stalactite', '3a6a2a', 'a0ff80'), ('lantern', '4a3a22', 'a0ff80')]),
- ('NL', 'northern_lands', 'Northern Lands', 14, ('rock', '8a9ab0'), 'c0d0e0', '3a4a60', 'a0e0ff',
+ ('NL', 'northern_lands', 'Northern Lands', 15, ('rock', '8a9ab0'), 'c0d0e0', '3a4a60', 'a0e0ff',
   [('rime_wolf', 'Rime wolf', 'quad', 'e0f0ff', '6090c0', 'fast'), ('norse_raider', 'Norse raider', 'person', '8a6a4a', 'c0c8d0', 'grunt'), ('rune_seer', 'Rune seer', 'person', '3a5a8a', 'a0e0ff', 'ranged'), ('frost_raven', 'Frost raven', 'bird', '2a3040', 'a0e0ff', 'swarm'), ('frost_giant', 'Frost giant', 'golem', '80b0e0', 'ffffff', 'tank')],
   ('jotunn_lord', 'The Jotunn', 'golem', '6a90c0', 'f0c840'), [('pillar', '9ab0c8', '5a708a'), ('brazier', '4a5a70', 'a0e0ff'), ('crate', '8a6a4a', 'c0c8d0')], [('banner', '2a4a8a', 'f0c840'), ('stalactite', 'b0d8f0', 'ffffff')]),
- ('GS', 'gilded_skies', 'Gilded Skies', 15, ('brick', 'e8d8a0'), 'f0e8c8', '6a5a30', 'fff0a0',
+ ('GS', 'gilded_skies', 'Gilded Skies', 16, ('brick', 'e8d8a0'), 'f0e8c8', '6a5a30', 'fff0a0',
   [('gilded_wisp', 'Gilded wisp', 'wraith', 'f0d060', 'ffffff', 'swarm'), ('oathsworn_knight', 'Oathsworn knight', 'person', 'e0e4f0', 'f0c840', 'grunt'), ('dracani_mage', 'Dracani mage', 'person', 'c03020', 'f0c030', 'ranged'), ('sky_drake', 'Sky drake', 'phoenix', 'f0b030', 'ffffff', 'fast'), ('gilded_sentinel', 'Gilded sentinel', 'golem', 'f0c030', 'ffffff', 'tank')],
-  ('gilded_dragon', 'The Gildenscale', 'dragon', 'f0c030', 'ffffff'), [('statue', 'f0c030', 'ffffff'), ('pillar', 'f0e8c8', 'c8a850'), ('brazier', 'c8a850', 'fff0a0')], [('banner', 'f0f0f0', 'f0c030'), ('lantern', 'c8a850', 'fff0a0')])]
-STONES = ['amethyst', 'sapphire', 'emerald', 'ruby', 'diamond', 'dg_palace_keystone', 'dg_canal_keystone', 'dg_harbor_keystone', 'dg_sewer_keystone', 'dg_outpost_keystone', 'dg_volcanic_keystone', 'dg_aquatic_keystone', 'dg_forest_keystone', 'dg_northern_keystone', None]
+  ('gilded_dragon', 'The Gildenscale', 'dragon', 'f0c030', 'ffffff'), [('statue', 'f0c030', 'ffffff'), ('pillar', 'f0e8c8', 'c8a850'), ('brazier', 'c8a850', 'fff0a0')], [('banner', 'f0f0f0', 'f0c030'), ('lantern', 'c8a850', 'fff0a0')]),
+ ('OM', 'mount_olympus', 'Mount Olympus', 17, ('brick', 'e8e4d8'), 'd8d0c0', '5a5a70', 'fff0a0',
+  [('olympian_owl', 'Owl of the mount', 'bird', 'c0b8a0', 'f0c840', 'swarm'), ('olympian_hoplite', 'Hoplite', 'person', 'c8a040', 'c03030', 'grunt'), ('storm_oracle', 'Storm oracle', 'person', 'e8e8f0', '60a0ff', 'ranged'), ('golden_hind', 'Golden hind', 'stag', 'f0c840', 'ffffff', 'fast'), ('bronze_colossus', 'Bronze colossus', 'golem', 'b8863a', 'f0e0a0', 'tank')],
+  ('thunder_god', 'The Thunderer', 'golem', 'e8e8f0', '60a0ff'), [('statue', 'e8e4d8', 'f0c840'), ('pillar', 'f0ece0', 'c0b8a0'), ('urn', 'c07a4a', '2a2a2a')], [('banner', 'f0f0f0', 'f0c840'), ('lantern', 'c8a040', 'fff0a0')]),
+ ('WT', 'withered_tombs', 'Withered Tombs', 18, ('brick', '6a6a5a'), '5a5a4a', '2a2a24', 'a0ffd0',
+  [('tomb_beetle', 'Tomb beetle', 'creature', '3a3a2a', 'a0ffd0', 'swarm'), ('skeleton_soldier', 'Skeleton soldier', 'person', 'e8e0d0', '6a6a5a', 'grunt'), ('bone_caster', 'Bone caster', 'person', '4a4a5a', 'a0ffd0', 'ranged'), ('restless_spirit', 'Restless spirit', 'wraith', 'c0f0e0', 'ffffff', 'fast'), ('tomb_warden', 'Tomb warden', 'golem', '8a8a7a', 'a0ffd0', 'tank')],
+  ('ghost_king', 'The Ghost King', 'wraith', 'a0ffd0', 'f0c840'), [('bones', 'e8e0d0', '8a8a7a'), ('urn', '6a6a5a', 'a0ffd0'), ('statue', '8a8a7a', '4a4a3a')], [('chain', '5a5a4a', '9a9a8a'), ('stalactite', '6a6a5a', 'a0ffd0')]),
+ ('EC', 'colosseum', 'Eternal Colosseum', 19, ('brick', 'd0b890'), 'e0c890', '6a4a2a', 'ffc060',
+  [('arena_hound', 'Arena hound', 'quad', '8a5a3a', 'c03030', 'fast'), ('arena_gladiator', 'Gladiator', 'person', 'c03030', 'c8a040', 'grunt'), ('arena_slinger', 'Slinger', 'person', 'e0d0b0', '8a5a3a', 'ranged'), ('arena_lion', 'Arena lion', 'lion', 'd0a050', '8a5a2a', 'swarm'), ('praetorian_guard', 'Praetorian', 'golem', 'c8a040', 'a02828', 'tank')],
+  ('arena_emperor', 'The Emperor Eternal', 'lion', 'f0c840', 'a02828'), [('pillar', 'e0d0b0', 'a89060'), ('statue', 'd0b890', 'c8a040'), ('brazier', '6a4a2a', 'ffc060')], [('banner', 'a02828', 'f0c840'), ('chain', '8a7a5a', 'c8a040')]),
+ ('CL', 'cultists_lair', "Cultist's Lair", 20, ('rock', '3a2a3a'), '2a202a', '1a121a', 'c040ff',
+  [('lair_imp', 'Summoned imp', 'ape', '8a2a5a', 'c040ff', 'swarm'), ('lair_initiate', 'Initiate', 'person', '4a2a4a', 'c0a0c0', 'grunt'), ('lair_hexer', 'Hexer', 'person', '2a1a2a', 'c040ff', 'ranged'), ('lair_shade', 'Bound shade', 'wraith', '5a3a6a', 'e0a0ff', 'fast'), ('lair_abomination', 'Abomination', 'golem', '5a2a3a', 'c040ff', 'tank')],
+  ('high_cultist', 'The Summoned One', 'wyrm', '4a1a4a', 'ff40a0'), [('brazier', '2a202a', 'c040ff'), ('bones', 'd0c8d0', '5a4a5a'), ('crystal', 'a040e0', 'f0c0ff')], [('banner', '3a1a3a', 'c040ff'), ('chain', '3a3a3a', '8a4a8a')]),
+ ('MK', 'mermaid_kingdom', 'Mermaid Kingdom', 21, ('rock', '60b0c0'), '80d0d0', '205060', 'a0fff0',
+  [('kingdom_piranha', 'Glass piranha', 'fish', '80e0f0', 'f060a0', 'swarm'), ('merfolk_guard', 'Merfolk guard', 'person', '40a0a0', 'f0e080', 'grunt'), ('merfolk_singer', 'Merfolk singer', 'person', 'f0a0c0', 'a0fff0', 'ranged'), ('kingdom_seahorse', 'War seahorse', 'serpent', 'f0c060', 'f080a0', 'fast'), ('pearl_golem', 'Pearl golem', 'golem', 'f0e8f0', 'f0a0c0', 'tank')],
+  ('mermaid_queen', 'The Mermaid Queen', 'serpent', '40c0b0', 'f0a0d0'), [('crystal', 'f0a0c0', 'ffffff'), ('urn', '60b0c0', 'f0e080'), ('statue', '80d0d0', 'f0a0c0')], [('lantern', '40a0a0', 'a0fff0'), ('stalactite', '60b0c0', 'f0e8f0')]),
+ ('TD', 'tartarus_depths', 'Tartarus Depths', 22, ('rock', '2a2a34'), '3a2a2a', '120a0a', 'ff3020',
+  [('fury_bat', 'Fury', 'bird', '3a1a1a', 'ff3020', 'swarm'), ('tartarus_shade', 'Shade of the pit', 'person', '2a2a34', '8a8a9a', 'grunt'), ('fate_weaver', 'Fate weaver', 'person', '5a4a6a', 'f0e0a0', 'ranged'), ('pit_cerberus', 'Pit hound', 'quad', '2a1a1a', 'ff6030', 'fast'), ('chained_titan', 'Chained titan', 'golem', '4a4a54', 'ff3020', 'tank')],
+  ('lord_of_the_pit', 'The Lord of the Pit', 'dragon', '2a1a2a', 'ff3020'), [('brazier', '2a2a34', 'ff3020'), ('bones', 'c0b8b0', '4a3a3a'), ('pillar', '3a3a44', '1a1a22')], [('chain', '4a4a54', 'ff3020'), ('stalactite', '2a2a34', '6a3a3a')]),
+ ('CF', 'celestial_fields', 'Celestial Fields', 23, ('paving', '2a3060'), '3a4080', '10143a', 'c0d0ff',
+  [('star_mote', 'Star mote', 'wraith', 'f0f0a0', 'ffffff', 'swarm'), ('star_knight', 'Star knight', 'person', '3a4a9a', 'f0f0a0', 'grunt'), ('star_reader', 'Star reader', 'person', '5a3a8a', 'c0d0ff', 'ranged'), ('comet_hare', 'Comet hare', 'rabbit', 'c0d0ff', 'ffffff', 'fast'), ('constellation_giant', 'Constellation', 'golem', '2a3a7a', 'f0f0a0', 'tank')],
+  ('star_dragon', 'Draco', 'dragon', '2a2a6a', 'f0f0a0'), [('crystal', 'c0d0ff', 'ffffff'), ('statue', '3a4a9a', 'f0f0a0'), ('machine', '2a3060', 'c0d0ff')], [('lantern', '2a3060', 'f0f0a0'), ('stalactite', '3a4a8a', 'c0d0ff')]),
+ ('BC', 'blood_cathedral', 'Blood Cathedral', 24, ('brick', '5a1a1a'), '3a1414', '1a0808', 'ff2040',
+  [('blood_leech', 'Blood leech', 'serpent', '8a1020', 'ff6070', 'swarm'), ('blood_acolyte', 'Blood acolyte', 'person', '6a1010', '2a2a2a', 'grunt'), ('blood_priest', 'Blood priest', 'person', '2a0a0a', 'ff2040', 'ranged'), ('gargoyle', 'Gargoyle', 'phoenix', '5a5a60', 'ff2040', 'fast'), ('blood_knight', 'Blood knight', 'golem', '3a0a0a', 'c0c0c8', 'tank')],
+  ('blood_cardinal', 'The Devilsealed', 'wyrm', '6a0a14', 'f0c840'), [('statue', '5a5a60', 'ff2040'), ('brazier', '3a1414', 'ff2040'), ('pillar', '5a1a1a', '2a0a0a')], [('banner', '6a0a14', 'f0c840'), ('chain', '3a3a3a', '8a1020')]),
+ ('FE', 'frozen_expanse', 'Frozen Expanse', 25, ('rock', 'c0e0f8'), 'e8f4ff', '4a6a8a', 'c0f0ff',
+  [('snow_stoat', 'Snow stoat', 'rabbit', 'f0f8ff', '80c0f0', 'swarm'), ('expanse_hunter', 'Expanse hunter', 'person', 'd0e0f0', '5a7a9a', 'grunt'), ('gale_caller', 'Gale caller', 'person', '80b0e0', 'ffffff', 'ranged'), ('blizzard_stag', 'Blizzard stag', 'stag', 'e0f0ff', '80c0f0', 'fast'), ('glacier_titan', 'Glacier titan', 'golem', 'a0d0f0', 'ffffff', 'tank')],
+  ('deepfrost_wyrm', 'The Deepfrost', 'wyrm', '80c0f0', 'ffffff'), [('crystal', 'c0f0ff', 'ffffff'), ('pillar', 'c0e0f8', '80b0d0'), ('bones', 'e8f4ff', '80a0c0')], [('stalactite', 'c0e8ff', 'ffffff'), ('lantern', '5a7a9a', 'c0f0ff')]),
+ ('AD', 'abyssal_depths', 'Abyssal Depths', 26, ('rock', '1a1a2a'), '14141f', '08080f', '6040ff',
+  [('abyss_spawn', 'Abyss spawn', 'creature', '2a1a4a', '6040ff', 'swarm'), ('darksworn_blade', 'Darksworn', 'person', '1a1a2a', '6040ff', 'grunt'), ('shade_caster', 'Shadeborn caster', 'person', '2a2a4a', 'a080ff', 'ranged'), ('void_eel', 'Void eel', 'serpent', '1a1a3a', '8060ff', 'fast'), ('shadowsteel_hulk', 'Shadowsteel hulk', 'golem', '2a2a3a', '6040ff', 'tank')],
+  ('abyss_watcher', 'The Watcher Below', 'wyrm', '14142a', 'a060ff'), [('crystal', '6040ff', 'c0b0ff'), ('pillar', '2a2a3a', '14141f'), ('machine', '1a1a2a', '6040ff')], [('chain', '2a2a3a', '6040ff'), ('stalactite', '1a1a2a', '4a3aa0')]),
+ ('PW', 'petrified_woods', 'Petrified Woods', 27, ('planks', '8a8478'), '7a7468', '3a3830', 'c0e080',
+  [('stone_squirrel', 'Stone squirrel', 'rabbit', '9a9488', 'c0e080', 'swarm'), ('woods_keeper', 'Keeper of the woods', 'person', '6a7a5a', 'c0b890', 'grunt'), ('amber_seer', 'Amber seer', 'person', 'c88a30', 'f0e080', 'ranged'), ('petrified_stag', 'Petrified stag', 'stag', '8a8478', 'c0e080', 'fast'), ('stonewood_treant', 'Stonewood treant', 'golem', '7a7060', '8ab050', 'tank')],
+  ('immortal_tree', 'The Immortal', 'golem', '9a9080', 'c0e080'), [('statue', '9a9488', '6a6458'), ('crystal', 'c88a30', 'f0e080'), ('pillar', '8a8478', '5a5448')], [('stalactite', '7a7468', 'c0e080'), ('lantern', '5a5448', 'c0e080')]),
+ ('WS', 'wailing_swamp', 'Wailing Swamp', 28, ('planks', '3a4a2a'), '2a3a22', '141c10', '80ff60',
+  [('swamp_fly', 'Corpse fly', 'bird', '2a3a1a', '80ff60', 'swarm'), ('sunken_dead', 'Sunken dead', 'person', '4a5a3a', '9ab080', 'grunt'), ('bog_witch', 'Bog witch', 'person', '2a2a1a', '80ff60', 'ranged'), ('swamp_wisp', 'Deathwind wisp', 'wraith', '80ff60', 'f0fff0', 'fast'), ('bog_horror', 'Bog horror', 'tortoise', '3a4a2a', '9ab060', 'tank')],
+  ('swamp_lich', 'The Lich', 'wraith', '3a5a3a', '80ff60'), [('bones', 'c0c8a0', '4a5a3a'), ('urn', '3a4a2a', '80ff60'), ('barrel', '4a4a2a', '2a2a1a')], [('lantern', '2a3a1a', '80ff60'), ('chain', '3a4a2a', '6a8a4a')]),
+ ('SD', 'shattered_dreams', 'Shattered Dreams', 29, ('paving', 'c0a0e0'), 'e0c8f0', '4a3a6a', 'ffc0f0',
+  [('dream_moth', 'Dream moth', 'bird', 'f0c0f0', 'ffffff', 'swarm'), ('dream_walker', 'Dreamwalker', 'person', 'a080d0', 'f0e0ff', 'grunt'), ('dream_weaver', 'Dreamweaver', 'person', 'f0a0d0', 'a0e0ff', 'ranged'), ('lucid_fox', 'Lucid fox', 'quad', 'f0e0ff', 'f080c0', 'fast'), ('nightmare_golem', 'Nightmare', 'golem', '3a2a5a', 'ff60c0', 'tank')],
+  ('the_dreamer', 'The Dreamer', 'phoenix', 'c0a0f0', 'ffffff'), [('crystal', 'ffc0f0', 'ffffff'), ('statue', 'c0a0e0', 'f0e0ff'), ('urn', 'a080d0', 'ffc0f0')], [('lantern', 'a080d0', 'ffc0f0'), ('banner', 'c0a0e0', 'ffffff')])]
+OLD_KEY = {'samurai_palace': 'palace', 'the_canals': 'canal', 'ghastly_harbor': 'harbor', 'steampunk_sewers': 'sewer', 'aether_shipyard': 'shipyard', 'orbital_outpost': 'outpost', 'volcanic': 'volcanic', 'aquatic_temple': 'aquatic', 'enchanted_forest': 'forest', 'northern_lands': 'northern'}
+def key_of(d_): return OLD_KEY.get(d_[1], d_[1].split('_')[-1] if d_[1].split('_')[0] in ('mount', 'the') else d_[1].split('_')[0])
+STONES = ['amethyst', 'sapphire', 'emerald', 'ruby', 'diamond'] + ['dg_%s_keystone' % key_of(d_) for d_ in DUNGEONS[5:-1]] + [None]
 def shape(kind, a, b):
     t = P()
     if kind == 'urn': t.r(6, 5, 9, 6, a); t.disc(7.5, 10.5, 3.6, a); t.r(6, 14, 9, 15, b); t.r(5, 9, 10, 9, b); t.p(6, 8, lt(a))
@@ -761,11 +816,10 @@ for k, (code, name, label, tier, (wkind, wcol), fcol, bcol, glow, foes, boss, de
     prev_top = top; prev_health = max(int(r_['health']) for n in armours for r_ in armours[n] if r_['class'] == 'armor')
 
 # ---- portals VII to X, raised by what dungeons VI to IX give -----------------------------------------------------------------------------------
-KEYS = [('dg_palace_keystone', 'Palace keystone', 'f0a0c0', '5a2a22'), ('dg_canal_keystone', 'Canal keystone', '60f0c0', '1a4444'), ('dg_harbor_keystone', 'Harbour keystone', '60ffd0', '1a2a2a'), ('dg_sewer_keystone', 'Sewer keystone', 'ffb060', '4a3018'), ('dg_outpost_keystone', 'Outpost keystone', '80c0ff', '1a2038'),
-        ('dg_volcanic_keystone', 'Volcanic keystone', 'ff7020', '3a1410'), ('dg_aquatic_keystone', 'Aquatic keystone', '60f0f0', '143a48'), ('dg_forest_keystone', 'Forest keystone', 'a0ff80', '1a2a14'), ('dg_northern_keystone', 'Northern keystone', 'a0e0ff', '2a3a50')]
+KEYS = [('dg_%s_keystone' % key_of(d_), '%s keystone' % key_of(d_).capitalize(), d_[7], d_[6]) for d_ in DUNGEONS[5:-1]]
 TIERCOL = {7 + n: ramp(dark, col, 'ffffff') for n, (stone, lab, col, dark) in enumerate(KEYS)}
 for tier, (stone, lab, col, dark) in zip(range(7, 7 + len(KEYS)), KEYS):
-    thing(gemstone(c(col), True), stone, lab, 6, 'special', 3.0 * min(tier - 5, 6))
+    thing(hue_gem(gemstone(c(col), True), stone), stone, lab, 6, 'special', 3.0 * min(tier - 5, 6))
     for base, n, plab, cost, crystals in (('portal_6', 'dg_portal_%d' % tier, 'Portal', [(stone, 1)], 0), ('trade_portal_6', 'dg_trade_portal_%d' % tier, 'Trade portal', [(stone, 1), ('platinum_coin', (tier - 6) * 2)], (tier - 6) * 400)):
         e = {'cost': [{'item': i, 'count': n_} for i, n_ in cost]}
         if crystals: e['crystals'] = crystals

@@ -11,6 +11,7 @@
 #define NAME_WIDTH 190.0f
 #define HARD_WIDTH 84.0f
 #define FORGE_WIDTH 340.0f
+#define GATE_ROWS 15 /* how many dungeons the gate shows at once: the rest are scrolled to */
 
 static const Color panel_color = { 28, 30, 38, 240 };
 static const Color edge_color = { 120, 122, 134, 255 };
@@ -24,12 +25,15 @@ static Color grade_color(int grade)
 }
 
 /* A number as it is said: 1,500 as 1.5K, 2,400,000 as 2.4M. */
-static void short_number(long n, char *out, size_t size)
+static void short_number(long long n, char *out, size_t size)
 {
+    if (n >= 1000000000000000LL) snprintf(out, size, "%.1fQ", (double)n / 1.0e15);
+    else if (n >= 1000000000000LL) snprintf(out, size, "%.1fT", (double)n / 1.0e12);
+    else
     if (n >= 1000000000L) snprintf(out, size, "%.1fB", (double)n / 1.0e9);
     else if (n >= 1000000L) snprintf(out, size, "%.1fM", (double)n / 1.0e6);
     else if (n >= 10000L) snprintf(out, size, "%.1fK", (double)n / 1.0e3);
-    else snprintf(out, size, "%ld", n);
+    else snprintf(out, size, "%lld", n);
 }
 
 static Rectangle anchored(const Game *g, const View *v, float w, float h)
@@ -43,7 +47,7 @@ static Rectangle anchored(const Game *g, const View *v, float w, float h)
 
 static Rectangle gate_rect(const Game *g, const View *v)
 {
-    return anchored(g, v, NAME_WIDTH + (float)content.rules.difficulty_count * (HARD_WIDTH + 4.0f) + 2 * PAD, (float)content.dungeon_count * ROW + 2 * PAD);
+    return anchored(g, v, NAME_WIDTH + (float)content.rules.difficulty_count * (HARD_WIDTH + 4.0f) + 2 * PAD, (float)(content.dungeon_count < GATE_ROWS ? content.dungeon_count : GATE_ROWS) * ROW + 2 * PAD);
 }
 
 /* The dungeons in the order of their tiers: the n-th of them. */
@@ -60,9 +64,15 @@ static int nth_dungeon(int n)
     return order[n];
 }
 
-static Rectangle hard_rect(Rectangle panel, int row, int hard)
+static Rectangle hard_rect(Rectangle panel, int row, int hard, float scroll)
 {
-    return (Rectangle){ panel.x + PAD + NAME_WIDTH + (float)hard * (HARD_WIDTH + 4.0f), panel.y + PAD + (float)row * ROW + 2.0f, HARD_WIDTH, ROW - 4.0f };
+    return (Rectangle){ panel.x + PAD + NAME_WIDTH + (float)hard * (HARD_WIDTH + 4.0f), panel.y + PAD + (float)row * ROW + 2.0f - scroll, HARD_WIDTH, ROW - 4.0f };
+}
+
+/* The part of the gate's menu its rows are in: one outside it is not seen and cannot be clicked. */
+static Rectangle gate_list(Rectangle panel)
+{
+    return (Rectangle){ panel.x, panel.y + PAD, panel.width, panel.height - 2 * PAD };
 }
 
 static Rectangle forge_rect(const Game *g, const View *v)
@@ -93,15 +103,20 @@ bool dungeonui_handle_input(DungeonUi *ui, Game *g, const View *v)
     }
     Vector2 m = GetMousePosition();
     Rectangle panel = gate ? gate_rect(g, v) : forge_rect(g, v);
+    /* The wheel moves the gate's list (by as much as it is turned, however little). */
+    float wheel = GetMouseWheelMove(), most = (float)(content.dungeon_count - GATE_ROWS) * ROW;
+    if (gate && wheel != 0.0f && CheckCollisionPointRec(m, panel)) ui->scroll -= wheel * ROW * 2.0f;
+    if (ui->scroll > most) ui->scroll = most;
+    if (ui->scroll < 0.0f) ui->scroll = 0.0f;
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) ui->pressed = CheckCollisionPointRec(m, panel);
-    if (!ui->pressed) return false;
+    if (!ui->pressed) return gate && wheel != 0.0f && CheckCollisionPointRec(m, panel);
     if (!IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) return true;
     ui->pressed = false;
     if (gate) {
         int level = game_gate_level(g);
         for (int row = 0; row < content.dungeon_count; row++)
             for (int hard = 0; hard < content.rules.difficulty_count; hard++)
-                if (content.dungeons[nth_dungeon(row)].tier <= level && CheckCollisionPointRec(m, hard_rect(panel, row, hard))) {
+                if (content.dungeons[nth_dungeon(row)].tier <= level && CheckCollisionPointRec(m, gate_list(panel)) && CheckCollisionPointRec(m, hard_rect(panel, row, hard, ui->scroll))) {
                     game_dungeon_enter(g, nth_dungeon(row), hard);
                     return true;
                 }
@@ -138,24 +153,38 @@ static int roll_lines(const Game *g, const ItemStack *s, char lines[][64], int m
         short_number(r.health, n, sizeof n);
         snprintf(lines[count++], 64, "Health %s", n);
     }
-    if (r.ups > 0 && count < max) snprintf(lines[count++], 64, "Upgrades %d / %d", r.done, r.ups);
+    if (r.ups > 0 && count < max) {
+        char of[24];
+        short_number(r.done, n, sizeof n);
+        short_number(r.ups, of, sizeof of);
+        snprintf(lines[count++], 64, "Upgrades %s / %s", n, of);
+    }
     if (r.fallen && count < max) snprintf(lines[count++], 64, "Roll %d%% / %d%%", r.base_percent, r.ups_percent);
     return count;
 }
 
 void dungeonui_draw(const DungeonUi *ui, const Game *g, const View *v)
 {
-    (void)ui;
     if (game_gate_open_here(g)) {
         Rectangle panel = gate_rect(g, v);
         int level = game_gate_level(g);
         DrawRectangleRec(panel, panel_color);
         DrawRectangleLinesEx(panel, 2.0f, edge_color);
+        Rectangle list = gate_list(panel);
+        BeginScissorMode((int)list.x, (int)list.y, (int)list.width, (int)list.height);
         for (int row = 0; row < content.dungeon_count; row++) {
             const DungeonDef *d = &content.dungeons[nth_dungeon(row)];
             bool open = d->tier <= level;
-            DrawText(d->label, (int)(panel.x + PAD), (int)(panel.y + PAD + (float)row * ROW + 7.0f), 16, open ? RAYWHITE : GRAY);
-            for (int hard = 0; hard < content.rules.difficulty_count; hard++) draw_button(hard_rect(panel, row, hard), content.rules.difficulties[hard].label, open);
+            float y = panel.y + PAD + (float)row * ROW - ui->scroll;
+            if (y + ROW < list.y || y > list.y + list.height) continue;
+            DrawText(d->label, (int)(panel.x + PAD), (int)(y + 7.0f), 16, open ? RAYWHITE : GRAY);
+            for (int hard = 0; hard < content.rules.difficulty_count; hard++) draw_button(hard_rect(panel, row, hard, ui->scroll), content.rules.difficulties[hard].label, open);
+        }
+        EndScissorMode();
+        /* (Where there is more of the list than is shown: how far down it is.) */
+        if (content.dungeon_count > GATE_ROWS) {
+            float whole = (float)content.dungeon_count * ROW, shown = list.height;
+            DrawRectangleRec((Rectangle){ panel.x + panel.width - 5.0f, list.y + ui->scroll / whole * shown, 3.0f, shown * shown / whole }, edge_color);
         }
         return;
     }
@@ -212,7 +241,7 @@ void dungeonui_draw_over(const Game *g, const Hud *hud)
     if (!game_alive(g) || world_dungeon_run(&g->world, g->player.feet.y, &hard) < 0) return;
     float times = hard < content.rules.difficulty_count ? content.rules.difficulties[hard].health : 1.0f;
     char a[24], b[24], text[96];
-    short_number((long)(g->vitals.health * (float)game_max_health(g) + 0.5f), a, sizeof a);
+    short_number((long long)((double)g->vitals.health * (double)game_max_health(g) + 0.5), a, sizeof a);
     short_number(game_max_health(g), b, sizeof b);
     snprintf(text, sizeof text, "%s / %s", a, b);
     DrawText(text, 70, 176, 16, RAYWHITE);
@@ -224,7 +253,7 @@ void dungeonui_draw_over(const Game *g, const Hud *hud)
         DrawRectangleRec((Rectangle){ bar.x - 3, bar.y - 3, bar.width + 6, bar.height + 6 }, panel_color);
         DrawRectangleRec((Rectangle){ bar.x, bar.y, bar.width * (share > 1.0f ? 1.0f : share < 0.0f ? 0.0f : share), bar.height }, (Color){ 196, 60, 60, 255 });
         DrawRectangleLinesEx((Rectangle){ bar.x - 3, bar.y - 3, bar.width + 6, bar.height + 6 }, 2.0f, edge_color);
-        short_number((long)mob->hp * (content.mobs[mob->kind].health_unit > 1 ? content.mobs[mob->kind].health_unit : 1), a, sizeof a);
+        short_number((long long)mob->hp * (content.mobs[mob->kind].health_unit > 1 ? content.mobs[mob->kind].health_unit : 1), a, sizeof a);
         snprintf(text, sizeof text, "%s  %s", content.mobs[mob->kind].label, a);
         DrawText(text, (int)((float)GetScreenWidth() / 2.0f - (float)MeasureText(text, 16) / 2.0f), (int)bar.y + 1, 16, RAYWHITE);
         break;

@@ -979,6 +979,88 @@ SS,War-Forged Guardian,3,guardian,740000,4800,0,10.0
 SS,War-Forged Guardian,4,guardian,810000,4900,0,10.0
 SS,Inventor's Greatsword,5,warrior,485000,24000,0,10.0
 SS,Inventor's Spellblade,5,mage,485000,24000,0,10.0
+AS,Rivet Cleaver,1,warrior,501996,20647,0,10.0
+AS,Rivet Cleaver,2,warrior,517223,21447,0,10.0
+AS,Rivet Cleaver,3,warrior,542494,22241,0,10.0
+AS,Rivet Cleaver,4,warrior,567749,23030,0,10.0
+AS,Spark Wand,1,mage,501996,20647,0,10.0
+AS,Spark Wand,2,mage,517223,21447,0,10.0
+AS,Spark Wand,3,mage,542494,22241,0,10.0
+AS,Spark Wand,4,mage,567749,23030,0,10.0
+AS,Dual Propeller Blades,1,warrior,542572,22466,0,10.0
+AS,Dual Propeller Blades,2,warrior,567248,23382,0,10.0
+AS,Dual Propeller Blades,3,warrior,593748,24288,0,10.0
+AS,Dual Propeller Blades,4,warrior,620244,25185,0,10.0
+AS,Barometer Staff,1,mage,542572,22466,0,10.0
+AS,Barometer Staff,2,mage,567248,23382,0,10.0
+AS,Barometer Staff,3,mage,593748,24288,0,10.0
+AS,Barometer Staff,4,mage,620244,25185,0,10.0
+AS,Brass Boarding Axe,1,warrior,593278,24129,0,10.0
+AS,Brass Boarding Axe,2,warrior,632550,25036,0,10.0
+AS,Brass Boarding Axe,3,warrior,671611,25934,0,10.0
+AS,Brass Boarding Axe,4,warrior,709187,26825,0,10.0
+AS,Aether Spelldagger,1,mage,593278,24129,0,10.0
+AS,Aether Spelldagger,2,mage,632550,25036,0,10.0
+AS,Aether Spelldagger,3,mage,671611,25934,0,10.0
+AS,Aether Spelldagger,4,mage,709187,26825,0,10.0
+AS,Cloudsteel Katana,1,warrior,669964,26628,0,10.0
+AS,Cloudsteel Katana,2,warrior,708673,27835,0,10.0
+AS,Cloudsteel Katana,3,warrior,746215,29021,0,10.0
+AS,Cloudsteel Katana,4,warrior,786703,30189,0,10.0
+AS,Stormglass Orb,1,mage,669964,26628,0,10.0
+AS,Stormglass Orb,2,mage,708673,27835,0,10.0
+AS,Stormglass Orb,3,mage,746215,29021,0,10.0
+AS,Stormglass Orb,4,mage,786703,30189,0,10.0
+AS,Piston Greathammer,1,warrior,750158,29310,0,10.0
+AS,Piston Greathammer,2,warrior,793644,30545,0,10.0
+AS,Piston Greathammer,3,warrior,835485,31770,0,10.0
+AS,Piston Greathammer,4,warrior,883442,32984,0,10.0
+AS,Cloudsteel Spellblade,1,mage,750158,29310,0,10.0
+AS,Cloudsteel Spellblade,2,mage,793644,30545,0,10.0
+AS,Cloudsteel Spellblade,3,mage,835485,31770,0,10.0
+AS,Cloudsteel Spellblade,4,mage,883442,32984,0,10.0
+AS,Aether Lance,1,warrior,834482,32140,0,10.0
+AS,Aether Lance,2,warrior,890405,33617,0,10.0
+AS,Aether Lance,3,warrior,946261,35088,0,10.0
+AS,Aether Lance,4,warrior,1001752,36555,0,10.0
+AS,Lightning Rod Staff,1,mage,834482,32140,0,10.0
+AS,Lightning Rod Staff,2,mage,890405,33617,0,10.0
+AS,Lightning Rod Staff,3,mage,946261,35088,0,10.0
+AS,Lightning Rod Staff,4,mage,1001752,36555,0,10.0
+AS,Skyforged Greatsword,1,warrior,914330,34316,0,10.0
+AS,Skyforged Greatsword,2,warrior,973652,35782,0,10.0
+AS,Skyforged Greatsword,3,warrior,1032860,37245,0,10.0
+AS,Skyforged Greatsword,4,warrior,1089954,38704,0,10.0
+AS,Skyforged Greatstaff,1,mage,914330,34316,0,10.0
+AS,Skyforged Greatstaff,2,mage,973652,35782,0,10.0
+AS,Skyforged Greatstaff,3,mage,1032860,37245,0,10.0
+AS,Skyforged Greatstaff,4,mage,1089954,38704,0,10.0
+AS,Deckhand,1,armor,43588,5999,709929,10.0
+AS,Deckhand Guardian,1,guardian,1067707,5999,0,10.0
+AS,Deckhand,2,armor,49193,6349,784091,10.0
+AS,Deckhand Guardian,2,guardian,1180677,6349,0,10.0
+AS,Deckhand,3,armor,54772,6697,858254,10.0
+AS,Deckhand Guardian,3,guardian,1293058,6697,0,10.0
+AS,Deckhand,4,armor,60332,7069,927766,10.0
+AS,Deckhand Guardian,4,guardian,1404991,7069,0,10.0
+AS,Aeronaut,1,armor,60332,7069,936162,10.0
+AS,Aeronaut Guardian,1,guardian,1404991,7069,0,10.0
+AS,Aeronaut,2,armor,64865,7773,1058300,10.0
+AS,Aeronaut Guardian,2,guardian,1563329,7773,0,10.0
+AS,Aeronaut,3,armor,69591,8474,1199999,10.0
+AS,Aeronaut Guardian,3,guardian,1704992,8474,0,10.0
+AS,Aeronaut,4,armor,73484,9200,1312935,10.0
+AS,Aeronaut Guardian,4,guardian,1846618,9200,0,10.0
+AS,Skycaptain's,1,armor,75498,9348,1309961,10.0
+AS,Skycaptain's Guardian,1,guardian,1846618,9348,0,10.0
+AS,Skycaptain's,2,armor,82462,9695,1436662,10.0
+AS,Skycaptain's Guardian,2,guardian,2036663,9695,0,10.0
+AS,Skycaptain's,3,armor,89330,10039,1563329,10.0
+AS,Skycaptain's Guardian,3,guardian,2226656,10039,0,10.0
+AS,Skycaptain's,4,armor,94973,10382,1688194,10.0
+AS,Skycaptain's Guardian,4,guardian,2423324,10382,0,10.0
+AS,Stormcaller Greatsword,5,warrior,1236021,43680,0,10.0
+AS,Zephyr Greatstaff,5,mage,1236021,43680,0,10.0
 OO,Blazing Star,1,warrior,1260000,49000,0,10.0
 OO,Blazing Star,2,warrior,1280000,50000,0,10.0
 OO,Blazing Star,3,warrior,1350000,51000,0,10.0
@@ -1425,3 +1507,991 @@ GS,Gildenscale Guardian,3,guardian,570000000,334000,0,10.0
 GS,Gildenscale Guardian,4,guardian,611800000,350000,0,10.0
 GS,Gildenscale Oath and Aegis,5,warrior,139500000,850000,0,10.0
 GS,Daybreak and Gildensong,5,mage,139500000,850000,0,10.0
+OM,Olympian Warshard,1,warrior,124125000,827500,0,10.0
+OM,Olympian Warshard,2,warrior,132187031,881246,0,10.0
+OM,Olympian Warshard,3,warrior,138270937,921806,0,10.0
+OM,Olympian Warshard,4,warrior,144354843,962365,0,10.0
+OM,Olympian Spellshard,1,mage,124125000,827500,0,10.0
+OM,Olympian Spellshard,2,mage,132187031,881246,0,10.0
+OM,Olympian Spellshard,3,mage,138270937,921806,0,10.0
+OM,Olympian Spellshard,4,mage,144354843,962365,0,10.0
+OM,Olympian Sea Fragment,1,warrior,144354843,962365,0,10.0
+OM,Olympian Sea Fragment,2,warrior,152416875,1016112,0,10.0
+OM,Olympian Sea Fragment,3,warrior,158500781,1056671,0,10.0
+OM,Olympian Sea Fragment,4,warrior,164584687,1097231,0,10.0
+OM,Olympian Sky Fragment,1,mage,144354843,962365,0,10.0
+OM,Olympian Sky Fragment,2,mage,152416875,1016112,0,10.0
+OM,Olympian Sky Fragment,3,mage,158500781,1056671,0,10.0
+OM,Olympian Sky Fragment,4,mage,164584687,1097231,0,10.0
+OM,Heavenly Shield and Spear,1,warrior,164584687,1097231,0,10.0
+OM,Heavenly Shield and Spear,2,warrior,172646718,1150978,0,10.0
+OM,Heavenly Shield and Spear,3,warrior,178730625,1191537,0,10.0
+OM,Heavenly Shield and Spear,4,warrior,184828125,1232187,0,10.0
+OM,Heavenly Staff and Tome,1,mage,164584687,1097231,0,10.0
+OM,Heavenly Staff and Tome,2,mage,172646718,1150978,0,10.0
+OM,Heavenly Staff and Tome,3,mage,178730625,1191537,0,10.0
+OM,Heavenly Staff and Tome,4,mage,184828125,1232187,0,10.0
+OM,Almighty Spear,1,warrior,184828125,1232187,0,10.0
+OM,Almighty Spear,2,warrior,193064803,1287098,0,10.0
+OM,Almighty Spear,3,warrior,201165543,1341103,0,10.0
+OM,Almighty Spear,4,warrior,209266284,1395108,0,10.0
+OM,Almighty Wand,1,mage,184828125,1232187,0,10.0
+OM,Almighty Wand,2,mage,193064803,1287098,0,10.0
+OM,Almighty Wand,3,mage,201165543,1341103,0,10.0
+OM,Almighty Wand,4,mage,209266284,1395108,0,10.0
+OM,Almighty Warscythe,1,warrior,209266284,1395108,0,10.0
+OM,Almighty Warscythe,2,warrior,217502962,1450019,0,10.0
+OM,Almighty Warscythe,3,warrior,225603703,1504024,0,10.0
+OM,Almighty Warscythe,4,warrior,233700487,1558003,0,10.0
+OM,Almighty Staff,1,mage,209266284,1395108,0,10.0
+OM,Almighty Staff,2,mage,217502962,1450019,0,10.0
+OM,Almighty Staff,3,mage,225603703,1504024,0,10.0
+OM,Almighty Staff,4,mage,233700487,1558003,0,10.0
+OM,Athenian Bastion,1,warrior,233700487,1558003,0,10.0
+OM,Athenian Bastion,2,warrior,241937165,1612914,0,10.0
+OM,Athenian Bastion,3,warrior,250037906,1666919,0,10.0
+OM,Athenian Bastion,4,warrior,258140625,1720937,0,10.0
+OM,Athenian Spelldagger,1,mage,233700487,1558003,0,10.0
+OM,Athenian Spelldagger,2,mage,241937165,1612914,0,10.0
+OM,Athenian Spelldagger,3,mage,250037906,1666919,0,10.0
+OM,Athenian Spelldagger,4,mage,258140625,1720937,0,10.0
+OM,Olympian,1,armor,11500008,276799,460460000,10.0
+OM,Olympian,2,armor,12754144,306985,511940000,10.0
+OM,Olympian,3,armor,14008280,337172,563420000,10.0
+OM,Olympian,4,armor,15262416,367358,614900000,10.0
+OM,Olympian Guardian,1,guardian,542565387,300061,0,10.0
+OM,Olympian Guardian,2,guardian,601887938,332869,0,10.0
+OM,Olympian Guardian,3,guardian,661210490,365676,0,10.0
+OM,Olympian Guardian,4,guardian,720535140,398486,0,10.0
+OM,Almighty,1,armor,15262416,367358,614900000,10.0
+OM,Almighty,2,armor,16634034,400372,701652380,10.0
+OM,Almighty,3,armor,18005653,433386,788404760,10.0
+OM,Almighty,4,armor,19322238,465076,875160000,10.0
+OM,Almighty Guardian,1,guardian,720535140,398486,0,10.0
+OM,Almighty Guardian,2,guardian,822041895,454623,0,10.0
+OM,Almighty Guardian,3,guardian,923548650,510760,0,10.0
+OM,Almighty Guardian,4,guardian,1024985403,566859,0,10.0
+OM,Thunder Gods,1,armor,19322238,465076,875160000,10.0
+OM,Thunder Gods,2,armor,20653556,497120,950463800,10.0
+OM,Thunder Gods,3,armor,21984875,529164,1025767600,10.0
+OM,Thunder Gods,4,armor,23307908,561009,1101100000,10.0
+OM,Thunder Gods Guardian,1,guardian,1024985403,566859,0,10.0
+OM,Thunder Gods Guardian,2,guardian,1112943458,615504,0,10.0
+OM,Thunder Gods Guardian,3,guardian,1200901513,664148,0,10.0
+OM,Thunder Gods Guardian,4,guardian,1288845148,712785,0,10.0
+OM,Fuscina,5,warrior,287503125,1916687,0,10.0
+OM,Fulmen,5,mage,287503125,1916687,0,10.0
+OM,Stormy Seas,6,warrior,310083494,2067223,0,10.0
+OM,Shattered Skies,6,mage,310083494,2067223,0,10.0
+WT,Skeletal Blade,1,warrior,258315000,1722100,0,10.0
+WT,Skeletal Blade,2,warrior,275227195,1834847,0,10.0
+WT,Skeletal Blade,3,warrior,287965546,1919770,0,10.0
+WT,Skeletal Blade,4,warrior,300703898,2004692,0,10.0
+WT,Skeletal Staff,1,mage,258315000,1722100,0,10.0
+WT,Skeletal Staff,2,mage,275227195,1834847,0,10.0
+WT,Skeletal Staff,3,mage,287965546,1919770,0,10.0
+WT,Skeletal Staff,4,mage,300703898,2004692,0,10.0
+WT,Skeletal Lance,1,warrior,300703898,2004692,0,10.0
+WT,Skeletal Lance,2,warrior,317616093,2117440,0,10.0
+WT,Skeletal Lance,3,warrior,330354445,2202362,0,10.0
+WT,Skeletal Lance,4,warrior,343092796,2287285,0,10.0
+WT,Skeletal Spelldaggers,1,mage,300703898,2004692,0,10.0
+WT,Skeletal Spelldaggers,2,mage,317616093,2117440,0,10.0
+WT,Skeletal Spelldaggers,3,mage,330354445,2202362,0,10.0
+WT,Skeletal Spelldaggers,4,mage,343092796,2287285,0,10.0
+WT,Cracked Greatsword,1,warrior,343092796,2287285,0,10.0
+WT,Cracked Greatsword,2,warrior,360004992,2400033,0,10.0
+WT,Cracked Greatsword,3,warrior,372743343,2484955,0,10.0
+WT,Cracked Greatsword,4,warrior,385501406,2570009,0,10.0
+WT,Cracked Greatstaff,1,mage,343092796,2287285,0,10.0
+WT,Cracked Greatstaff,2,mage,360004992,2400033,0,10.0
+WT,Cracked Greatstaff,3,mage,372743343,2484955,0,10.0
+WT,Cracked Greatstaff,4,mage,385501406,2570009,0,10.0
+WT,Enchanted Essence Sword,1,warrior,385501406,2570009,0,10.0
+WT,Enchanted Essence Sword,2,warrior,402521922,2683479,0,10.0
+WT,Enchanted Essence Sword,3,warrior,419345328,2795635,0,10.0
+WT,Enchanted Essence Sword,4,warrior,436168735,2907791,0,10.0
+WT,Enchanced Essence Staff,1,mage,385501406,2570009,0,10.0
+WT,Enchanced Essence Staff,2,mage,402521922,2683479,0,10.0
+WT,Enchanced Essence Staff,3,mage,419345328,2795635,0,10.0
+WT,Enchanced Essence Staff,4,mage,436168735,2907791,0,10.0
+WT,Infused Essence Sword,1,warrior,436168735,2907791,0,10.0
+WT,Infused Essence Sword,2,warrior,453189250,3021261,0,10.0
+WT,Infused Essence Sword,3,warrior,470012657,3133417,0,10.0
+WT,Infused Essence Sword,4,warrior,486827716,3245518,0,10.0
+WT,Infused Essence Staff,1,mage,436168735,2907791,0,10.0
+WT,Infused Essence Staff,2,mage,453189250,3021261,0,10.0
+WT,Infused Essence Staff,3,mage,470012657,3133417,0,10.0
+WT,Infused Essence Staff,4,mage,486827716,3245518,0,10.0
+WT,Ancient Kings Javelin,1,warrior,486827716,3245518,0,10.0
+WT,Ancient Kings Javelin,2,warrior,503848231,3358988,0,10.0
+WT,Ancient Kings Javelin,3,warrior,520671638,3471144,0,10.0
+WT,Ancient Kings Javelin,4,warrior,537499218,3583328,0,10.0
+WT,Ancient Kings Spellblade,1,mage,486827716,3245518,0,10.0
+WT,Ancient Kings Spellblade,2,mage,503848231,3358988,0,10.0
+WT,Ancient Kings Spellblade,3,mage,520671638,3471144,0,10.0
+WT,Ancient Kings Spellblade,4,mage,537499218,3583328,0,10.0
+WT,Skeleton,1,armor,23185138,558054,1316915600,10.0
+WT,Skeleton,2,armor,25677096,618034,1464148400,10.0
+WT,Skeleton,3,armor,28169055,678014,1611381200,10.0
+WT,Skeleton,4,armor,30661013,737994,1758614000,10.0
+WT,Skeleton Guardian,1,guardian,1143480535,632392,0,10.0
+WT,Skeleton Guardian,2,guardian,1268460771,701511,0,10.0
+WT,Skeleton Guardian,3,guardian,1393441008,770631,0,10.0
+WT,Skeleton Guardian,4,guardian,1518425672,839752,0,10.0
+WT,Spirit,1,armor,30661013,737994,1758614000,10.0
+WT,Spirit,2,armor,33285159,801156,2006725807,10.0
+WT,Spirit,3,armor,35909304,864318,2254837613,10.0
+WT,Spirit,4,armor,38455896,925613,2502957600,10.0
+WT,Spirit Guardian,1,guardian,1518425672,839752,0,10.0
+WT,Spirit Guardian,2,guardian,1732271817,958018,0,10.0
+WT,Spirit Guardian,3,guardian,1946117964,1076284,0,10.0
+WT,Spirit Guardian,4,guardian,2159863990,1194494,0,10.0
+WT,Soulshard,1,armor,38455896,925613,2502957600,10.0
+WT,Soulshard,2,armor,41133850,990070,2718326468,10.0
+WT,Soulshard,3,armor,43811804,1054527,2933695336,10.0
+WT,Soulshard,4,armor,46479988,1118749,3149146000,10.0
+WT,Soulshard Guardian,1,guardian,2159863990,1194494,0,10.0
+WT,Soulshard Guardian,2,guardian,2345293692,1297045,0,10.0
+WT,Soulshard Guardian,3,guardian,2530723393,1399595,0,10.0
+WT,Soulshard Guardian,4,guardian,2716132185,1502134,0,10.0
+WT,Ghost Kings Halberd,5,warrior,599005500,3993370,0,10.0
+WT,Ghost Kings Tome,5,mage,599005500,3993370,0,10.0
+WT,Storsvero,6,warrior,649965364,4333102,0,10.0
+WT,Vigamenn,6,mage,649965364,4333102,0,10.0
+EC,Centurions Gladius,1,warrior,539840962,3598939,0,10.0
+EC,Centurions Gladius,2,warrior,575382594,3835883,0,10.0
+EC,Centurions Gladius,3,warrior,602117411,4014116,0,10.0
+EC,Centurions Gladius,4,warrior,628852232,4192348,0,10.0
+EC,Centurions Staff,1,mage,539840962,3598939,0,10.0
+EC,Centurions Staff,2,mage,575382594,3835883,0,10.0
+EC,Centurions Staff,3,mage,602117411,4014116,0,10.0
+EC,Centurions Staff,4,mage,628852232,4192348,0,10.0
+EC,Centurions Spatha,1,warrior,628852232,4192348,0,10.0
+EC,Centurions Spatha,2,warrior,664393864,4429292,0,10.0
+EC,Centurions Spatha,3,warrior,691128686,4607524,0,10.0
+EC,Centurions Spatha,4,warrior,717863507,4785756,0,10.0
+EC,Centurions Scroll,1,mage,628852232,4192348,0,10.0
+EC,Centurions Scroll,2,mage,664393864,4429292,0,10.0
+EC,Centurions Scroll,3,mage,691128686,4607524,0,10.0
+EC,Centurions Scroll,4,mage,717863507,4785756,0,10.0
+EC,Praetorian Godswrd,1,warrior,717863507,4785756,0,10.0
+EC,Praetorian Godswrd,2,warrior,753405135,5022700,0,10.0
+EC,Praetorian Godswrd,3,warrior,780139956,5200933,0,10.0
+EC,Praetorian Godswrd,4,warrior,806903357,5379355,0,10.0
+EC,Praetorian Godstaff,1,mage,717863507,4785756,0,10.0
+EC,Praetorian Godstaff,2,mage,753405135,5022700,0,10.0
+EC,Praetorian Godstaff,3,mage,780139956,5200933,0,10.0
+EC,Praetorian Godstaff,4,mage,806903357,5379355,0,10.0
+EC,Imperial Gold Shortsword,1,warrior,806903357,5379355,0,10.0
+EC,Imperial Gold Shortsword,2,warrior,842296277,5615308,0,10.0
+EC,Imperial Gold Shortsword,3,warrior,877403391,5849355,0,10.0
+EC,Imperial Gold Shortsword,4,warrior,912510499,6083403,0,10.0
+EC,Imperial Gold Spellsword,1,mage,806903357,5379355,0,10.0
+EC,Imperial Gold Spellsword,2,mage,842296277,5615308,0,10.0
+EC,Imperial Gold Spellsword,3,mage,877403391,5849355,0,10.0
+EC,Imperial Gold Spellsword,4,mage,912510499,6083403,0,10.0
+EC,Divine Javelin,1,warrior,912510499,6083403,0,10.0
+EC,Divine Javelin,2,warrior,947903419,6319356,0,10.0
+EC,Divine Javelin,3,warrior,983010528,6553403,0,10.0
+EC,Divine Javelin,4,warrior,1018100027,6787333,0,10.0
+EC,Divine Greatstaff,1,mage,912510499,6083403,0,10.0
+EC,Divine Greatstaff,2,mage,947903419,6319356,0,10.0
+EC,Divine Greatstaff,3,mage,983010528,6553403,0,10.0
+EC,Divine Greatstaff,4,mage,1018100027,6787333,0,10.0
+EC,Primus Pilus Lance,1,warrior,1018100027,6787333,0,10.0
+EC,Primus Pilus Lance,2,warrior,1053492947,7023286,0,10.0
+EC,Primus Pilus Lance,3,warrior,1088600061,7257333,0,10.0
+EC,Primus Pilus Lance,4,warrior,1123715976,7491439,0,10.0
+EC,Primus Pilus Spellblade,1,mage,1018100027,6787333,0,10.0
+EC,Primus Pilus Spellblade,2,mage,1053492947,7023286,0,10.0
+EC,Primus Pilus Spellblade,3,mage,1088600061,7257333,0,10.0
+EC,Primus Pilus Spellblade,4,mage,1123715976,7491439,0,10.0
+EC,Centurion,1,armor,47354816,1139805,3766378616,10.0
+EC,Centurion,2,armor,52389160,1260979,4187464424,10.0
+EC,Centurion,3,armor,57423503,1382153,4608550232,10.0
+EC,Centurion,4,armor,62457847,1503327,5029636040,10.0
+EC,Centurion Guardian,1,guardian,2410811904,1333279,0,10.0
+EC,Centurion Guardian,2,guardian,2674244200,1478968,0,10.0
+EC,Centurion Guardian,3,guardian,2937676495,1624657,0,10.0
+EC,Centurion Guardian,4,guardian,3201118132,1770351,0,10.0
+EC,Imperial,1,armor,62457847,1503327,5029636040,10.0
+EC,Imperial,2,armor,67603339,1627177,5739235807,10.0
+EC,Imperial,3,armor,72748830,1751026,6448835575,10.0
+EC,Imperial,4,armor,77786603,1872283,7158458736,10.0
+EC,Imperial Guardian,1,guardian,3201118132,1770351,0,10.0
+EC,Imperial Guardian,2,guardian,3651850495,2019625,0,10.0
+EC,Imperial Guardian,3,guardian,4102582858,2268899,0,10.0
+EC,Imperial Guardian,4,guardian,4553172966,2518094,0,10.0
+EC,Gods Chosen,1,armor,77786603,1872283,7158458736,10.0
+EC,Gods Chosen,2,armor,83246949,2003710,7774413698,10.0
+EC,Gods Chosen,3,armor,88707295,2135138,8390368661,10.0
+EC,Gods Chosen,4,armor,94158214,2266339,9006557560,10.0
+EC,Gods Chosen Guardian,1,guardian,4553172966,2518094,0,10.0
+EC,Gods Chosen Guardian,2,guardian,4944195032,2734346,0,10.0
+EC,Gods Chosen Guardian,3,guardian,5335217098,2950597,0,10.0
+EC,Gods Chosen Guardian,4,guardian,5726208846,3166832,0,10.0
+EC,Gladius Imperialis,5,warrior,1252843766,8352291,0,10.0
+EC,Magicus Imperialis,5,mage,1252843766,8352291,0,10.0
+EC,Theospathia,6,warrior,1365176250,9101175,0,10.0
+EC,Theosevis,6,mage,1365176250,9101175,0,10.0
+CL,Ancient Ritual Blade,1,warrior,1131519083,7543460,0,10.0
+CL,Ancient Ritual Blade,2,warrior,1206304427,8042029,0,10.0
+CL,Ancient Ritual Blade,3,warrior,1262507400,8416716,0,10.0
+CL,Ancient Ritual Blade,4,warrior,1318710378,8791402,0,10.0
+CL,Ancient Ritual Staff,1,mage,1131519083,7543460,0,10.0
+CL,Ancient Ritual Staff,2,mage,1206304427,8042029,0,10.0
+CL,Ancient Ritual Staff,3,mage,1262507400,8416716,0,10.0
+CL,Ancient Ritual Staff,4,mage,1318710378,8791402,0,10.0
+CL,Sacrifical Daggers,1,warrior,1318710378,8791402,0,10.0
+CL,Sacrifical Daggers,2,warrior,1393495721,9289971,0,10.0
+CL,Sacrifical Daggers,3,warrior,1449698690,9664657,0,10.0
+CL,Sacrifical Daggers,4,warrior,1505901668,10039344,0,10.0
+CL,Ritual Wand,1,mage,1318710378,8791402,0,10.0
+CL,Ritual Wand,2,mage,1393495721,9289971,0,10.0
+CL,Ritual Wand,3,mage,1449698690,9664657,0,10.0
+CL,Ritual Wand,4,mage,1505901668,10039344,0,10.0
+CL,Demonsword,1,warrior,1505901668,10039344,0,10.0
+CL,Demonsword,2,warrior,1580687010,10537913,0,10.0
+CL,Demonsword,3,warrior,1636889984,10912599,0,10.0
+CL,Demonsword,4,warrior,1693134400,11287562,0,10.0
+CL,Demonstaff,1,mage,1505901668,10039344,0,10.0
+CL,Demonstaff,2,mage,1580687010,10537913,0,10.0
+CL,Demonstaff,3,mage,1636889984,10912599,0,10.0
+CL,Demonstaff,4,mage,1693134400,11287562,0,10.0
+CL,Black Rock Shortsword,1,warrior,1693134400,11287562,0,10.0
+CL,Black Rock Shortsword,2,warrior,1767058928,11780392,0,10.0
+CL,Black Rock Shortsword,3,warrior,1840569030,12270460,0,10.0
+CL,Black Rock Shortsword,4,warrior,1914079131,12760527,0,10.0
+CL,Black Rock Spellsword,1,mage,1693134400,11287562,0,10.0
+CL,Black Rock Spellsword,2,mage,1767058928,11780392,0,10.0
+CL,Black Rock Spellsword,3,mage,1840569030,12270460,0,10.0
+CL,Black Rock Spellsword,4,mage,1914079131,12760527,0,10.0
+CL,Unholy Javelin,1,warrior,1914079131,12760527,0,10.0
+CL,Unholy Javelin,2,warrior,1988003659,13253357,0,10.0
+CL,Unholy Javelin,3,warrior,2061513766,13743425,0,10.0
+CL,Unholy Javelin,4,warrior,2134986703,14233244,0,10.0
+CL,Unholy Greatstaff,1,mage,1914079131,12760527,0,10.0
+CL,Unholy Greatstaff,2,mage,1988003659,13253357,0,10.0
+CL,Unholy Greatstaff,3,mage,2061513766,13743425,0,10.0
+CL,Unholy Greatstaff,4,mage,2134986703,14233244,0,10.0
+CL,Inheritance Lance,1,warrior,2134986703,14233244,0,10.0
+CL,Inheritance Lance,2,warrior,2208911226,14726074,0,10.0
+CL,Inheritance Lance,3,warrior,2282421332,15216142,0,10.0
+CL,Inheritance Lance,4,warrior,2355950017,15706333,0,10.0
+CL,Inheritance Spelltome,1,mage,2134986703,14233244,0,10.0
+CL,Inheritance Spelltome,2,mage,2208911226,14726074,0,10.0
+CL,Inheritance Spelltome,3,mage,2282421332,15216142,0,10.0
+CL,Inheritance Spelltome,4,mage,2355950017,15706333,0,10.0
+CL,Initiates,1,armor,97648219,2350341,10771842841,10.0
+CL,Initiates,2,armor,107946334,2598212,11976148253,10.0
+CL,Initiates,3,armor,118244448,2846082,13180453663,10.0
+CL,Initiates,4,armor,128542566,3093952,14384759074,10.0
+CL,Initiates Guardian,1,guardian,5084011684,2811670,0,10.0
+CL,Initiates Guardian,2,guardian,5639453620,3118853,0,10.0
+CL,Initiates Guardian,3,guardian,6194895556,3426035,0,10.0
+CL,Initiates Guardian,4,guardian,6750357210,3733229,0,10.0
+CL,Cultists,1,armor,128542566,3093952,14384759074,10.0
+CL,Cultists,2,armor,138831939,3341612,16414214409,10.0
+CL,Cultists,3,armor,149121312,3589272,18443669744,10.0
+CL,Cultists,4,armor,159259712,3833298,20473191985,10.0
+CL,Cultists Guardian,1,guardian,6750357210,3733229,0,10.0
+CL,Cultists Guardian,2,guardian,7700702132,4258809,0,10.0
+CL,Cultists Guardian,3,guardian,8651047053,4784390,0,10.0
+CL,Cultists Guardian,4,guardian,9601191883,5309859,0,10.0
+CL,Demonic Cultists,1,armor,159264494,3833413,20473191985,10.0
+CL,Demonic Cultists,2,armor,170510128,4104089,22234823177,10.0
+CL,Demonic Cultists,3,armor,181755763,4374766,23996454370,10.0
+CL,Demonic Cultists,4,armor,192997724,4645354,25758754621,10.0
+CL,Demonic Cultists Guardian,1,guardian,9601191883,5309859,0,10.0
+CL,Demonic Cultists Guardian,2,guardian,10425908268,5765962,0,10.0
+CL,Demonic Cultists Guardian,3,guardian,11250624654,6222064,0,10.0
+CL,Demonic Cultists Guardian,4,guardian,12075297083,6678143,0,10.0
+CL,Demonic Sacrificial Dagger,5,warrior,2627466487,17516443,0,10.0
+CL,Demonic Ritual Wand,5,mage,2627466487,17516443,0,10.0
+CL,Uhenyth,6,warrior,2880418899,19202792,0,10.0
+CL,Shuggoth,6,mage,2880418899,19202792,0,10.0
+MK,Fishhook Javelin,1,warrior,2376564512,15843763,0,10.0
+MK,Fishhook Javelin,2,warrior,2534060716,16893738,0,10.0
+MK,Fishhook Javelin,3,warrior,2652348125,17682320,0,10.0
+MK,Fishhook Javelin,4,warrior,2770635529,18470903,0,10.0
+MK,Scaled Wand,1,mage,2376564512,15843763,0,10.0
+MK,Scaled Wand,2,mage,2534060716,16893738,0,10.0
+MK,Scaled Wand,3,mage,2652348125,17682320,0,10.0
+MK,Scaled Wand,4,mage,2770635529,18470903,0,10.0
+MK,Fishhook Halberd,1,warrior,2770635529,18470903,0,10.0
+MK,Fishhook Halberd,2,warrior,2928131732,19520878,0,10.0
+MK,Fishhook Halberd,3,warrior,3046419136,20309460,0,10.0
+MK,Fishhook Halberd,4,warrior,3164706540,21098043,0,10.0
+MK,Scaled Battlestaff,1,mage,2770635529,18470903,0,10.0
+MK,Scaled Battlestaff,2,mage,2928131732,19520878,0,10.0
+MK,Scaled Battlestaff,3,mage,3046419136,20309460,0,10.0
+MK,Scaled Battlestaff,4,mage,3164706540,21098043,0,10.0
+MK,Fishook Scimitars,1,warrior,3164706540,21098043,0,10.0
+MK,Fishook Scimitars,2,warrior,3322202744,22148018,0,10.0
+MK,Fishook Scimitars,3,warrior,3440490147,22936600,0,10.0
+MK,Fishook Scimitars,4,warrior,3558837645,23725584,0,10.0
+MK,Scaled Shields,1,mage,3164706540,21098043,0,10.0
+MK,Scaled Shields,2,mage,3322202744,22148018,0,10.0
+MK,Scaled Shields,3,mage,3440490147,22936600,0,10.0
+MK,Scaled Shields,4,mage,3558837645,23725584,0,10.0
+MK,Shining Shortsword,1,warrior,3558837645,23725584,0,10.0
+MK,Shining Shortsword,2,warrior,3713724321,24758162,0,10.0
+MK,Shining Shortsword,3,warrior,3868010077,25786733,0,10.0
+MK,Shining Shortsword,4,warrior,4022295843,26815305,0,10.0
+MK,Shining Tome,1,mage,3558837645,23725584,0,10.0
+MK,Shining Tome,2,mage,3713724321,24758162,0,10.0
+MK,Shining Tome,3,mage,3868010077,25786733,0,10.0
+MK,Shining Tome,4,mage,4022295843,26815305,0,10.0
+MK,Enchanted Coral Dagger,1,warrior,4022295843,26815305,0,10.0
+MK,Enchanted Coral Dagger,2,warrior,4177182519,27847883,0,10.0
+MK,Enchanted Coral Dagger,3,warrior,4331468276,28876455,0,10.0
+MK,Enchanted Coral Dagger,4,warrior,4485675624,29904504,0,10.0
+MK,Enchanted Coral Staff,1,mage,4022295843,26815305,0,10.0
+MK,Enchanted Coral Staff,2,mage,4177182519,27847883,0,10.0
+MK,Enchanted Coral Staff,3,mage,4331468276,28876455,0,10.0
+MK,Enchanted Coral Staff,4,mage,4485675624,29904504,0,10.0
+MK,Mermaids Roar,1,warrior,4485675624,29904504,0,10.0
+MK,Mermaids Roar,2,warrior,4640562300,30937082,0,10.0
+MK,Mermaids Roar,3,warrior,4794848056,31965653,0,10.0
+MK,Mermaids Roar,4,warrior,4949173027,32994486,0,10.0
+MK,Mermaids Song,1,mage,4485675624,29904504,0,10.0
+MK,Mermaids Song,2,mage,4640562300,30937082,0,10.0
+MK,Mermaids Song,3,mage,4794848056,31965653,0,10.0
+MK,Mermaids Song,4,mage,4949173027,32994486,0,10.0
+MK,Glistening,1,armor,202745594,4879980,30807470527,10.0
+MK,Glistening,2,armor,224004313,5391667,34251784002,10.0
+MK,Glistening,3,armor,245263028,5903353,37696097477,10.0
+MK,Glistening,4,armor,266521747,6415039,41140410953,10.0
+MK,Glistening Guardian,1,guardian,10723202565,5930378,0,10.0
+MK,Glistening Guardian,2,guardian,11894604759,6578212,0,10.0
+MK,Glistening Guardian,3,guardian,13066006948,7226047,0,10.0
+MK,Glistening Guardian,4,guardian,14237450736,7873904,0,10.0
+MK,Shining,1,armor,266521747,6415039,41140410953,10.0
+MK,Shining,2,armor,287409289,6917791,46944653211,10.0
+MK,Shining,3,armor,308296832,7420544,52748895468,10.0
+MK,Shining,4,armor,328993485,7918701,58553329077,10.0
+MK,Shining Guardian,1,guardian,14237450736,7873904,0,10.0
+MK,Shining Guardian,2,guardian,16241663002,8982317,0,10.0
+MK,Shining Guardian,3,guardian,18245875269,10090730,0,10.0
+MK,Shining Guardian,4,guardian,20249810411,11198990,0,10.0
+MK,Glimmershine,1,armor,328993485,7918701,58553329077,10.0
+MK,Glimmershine,2,armor,352322012,8480207,63591594288,10.0
+MK,Glimmershine,3,armor,375650543,9041712,68629859499,10.0
+MK,Glimmershine,4,armor,398994831,9603597,73670038217,10.0
+MK,Glimmershine Guardian,1,guardian,20249810411,11198990,0,10.0
+MK,Glimmershine Guardian,2,guardian,21989468728,12161093,0,10.0
+MK,Glimmershine Guardian,3,guardian,23729127052,13123197,0,10.0
+MK,Glimmershine Guardian,4,guardian,25468721632,14085265,0,10.0
+MK,Glimmershine Battlesword,5,warrior,5520705195,36804701,0,10.0
+MK,Glimmershine Artefact,5,mage,5520705195,36804701,0,10.0
+MK,Myrimidion,6,warrior,6058627932,40390852,0,10.0
+MK,Myriminion,6,mage,6058627932,40390852,0,10.0
+TD,Clothos Dagger,1,warrior,4998687035,33324580,0,10.0
+TD,Clothos Dagger,2,warrior,5330567762,35537118,0,10.0
+TD,Clothos Dagger,3,warrior,5579717925,37198119,0,10.0
+TD,Clothos Dagger,4,warrior,5828868083,38859120,0,10.0
+TD,Clothos Wand,1,mage,4998687035,33324580,0,10.0
+TD,Clothos Wand,2,mage,5330567762,35537118,0,10.0
+TD,Clothos Wand,3,mage,5579717925,37198119,0,10.0
+TD,Clothos Wand,4,mage,5828868083,38859120,0,10.0
+TD,Lachesis Sword,1,warrior,5828868083,38859120,0,10.0
+TD,Lachesis Sword,2,warrior,6160748815,41071658,0,10.0
+TD,Lachesis Sword,3,warrior,6409898973,42732659,0,10.0
+TD,Lachesis Sword,4,warrior,6659049136,44393660,0,10.0
+TD,Lachesis Staff,1,mage,5828868083,38859120,0,10.0
+TD,Lachesis Staff,2,mage,6160748815,41071658,0,10.0
+TD,Lachesis Staff,3,mage,6409898973,42732659,0,10.0
+TD,Lachesis Staff,4,mage,6659049136,44393660,0,10.0
+TD,Atropos Blade,1,warrior,6659049136,44393660,0,10.0
+TD,Atropos Blade,2,warrior,6990929863,46606199,0,10.0
+TD,Atropos Blade,3,warrior,7240080026,48267200,0,10.0
+TD,Atropos Blade,4,warrior,7489317320,49928782,0,10.0
+TD,Atropos Shield,1,mage,6659049136,44393660,0,10.0
+TD,Atropos Shield,2,mage,6990929863,46606199,0,10.0
+TD,Atropos Shield,3,mage,7240080026,48267200,0,10.0
+TD,Atropos Shield,4,mage,7489317320,49928782,0,10.0
+TD,Tisiphones Destruction,1,warrior,7489317320,49928782,0,10.0
+TD,Tisiphones Destruction,2,warrior,7814541788,52096945,0,10.0
+TD,Tisiphones Destruction,3,warrior,8138894939,54259299,0,10.0
+TD,Tisiphones Destruction,4,warrior,8463248094,56421653,0,10.0
+TD,Tisiphones Dream,1,mage,7489317320,49928782,0,10.0
+TD,Tisiphones Dream,2,mage,7814541788,52096945,0,10.0
+TD,Tisiphones Dream,3,mage,8138894939,54259299,0,10.0
+TD,Tisiphones Dream,4,mage,8463248094,56421653,0,10.0
+TD,Megaeras Power,1,warrior,8463248094,56421653,0,10.0
+TD,Megaeras Power,2,warrior,8788472563,58589817,0,10.0
+TD,Megaeras Power,3,warrior,9112825713,60752171,0,10.0
+TD,Megaeras Power,4,warrior,9437013407,62913422,0,10.0
+TD,Megaeras Force,1,mage,8463248094,56421653,0,10.0
+TD,Megaeras Force,2,mage,8788472563,58589817,0,10.0
+TD,Megaeras Force,3,mage,9112825713,60752171,0,10.0
+TD,Megaeras Force,4,mage,9437013407,62913422,0,10.0
+TD,Alectos Rage,1,warrior,9437013407,62913422,0,10.0
+TD,Alectos Rage,2,warrior,9762237876,65081585,0,10.0
+TD,Alectos Rage,3,warrior,10086591027,67243940,0,10.0
+TD,Alectos Rage,4,warrior,10411026908,69406846,0,10.0
+TD,Alectos Tome,1,mage,9437013407,62913422,0,10.0
+TD,Alectos Tome,2,mage,9762237876,65081585,0,10.0
+TD,Alectos Tome,3,mage,10086591027,67243940,0,10.0
+TD,Alectos Tome,4,mage,10411026908,69406846,0,10.0
+TD,Hades,1,armor,423019597,10181861,88109365708,10.0
+TD,Hades,2,armor,467193546,11245105,97960102247,10.0
+TD,Hades,3,armor,511367491,12308349,107810838786,10.0
+TD,Hades,4,armor,555541441,13371593,117661575325,10.0
+TD,Hades Guardian,1,guardian,22620067397,12509841,0,10.0
+TD,Hades Guardian,2,guardian,25090884591,13876306,0,10.0
+TD,Hades Guardian,3,guardian,27561701781,15242771,0,10.0
+TD,Hades Guardian,4,guardian,30032606736,16609284,0,10.0
+TD,Thanatos,1,armor,555541441,13371593,117661575325,10.0
+TD,Thanatos,2,armor,598420755,14403675,134261708182,10.0
+TD,Thanatos,3,armor,641300069,15435758,150861841039,10.0
+TD,Thanatos,4,armor,683947084,16462249,167462521160,10.0
+TD,Thanatos Guardian,1,guardian,30032606736,16609284,0,10.0
+TD,Thanatos Guardian,2,guardian,34260022118,18947221,0,10.0
+TD,Thanatos Guardian,3,guardian,38487437499,21285158,0,10.0
+TD,Thanatos Guardian,4,guardian,42714478491,23622889,0,10.0
+TD,Tartarus,1,armor,683947084,16462249,167462521160,10.0
+TD,Tartarus,2,armor,732590627,17633074,181871959664,10.0
+TD,Tartarus,3,armor,781234175,18803899,196281398168,10.0
+TD,Tartarus,4,armor,829945069,19976345,210696309302,10.0
+TD,Tartarus Guardian,1,guardian,42714478491,23622889,0,10.0
+TD,Tartarus Guardian,2,guardian,46384442331,25652532,0,10.0
+TD,Tartarus Guardian,3,guardian,50054406177,27682175,0,10.0
+TD,Tartarus Guardian,4,guardian,53724277598,29711767,0,10.0
+TD,Polybotes Sword,5,warrior,11614976768,77433178,0,10.0
+TD,Porphyrions Staff,5,mage,11614976768,77433178,0,10.0
+TD,Drepani,6,warrior,12756073816,85040492,0,10.0
+TD,Aspida,6,mage,12756073816,85040492,0,10.0
+CF,Starstruck Sword,1,warrior,10524226708,70161511,0,10.0
+CF,Starstruck Sword,2,warrior,11223862465,74825749,0,10.0
+CF,Starstruck Sword,3,warrior,11748936727,78326244,0,10.0
+CF,Starstruck Sword,4,warrior,12274010984,81826739,0,10.0
+CF,Starstruck Staff,1,mage,10524226708,70161511,0,10.0
+CF,Starstruck Staff,2,mage,11223862465,74825749,0,10.0
+CF,Starstruck Staff,3,mage,11748936727,78326244,0,10.0
+CF,Starstruck Staff,4,mage,12274010984,81826739,0,10.0
+CF,Shimmering Warscythe,1,warrior,12274010984,81826739,0,10.0
+CF,Shimmering Warscythe,2,warrior,12973646741,86490978,0,10.0
+CF,Shimmering Warscythe,3,warrior,13498720998,89991473,0,10.0
+CF,Shimmering Warscythe,4,warrior,14023795256,93491968,0,10.0
+CF,Shimmering Spellscythe,1,mage,12274010984,81826739,0,10.0
+CF,Shimmering Spellscythe,2,mage,12973646741,86490978,0,10.0
+CF,Shimmering Spellscythe,3,mage,13498720998,89991473,0,10.0
+CF,Shimmering Spellscythe,4,mage,14023795256,93491968,0,10.0
+CF,Caelum,1,warrior,14023795256,93491968,0,10.0
+CF,Caelum,2,warrior,14723431012,98156206,0,10.0
+CF,Caelum,3,warrior,15248505275,101656701,0,10.0
+CF,Caelum,4,warrior,15773705874,105158039,0,10.0
+CF,Volans,1,mage,14023795256,93491968,0,10.0
+CF,Volans,2,mage,14723431012,98156206,0,10.0
+CF,Volans,3,mage,15248505275,101656701,0,10.0
+CF,Volans,4,mage,15773705874,105158039,0,10.0
+CF,Starry Dagger,1,warrior,15773705874,105158039,0,10.0
+CF,Starry Dagger,2,warrior,16457629218,109717528,0,10.0
+CF,Starry Dagger,3,warrior,17140289145,114268594,0,10.0
+CF,Starry Dagger,4,warrior,17822949073,118819660,0,10.0
+CF,Starry Spellblade,1,mage,15773705874,105158039,0,10.0
+CF,Starry Spellblade,2,mage,16457629218,109717528,0,10.0
+CF,Starry Spellblade,3,mage,17140289145,114268594,0,10.0
+CF,Starry Spellblade,4,mage,17822949073,118819660,0,10.0
+CF,Constellation Greatsword,1,warrior,17822949073,118819660,0,10.0
+CF,Constellation Greatsword,2,warrior,18506872422,123379149,0,10.0
+CF,Constellation Greatsword,3,warrior,19189532345,127930215,0,10.0
+CF,Constellation Greatsword,4,warrior,19871843148,132478954,0,10.0
+CF,Constellation Greatstaff,1,mage,17822949073,118819660,0,10.0
+CF,Constellation Greatstaff,2,mage,18506872422,123379149,0,10.0
+CF,Constellation Greatstaff,3,mage,19189532345,127930215,0,10.0
+CF,Constellation Greatstaff,4,mage,19871843148,132478954,0,10.0
+CF,Lacerta,1,warrior,19871843148,132478954,0,10.0
+CF,Lacerta,2,warrior,20555766493,137038443,0,10.0
+CF,Lacerta,3,warrior,21238426420,141589509,0,10.0
+CF,Lacerta,4,warrior,21921260914,146141739,0,10.0
+CF,Delphinus,1,mage,19871843148,132478954,0,10.0
+CF,Delphinus,2,mage,20555766493,137038443,0,10.0
+CF,Delphinus,3,mage,21238426420,141589509,0,10.0
+CF,Delphinus,4,mage,21921260914,146141739,0,10.0
+CF,Starry,1,armor,885649612,21317124,251992785926,10.0
+CF,Starry,2,armor,977867824,23536768,280165892427,10.0
+CF,Starry,3,armor,1070086035,25756413,308338998928,10.0
+CF,Starry,4,armor,1162304243,27976057,336512105429,10.0
+CF,Starry Guardian,1,guardian,47719801677,26391041,0,10.0
+CF,Starry Guardian,2,guardian,52932005879,29273608,0,10.0
+CF,Starry Guardian,3,guardian,58144210081,32156174,0,10.0
+CF,Starry Guardian,4,guardian,63356599454,35038843,0,10.0
+CF,Celestial,1,armor,1162304243,27976057,336512105429,10.0
+CF,Celestial,2,armor,1251049164,30112101,383988485401,10.0
+CF,Celestial,3,armor,1339794084,32248145,431464865373,10.0
+CF,Celestial,4,armor,1428296051,34378341,478942810518,10.0
+CF,Celestial Guardian,1,guardian,63356599454,35038843,0,10.0
+CF,Celestial Guardian,2,guardian,72274310778,39970709,0,10.0
+CF,Celestial Guardian,3,guardian,81192022102,44902576,0,10.0
+CF,Celestial Guardian,4,guardian,90109248477,49834174,0,10.0
+CF,Constellation,1,armor,1428296051,34378341,478942810518,10.0
+CF,Constellation,2,armor,1530093439,36828551,520153804638,10.0
+CF,Constellation,3,armor,1631890828,39278761,561364798759,10.0
+CF,Constellation,4,armor,1733879748,41733582,602591444606,10.0
+CF,Constellation Guardian,1,guardian,90109248477,49834174,0,10.0
+CF,Constellation Guardian,2,guardian,97851835126,54116148,0,10.0
+CF,Constellation Guardian,3,guardian,105594421775,58398121,0,10.0
+CF,Constellation Guardian,4,guardian,113336874400,62680021,0,10.0
+CF,Draco,5,warrior,24458719745,163058131,0,10.0
+CF,Aquarius,5,mage,24458719745,163058131,0,10.0
+CF,Auriga,6,warrior,26875250622,179168337,0,10.0
+CF,Cygnus,6,mage,26875250622,179168337,0,10.0
+BC,Bloodied Dagger,1,warrior,22172764096,147818427,0,10.0
+BC,Bloodied Dagger,2,warrior,23648078302,157653855,0,10.0
+BC,Bloodied Dagger,3,warrior,24755067745,165033784,0,10.0
+BC,Bloodied Dagger,4,warrior,25862057197,172413714,0,10.0
+BC,Infused Wand,1,mage,22172764096,147818427,0,10.0
+BC,Infused Wand,2,mage,23648078302,157653855,0,10.0
+BC,Infused Wand,3,mage,24755067745,165033784,0,10.0
+BC,Infused Wand,4,mage,25862057197,172413714,0,10.0
+BC,Ritualistic Blade,1,warrior,25862057197,172413714,0,10.0
+BC,Ritualistic Blade,2,warrior,27337371403,182249142,0,10.0
+BC,Ritualistic Blade,3,warrior,28444360845,189629072,0,10.0
+BC,Ritualistic Blade,4,warrior,29551350287,197009001,0,10.0
+BC,Ritualistic Staff,1,mage,25862057197,172413714,0,10.0
+BC,Ritualistic Staff,2,mage,27337371403,182249142,0,10.0
+BC,Ritualistic Staff,3,mage,28444360845,189629072,0,10.0
+BC,Ritualistic Staff,4,mage,29551350287,197009001,0,10.0
+BC,Sacrificial Greatsword,1,warrior,29551350287,197009001,0,10.0
+BC,Sacrificial Greatsword,2,warrior,31026664493,206844429,0,10.0
+BC,Sacrificial Greatsword,3,warrior,32133653936,214224359,0,10.0
+BC,Sacrificial Greatsword,4,warrior,33240826575,221605510,0,10.0
+BC,Sacrificial Shields,1,mage,29551350287,197009001,0,10.0
+BC,Sacrificial Shields,2,mage,31026664493,206844429,0,10.0
+BC,Sacrificial Shields,3,mage,32133653936,214224359,0,10.0
+BC,Sacrificial Shields,4,mage,33240826575,221605510,0,10.0
+BC,Bloodthirsty Halberd,1,warrior,33240826575,221605510,0,10.0
+BC,Bloodthirsty Halberd,2,warrior,34680569414,231203796,0,10.0
+BC,Bloodthirsty Halberd,3,warrior,36118480288,240789868,0,10.0
+BC,Bloodthirsty Halberd,4,warrior,37556391167,250375941,0,10.0
+BC,Bloodthirsty Pike,1,mage,33240826575,221605510,0,10.0
+BC,Bloodthirsty Pike,2,mage,34680569414,231203796,0,10.0
+BC,Bloodthirsty Pike,3,mage,36118480288,240789868,0,10.0
+BC,Bloodthirsty Pike,4,mage,37556391167,250375941,0,10.0
+BC,Mighty Greataxe,1,warrior,37556391167,250375941,0,10.0
+BC,Mighty Greataxe,2,warrior,38996134001,259974226,0,10.0
+BC,Mighty Greataxe,3,warrior,40434044875,269560299,0,10.0
+BC,Mighty Greataxe,4,warrior,41871219105,279141460,0,10.0
+BC,Mighty Spelltome,1,mage,37556391167,250375941,0,10.0
+BC,Mighty Spelltome,2,mage,38996134001,259974226,0,10.0
+BC,Mighty Spelltome,3,mage,40434044875,269560299,0,10.0
+BC,Mighty Spelltome,4,mage,41871219105,279141460,0,10.0
+BC,Bloodbane Katana,1,warrior,41871219105,279141460,0,10.0
+BC,Bloodbane Katana,2,warrior,43310961938,288739746,0,10.0
+BC,Bloodbane Katana,3,warrior,44748872812,298325818,0,10.0
+BC,Bloodbane Katana,4,warrior,46187152016,307914346,0,10.0
+BC,Bloodbane Spelldagger,1,mage,41871219105,279141460,0,10.0
+BC,Bloodbane Spelldagger,2,mage,43310961938,288739746,0,10.0
+BC,Bloodbane Spelldagger,3,mage,44748872812,298325818,0,10.0
+BC,Bloodbane Spelldagger,4,mage,46187152016,307914346,0,10.0
+BC,Sacrificial,1,armor,1858684168,44737559,720699367749,10.0
+BC,Sacrificial,2,armor,2051830807,49386498,801274452342,10.0
+BC,Sacrificial,3,armor,2244977438,54035437,881849536935,10.0
+BC,Sacrificial,4,armor,2438124073,58684375,962424621528,10.0
+BC,Sacrificial Guardian,1,guardian,100676397777,55678249,0,10.0
+BC,Sacrificial Guardian,2,guardian,111672379534,61759485,0,10.0
+BC,Sacrificial Guardian,3,guardian,122668361283,67840722,0,10.0
+BC,Sacrificial Guardian,4,guardian,133664733755,73922175,0,10.0
+BC,Bloodthirsty,1,armor,2438124073,58684375,962424621528,10.0
+BC,Bloodthirsty,2,armor,2622866726,63131035,1098207068248,10.0
+BC,Bloodthirsty,3,armor,2807609376,67577694,1233989514968,10.0
+BC,Bloodthirsty,4,armor,2992197849,72020643,1369776438081,10.0
+BC,Bloodthirsty Guardian,1,guardian,133664733755,73922175,0,10.0
+BC,Bloodthirsty Guardian,2,guardian,152478008707,84326701,0,10.0
+BC,Bloodthirsty Guardian,3,guardian,171291283653,94731227,0,10.0
+BC,Bloodthirsty Guardian,4,guardian,190103977648,105135432,0,10.0
+BC,Bloodbane,1,armor,2992197849,72020643,1369776438081,10.0
+BC,Bloodbane,2,armor,3205771618,77161252,1487639881267,10.0
+BC,Bloodbane,3,armor,3419345387,82301861,1605503324452,10.0
+BC,Bloodbane,4,armor,3633394978,87453923,1723411531573,10.0
+BC,Bloodbane Guardian,1,guardian,190103977648,105135432,0,10.0
+BC,Bloodbane Guardian,2,guardian,206439331732,114169565,0,10.0
+BC,Bloodbane Guardian,3,guardian,222774685817,123203697,0,10.0
+BC,Bloodbane Guardian,4,guardian,239109845567,132237722,0,10.0
+BC,Devilseal Greatsword,5,warrior,51537020872,343580139,0,10.0
+BC,Devilseal Tome,5,mage,51537020872,343580139,0,10.0
+BC,Vglmhiegd,6,warrior,56648684375,377657895,0,10.0
+BC,Vglmhihmz,6,mage,56648684375,377657895,0,10.0
+FE,Icy Might,1,warrior,46736168584,311574457,0,10.0
+FE,Icy Might,2,warrior,49847751555,332318343,0,10.0
+FE,Icy Might,3,warrior,52182169281,347881128,0,10.0
+FE,Icy Might,4,warrior,54516587007,363443913,0,10.0
+FE,Icy Force,1,mage,46736168584,311574457,0,10.0
+FE,Icy Force,2,mage,49847751555,332318343,0,10.0
+FE,Icy Force,3,mage,52182169281,347881128,0,10.0
+FE,Icy Force,4,mage,54516587007,363443913,0,10.0
+FE,Frozen Battleblade,1,warrior,54516587007,363443913,0,10.0
+FE,Frozen Battleblade,2,warrior,57628169983,384187799,0,10.0
+FE,Frozen Battleblade,3,warrior,59962587708,399750584,0,10.0
+FE,Frozen Battleblade,4,warrior,62297005439,415313369,0,10.0
+FE,Frozen Battlestaff,1,mage,54516587007,363443913,0,10.0
+FE,Frozen Battlestaff,2,mage,57628169983,384187799,0,10.0
+FE,Frozen Battlestaff,3,mage,59962587708,399750584,0,10.0
+FE,Frozen Battlestaff,4,mage,62297005439,415313369,0,10.0
+FE,Deepsnow Greatsword,1,warrior,62297005439,415313369,0,10.0
+FE,Deepsnow Greatsword,2,warrior,65408588411,436057256,0,10.0
+FE,Deepsnow Greatsword,3,warrior,67743006136,451620040,0,10.0
+FE,Deepsnow Greatsword,4,warrior,70077689497,467184596,0,10.0
+FE,Deepsnow Icestaff,1,mage,62297005439,415313369,0,10.0
+FE,Deepsnow Icestaff,2,mage,65408588411,436057256,0,10.0
+FE,Deepsnow Icestaff,3,mage,67743006136,451620040,0,10.0
+FE,Deepsnow Icestaff,4,mage,70077689497,467184596,0,10.0
+FE,Shattered Ice,1,warrior,70077689497,467184596,0,10.0
+FE,Shattered Ice,2,warrior,73110710508,487404736,0,10.0
+FE,Shattered Ice,3,warrior,76141075183,507607167,0,10.0
+FE,Shattered Ice,4,warrior,79171439857,527809599,0,10.0
+FE,Howling Wind,1,mage,70077689497,467184596,0,10.0
+FE,Howling Wind,2,mage,73110710508,487404736,0,10.0
+FE,Howling Wind,3,mage,76141075183,507607167,0,10.0
+FE,Howling Wind,4,mage,79171439857,527809599,0,10.0
+FE,Shattered Hail,1,warrior,79171439857,527809599,0,10.0
+FE,Shattered Hail,2,warrior,82204460872,548029739,0,10.0
+FE,Shattered Hail,3,warrior,85234825546,568232170,0,10.0
+FE,Shattered Hail,4,warrior,88263635895,588424239,0,10.0
+FE,Freezing Gale,1,mage,79171439857,527809599,0,10.0
+FE,Freezing Gale,2,mage,82204460872,548029739,0,10.0
+FE,Freezing Gale,3,mage,85234825546,568232170,0,10.0
+FE,Freezing Gale,4,mage,88263635895,588424239,0,10.0
+FE,Broken Core,1,warrior,88263635895,588424239,0,10.0
+FE,Broken Core,2,warrior,91296656905,608644379,0,10.0
+FE,Broken Core,3,warrior,94327021579,628846810,0,10.0
+FE,Broken Core,4,warrior,97358163419,649054422,0,10.0
+FE,Flowing Glacier,1,mage,88263635895,588424239,0,10.0
+FE,Flowing Glacier,2,mage,91296656905,608644379,0,10.0
+FE,Flowing Glacier,3,mage,94327021579,628846810,0,10.0
+FE,Flowing Glacier,4,mage,97358163419,649054422,0,10.0
+FE,Frozen,1,armor,3907270645,94045968,2061200191762,10.0
+FE,Frozen,2,armor,4312731053,103805189,2291644933698,10.0
+FE,Frozen,3,armor,4718191461,113564409,2522089675634,10.0
+FE,Frozen,4,armor,5123651870,123323630,2752534417570,10.0
+FE,Frozen Guardian,1,guardian,212409242846,117471175,0,10.0
+FE,Frozen Guardian,2,guardian,235608199138,130301165,0,10.0
+FE,Frozen Guardian,3,guardian,258807155430,143131156,0,10.0
+FE,Frozen Guardian,4,guardian,282006936138,155961603,0,10.0
+FE,Blizzard,1,armor,5123651870,123323630,2752534417570,10.0
+FE,Blizzard,2,armor,5509820621,132618511,3140872215190,10.0
+FE,Blizzard,3,armor,5895989381,141913392,3529210012809,10.0
+FE,Blizzard,4,armor,6282352570,151212952,3917560612914,10.0
+FE,Blizzard Guardian,1,guardian,282006936138,155961603,0,10.0
+FE,Blizzard Guardian,2,guardian,321698457159,177912671,0,10.0
+FE,Blizzard Guardian,3,guardian,361389978189,199863738,0,10.0
+FE,Blizzard Guardian,4,guardian,401080914703,221814482,0,10.0
+FE,Deepfrost,1,armor,6282352570,151212952,3917560612914,10.0
+FE,Deepfrost,2,armor,6731226079,162017104,4254650060424,10.0
+FE,Deepfrost,3,armor,7180099585,172821255,4591739507934,10.0
+FE,Deepfrost,4,armor,7630081029,183652074,4928956980300,10.0
+FE,Deepfrost Guardian,1,guardian,401080914703,221814482,0,10.0
+FE,Deepfrost Guardian,2,guardian,435546331397,240875296,0,10.0
+FE,Deepfrost Guardian,3,guardian,470011748085,259936110,0,10.0
+FE,Deepfrost Guardian,4,guardian,504476882992,278996767,0,10.0
+FE,Deepfrost Might,5,warrior,108640341250,724268941,0,10.0
+FE,Deepfrost Force,5,mage,108640341250,724268941,0,10.0
+FE,Storsvaerd,6,warrior,119444487097,796296580,0,10.0
+FE,Storstav,6,mage,119444487097,796296580,0,10.0
+AD,Darkened Dagger,1,warrior,98543188393,656954589,0,10.0
+AD,Darkened Dagger,2,warrior,105106699971,700711333,0,10.0
+AD,Darkened Dagger,3,warrior,110030392868,733535952,0,10.0
+AD,Darkened Dagger,4,warrior,114954085767,766360571,0,10.0
+AD,Darkened Wand,1,mage,98543188393,656954589,0,10.0
+AD,Darkened Wand,2,mage,105106699971,700711333,0,10.0
+AD,Darkened Wand,3,mage,110030392868,733535952,0,10.0
+AD,Darkened Wand,4,mage,114954085767,766360571,0,10.0
+AD,Deepborn Dual Scimitars,1,warrior,114954085767,766360571,0,10.0
+AD,Deepborn Dual Scimitars,2,warrior,121517597345,810117315,0,10.0
+AD,Deepborn Dual Scimitars,3,warrior,126441290247,842941934,0,10.0
+AD,Deepborn Dual Scimitars,4,warrior,131364983145,875766554,0,10.0
+AD,Deepborn Greatstaff,1,mage,114954085767,766360571,0,10.0
+AD,Deepborn Greatstaff,2,mage,121517597345,810117315,0,10.0
+AD,Deepborn Greatstaff,3,mage,126441290247,842941934,0,10.0
+AD,Deepborn Greatstaff,4,mage,131364983145,875766554,0,10.0
+AD,Darksworn Force,1,warrior,131364983145,875766554,0,10.0
+AD,Darksworn Force,2,warrior,137928494723,919523298,0,10.0
+AD,Darksworn Force,3,warrior,142852187621,952347917,0,10.0
+AD,Darksworn Force,4,warrior,147776265690,985175104,0,10.0
+AD,Darksworn Aura,1,mage,131364983145,875766554,0,10.0
+AD,Darksworn Aura,2,mage,137928494723,919523298,0,10.0
+AD,Darksworn Aura,3,mage,142852187621,952347917,0,10.0
+AD,Darksworn Aura,4,mage,147776265690,985175104,0,10.0
+AD,Abyssal Greataxe,1,warrior,147776265690,985175104,0,10.0
+AD,Abyssal Greataxe,2,warrior,154168927295,1027792848,0,10.0
+AD,Abyssal Greataxe,3,warrior,160557737213,1070384914,0,10.0
+AD,Abyssal Greataxe,4,warrior,166946547127,1112976980,0,10.0
+AD,Abyssal Spellaxe,1,mage,147776265690,985175104,0,10.0
+AD,Abyssal Spellaxe,2,mage,154168927295,1027792848,0,10.0
+AD,Abyssal Spellaxe,3,mage,160557737213,1070384914,0,10.0
+AD,Abyssal Spellaxe,4,mage,166946547127,1112976980,0,10.0
+AD,Shadeborn Javelin,1,warrior,166946547127,1112976980,0,10.0
+AD,Shadeborn Javelin,2,warrior,173339208731,1155594724,0,10.0
+AD,Shadeborn Javelin,3,warrior,179728018645,1198186790,0,10.0
+AD,Shadeborn Javelin,4,warrior,186113548927,1240756992,0,10.0
+AD,Shadeborn Spellspear,1,mage,166946547127,1112976980,0,10.0
+AD,Shadeborn Spellspear,2,mage,173339208731,1155594724,0,10.0
+AD,Shadeborn Spellspear,3,mage,179728018645,1198186790,0,10.0
+AD,Shadeborn Spellspear,4,mage,186113548927,1240756992,0,10.0
+AD,Shadowice Cutlass,1,warrior,186113548927,1240756992,0,10.0
+AD,Shadowice Cutlass,2,warrior,192506210531,1283374736,0,10.0
+AD,Shadowice Cutlass,3,warrior,198895020449,1325966802,0,10.0
+AD,Shadowice Cutlass,4,warrior,205285470181,1368569801,0,10.0
+AD,Shadowice Dark Wand,1,mage,186113548927,1240756992,0,10.0
+AD,Shadowice Dark Wand,2,mage,192506210531,1283374736,0,10.0
+AD,Shadowice Dark Wand,3,mage,198895020449,1325966802,0,10.0
+AD,Shadowice Dark Wand,4,mage,205285470181,1368569801,0,10.0
+AD,Darkened,1,armor,8223239286,197929084,5895032548439,10.0
+AD,Darkened,2,armor,9075746208,218448481,6554104510376,10.0
+AD,Darkened,3,armor,9928253129,238967879,7213176472313,10.0
+AD,Darkened,4,armor,10780760051,259487276,7872248434251,10.0
+AD,Darkened Guardian,1,guardian,448157465537,247849779,0,10.0
+AD,Darkened Guardian,2,guardian,497103543760,274919003,0,10.0
+AD,Darkened Guardian,3,guardian,546049621982,301988227,0,10.0
+AD,Darkened Guardian,4,guardian,594997439724,329058413,0,10.0
+AD,Abyssal,1,armor,10780760051,259487276,7872248434251,10.0
+AD,Abyssal,2,armor,11590300677,278972497,8982894535442,10.0
+AD,Abyssal,3,armor,12399841305,298457718,10093540636633,10.0
+AD,Abyssal,4,armor,13210545833,317970954,11204223352934,10.0
+AD,Abyssal Guardian,1,guardian,594997439724,329058413,0,10.0
+AD,Abyssal Guardian,2,guardian,678740039868,375371565,0,10.0
+AD,Abyssal Guardian,3,guardian,762482640010,421684717,0,10.0
+AD,Abyssal Guardian,4,guardian,846224936736,467997702,0,10.0
+AD,Shadowsteel,1,armor,13210545833,317970954,11204223352934,10.0
+AD,Shadowsteel,2,armor,14155106574,340706039,12168299172812,10.0
+AD,Shadowsteel,3,armor,15099667316,363441123,13132374992690,10.0
+AD,Shadowsteel,4,armor,16046716522,386236104,14096816963658,10.0
+AD,Shadowsteel Guardian,1,guardian,846224936736,467997702,0,10.0
+AD,Shadowsteel Guardian,2,guardian,918943804333,508214270,0,10.0
+AD,Shadowsteel Guardian,3,guardian,991662671930,548430839,0,10.0
+AD,Shadowsteel Guardian,4,guardian,1064381130931,588647181,0,10.0
+AD,Majsa,5,warrior,229082099490,1527213996,0,10.0
+AD,Kadri,5,mage,229082099490,1527213996,0,10.0
+AD,Samseri,6,warrior,251905724219,1679371494,0,10.0
+AD,Buzurgvor,6,mage,251905724219,1679371494,0,10.0
+PW,Petrified Dagger,1,warrior,207824442895,1385496285,0,10.0
+PW,Petrified Dagger,2,warrior,221670656001,1477804373,0,10.0
+PW,Petrified Dagger,3,warrior,232056851692,1547045677,0,10.0
+PW,Petrified Dagger,4,warrior,242443047379,1616286982,0,10.0
+PW,Petrified Orb,1,mage,207824442895,1385496285,0,10.0
+PW,Petrified Orb,2,mage,221670656001,1477804373,0,10.0
+PW,Petrified Orb,3,mage,232056851692,1547045677,0,10.0
+PW,Petrified Orb,4,mage,242443047379,1616286982,0,10.0
+PW,Admantite Deathblade,1,warrior,242443047379,1616286982,0,10.0
+PW,Admantite Deathblade,2,warrior,256289260485,1708595069,0,10.0
+PW,Admantite Deathblade,3,warrior,266675456172,1777836374,0,10.0
+PW,Admantite Deathblade,4,warrior,277061651863,1847077679,0,10.0
+PW,Admantite Deathwand,1,mage,242443047379,1616286982,0,10.0
+PW,Admantite Deathwand,2,mage,256289260485,1708595069,0,10.0
+PW,Admantite Deathwand,3,mage,266675456172,1777836374,0,10.0
+PW,Admantite Deathwand,4,mage,277061651863,1847077679,0,10.0
+PW,Solidified Lifesword,1,warrior,277061651863,1847077679,0,10.0
+PW,Solidified Lifesword,2,warrior,290907864970,1939385766,0,10.0
+PW,Solidified Lifesword,3,warrior,301294060657,2008627071,0,10.0
+PW,Solidified Lifesword,4,warrior,311680814840,2077872098,0,10.0
+PW,Solidified Lifestaff,1,mage,277061651863,1847077679,0,10.0
+PW,Solidified Lifestaff,2,mage,290907864970,1939385766,0,10.0
+PW,Solidified Lifestaff,3,mage,301294060657,2008627071,0,10.0
+PW,Solidified Lifestaff,4,mage,311680814840,2077872098,0,10.0
+PW,Stonewood Greatblade,1,warrior,311680814840,2077872098,0,10.0
+PW,Stonewood Greatblade,2,warrior,325159162371,2167727749,0,10.0
+PW,Stonewood Greatblade,3,warrior,338631924947,2257546166,0,10.0
+PW,Stonewood Greatblade,4,warrior,352104687524,2347364583,0,10.0
+PW,Stonewood Ironstaff,1,mage,311680814840,2077872098,0,10.0
+PW,Stonewood Ironstaff,2,mage,325159162371,2167727749,0,10.0
+PW,Stonewood Ironstaff,3,mage,338631924947,2257546166,0,10.0
+PW,Stonewood Ironstaff,4,mage,352104687524,2347364583,0,10.0
+PW,Earthly Godsword,1,warrior,352104687524,2347364583,0,10.0
+PW,Earthly Godsword,2,warrior,365583035050,2437220233,0,10.0
+PW,Earthly Godsword,3,warrior,379055797626,2527038650,0,10.0
+PW,Earthly Godsword,4,warrior,392521640172,2616810934,0,10.0
+PW,Earthly Godstaff,1,mage,352104687524,2347364583,0,10.0
+PW,Earthly Godstaff,2,mage,365583035050,2437220233,0,10.0
+PW,Earthly Godstaff,3,mage,379055797626,2527038650,0,10.0
+PW,Earthly Godstaff,4,mage,392521640172,2616810934,0,10.0
+PW,Mythril Swiftblade,1,warrior,392521640172,2616810934,0,10.0
+PW,Mythril Swiftblade,2,warrior,405999987694,2706666584,0,10.0
+PW,Mythril Swiftblade,3,warrior,419472750275,2796485001,0,10.0
+PW,Mythril Swiftblade,4,warrior,432948972869,2886326485,0,10.0
+PW,Mythril Spelldaggers,1,mage,392521640172,2616810934,0,10.0
+PW,Mythril Spelldaggers,2,mage,405999987694,2706666584,0,10.0
+PW,Mythril Spelldaggers,3,mage,419472750275,2796485001,0,10.0
+PW,Mythril Spelldaggers,4,mage,432948972869,2886326485,0,10.0
+PW,Mysterious,1,armor,17320437319,416893900,16859793088535,10.0
+PW,Mysterious,2,armor,19114855837,460084619,18744738899676,10.0
+PW,Mysterious,3,armor,20909274360,503275338,20629684710817,10.0
+PW,Mysterious,4,armor,22703692879,546466056,22514630521957,10.0
+PW,Mysterious Guardian,1,guardian,945574498824,522942156,0,10.0
+PW,Mysterious Guardian,2,guardian,1048845330518,580055235,0,10.0
+PW,Mysterious Guardian,3,guardian,1152116162216,637168314,0,10.0
+PW,Mysterious Guardian,4,guardian,1255390664297,694283424,0,10.0
+PW,Earthly,1,armor,22703692879,546466056,22514630521957,10.0
+PW,Earthly,2,armor,24404174206,587395756,25691078371365,10.0
+PW,Earthly,3,armor,26104655542,628325455,28867526220772,10.0
+PW,Earthly,4,armor,27808685474,669340568,32044078789391,10.0
+PW,Earthly Guardian,1,guardian,1255390664297,694283424,0,10.0
+PW,Earthly Guardian,2,guardian,1432078112231,791998955,0,10.0
+PW,Earthly Guardian,3,guardian,1608765560175,889714487,0,10.0
+PW,Earthly Guardian,4,guardian,1785453716244,987430411,0,10.0
+PW,Immortal,1,armor,27808685474,669340568,32044078789391,10.0
+PW,Immortal,2,armor,29797993219,717222169,34801335634242,10.0
+PW,Immortal,3,armor,31787300954,765103769,37558592479094,10.0
+PW,Immortal,4,armor,33782077924,813117012,40316896516063,10.0
+PW,Immortal Guardian,1,guardian,1785453716244,987430411,0,10.0
+PW,Immortal Guardian,2,guardian,1938885942522,1072284834,0,10.0
+PW,Immortal Guardian,3,guardian,2092318168790,1157139258,0,10.0
+PW,Immortal Guardian,4,guardian,2245749802615,1241993354,0,10.0
+PW,Velky Mec,5,warrior,483147150134,3220981000,0,10.0
+PW,Velka Hulka,5,mage,483147150134,3220981000,0,10.0
+PW,Dab Hainy,6,warrior,531343969943,3542293132,0,10.0
+PW,Nyinghainy,6,mage,531343969943,3542293132,0,10.0
+WS,Dirtied Blade,1,warrior,438362131828,2922414212,0,10.0
+WS,Dirtied Blade,2,warrior,467573586803,3117157245,0,10.0
+WS,Dirtied Blade,3,warrior,489484405037,3263229366,0,10.0
+WS,Dirtied Blade,4,warrior,511395223267,3409301488,0,10.0
+WS,Dirtied Staff,1,mage,438362131828,2922414212,0,10.0
+WS,Dirtied Staff,2,mage,467573586803,3117157245,0,10.0
+WS,Dirtied Staff,3,mage,489484405037,3263229366,0,10.0
+WS,Dirtied Staff,4,mage,511395223267,3409301488,0,10.0
+WS,Sunken Dual Blades,1,warrior,511395223267,3409301488,0,10.0
+WS,Sunken Dual Blades,2,warrior,540606678247,3604044521,0,10.0
+WS,Sunken Dual Blades,3,warrior,562517496476,3750116643,0,10.0
+WS,Sunken Dual Blades,4,warrior,584428314706,3896188764,0,10.0
+WS,Sunken Spelldagger,1,mage,511395223267,3409301488,0,10.0
+WS,Sunken Spelldagger,2,mage,540606678247,3604044521,0,10.0
+WS,Sunken Spelldagger,3,mage,562517496476,3750116643,0,10.0
+WS,Sunken Spelldagger,4,mage,584428314706,3896188764,0,10.0
+WS,Ghastly Scimitar,1,warrior,584428314706,3896188764,0,10.0
+WS,Ghastly Scimitar,2,warrior,613639769681,4090931797,0,10.0
+WS,Ghastly Scimitar,3,warrior,635550587915,4237003919,0,10.0
+WS,Ghastly Scimitar,4,warrior,657462215967,4383081439,0,10.0
+WS,Ghastly Spellorb,1,mage,584428314706,3896188764,0,10.0
+WS,Ghastly Spellorb,2,mage,613639769681,4090931797,0,10.0
+WS,Ghastly Spellorb,3,mage,635550587915,4237003919,0,10.0
+WS,Ghastly Spellorb,4,mage,657462215967,4383081439,0,10.0
+WS,Unholy Reaver,1,warrior,657462215967,4383081439,0,10.0
+WS,Unholy Reaver,2,warrior,685886784975,4572578566,0,10.0
+WS,Unholy Reaver,3,warrior,714303255813,4762021705,0,10.0
+WS,Unholy Reaver,4,warrior,742719726650,4951464844,0,10.0
+WS,Unholy Force,1,mage,657462215967,4383081439,0,10.0
+WS,Unholy Force,2,mage,685886784975,4572578566,0,10.0
+WS,Unholy Force,3,mage,714303255813,4762021705,0,10.0
+WS,Unholy Force,4,mage,742719726650,4951464844,0,10.0
+WS,Undead Sickle,1,warrior,742719726650,4951464844,0,10.0
+WS,Undead Sickle,2,warrior,771144295658,5140961971,0,10.0
+WS,Undead Sickle,3,warrior,799560766495,5330405109,0,10.0
+WS,Undead Sickle,4,warrior,827962636058,5519750907,0,10.0
+WS,Undead Scythe,1,mage,742719726650,4951464844,0,10.0
+WS,Undead Scythe,2,mage,771144295658,5140961971,0,10.0
+WS,Undead Scythe,3,mage,799560766495,5330405109,0,10.0
+WS,Undead Scythe,4,mage,827962636058,5519750907,0,10.0
+WS,Deathwind Warscythe,1,warrior,827962636058,5519750907,0,10.0
+WS,Deathwind Warscythe,2,warrior,856387205072,5709248033,0,10.0
+WS,Deathwind Warscythe,3,warrior,884803675909,5898691172,0,10.0
+WS,Deathwind Warscythe,4,warrior,913227447383,6088182982,0,10.0
+WS,Deathwind Greatstaff,1,mage,827962636058,5519750907,0,10.0
+WS,Deathwind Greatstaff,2,mage,856387205072,5709248033,0,10.0
+WS,Deathwind Greatstaff,3,mage,884803675909,5898691172,0,10.0
+WS,Deathwind Greatstaff,4,mage,913227447383,6088182982,0,10.0
+WS,Dirty,1,armor,36501756258,878578252,48219008233212,10.0
+WS,Dirty,2,armor,40281641266,969558114,53609953253074,10.0
+WS,Dirty,3,armor,44061526273,1060537977,59000898272936,10.0
+WS,Dirty,4,armor,47841411277,1151517839,64391843292798,10.0
+WS,Dirty Guardian,1,guardian,1995107450003,1103377674,0,10.0
+WS,Dirty Guardian,2,guardian,2213001084520,1223881947,0,10.0
+WS,Dirty Guardian,3,guardian,2430894719036,1344386219,0,10.0
+WS,Dirty Guardian,4,guardian,2648796098064,1464894775,0,10.0
+WS,Ghastly,1,armor,47841411277,1151517839,64391843292798,10.0
+WS,Ghastly,2,armor,51418335264,1237612536,73476484142103,10.0
+WS,Ghastly,3,armor,54995259256,1323707232,82561124991408,10.0
+WS,Ghastly,4,armor,58581255312,1410020289,91646065337658,10.0
+WS,Ghastly Guardian,1,guardian,2648796098064,1464894775,0,10.0
+WS,Ghastly Guardian,2,guardian,3021592927584,1671066978,0,10.0
+WS,Ghastly Guardian,3,guardian,3394389757110,1877239181,0,10.0
+WS,Ghastly Guardian,4,guardian,3767190035877,2083413292,0,10.0
+WS,Lichs,1,armor,58581255312,1410020289,91646065337658,10.0
+WS,Lichs,2,armor,62773307285,1510920795,99531819913934,10.0
+WS,Lichs,3,armor,66965359258,1611821302,107417574490210,10.0
+WS,Lichs,4,armor,71169268202,1713007199,115306324035942,10.0
+WS,Lichs Guardian,1,guardian,3767190035877,2083413292,0,10.0
+WS,Lichs Guardian,2,guardian,4090925386010,2262452450,0,10.0
+WS,Lichs Guardian,3,guardian,4414660736143,2441491608,0,10.0
+WS,Lichs Guardian,4,guardian,4738395227218,2620530291,0,10.0
+WS,Ilafn,5,warrior,1019127171077,6794181140,0,10.0
+WS,Hudlath,5,mage,1019127171077,6794181140,0,10.0
+WS,Cleddyf Mawr,6,warrior,1120878969760,7472526465,0,10.0
+WS,Hudlath Mawr,6,mage,1120878969760,7472526465,0,10.0
+SD,Abaphuphi Ikrele,1,warrior,924730306262,6164868708,0,10.0
+SD,Abaphuphi Ikrele,2,warrior,986360596987,6575737313,0,10.0
+SD,Abaphuphi Ikrele,3,warrior,1032586544178,6883910294,0,10.0
+SD,Abaphuphi Ikrele,4,warrior,1078812491370,7192083275,0,10.0
+SD,Intonga Yomphuphi,1,mage,924730306262,6164868708,0,10.0
+SD,Intonga Yomphuphi,2,mage,986360596987,6575737313,0,10.0
+SD,Intonga Yomphuphi,3,mage,1032586544178,6883910294,0,10.0
+SD,Intonga Yomphuphi,4,mage,1078812491370,7192083275,0,10.0
+SD,Legare La Molori,1,warrior,1078812491370,7192083275,0,10.0
+SD,Legare La Molori,2,warrior,1140442782094,7602951880,0,10.0
+SD,Legare La Molori,3,warrior,1186668729286,7911124861,0,10.0
+SD,Legare La Molori,4,warrior,1232894676478,8219297843,0,10.0
+SD,Lepara La Molori,1,mage,1078812491370,7192083275,0,10.0
+SD,Lepara La Molori,2,mage,1140442782094,7602951880,0,10.0
+SD,Lepara La Molori,3,mage,1186668729286,7911124861,0,10.0
+SD,Lepara La Molori,4,mage,1232894676478,8219297843,0,10.0
+SD,Lelany Mpanonofy,1,warrior,1232894676478,8219297843,0,10.0
+SD,Lelany Mpanonofy,2,warrior,1294524967202,8630166448,0,10.0
+SD,Lelany Mpanonofy,3,warrior,1340750914393,8938339429,0,10.0
+SD,Lelany Mpanonofy,4,warrior,1386978035822,9246520238,0,10.0
+SD,Tehiny Mpanonofy,1,mage,1232894676478,8219297843,0,10.0
+SD,Tehiny Mpanonofy,2,mage,1294524967202,8630166448,0,10.0
+SD,Tehiny Mpanonofy,3,mage,1340750914393,8938339429,0,10.0
+SD,Tehiny Mpanonofy,4,mage,1386978035822,9246520238,0,10.0
+SD,Ostrze Marzycieli,1,warrior,1386978035822,9246520238,0,10.0
+SD,Ostrze Marzycieli,2,warrior,1446932497250,9646216648,0,10.0
+SD,Ostrze Marzycieli,3,warrior,1506875216322,10045834775,0,10.0
+SD,Ostrze Marzycieli,4,warrior,1566817935389,10445452902,0,10.0
+SD,Rozdzka Marzyciela,1,mage,1386978035822,9246520238,0,10.0
+SD,Rozdzka Marzyciela,2,mage,1446932497250,9646216648,0,10.0
+SD,Rozdzka Marzyciela,3,mage,1506875216322,10045834775,0,10.0
+SD,Rozdzka Marzyciela,4,mage,1566817935389,10445452902,0,10.0
+SD,Lann Bruadar,1,warrior,1566817935389,10445452902,0,10.0
+SD,Lann Bruadar,2,warrior,1626772396817,10845149312,0,10.0
+SD,Lann Bruadar,3,warrior,1686715115894,11244767439,0,10.0
+SD,Lann Bruadar,4,warrior,1746627026278,11644180175,0,10.0
+SD,Luchd Bruadair,1,mage,1566817935389,10445452902,0,10.0
+SD,Luchd Bruadair,2,mage,1626772396817,10845149312,0,10.0
+SD,Luchd Bruadair,3,mage,1686715115894,11244767439,0,10.0
+SD,Luchd Bruadair,4,mage,1746627026278,11644180175,0,10.0
+SD,Ilafn Breuddwydwyr,1,warrior,1746627026278,11644180175,0,10.0
+SD,Ilafn Breuddwydwyr,2,warrior,1806581487706,12043876584,0,10.0
+SD,Ilafn Breuddwydwyr,3,warrior,1866524206774,12443494711,0,10.0
+SD,Ilafn Breuddwydwyr,4,warrior,1926482330189,12843215534,0,10.0
+SD,Hudlath Breuddwydwyr,1,mage,1746627026278,11644180175,0,10.0
+SD,Hudlath Breuddwydwyr,2,mage,1806581487706,12043876584,0,10.0
+SD,Hudlath Breuddwydwyr,3,mage,1866524206774,12443494711,0,10.0
+SD,Hudlath Breuddwydwyr,4,mage,1926482330189,12843215534,0,10.0
+SD,Dreamers,1,armor,76954374303,1852251689,137906363546986,10.0
+SD,Dreamers,2,armor,84920741461,2043997995,153324466303792,10.0
+SD,Dreamers,3,armor,92887108627,2235744301,168742569060599,10.0
+SD,Dreamers,4,armor,100853475785,2427490608,184160671817405,10.0
+SD,Dreamers Guardian,1,guardian,4209597342857,2328082995,0,10.0
+SD,Dreamers Guardian,2,guardian,4669341572157,2582340738,0,10.0
+SD,Dreamers Guardian,3,guardian,5129085801466,2836598482,0,10.0
+SD,Dreamers Guardian,4,guardian,5588846371693,3090865263,0,10.0
+SD,Crystal,1,armor,100853475785,2427490608,184160671817405,10.0
+SD,Crystal,2,armor,108384702551,2608763312,210142744646415,10.0
+SD,Crystal,3,armor,115915929316,2790036015,236124817475426,10.0
+SD,Crystal,4,armor,123468595690,2971824759,262107746865702,10.0
+SD,Crystal Guardian,1,guardian,5588846371693,3090865263,0,10.0
+SD,Crystal Guardian,2,guardian,6375427837823,3525877637,0,10.0
+SD,Crystal Guardian,3,guardian,7162009303953,3960890012,0,10.0
+SD,Crystal Guardian,4,guardian,7948600882864,4395907979,0,10.0
+SD,Fortunata,1,armor,123468595690,2971824759,262107746865702,10.0
+SD,Fortunata,2,armor,132306013685,3184536805,284661004953851,10.0
+SD,Fortunata,3,armor,141143431680,3397248851,307214263042002,10.0
+SD,Fortunata,4,armor,150006327400,3610574133,329776086742794,10.0
+SD,Fortunata Guardian,1,guardian,7948600882864,4395907979,0,10.0
+SD,Fortunata Guardian,2,guardian,8631672833054,4773675272,0,10.0
+SD,Fortunata Guardian,3,guardian,9314744783245,5151442564,0,10.0
+SD,Fortunata Guardian,4,guardian,9997815487804,5529209168,0,10.0
+SD,Ijambo Rikomeye,5,warrior,2149904023202,14332693488,0,10.0
+SD,Inkoni Nini,5,mage,2149904023202,14332693488,0,10.0
+SD,Claidheamh Mor,6,warrior,2364682256311,15764548375,0,10.0
+SD,Garadh Mor,6,mage,2364682256311,15764548375,0,10.0

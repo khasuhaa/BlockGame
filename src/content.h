@@ -43,7 +43,7 @@
 #define MAX_POOL_LOOT 64
 #define MAX_POOL_BIOMES 16
 #define RELIC_SLOTS 4
-#define MAX_MOB_KINDS 192
+#define MAX_MOB_KINDS 1024
 #define MAX_MOB_DROPS 16
 #define MAX_MOB_SPAWN_TILES 16
 #define MAX_MOB_TREES 32
@@ -632,8 +632,9 @@ typedef struct {
      * upgraded, give or take a tenth; and each upgrade adds `roll_gain` of power and `roll_health_gain` of health.
      * "grade": 1 to 6, common to ultimate - a colour wherever it is named. "class": 1 a warrior's, 2 a mage's. */
     bool rolled;
-    int roll_power, roll_ups, roll_health, grade, loot_class;
-    float roll_gain, roll_health_gain;
+    long long roll_power, roll_ups, roll_health; /* (they run past what a plain number holds) */
+    int grade, loot_class;
+    double roll_gain, roll_health_gain;
     bool boards;      /* "boards": used on a ship that can be boarded, it is */
     bool treasure_map; /* "treasure_map": in hand, it shows the lie of the land about something buried (which, its meter says) */
     int meridian;     /* "meridian": which one it opens, from 1 - and only when those before it are open (0: whichever is next) */
@@ -937,7 +938,7 @@ typedef struct {
     int crystals, x, y;
 } QuestDef;
 
-#define MAX_DUNGEONS 16
+#define MAX_DUNGEONS 32
 #define MAX_DUNGEON_LOOT 320
 #define MAX_DIFFICULTIES 6
 #define MAX_GRADES 7
@@ -1324,7 +1325,7 @@ typedef struct {
     float spawn_chance; /* chance that a random event on such a spot brings one */
     int cap;            /* no more of this kind appear while this many are near; 0 for no limit of its own */
     int health;         /* blows' worth of damage it takes to kill */
-    int health_unit;    /* "health_unit": its health is in so many of damage each (for one with more than a number can hold); 1 as a rule */
+    long long health_unit; /* "health_unit": its health is in so many of damage each (for one with more than a number can hold); 1 as a rule */
     int size_min, size_max; /* how many blocks long one can be; it is drawn that big */
     /* A creature of the water. It swims about and never leaves it. One that
      * hunts goes for a player who is in the water, bites, makes off, and comes
@@ -1346,7 +1347,7 @@ typedef struct {
     int strike_range, strike_rest;
     /* "power" in "sting" or "strike": the blow is a number, taken from what the character's health adds up to
      * (game_max_health) - not a share of the bar. "boss": its health is shown across the top of the screen. */
-    int sting_power, strike_power;
+    long long sting_power, strike_power;
     bool boss;
     /* "tame": what grade of thing that tames it takes (0: it cannot be). "companion": owned, it keeps by whoever is
      * nearest and goes for wild creatures it can see, doing so much to them at a time. */
