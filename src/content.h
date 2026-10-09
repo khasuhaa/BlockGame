@@ -631,6 +631,10 @@ typedef struct {
      * `roll_power` and `roll_health` are what it has, give or take a tenth; `roll_ups` how many times it can be
      * upgraded, give or take a tenth; and each upgrade adds `roll_gain` of power and `roll_health_gain` of health.
      * "grade": 1 to 6, common to ultimate - a colour wherever it is named. "class": 1 a warrior's, 2 a mage's. */
+    /* A spell that is never used up: "cooldown" in its "cast" is the seconds before it can be cast again, and
+     * "scales" how many times the caster's best weapon of its class (and what they have on) it does, in place of a
+     * damage of its own. */
+    float cast_cooldown, cast_scales;
     bool rolled;
     long long roll_power, roll_ups, roll_health; /* (they run past what a plain number holds) */
     int grade, loot_class;
@@ -903,6 +907,21 @@ enum { DIM_ISLANDS, DIM_CAVERNS, DIM_VOID, DIM_GROVE, DIM_SURFACE, DIM_DUNGEON }
  * What it is built of, what is met there (creatures by name: they are read after this is), and what its chest holds:
  * each thing in `loot` has a `rank` from 0 to 1 - how far up the dungeon's list it is - and a difficulty gives the
  * ranks between two shares of it. */
+/* A creature's body, built of boxes (see mobmodel.h): each a box hung from a point, wrapped in its part of the skin,
+ * and moved in one of these ways - a leg strides with each step (and the other legs against it), a wing beats, a tail
+ * sways from side to side, a head nods, a length of body goes along in a wave, a thing sways from where it hangs. */
+#define MAX_MODEL_PARTS 40
+enum { MODEL_STILL, MODEL_LEG, MODEL_LEG_OTHER, MODEL_WING, MODEL_WING_OTHER, MODEL_TAIL, MODEL_HEAD, MODEL_WAVE, MODEL_SWAY };
+typedef struct {
+    float pivot[3];      /* where it hangs from, in the body: 16 to a block; x across, y up, z toward its front */
+    float corner[3];     /* the box's least corner, from there */
+    float size[3];
+    short u, v;          /* its corner on the skin */
+    unsigned char move;  /* one of the above */
+    bool mirror;         /* the other of a pair: the same skin, turned about */
+    float by, lag;       /* how far it turns, in degrees; and how far behind the others it is in turning, in radians */
+} ModelPart;
+
 /* Quests: things to do, each with a task the game can see done and something to claim for it. Any directory of
  * content may bring a "quests.json": tabs, and quests in them. They are only kept track of, and shown, where the
  * rules say there is a questbook ("questbook": true) - without that they are so much unread data. */
@@ -956,6 +975,8 @@ typedef struct {
         float rank;
     } loot[MAX_DUNGEON_LOOT];
     int loot_count;
+    int first_hard;         /* "difficulties_from": the first of the difficulties it can be entered at - and its creatures are as written at that one */
+    ItemId spells[MAX_DIFFICULTIES][2]; /* "spells": what its chest may hold at each difficulty besides - a warrior's and a mage's */
     ItemId stone;           /* what raises the portal that leads here: found in the chest, as often as the difficulty says */
     long gold;              /* copper in the chest on the first difficulty, give or take a quarter */
 } DungeonDef;
@@ -1347,6 +1368,11 @@ typedef struct {
     int strike_range, strike_rest;
     /* "power" in "sting" or "strike": the blow is a number, taken from what the character's health adds up to
      * (game_max_health) - not a share of the bar. "boss": its health is shown across the top of the screen. */
+    /* "model": its body in boxes, and the skin they are wrapped in. With none it is its flat picture. */
+    char model_skin[CONTENT_PATH_LEN];
+    int model_w, model_h, model_part_count;
+    float model_bob, model_hop, model_turn;
+    ModelPart model_parts[MAX_MODEL_PARTS];
     long long sting_power, strike_power;
     bool boss;
     /* "tame": what grade of thing that tames it takes (0: it cannot be). "companion": owned, it keeps by whoever is

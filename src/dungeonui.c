@@ -116,7 +116,7 @@ bool dungeonui_handle_input(DungeonUi *ui, Game *g, const View *v)
         int level = game_gate_level(g);
         for (int row = 0; row < content.dungeon_count; row++)
             for (int hard = 0; hard < content.rules.difficulty_count; hard++)
-                if (content.dungeons[nth_dungeon(row)].tier <= level && CheckCollisionPointRec(m, gate_list(panel)) && CheckCollisionPointRec(m, hard_rect(panel, row, hard, ui->scroll))) {
+                if (hard >= content.dungeons[nth_dungeon(row)].first_hard && content.dungeons[nth_dungeon(row)].tier <= level && CheckCollisionPointRec(m, gate_list(panel)) && CheckCollisionPointRec(m, hard_rect(panel, row, hard, ui->scroll))) {
                     game_dungeon_enter(g, nth_dungeon(row), hard);
                     return true;
                 }
@@ -178,7 +178,7 @@ void dungeonui_draw(const DungeonUi *ui, const Game *g, const View *v)
             float y = panel.y + PAD + (float)row * ROW - ui->scroll;
             if (y + ROW < list.y || y > list.y + list.height) continue;
             DrawText(d->label, (int)(panel.x + PAD), (int)(y + 7.0f), 16, open ? RAYWHITE : GRAY);
-            for (int hard = 0; hard < content.rules.difficulty_count; hard++) draw_button(hard_rect(panel, row, hard, ui->scroll), content.rules.difficulties[hard].label, open);
+            for (int hard = d->first_hard; hard < content.rules.difficulty_count; hard++) draw_button(hard_rect(panel, row, hard, ui->scroll), content.rules.difficulties[hard].label, open);
         }
         EndScissorMode();
         /* (Where there is more of the list than is shown: how far down it is.) */
@@ -221,10 +221,18 @@ void dungeonui_draw_over(const Game *g, const Hud *hud)
     /* What the thing under the cursor has. */
     Vector2 m = GetMousePosition();
     const ItemStack *s = hud_stack_at(hud, &g->inventory, m);
-    if (s && item_def((ItemId)s->id)->rolled) {
+    if (s && (item_def((ItemId)s->id)->rolled || item_def((ItemId)s->id)->cast_cooldown > 0.0f)) {
         const ItemDef *def = item_def((ItemId)s->id);
         char lines[6][64];
         int count = roll_lines(g, s, lines, 6);
+        if (def->cast_cooldown > 0.0f) {
+            /* A spell: whose it is, how long between castings, and what it does with what its caster carries now. */
+            char n[24];
+            short_number((long long)((double)game_best_power(g, def->loot_class) * (double)def->cast_scales + 0.5), n, sizeof n);
+            snprintf(lines[count++], 64, "Spell%s", def->loot_class == 1 ? " - Warrior" : def->loot_class == 2 ? " - Mage" : "");
+            snprintf(lines[count++], 64, "Cooldown %gs", (double)def->cast_cooldown);
+            if (def->cast_scales > 0.0f) snprintf(lines[count++], 64, "Power %s", n);
+        }
         float wide = (float)MeasureText(def->label, 18), tall = 30.0f + (float)count * 16.0f;
         for (int i = 0; i < count; i++)
             if ((float)MeasureText(lines[i], 14) > wide) wide = (float)MeasureText(lines[i], 14);
@@ -236,10 +244,23 @@ void dungeonui_draw_over(const Game *g, const Hud *hud)
         DrawText(def->label, (int)(box.x + 8.0f), (int)(box.y + 6.0f), 18, grade_color(def->grade));
         for (int i = 0; i < count; i++) DrawText(lines[i], (int)(box.x + 8.0f), (int)(box.y + 28.0f + (float)i * 16.0f), 14, (Color){ 200, 204, 216, 255 });
     }
+    /* A spell that is waiting: its slot is shaded as far as it has to go, with the seconds left. */
+    for (int i = 0; i < INVENTORY_SLOTS; i++) {
+        const ItemStack *st = &g->inventory.slots[i];
+        int wait = st->count > 0 ? game_spell_wait(g, (ItemId)st->id) : 0, whole = st->count > 0 ? game_spell_cooldown((ItemId)st->id) : 0;
+        if (wait <= 0 || whole <= 0) continue;
+        Rectangle r = hud_bar_rect(i);
+        float share = (float)wait / (float)whole;
+        char left[16];
+        DrawRectangleRec((Rectangle){ r.x, r.y + r.height * (1.0f - share), r.width, r.height * share }, (Color){ 10, 12, 20, 170 });
+        snprintf(left, sizeof left, "%.1f", (double)wait / (double)(content.rules.tick_rate > 0 ? content.rules.tick_rate : 10));
+        DrawText(left, (int)(r.x + (r.width - (float)MeasureText(left, 16)) / 2.0f), (int)(r.y + r.height / 2.0f - 8.0f), 16, RAYWHITE);
+    }
     /* Where blows are numbers: what the character can take, and the health of whoever the place belongs to. */
     int hard = 0;
     if (!game_alive(g) || world_dungeon_run(&g->world, g->player.feet.y, &hard) < 0) return;
-    float times = hard < content.rules.difficulty_count ? content.rules.difficulties[hard].health : 1.0f;
+    float times = 1.0f;
+    game_dungeon_hard(world_dungeon_run(&g->world, g->player.feet.y, NULL), hard, &times, NULL, NULL, NULL);
     char a[24], b[24], text[96];
     short_number((long long)((double)g->vitals.health * (double)game_max_health(g) + 0.5), a, sizeof a);
     short_number(game_max_health(g), b, sizeof b);

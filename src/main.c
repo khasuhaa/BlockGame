@@ -19,6 +19,7 @@
 #include "trainui.h"
 #include "dungeonui.h"
 #include "questui.h"
+#include "mobmodel.h"
 #include "world3d.h"
 #include "digital.h"
 #include "view.h"
@@ -1451,10 +1452,19 @@ static void draw_mobs(const Game *g, Vector2 origin)
             bool afloat = content.mobs[m->kind].swims || content.mobs[m->kind].flies;
             r = (Rectangle){ r.x + TILE_SIZE / 2.0f - side / 2, afloat ? r.y + TILE_SIZE / 2.0f - side / 2 : r.y + TILE_SIZE - side, side, side };
         }
-        /* (A creature is its picture, a pixel deep, in among the characters.) */
-        world3d_solid(Z_BODY + 0.26f * TILE_SIZE, Z_BODY - 0.26f * TILE_SIZE, W3D_ALL, W3D_PANEL);
-        assets_draw_sprite(file, r, m->dir < 0);
-        world3d_flat();
+        /* A creature is built of boxes, as the character is, and stands in among the characters: its feet on the
+         * floor of its square. One whose kind comes in several sizes is the smallest of them made larger; any other
+         * is built the size it is. */
+        float grown = def->size_min > 0 && m->size > def->size_min ? (float)m->size / (float)def->size_min : 1.0f;
+        if (m->baby) grown *= 0.6f;
+        Vector2 feet = { origin.x + glide[i].x * TILE_SIZE + TILE_SIZE / 2.0f, origin.y + glide[i].y * TILE_SIZE + TILE_SIZE };
+        bool striding = game_mob_walking(g, i, &stride);
+        if (!mobmodel_draw(def, feet, TILE_SIZE / 16.0f * grown, m->dir < 0 ? -1 : 1, striding, striding ? stride : 0.0f, (float)GetTime() + (float)(m->id % 97u) * 0.37f, world3d_active(), Z_BODY, WHITE)) {
+            /* (One with no body made for it is its picture, a pixel deep.) */
+            world3d_solid(Z_BODY + 0.26f * TILE_SIZE, Z_BODY - 0.26f * TILE_SIZE, W3D_ALL, W3D_PANEL);
+            assets_draw_sprite(file, r, m->dir < 0);
+            world3d_flat();
+        }
         /* One that has been hurt shows how much it has left. */
         if (def->health > 1 && m->hp > 0 && m->hp < def->health) {
             Rectangle bar = { r.x + r.width / 2 - 14, r.y + r.height / 2 - (m->size > 1 ? r.height / 4 : TILE_SIZE / 2.0f) - 7, 28, 4 };

@@ -2140,7 +2140,7 @@ bool world_dungeon_build(World *w, int region, int dungeon, int difficulty, uint
             w->layers[tile_def(d->exit)->layer][(size_t)floor * width + world_wrap_x(w, x + wide - 3)] = (uint16_t)d->exit;
         } else {
             /* Who is waiting: more of them the further in, and the last room but one has the one whose place it is. */
-            int many = boss ? 2 + more : 2 + (i + 1) / 2 + more;
+            int many = boss ? 1 + more : 2 + (i + 1) / 3 + more;
             if (many > (wide - 4) / 2) many = (wide - 4) / 2;
             for (int k = 0; k < many; k++) {
                 size_t at = (size_t)floor * width + world_wrap_x(w, x + 3 + k * (wide - 5) / (many > 1 ? many - 1 : 1));

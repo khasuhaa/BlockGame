@@ -512,6 +512,8 @@ void dao_world_tick(Game *g)
 bool game_technique_ready(const Game *g, ItemId item)
 {
     const ItemDef *def = item_def(item);
+    /* (A spell that is waiting to be cast again is not ready, whoever holds it.) */
+    if (def->cast_cooldown > 0.0f && game_spell_wait(g, item) > 0) return false;
     if (!def->technique) return true;
     int e = def->technique_element, slot = dao_known_slot(g, item);
     /* (What it asks of understanding is of its own element, if it has one. Practice makes it cost less.) */

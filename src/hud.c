@@ -26,6 +26,11 @@ static Rectangle cell_rect(int col, int row)
     return (Rectangle){ x0 + col * pitch, y0 - row * pitch, SLOT_SIZE, SLOT_SIZE };
 }
 
+Rectangle hud_bar_rect(int slot)
+{
+    return cell_rect(slot + 1, 0);
+}
+
 Rectangle hud_relic_rect(int i)
 {
     return cell_rect(-1, COLUMN_ROWS - i);

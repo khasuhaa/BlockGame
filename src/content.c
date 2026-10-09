@@ -793,6 +793,9 @@ static bool read_items(Reader *r, const cJSON *root)
         it->cast_damage = (int)num(cast, "damage", 0);
         it->cast_bane = (int)num(cast, "bane", it->cast_damage);
         it->cast_splash = (int)num(cast, "splash", 0);
+        it->cast_cooldown = (float)num(cast, "cooldown", 0.0);
+        it->cast_scales = (float)num(cast, "scales", 0.0);
+        if (str(cast, "class")) it->loot_class = strcmp(str(cast, "class"), "warrior") == 0 ? 1 : strcmp(str(cast, "class"), "mage") == 0 ? 2 : 0;
         it->cast_cooks = flag(cast, "cooks", false);
         it->cast_water = (int)num(cast, "water", 0);
         it->cast_dig = (int)num(cast, "dig", 0);
@@ -838,7 +841,7 @@ static bool read_items(Reader *r, const cJSON *root)
                 it->roll_health = (long long)num(roll, "health", 0);
                 it->roll_gain = num(roll, "gain", 0.0);
                 it->roll_health_gain = num(roll, "health_gain", 0.0);
-                it->loot_class = cls && strcmp(cls, "warrior") == 0 ? 1 : cls && strcmp(cls, "mage") == 0 ? 2 : 0;
+                if (roll) it->loot_class = cls && strcmp(cls, "warrior") == 0 ? 1 : cls && strcmp(cls, "mage") == 0 ? 2 : 0;
                 it->grade = (int)num(e, "grade", 0);
                 if (it->grade < 0 || it->grade >= MAX_GRADES) return fail(r, "item \"%s\": \"grade\" is 1 to %d", it->name, MAX_GRADES - 1);
                 if (it->rolled) {
@@ -865,10 +868,10 @@ static bool read_items(Reader *r, const cJSON *root)
         }
         const char *brings = str(cast, "time");
         it->cast_time = !brings ? -1 : strcmp(brings, "sunrise") == 0 ? 0 : strcmp(brings, "moonrise") == 0 ? 1 : -2;
-        if (it->casts && (it->uses < 1 || it->uses > 120 || it->cast_time == -2 || it->cast_dig < 0 || it->cast_dig > 12 ||
+        if (it->casts && ((it->uses < 1 && it->cast_cooldown <= 0.0f) || it->uses > 120 || it->cast_time == -2 || it->cast_dig < 0 || it->cast_dig > 12 ||
                           it->cast_splash < 0 || it->cast_water < 0 || it->cast_shield < 0.0f))
-            return fail(r, "item \"%s\": a spell needs \"uses\", 1 to 120; its \"time\" is \"sunrise\" or \"moonrise\"; its \"dig\" is at most 12", it->name);
-        if (it->casts) {
+            return fail(r, "item \"%s\": a spell needs \"uses\", 1 to 120 (or a \"cooldown\"); its \"time\" is \"sunrise\" or \"moonrise\"; its \"dig\" is at most 12", it->name);
+        if (it->casts && it->uses > 0) {
             it->holds_water = false;
             it->meter_max = it->uses;
             it->meter_start = it->uses;
@@ -1245,6 +1248,18 @@ static bool read_worldgen(Reader *r, const cJSON *root)
                 return false;
             if (str(e, "light") && !tile_ref(r, e, "light", &d->light)) return false;
             if (str(e, "stone") && !item_ref(r, e, "stone", &d->stone)) return false;
+            d->first_hard = (int)num(e, "difficulties_from", 0);
+            if (d->first_hard < 0 || d->first_hard >= MAX_DIFFICULTIES) return fail(r, "dungeon \"%s\": \"difficulties_from\" is which difficulty, from 0", name);
+            int which = 0;
+            cJSON_ArrayForEach(one, field(e, "spells")) {
+                if (which >= MAX_DIFFICULTIES) return fail(r, "dungeon \"%s\": \"spells\" has a pair for each difficulty and no more", name);
+                for (int k = 0; k < 2 && k < cJSON_GetArraySize(one); k++) {
+                    const cJSON *spell = cJSON_GetArrayItem(one, k);
+                    if (!cJSON_IsString(spell) || item_id(spell->valuestring) <= 0) return fail(r, "dungeon \"%s\": a spell that is not an item", name);
+                    d->spells[which][k] = item_id(spell->valuestring);
+                }
+                which++;
+            }
             cJSON_ArrayForEach(one, field(e, "decor")) {
                 if (!cJSON_IsString(one) || d->decor_count >= 8 || tile_id(one->valuestring) == TILE_AIR) return fail(r, "dungeon \"%s\": \"decor\" is at most 8 blocks, by name", name);
                 d->decor[d->decor_count++] = tile_id(one->valuestring);
@@ -2179,6 +2194,37 @@ static bool read_mobs(Reader *r, const cJSON *root)
         m->strike_power = (long long)num(field(e, "strike"), "power", 0);
         m->sting_power = (long long)num(field(e, "sting"), "power", 0);
         m->boss = flag(e, "boss", false);
+        {
+            const cJSON *model = field(e, "model"), *one;
+            static const char *moves[] = { "still", "leg", "leg2", "wing", "wing2", "tail", "head", "wave", "sway" };
+            m->model_part_count = 0;
+            copy_name(m->model_skin, sizeof m->model_skin, str(model, "skin"));
+            pair(model, "atlas", &m->model_w, &m->model_h);
+            m->model_bob = (float)num(model, "bob", 0.0);
+            m->model_hop = (float)num(model, "hop", 0.0);
+            m->model_turn = (float)num(model, "turn", 12.0);
+            cJSON_ArrayForEach(one, field(model, "parts")) {
+                if (m->model_part_count >= MAX_MODEL_PARTS) return fail(r, "creature \"%s\": its model has more than %d parts", m->name, MAX_MODEL_PARTS);
+                ModelPart *part = &m->model_parts[m->model_part_count++];
+                const cJSON *at = field(one, "at"), *box = field(one, "box"), *uv = field(one, "uv");
+                memset(part, 0, sizeof *part);
+                if (cJSON_GetArraySize(at) != 3 || cJSON_GetArraySize(box) != 6 || cJSON_GetArraySize(uv) != 2)
+                    return fail(r, "creature \"%s\": a part of its model wants \"at\" [x, y, z], \"box\" [x, y, z, wide, high, deep] and \"uv\" [u, v]", m->name);
+                for (int k = 0; k < 3; k++) {
+                    part->pivot[k] = (float)cJSON_GetArrayItem(at, k)->valuedouble;
+                    part->corner[k] = (float)cJSON_GetArrayItem(box, k)->valuedouble;
+                    part->size[k] = (float)cJSON_GetArrayItem(box, 3 + k)->valuedouble;
+                }
+                part->u = (short)cJSON_GetArrayItem(uv, 0)->valuedouble;
+                part->v = (short)cJSON_GetArrayItem(uv, 1)->valuedouble;
+                part->mirror = flag(one, "mirror", false);
+                part->by = (float)num(one, "by", 0.0);
+                part->lag = (float)num(one, "lag", 0.0);
+                const char *move = str(one, "move");
+                for (int k = 0; move && k < 9; k++)
+                    if (strcmp(move, moves[k]) == 0) part->move = (unsigned char)k;
+            }
+        }
         m->companion = field(e, "companion") != NULL;
         m->companion_bite = (int)num(field(e, "companion"), "bite", 2);
         m->companion_sight = (int)num(field(e, "companion"), "sight", 8);

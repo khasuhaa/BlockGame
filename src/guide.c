@@ -1,4 +1,5 @@
 #include "guide.h"
+#include "game.h"
 
 #include <ctype.h>
 #include <stdarg.h>
@@ -395,7 +396,9 @@ int guide_sources(ItemId item, ItemSource *out, int max)
     /* The chest at the end of a dungeon: what is in its list, and the stone that raises the way there. */
     for (int k = 0; k < content.dungeon_count; k++) {
         const DungeonDef *d = &content.dungeons[k];
-        bool has = d->stone == item;
+        bool has = d->stone == item, spell = false;
+        for (int h = 0; h < MAX_DIFFICULTIES; h++) spell = spell || d->spells[h][0] == item || d->spells[h][1] == item;
+        has = has || spell;
         float low = 2.0f, high = -1.0f;
         for (int i = 0; i < d->loot_count; i++)
             if (d->loot[i].item == item) has = true, low = d->loot[i].rank, high = d->loot[i].rank;
@@ -403,9 +406,12 @@ int guide_sources(ItemId item, ItemSource *out, int max)
         ItemSource *s = add(out, &count, max, SOURCE_CHEST, d->chest, 1, 1, 1.0f);
         snprintf(s->label, sizeof s->label, "%s", tile_label(d->chest));
         say(s->where, sizeof s->where, "At the end of %s. ", d->label);
-        for (int h = 0; h < content.rules.difficulty_count; h++) {
+        for (int h = d->first_hard; h < content.rules.difficulty_count; h++) {
             const DifficultyDef *hard = &content.rules.difficulties[h];
-            bool here = d->stone == item ? hard->stone > 0.0f : item_def(item)->grade >= 5 ? hard->grades[item_def(item)->grade] > 0 : hard->grades[item_def(item)->grade] > 0 && low >= hard->from - 0.0001f && high <= hard->to + 0.0001f;
+            float from, to;
+            game_dungeon_hard(k, h, NULL, NULL, &from, &to);
+            bool here = spell ? d->spells[h][0] == item || d->spells[h][1] == item
+                        : d->stone == item ? hard->stone > 0.0f : item_def(item)->grade >= 5 ? hard->grades[item_def(item)->grade] > 0 : hard->grades[item_def(item)->grade] > 0 && low >= from - 0.0001f && high <= to + 0.0001f;
             if (here) say(s->where, sizeof s->where, "%s. ", hard->label);
         }
     }

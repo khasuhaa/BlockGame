@@ -420,6 +420,11 @@ typedef struct {
     uint8_t discovered[MAX_ITEMS];
     /* Quests, for the world and whoever is in it: how each stands (0 not done, QUEST_DONE, QUEST_CLAIMED), and how
      * far a task that is counted has got. By quest, as content has them: a save names them. */
+    /* Spells that are waiting to be cast again: which, and the tick they will be ready at. (Not saved.) */
+    struct {
+        uint16_t item;
+        uint64_t ready;
+    } cooling[16];
     uint8_t quest_state[MAX_QUESTS];
     uint16_t quest_progress[MAX_QUESTS];
     /* What is written on the world's signs: each text has a number, which a
@@ -632,6 +637,15 @@ bool game_quest_check(Game *g, int quest);
 void game_quest_killed(Game *g, int kind);
 
 /* ---- dungeons ---- */
+/* What a difficulty is to one dungeon: how many times its creatures' health and their blows, and the share of its
+ * list its chest gives from. (A dungeon is as written at the first difficulty it can be entered at.) */
+void game_dungeon_hard(int dungeon, int hard, float *health, float *damage, float *from, float *to);
+/* The best a character could strike with: the strongest weapon of a class (1 a warrior's, 2 a mage's, 0 any) in
+ * their bar or in what is open in it, and what they have on. */
+long long game_best_power(const Game *g, int loot_class);
+/* Ticks before a spell with a cooldown can be cast again; and the whole of its cooldown, in ticks. */
+int game_spell_wait(const Game *g, ItemId item);
+int game_spell_cooldown(ItemId item);
 /* How the numbers of a "rolled" thing fell, and where its upgrading has got to. Its meter keeps it: how far from the
  * middle its base is, how far its count of upgrades, and how many of `steps` goes at upgrading it has had. */
 typedef struct {

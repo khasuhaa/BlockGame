@@ -2314,6 +2314,15 @@ static void wear_spell(Game *g, ItemId item)
         dao_spend(g, item);
         return;
     }
+    /* (Nor is one with a cooldown: it is only a while before it can be cast again.) */
+    if (item_def(item)->cast_cooldown > 0.0f) {
+        int slot = 0;
+        for (int i = 0; i < 16; i++)
+            if (g->cooling[i].item == item || g->cooling[i].ready <= g->tick) slot = i;
+        g->cooling[slot].item = (uint16_t)item;
+        g->cooling[slot].ready = g->tick + (uint64_t)game_spell_cooldown(item);
+        return;
+    }
     ItemStack *held = inventory_find(&g->inventory, item);
     if (!held) return;
     int left = inventory_meter(&g->inventory, held);
@@ -2332,7 +2341,9 @@ static void spell_on_mobs(Game *g, const ItemDef *it, int x, int y)
         if (!m->active) continue;
         int dx = world_dx(&g->world, x, m->x), dy = m->y - y;
         if (dx * dx + dy * dy > reach * reach + reach) continue;
-        int harm = (int)((float)(mob_weak_to(g, i, it->cast_element) ? it->cast_bane : it->cast_damage) * spell_power + 0.5f);
+        long long harm = (long long)((float)(mob_weak_to(g, i, it->cast_element) ? it->cast_bane : it->cast_damage) * spell_power + 0.5f);
+        /* (One that goes by what its caster carries: so many times their best weapon, and what they have on.) */
+        if (it->cast_scales > 0.0f) harm = (long long)((double)game_best_power(g, it->loot_class) * (double)it->cast_scales + 0.5);
         mob_hurt_by(g, i, harm, it->cast_element, it->cast_cooks);
     }
 }
@@ -3139,10 +3150,65 @@ long long game_max_health(const Game *g)
     return total;
 }
 
+void game_dungeon_hard(int dungeon, int hard, float *health, float *damage, float *from, float *to)
+{
+    float h = 1.0f, d = 1.0f, a = 0.0f, z = 1.0f;
+    if (dungeon >= 0 && dungeon < content.dungeon_count && hard >= 0 && hard < content.rules.difficulty_count) {
+        int first = content.dungeons[dungeon].first_hard < content.rules.difficulty_count ? content.dungeons[dungeon].first_hard : 0;
+        const DifficultyDef *base = &content.rules.difficulties[first], *now = &content.rules.difficulties[hard];
+        int many = content.rules.difficulty_count - first, which = hard - first;
+        h = base->health > 0.0f ? now->health / base->health : now->health;
+        d = base->damage > 0.0f ? now->damage / base->damage : now->damage;
+        /* (Its list is shared out between the difficulties it has, each lapping over the next a little.) */
+        a = (float)which / (float)many - 0.08f;
+        z = (float)(which + 1) / (float)many + 0.08f;
+    }
+    if (health) *health = h;
+    if (damage) *damage = d;
+    if (from) *from = a < 0.0f ? 0.0f : a;
+    if (to) *to = z > 1.0f ? 1.0f : z;
+}
+
+long long game_best_power(const Game *g, int loot_class)
+{
+    const Inventory *inv = &g->inventory;
+    long long best = content.rules.hand_damage, any = content.rules.hand_damage;
+    for (int i = 0; i < INVENTORY_SLOTS; i++) {
+        const ItemStack *slots[1 + CONTAINER_MAX_SLOTS] = { &inv->slots[i] };
+        int n = 1;
+        if (inv->slots[i].count > 0 && inv->slots[i].container != 0 && !item_def((ItemId)inv->slots[i].id)->rolled && inv->containers[inv->slots[i].container].used == CONTAINER_ITEMS)
+            for (int k = 0; k < CONTAINER_MAX_SLOTS; k++) slots[n++] = &inv->containers[inv->slots[i].container].slots[k];
+        for (int k = 0; k < n; k++) {
+            if (slots[k]->count == 0) continue;
+            const ItemDef *def = item_def((ItemId)slots[k]->id);
+            if (def->casts) continue;
+            long long power = def->rolled && def->loot_class > 0 ? game_roll(inv, slots[k]).power : def->damage;
+            if (power > any) any = power;
+            if (power > best && (loot_class == 0 || !def->rolled || def->loot_class == loot_class)) best = power;
+        }
+    }
+    (void)any;
+    return best + game_worn_power(g);
+}
+
+int game_spell_cooldown(ItemId item)
+{
+    float seconds = item_def(item)->cast_cooldown;
+    return seconds > 0.0f ? (int)(seconds * (float)(content.rules.tick_rate > 0 ? content.rules.tick_rate : 10) + 0.5f) : 0;
+}
+
+int game_spell_wait(const Game *g, ItemId item)
+{
+    for (int i = 0; i < 16; i++)
+        if (g->cooling[i].item == item && g->cooling[i].ready > g->tick) return (int)(g->cooling[i].ready - g->tick);
+    return 0;
+}
+
 float game_blow(const Game *g, long long power, int x, int y)
 {
-    int hard = 0;
-    float times = world_dungeon_run(&g->world, y, &hard) >= 0 && hard < content.rules.difficulty_count ? content.rules.difficulties[hard].damage : 1.0f;
+    int hard = 0, run = world_dungeon_run(&g->world, y, &hard);
+    float times = 1.0f;
+    if (run >= 0) game_dungeon_hard(run, hard, NULL, &times, NULL, NULL);
     (void)x;
     return (float)((double)power * (double)times / (double)game_max_health(g));
 }
@@ -3227,9 +3293,13 @@ int game_gate_level(const Game *g)
 }
 
 /* What the chest at the end holds: so many things of the ranks and grades the difficulty gives, the stone, and gold. */
-static void dungeon_fill_chest(Game *g, int y0, int y1, const DungeonDef *d, const DifficultyDef *hard)
+static void dungeon_fill_chest(Game *g, int y0, int y1, int dungeon, int difficulty)
 {
     World *w = &g->world;
+    const DungeonDef *d = &content.dungeons[dungeon];
+    const DifficultyDef *hard = &content.rules.difficulties[difficulty];
+    float rank_from, rank_to;
+    game_dungeon_hard(dungeon, difficulty, NULL, NULL, &rank_from, &rank_to);
     TilePos at = { -1, -1 };
     for (int y = y0; y < y1 && at.x < 0; y++)
         for (int x = 0; x < w->width && at.x < 0; x++)
@@ -3254,7 +3324,7 @@ static void dungeon_fill_chest(Game *g, int y0, int y1, const DungeonDef *d, con
                 int seen = 0;
                 for (int i = 0; i < d->loot_count; i++) {
                     const ItemDef *it = item_def(d->loot[i].item);
-                    bool in = (pass == 1 || it->grade == grade) && (it->grade >= 5 ? pass == 0 : d->loot[i].rank >= hard->from - 0.0001f && d->loot[i].rank <= hard->to + 0.0001f);
+                    bool in = (pass == 1 || it->grade == grade) && (it->grade >= 5 ? pass == 0 : d->loot[i].rank >= rank_from - 0.0001f && d->loot[i].rank <= rank_to + 0.0001f);
                     if (!in) continue;
                     if (turn == 1 && seen == pick) container_put(&g->inventory, st->container, d->loot[i].item, 1);
                     seen++;
@@ -3268,6 +3338,9 @@ static void dungeon_fill_chest(Game *g, int y0, int y1, const DungeonDef *d, con
             if (fits > 0) break;
         }
     }
+    /* A spell, now and then: the warrior's of this difficulty, or the mage's, or both. */
+    for (int k = 0; k < 2; k++)
+        if (d->spells[difficulty][k] != ITEM_NONE && game_random(g) % 100u < 22u) container_put(&g->inventory, st->container, d->spells[difficulty][k], 1);
     int stones = (int)hard->stone;
     if ((float)(game_random(g) % 1000u) / 1000.0f < hard->stone - (float)stones) stones++;
     if (d->stone != ITEM_NONE && stones > 0) container_put(&g->inventory, st->container, d->stone, stones);
@@ -3284,6 +3357,7 @@ bool game_dungeon_enter(Game *g, int dungeon, int difficulty)
     Player *p = &g->player;
     int dim = game_dungeon_dim();
     if (dim < 0 || dungeon < 0 || dungeon >= content.dungeon_count || difficulty < 0 || difficulty >= content.rules.difficulty_count || !game_alive(g)) return false;
+    if (difficulty < content.dungeons[dungeon].first_hard) return false; /* (not one of those it has) */
     if (g->bench_open && game_gate_open_here(g) && content.dungeons[dungeon].tier > game_gate_level(g)) return false;
     /* (One at a time: going in makes the place over, and nobody may be standing in it.) */
     int region = world_region_of(w, dim);
@@ -3308,7 +3382,7 @@ bool game_dungeon_enter(Game *g, int dungeon, int difficulty)
             g->drops[i].active = false;
         }
     if (!world_dungeon_build(w, region, dungeon, difficulty, game_random(g), &sx, &sy)) return false;
-    dungeon_fill_chest(g, y0, y1, &content.dungeons[dungeon], &content.rules.difficulties[difficulty]);
+    dungeon_fill_chest(g, y0, y1, dungeon, difficulty);
     if (!inside) {
         g->gate_from = from;
         g->gate_from_set = true;
@@ -3354,7 +3428,8 @@ static void dungeon_tick(Game *g)
     int hard = 0, dungeon = game_alive(g) ? world_dungeon_run(w, g->player.feet.y, &hard) : -1;
     if (dungeon < 0) return;
     const DungeonDef *d = &content.dungeons[dungeon];
-    float tough = hard < content.rules.difficulty_count ? content.rules.difficulties[hard].health : 1.0f;
+    float tough = 1.0f;
+    game_dungeon_hard(dungeon, hard, &tough, NULL, NULL, NULL);
     int y0, y1, sx = w->spawn_x, reach = w->width - 40 < 900 ? w->width - 40 : 900;
     world_region_rows(w, world_region_at(w, g->player.feet.y), &y0, &y1);
     int at = world_dx(w, sx, g->player.feet.x), door = reach + 1, threat = reach + 1;

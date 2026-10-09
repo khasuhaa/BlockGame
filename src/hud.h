@@ -71,6 +71,8 @@ ItemId hud_item_at(const Hud *hud, const Inventory *inv, Vector2 point);
 const ItemStack *hud_stack_at(const Hud *hud, const Inventory *inv, Vector2 point);
 /* Where the i-th relic slot goes: a column beside the armour's, shown with it. */
 Rectangle hud_relic_rect(int i);
+/* Where a slot of the bar is on the screen. */
+Rectangle hud_bar_rect(int slot);
 void hud_close_all(Hud *hud);
 bool hud_mouse_over(const Hud *hud, const Inventory *inv);
 void hud_draw(const Hud *hud, const Inventory *inv);

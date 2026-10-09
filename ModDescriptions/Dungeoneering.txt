@@ -389,3 +389,27 @@ pointed at a gap between Steampunk Sewers and Orbital Outpost, to be fixed.
      million million); the gate's list scrolls; a creature's kind is two bytes in a save (version 41), because
      174 kinds of creature here and the other mods' would not fit in one.
    SIZE NOW: 401 blocks, 3,712 items, 234 recipes, 174 creatures, 29 dungeons. Not played.
+
+----------------------------------------------------------------------------------------------------------------
+SPELLS, DIFFICULTIES, AND A FIRST DUNGEON THAT CAN BE BEATEN   (added afterwards, at the owner's asking)
+----------------------------------------------------------------------------------------------------------------
+SAID: the Desert Temple cannot be beaten even with the best gear of the base game - fix it. Spells: every
+difficulty of every dungeon can drop two, a warrior's and a mage's; no durability, used without end from the
+bar, each with a cooldown of 1 to 8 seconds; the sword and armour carried make a spell stronger (the best sword
+in the inventory). And after Winter Outpost there are two difficulties, not four.
+
+   - THE FIRST DUNGEON. Its creatures were hitting for a twelfth of a character's health apiece, several at
+     once, with no way to mend during a run. They now take about a sixtieth (a boss a fifteenth), there are
+     fewer to a room, and bosses have half the health. Every dungeon is set the same way against the best of
+     the one before; the first against an iron sword and nothing worn. Worked out, not played.
+   - DIFFICULTIES. Desert Temple and Winter Outpost: Easy, Hard, Insane, Nightmare. Every other dungeon:
+     Insane and Nightmare only, its creatures as written on Insane and three times the health and twice the
+     blow on Nightmare, its list of loot shared between the two.
+   - SPELLS. 124 of them: a warrior's and a mage's for each difficulty of each dungeon, about one chest in
+     five holding each. Cast by clicking a creature with the spell in hand; never used up; a cooldown of 1 to
+     8 seconds counted down on its slot. A spell does so many times (1.4 to 8) the best weapon of its class in
+     the bar, with what is worn added. Four kinds of each: a quick blow, a blow all round, a heavy blow all
+     round, and one great blow - a mage's from eight squares away. Their names are made up here ("Desert
+     Whirlwind", "Corsair Nova"): the documents have none.
+   NOT: spells with effects of their own (slows, heals, shields); a key to cast with - a spell is cast by
+   having it in hand; cooldowns kept across a save.

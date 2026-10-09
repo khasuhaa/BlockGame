@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define MAX_IMAGES 512
+#define MAX_IMAGES 2048
 #define ITEM_FILL 0.9f /* how much of its rectangle the longer side of an item takes up */
 
 static Texture2D tile_textures[MAX_TILES][MAX_TILE_TEXTURES];

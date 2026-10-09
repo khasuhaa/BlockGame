@@ -742,7 +742,22 @@ item('loot_forge', 'Forge of fortune', 2, 'benches', 3.0, places='loot_forge'); 
 LOOT = {}
 for row in csv.DictReader(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dungeoneering_loot.csv'))): LOOT.setdefault(row['dungeon'], []).append(row)
 dungeons, used, prev_top, prev_health, summary = [], set(), 0, 0, []
-ROLE = {'swarm': (1.5, 24, 15, 2, 3), 'grunt': (5, 12, 30, 4, 2), 'fast': (3, 16, 20, 2, 2), 'tank': (12, 8, 45, 6, 1), 'ranged': (3, 14, 50, 5, 2)}   # health in blows, blows to kill, rest, step ticks, how many at once
+ROLE = {'swarm': (1, 110, 20, 2, 3), 'grunt': (3, 60, 30, 4, 2), 'fast': (2, 80, 25, 2, 2), 'tank': (8, 30, 45, 6, 1), 'ranged': (2, 70, 50, 5, 2)}   # health in the blows it takes, blows of its own to kill somebody, rest, step ticks, how many at once
+# Spells: one a warrior's and one a mage's to each difficulty of each dungeon - never used up, only waited for. What they do is so many times the caster's best weapon.
+ADJ = ['Desert', 'Frost', 'Corsair', 'Royal', 'Infernal', 'Sakura', 'Canal', 'Ghastly', 'Steam', 'Aether', 'Orbital', 'Lava', 'Tidal', 'Fungal', 'Norse', 'Gilded', 'Olympian', 'Tomb', 'Imperial', 'Cult', 'Pearl', 'Tartarean', 'Starlit', 'Blood', 'Glacial', 'Abyssal', 'Stone', 'Bog', 'Dream']
+WAR = [('Slash', 'slash', 1.5, 1.6, 0), ('Whirlwind', 'whirl', 4, 2.2, 2), ('Slam', 'slam', 6, 4.0, 2), ('Charge', 'charge', 8, 8.0, 0)]
+MAGE = [('Bolt', 'bolt', 1, 1.4, 0), ('Nova', 'nova', 5, 2.4, 3), ('Storm', 'storm', 7, 4.0, 3), ('Beam', 'beam', 8, 8.0, 0)]
+def spell_pic(kind, a, b):
+    t = P().r(1, 1, 14, 14, dk(a, 0.45)).r(2, 2, 13, 13, dk(a, 0.6))
+    if kind == 'slash': t.line(3, 12, 12, 3, b); t.line(4, 12, 12, 4, lt(b)); t.line(9, 12, 12, 9, b)
+    elif kind == 'whirl': t.disc(7.5, 7.5, 5, b); t.disc(7.5, 7.5, 3.4, dk(a, 0.6)); t.p(12, 4, lt(b)); t.p(3, 11, lt(b)); t.r(7, 7, 8, 8, lt(b))
+    elif kind == 'slam': t.r(7, 3, 8, 9, b); t.line(4, 7, 7, 10, b); t.line(11, 7, 8, 10, b); t.r(3, 12, 12, 12, lt(b)); t.p(2, 11, b); t.p(13, 11, b)
+    elif kind == 'charge': t.r(3, 7, 10, 8, b); t.line(8, 4, 12, 7, b); t.line(8, 11, 12, 8, b); t.r(3, 5, 5, 5, lt(b)); t.r(3, 10, 5, 10, lt(b))
+    elif kind == 'bolt': t.line(9, 2, 5, 8, b); t.line(5, 8, 10, 8, b); t.line(10, 8, 6, 13, b); t.p(9, 3, lt(b))
+    elif kind == 'nova': t.disc(7.5, 7.5, 2.4, lt(b)); [t.line(7, 7, x, y, b) for x, y in ((2, 2), (13, 2), (2, 13), (13, 13), (7, 2), (7, 13), (2, 7), (13, 7))]; t.disc(7.5, 7.5, 1.6, WHITE)
+    elif kind == 'storm': t.r(3, 3, 12, 6, b); t.r(5, 2, 10, 3, b); t.line(5, 7, 4, 12, lt(b)); t.line(8, 7, 7, 13, lt(b)); t.line(11, 7, 10, 11, lt(b))
+    else: t.r(2, 6, 13, 9, b); t.r(2, 7, 13, 8, WHITE); t.p(1, 7, b); t.p(14, 8, b); t.r(4, 4, 5, 4, lt(b)); t.r(9, 11, 11, 11, lt(b))
+    return t.outline()
 for k, (code, name, label, tier, (wkind, wcol), fcol, bcol, glow, foes, boss, decor_, hang_) in enumerate(DUNGEONS):
     rows = LOOT[code]; d = 'dg_' + name
     # What it is built of.
@@ -793,13 +808,14 @@ for k, (code, name, label, tier, (wkind, wcol), fcol, bcol, glow, foes, boss, de
                 loot_item('dg_%s_%s_%s' % (slug(n + (' g' if guardian and 'guardian' not in n.lower() else ''))[:21], suffix, r_['grade']), lab, r_, rank, dict(rolled=roll, equip=slot, warmth=0.3), pic, 0.8)
     assert len(lootlist) <= 320, (code, len(lootlist))
     # Who is met there: their numbers set against what somebody brings from the dungeon before.
-    blow = max(6, int(prev_top * 0.6)) if k else 6; can_take = 100 + 2 * prev_health
+    blow = max(6, int(prev_top * 0.6)) if k else 10; can_take = 100 + 2 * prev_health   # (the first: an iron sword, and nothing on)
     unit = 1
-    while blow * 90 * 30 / unit > 1.5e9: unit *= 10
+    while blow * 45 * 30 / unit > 1.5e9: unit *= 10
     names = []
     for n, lab, kind_, body, acc, role in foes:
         hp, kills, rest, step, cap = ROLE[role]; mn = 'dg_' + n; names.append(mn)
-        base = {'name': mn, 'label': lab, 'texture': 'mobs/%s.png' % mn, 'walk': ['mobs/%s_walk.png' % mn, 'mobs/%s.png' % mn], 'hop': 0.06, 'step_ticks': step, 'move_chance': 0.2, 'turn_chance': 0.25, 'health': int(blow * hp / unit), 'health_unit': unit if unit > 1 else None, 'cap': 12,
+        SHAPE = {'person': 'person', 'golem': 'golem', 'creature': 'crawler', 'ape': 'ape', 'bird': 'bird', 'phoenix': 'bird', 'wraith': 'floater', 'serpent': 'serpent', 'fish': 'fish', 'rabbit': 'hopper', 'stag': 'horned', 'tortoise': 'turtle', 'dragon': 'dragon', 'wyrm': 'dragon'}
+        base = {'name': mn, 'shape': SHAPE.get(kind_, 'quad'), 'label': lab, 'texture': 'mobs/%s.png' % mn, 'walk': ['mobs/%s_walk.png' % mn, 'mobs/%s.png' % mn], 'hop': 0.06, 'step_ticks': step, 'move_chance': 0.2, 'turn_chance': 0.25, 'health': int(blow * hp / unit), 'health_unit': unit if unit > 1 else None, 'cap': 12,
                 'drops': [drop('copper_coin', 0, 2 + tier), drop('dg_%s_dust' % name, 0, 1, 0.3)]}
         for f in (0, 1): (person(c(body), c(acc), f, hue(c('e0b890'), n, 0.02), role != 'ranged', k % 3) if kind_ == 'person' else beast(kind_, c(body), c(acc), f)).save('mobs', mn + ('_walk' if f else ''))
         if kind_ == 'bird' or kind_ == 'phoenix' or kind_ == 'wraith': base['flies'] = True; base['move_chance'] = 0.5
@@ -808,9 +824,20 @@ for k, (code, name, label, tier, (wkind, wcol), fcol, bcol, glow, foes, boss, de
         mobs.append(clean(base))
     bn, blab, bkind, bbody, bacc = boss; mn = 'dg_' + bn; names.append(mn)
     for f in (0, 1): beast(bkind, c(bbody), c(bacc), f, big=True).save('mobs', mn + ('_walk' if f else ''))
-    mobs.append({'name': mn, 'label': blab, 'texture': 'mobs/%s.png' % mn, 'walk': ['mobs/%s_walk.png' % mn, 'mobs/%s.png' % mn], 'hop': 0.0, 'step_ticks': 5, 'move_chance': 0.3, 'turn_chance': 0.2, 'health': int(blow * 90 / unit), 'health_unit': unit, 'cap': 1, 'size': [3, 3], 'boss': True,
-                 'sting': {'power': max(1, can_take // 5), 'rest_ticks': 35, 'sight': 18}, 'strike': {'power': max(1, can_take // 9), 'range': 11, 'rest_ticks': 70}, 'drops': [drop('gold_coin', tier, 3 * tier), drop('dg_%s_dust' % name, 2, 5)]})
-    dungeons.append(clean({'name': name, 'label': label, 'tier': tier, 'wall': d + '_wall', 'floor': d + '_floor', 'back': d + '_back', 'door': d + '_door', 'mark': 'dg_mark', 'boss_mark': 'dg_boss_mark', 'chest': 'dg_reward_chest', 'exit': 'dg_way_out',
+    mobs.append({'name': mn, 'shape': {'golem': 'golem', 'dragon': 'dragon', 'wyrm': 'dragon', 'serpent': 'serpent', 'wraith': 'floater', 'phoenix': 'bird', 'ape': 'ape'}.get(bkind, 'quad'), 'label': blab, 'texture': 'mobs/%s.png' % mn, 'walk': ['mobs/%s_walk.png' % mn, 'mobs/%s.png' % mn], 'hop': 0.0, 'step_ticks': 5, 'move_chance': 0.3, 'turn_chance': 0.2, 'health': int(blow * 45 / unit), 'health_unit': unit, 'cap': 1, 'size': [3, 3], 'boss': True,
+                 'sting': {'power': max(1, can_take // 15), 'rest_ticks': 35, 'sight': 18}, 'strike': {'power': max(1, can_take // 40), 'range': 11, 'rest_ticks': 70}, 'drops': [drop('gold_coin', tier, 3 * tier), drop('dg_%s_dust' % name, 2, 5)]})
+    # Its spells: the first two dungeons have all four difficulties, the rest only the last two.
+    first_hard = 0 if tier <= 2 else 2; spells = []
+    for h in range(4):
+        if h < first_hard: spells.append([]); continue
+        pair = []
+        for cls, table, reach in (('warrior', WAR, None), ('mage', MAGE, 8)):
+            word, kind_, cd, times, splash = table[(tier + h) % 4]
+            nm = 'dg_%s_%s_%d' % (slug(ADJ[k]), slug(word), h + 1); cd = max(1, min(8, cd + (tier * 7 + h * 3) % 3 - 1))
+            thing(spell_pic(kind_, c(wcol), c(glow)), nm, '%s %s' % (ADJ[k], word), tier, 'loot', 2.0, max_stack=1, range=reach, cast={'cooldown': cd, 'scales': times, 'splash': splash, 'class': cls})
+            pair.append(nm)
+        spells.append(pair)
+    dungeons.append(clean({'name': name, 'label': label, 'tier': tier, 'difficulties_from': first_hard, 'spells': spells, 'wall': d + '_wall', 'floor': d + '_floor', 'back': d + '_back', 'door': d + '_door', 'mark': 'dg_mark', 'boss_mark': 'dg_boss_mark', 'chest': 'dg_reward_chest', 'exit': 'dg_way_out',
                            'light': d + '_lamp', 'decor': decor_names, 'hanging': hang_names, 'rooms': [7, 10] if tier < 4 else [9, 12], 'mobs': names, 'stone': STONES[k], 'gold': TP[tier] * 2, 'loot': lootlist}))
     summary.append('%s: %d things, blow %d against %d, health %d' % (label, len(lootlist), blow, int(blow * 5), can_take))
     prev_top = top; prev_health = max(int(r_['health']) for n in armours for r_ in armours[n] if r_['class'] == 'armor')
@@ -859,3 +886,4 @@ print('%d tiles, %d items, %d recipes, %d creatures, %d dungeons' % (len(tiles),
 tools = os.path.dirname(os.path.abspath(__file__))
 subprocess.run([sys.executable, os.path.join(tools, 'worn_art.py'), repo], check=True)
 subprocess.run([sys.executable, os.path.join(tools, 'caged_art.py'), repo], check=True)
+subprocess.run([sys.executable, os.path.join(tools, 'mob_models.py'), repo], check=True)

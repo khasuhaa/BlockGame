@@ -13205,7 +13205,9 @@ static void test_dungeoneering_mod(void)
         failures++;
         return;
     }
-    CHECK(content.tile_count - tiles == 401 && content.item_count - items == 3712 && content.recipe_count - recipes == 234 && content.mob_count - mobs == 174);
+    CHECK(content.tile_count - tiles == 401 && content.item_count - items == 3836 && content.recipe_count - recipes == 234 && content.mob_count - mobs == 174);
+    /* Every creature has a body built for it. */
+    for (int i = 0; i < content.mob_count; i++) CHECK(content.mobs[i].model_part_count >= 3 && content.mobs[i].model_skin[0]);
     CHECK(content.dungeon_count == 29 && content.rules.difficulty_count == 4 && game_dungeon_dim() >= 0);
     int first = -1, second = -1;
     for (int i = 0; i < content.dungeon_count; i++) {
@@ -13417,6 +13419,82 @@ static void test_dungeoneering_mod(void)
         CHECK(big.fallen && big.power > 2000000000000LL && big.power < 2800000000000LL && big.ups > 10000000000LL && game_attack_damage(&h) >= big.power);
         game_free(&h);
     }
+    /* After the second dungeon there are two difficulties, not four: the third of the four is where such a one begins, and
+     * its creatures are as written there. Its list is shared between the two. */
+    {
+        int third = -1;
+        for (int i = 0; i < content.dungeon_count; i++)
+            if (content.dungeons[i].tier == 3) third = i;
+        float health, damage, from, to;
+        CHECK(third >= 0 && content.dungeons[first].first_hard == 0 && content.dungeons[second].first_hard == 0 && content.dungeons[third].first_hard == 2);
+        game_dungeon_hard(third, 2, &health, &damage, &from, &to);
+        CHECK(health == 1.0f && damage == 1.0f && from == 0.0f && to > 0.5f && to < 0.7f);
+        game_dungeon_hard(third, 3, &health, &damage, &from, &to);
+        CHECK(health == 3.0f && damage == 2.0f && from > 0.3f && from < 0.5f && to == 1.0f);
+        game_dungeon_hard(first, 3, &health, &damage, &from, &to);
+        CHECK(health == 30.0f && damage == 8.0f && to == 1.0f);
+        static Game h;
+        game_init(&h, 512, 401, 3, WORLD_TERRAIN);
+        CHECK(!game_dungeon_enter(&h, third, 0) && !game_dungeon_enter(&h, third, 1) && game_dungeon_enter(&h, third, 2));
+        game_free(&h);
+        /* Every difficulty of every dungeon has a warrior's spell and a mage's of its own. */
+        int spells = 0;
+        for (int i = 0; i < content.dungeon_count; i++)
+            for (int k = 0; k < 4; k++) {
+                const DungeonDef *d = &content.dungeons[i];
+                CHECK((d->spells[k][0] != ITEM_NONE) == (k >= d->first_hard) && (d->spells[k][1] != ITEM_NONE) == (k >= d->first_hard));
+                if (k < d->first_hard) continue;
+                const ItemDef *war = item_def(d->spells[k][0]), *mage = item_def(d->spells[k][1]);
+                CHECK(war->casts && mage->casts && war->loot_class == 1 && mage->loot_class == 2 && war->uses == 0 && war->meter_max == 0);
+                CHECK(war->cast_cooldown >= 1.0f && war->cast_cooldown <= 8.0f && mage->cast_cooldown >= 1.0f && mage->cast_cooldown <= 8.0f && war->cast_scales > 1.0f && mage->range >= 6);
+                spells += 2;
+            }
+        CHECK(spells == 2 * (2 * 4 + 27 * 2));
+    }
+    /* A spell: never used up, cast again after its cooldown, and as strong as the best weapon carried makes it. */
+    {
+        static Game h;
+        game_init(&h, 512, 401, 3, WORLD_TERRAIN);
+        h.tick_rate = 20;
+        Inventory *hi = &h.inventory;
+        clear_inventory(&h);
+        ItemId spell = item_id("dg_desert_whirlwind_1");
+        hi->slots[1] = (ItemStack){ (uint16_t)spell, 1, 0 };
+        hi->slots[2] = (ItemStack){ (uint16_t)item_id("dg_ghoul_slayer_4"), 1, 0 };
+        hi->slots[3] = (ItemStack){ (uint16_t)item_id("dg_holy_staff_4"), 1, 0 };
+        inventory_select_slot(hi, 1);
+        for (int i = 0; i < 40; i++) game_tick(&h);
+        long long sword = game_roll(hi, &hi->slots[2]).power, staff = game_roll(hi, &hi->slots[3]).power;
+        CHECK(sword > 80 && staff > 80 && game_best_power(&h, 1) == sword && game_best_power(&h, 2) == staff && game_best_power(&h, 0) == (sword > staff ? sword : staff));
+        CHECK(game_spell_cooldown(spell) == (int)(item_def(spell)->cast_cooldown * (float)content.rules.tick_rate + 0.5f) && game_spell_wait(&h, spell) == 0);
+        int tank = mob_id("dg_temple_mummy"); /* (one that does next to nothing to whoever it hits) */
+        int a = mob_spawn(&h, tank, h.player.feet.x + 1, h.player.feet.y, false, false), b2 = mob_spawn(&h, tank, h.player.feet.x + 2, h.player.feet.y, false, false);
+        h.mobs[a].hp = h.mobs[b2].hp = 1000000;
+        int32_t full = h.mobs[a].hp;
+        long long blow = (long long)((double)sword * (double)item_def(spell)->cast_scales + 0.5);
+        CHECK(game_click_mob(&h, a));
+        run(&h, 1.0f);
+        /* (On the one struck and on the one beside it; the spell is still in the bar, and waiting.) */
+        CHECK(h.mobs[a].hp == full - blow && h.mobs[b2].hp == full - blow && hi->slots[1].id == spell && hi->slots[1].count == 1);
+        CHECK(game_spell_wait(&h, spell) > 0 && game_spell_wait(&h, spell) <= game_spell_cooldown(spell) && !game_technique_ready(&h, spell));
+        int32_t now = h.mobs[a].hp;
+        h.mobs[a].x = h.player.feet.x + 1, h.mobs[a].to_x = h.mobs[a].x, h.mobs[a].y = h.mobs[a].to_y = h.player.feet.y;
+        game_click_mob(&h, a);
+        run(&h, 0.6f);
+        CHECK(h.mobs[a].hp == now); /* (too soon: nothing) */
+        game_cancel_actions(&h);
+        for (int i = 0; i < game_spell_cooldown(spell) + 5; i++) game_tick(&h);
+        now = h.mobs[a].hp;
+        CHECK(game_spell_wait(&h, spell) == 0 && game_technique_ready(&h, spell));
+        h.mobs[a].x = h.player.feet.x + 1, h.mobs[a].to_x = h.mobs[a].x, h.mobs[a].y = h.mobs[a].to_y = h.player.feet.y;
+        CHECK(game_click_mob(&h, a));
+        run(&h, 1.0f);
+        CHECK(h.mobs[a].hp == now - blow && hi->slots[1].count == 1);
+        /* The book says which dungeon and how hard. */
+        static ItemSource from[4];
+        CHECK(guide_sources(spell, from, 4) == 1 && strstr(from[0].where, "Desert Temple") && strstr(from[0].where, "Easy") && !strstr(from[0].where, "Hard"));
+        game_free(&h);
+    }
     /* A world from when a creature's kind was a byte: its creatures are what they were. */
     {
         static Game old;
@@ -13442,7 +13520,7 @@ static void test_dungeoneering_mod(void)
         game_init(&h, 512, 401, 3, WORLD_TERRAIN);
         int king = mob_id("dg_the_dreamer");
         long long unit = content.mobs[king].health_unit;
-        CHECK(unit > 1 && (double)content.mobs[king].health * (double)unit > 3.0e13);
+        CHECK(unit > 1 && (double)content.mobs[king].health * (double)unit > 1.0e13);
         int m = mob_spawn(&h, king, h.player.feet.x + 3, h.player.feet.y, false, false);
         int32_t full = h.mobs[m].hp;
         mob_hurt(&h, m, unit - 1);
