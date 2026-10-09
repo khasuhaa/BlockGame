@@ -295,12 +295,19 @@ def write(d, mod_id, order):
 
 total = write(base, 'data', 0); print('the world: %d' % total)
 mods = os.path.join(repo, 'mods')
-for n, mod_id in enumerate(sorted(os.listdir(mods))):
+def own_book(d):
+    """A mod that is a game of its own writes its own book, and so does one whose mod.json says "own_quests" (Skyblock's
+    quests are about the game's things, which this tool would not count as the mod's)."""
+    f = os.path.join(d, 'mod.json')
+    return os.path.exists(f) and bool(json.load(open(f)).get('standalone') or json.load(open(f)).get('own_quests'))
+# A tab's place in the book is its mod's place among the mods this tool writes for (and the questbook, which has always
+# been counted): a mod that writes its own book takes no place, so that adding one does not move everybody after it.
+n = -1
+for mod_id in sorted(os.listdir(mods)):
     d = os.path.join(mods, mod_id)
+    if own_book(d): continue
+    n += 1
     if mod_id == 'questbook' or not os.path.isdir(d): continue
-    # (A mod that is a game of its own writes its own book, and so does one whose mod.json says "own_quests": Skyblock's
-    # quests are about the game's things, which this tool would not count as the mod's.)
-    if os.path.exists(os.path.join(d, 'mod.json')) and (json.load(open(os.path.join(d, 'mod.json'))).get('standalone') or json.load(open(os.path.join(d, 'mod.json'))).get('own_quests')): continue
     k = write(d, mod_id, 10 + n); total += k; print('%s: %d' % (mod_id, k))
 book = os.path.join(mods, 'questbook'); os.makedirs(book, exist_ok=True)
 json.dump({'questbook': True}, open(os.path.join(book, 'rules.json'), 'w'), indent=1)
